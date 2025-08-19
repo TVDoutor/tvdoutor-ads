@@ -216,7 +216,7 @@ export const LocationSelection: React.FC = () => {
             >
               <Checkbox
                 checked={selectedSpecialties.includes(specialty.id)}
-                onChange={(checked) => handleSpecialtyChange(specialty.id, checked)}
+                onCheckedChange={(checked) => handleSpecialtyChange(specialty.id, !!checked)}
                 className="mr-3"
               />
               <div>

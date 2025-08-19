@@ -1,12 +1,15 @@
-import { Monitor, MapPin, FileText, TrendingUp, Users, Calendar } from "lucide-react";
+import { Monitor, MapPin, FileText, TrendingUp, Users, Calendar, Plus, Eye } from "lucide-react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { StatsCard } from "@/components/StatsCard";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useNavigate } from "react-router-dom";
 import heroBanner from "@/assets/hero-banner.jpg";
 import dashboardPreview from "@/assets/dashboard-preview.jpg";
 
 const Index = () => {
+  const navigate = useNavigate();
+  
   // Mock user - será substituído por autenticação real
   const mockUser = {
     name: "João Silva",
@@ -20,14 +23,16 @@ const Index = () => {
       value: 1247,
       change: { value: 12, label: "este mês" },
       icon: Monitor,
-      variant: "primary" as const
+      variant: "primary" as const,
+      onClick: () => navigate("/mapa-interativo")
     },
     {
       title: "Propostas Ativas",
       value: 89,
       change: { value: 8, label: "esta semana" },
       icon: FileText,
-      variant: "secondary" as const
+      variant: "secondary" as const,
+      onClick: () => navigate("/nova-proposta")
     },
     {
       title: "Faturamento",
@@ -41,9 +46,34 @@ const Index = () => {
       value: 45,
       change: { value: 3, label: "novas cidades" },
       icon: MapPin,
-      variant: "default" as const
+      variant: "default" as const,
+      onClick: () => navigate("/mapa-interativo")
     }
   ];
+
+  const handleCreateProposal = () => {
+    navigate("/nova-proposta");
+  };
+
+  const handleViewInventory = () => {
+    navigate("/mapa-interativo");
+  };
+
+  const handleQuickAction = (action: string) => {
+    switch (action) {
+      case "create-proposal":
+        navigate("/nova-proposta");
+        break;
+      case "manage-inventory":
+        navigate("/mapa-interativo");
+        break;
+      case "explore-map":
+        navigate("/mapa-interativo");
+        break;
+      default:
+        break;
+    }
+  };
 
   return (
     <DashboardLayout user={mockUser}>
@@ -68,12 +98,22 @@ const Index = () => {
               Crie propostas, gerencie campanhas e monitore resultados.
             </p>
             <div className="flex flex-wrap gap-3">
-              <Button variant="accent" size="lg" className="gap-2">
-                <FileText className="h-5 w-5" />
+              <Button 
+                variant="accent" 
+                size="lg" 
+                className="gap-2 hover:scale-105 transition-transform"
+                onClick={handleCreateProposal}
+              >
+                <Plus className="h-5 w-5" />
                 Nova Proposta
               </Button>
-              <Button variant="soft" size="lg" className="gap-2">
-                <MapPin className="h-5 w-5" />
+              <Button 
+                variant="soft" 
+                size="lg" 
+                className="gap-2 hover:scale-105 transition-transform"
+                onClick={handleViewInventory}
+              >
+                <Eye className="h-5 w-5" />
                 Ver Inventário
               </Button>
             </div>
@@ -83,14 +123,15 @@ const Index = () => {
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {statsData.map((stat, index) => (
-            <StatsCard
-              key={index}
-              title={stat.title}
-              value={stat.value}
-              change={stat.change}
-              icon={stat.icon}
-              variant={stat.variant}
-            />
+            <div key={index} onClick={stat.onClick} className={stat.onClick ? "cursor-pointer" : ""}>
+              <StatsCard
+                title={stat.title}
+                value={stat.value}
+                change={stat.change}
+                icon={stat.icon}
+                variant={stat.variant}
+              />
+            </div>
           ))}
         </div>
 
@@ -107,7 +148,8 @@ const Index = () => {
             <CardContent className="space-y-3">
               <Button 
                 variant="outline" 
-                className="w-full justify-start gap-3 h-12"
+                className="w-full justify-start gap-3 h-12 hover:bg-primary/5 transition-colors"
+                onClick={() => handleQuickAction("create-proposal")}
               >
                 <FileText className="h-5 w-5 text-primary" />
                 <div className="text-left">
@@ -118,7 +160,8 @@ const Index = () => {
               
               <Button 
                 variant="outline" 
-                className="w-full justify-start gap-3 h-12"
+                className="w-full justify-start gap-3 h-12 hover:bg-secondary/5 transition-colors"
+                onClick={() => handleQuickAction("manage-inventory")}
               >
                 <Monitor className="h-5 w-5 text-secondary" />
                 <div className="text-left">
@@ -129,7 +172,8 @@ const Index = () => {
               
               <Button 
                 variant="outline" 
-                className="w-full justify-start gap-3 h-12"
+                className="w-full justify-start gap-3 h-12 hover:bg-accent/5 transition-colors"
+                onClick={() => handleQuickAction("explore-map")}
               >
                 <MapPin className="h-5 w-5 text-accent" />
                 <div className="text-left">
@@ -149,7 +193,7 @@ const Index = () => {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex items-center gap-3 p-3 rounded-lg bg-primary-soft">
+              <div className="flex items-center gap-3 p-3 rounded-lg bg-primary-soft hover:bg-primary/10 transition-colors cursor-pointer">
                 <div className="h-2 w-2 rounded-full bg-primary" />
                 <div className="flex-1">
                   <p className="text-sm font-medium">Proposta #1247 aprovada</p>
@@ -158,7 +202,7 @@ const Index = () => {
                 <span className="text-xs text-muted-foreground">2h</span>
               </div>
               
-              <div className="flex items-center gap-3 p-3 rounded-lg bg-secondary-soft">
+              <div className="flex items-center gap-3 p-3 rounded-lg bg-secondary-soft hover:bg-secondary/10 transition-colors cursor-pointer">
                 <div className="h-2 w-2 rounded-full bg-secondary" />
                 <div className="flex-1">
                   <p className="text-sm font-medium">15 novas telas adicionadas</p>
@@ -167,7 +211,7 @@ const Index = () => {
                 <span className="text-xs text-muted-foreground">4h</span>
               </div>
               
-              <div className="flex items-center gap-3 p-3 rounded-lg bg-accent-soft">
+              <div className="flex items-center gap-3 p-3 rounded-lg bg-accent-soft hover:bg-accent/10 transition-colors cursor-pointer">
                 <div className="h-2 w-2 rounded-full bg-accent" />
                 <div className="flex-1">
                   <p className="text-sm font-medium">Campanha finalizada</p>
@@ -212,10 +256,16 @@ const Index = () => {
                     <span className="text-sm">Relatórios e analytics avançados</span>
                   </li>
                 </ul>
-                <Button variant="hero" className="gap-2">
-                  <Users className="h-4 w-4" />
-                  Conhecer Recursos
-                </Button>
+                <div className="flex gap-3">
+                  <Button variant="hero" className="gap-2" onClick={handleCreateProposal}>
+                    <Plus className="h-4 w-4" />
+                    Criar Proposta
+                  </Button>
+                  <Button variant="outline" className="gap-2" onClick={handleViewInventory}>
+                    <Eye className="h-4 w-4" />
+                    Ver Mapa
+                  </Button>
+                </div>
               </div>
               
               <div className="rounded-lg overflow-hidden shadow-soft">

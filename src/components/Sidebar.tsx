@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useNavigate, useLocation } from "react-router-dom";
 
 interface SidebarProps {
   isCollapsed?: boolean;
@@ -22,7 +23,6 @@ const menuItems = [
     label: "Dashboard",
     icon: LayoutDashboard,
     href: "/",
-    active: true
   },
   {
     label: "Inventário",
@@ -32,12 +32,12 @@ const menuItems = [
   {
     label: "Propostas",
     icon: FileText,
-    href: "/proposals"
+    href: "/nova-proposta"
   },
   {
     label: "Mapa",
     icon: MapPin,
-    href: "/map"
+    href: "/mapa-interativo"
   },
   {
     label: "Campanhas",
@@ -68,6 +68,9 @@ const menuItems = [
 ];
 
 export const Sidebar = ({ isCollapsed = false, className }: SidebarProps) => {
+  const navigate = useNavigate();
+  const location = useLocation();
+
   return (
     <aside className={cn(
       "bg-card border-r border-border flex flex-col transition-all duration-300",
@@ -76,24 +79,28 @@ export const Sidebar = ({ isCollapsed = false, className }: SidebarProps) => {
     )}>
       {/* Navigation */}
       <nav className="flex-1 p-4 space-y-2">
-        {menuItems.map((item) => (
-          <Button
-            key={item.href}
-            variant={item.active ? "secondary" : "ghost"}
-            className={cn(
-              "w-full justify-start gap-3 transition-all duration-200",
-              isCollapsed && "px-2"
-            )}
-          >
-            <item.icon className={cn(
-              "h-5 w-5 shrink-0",
-              item.active && "text-primary"
-            )} />
-            {!isCollapsed && (
-              <span className="truncate">{item.label}</span>
-            )}
-          </Button>
-        ))}
+        {menuItems.map((item) => {
+          const isActive = location.pathname === item.href;
+          return (
+            <Button
+              key={item.href}
+              variant={isActive ? "secondary" : "ghost"}
+              className={cn(
+                "w-full justify-start gap-3 transition-all duration-200",
+                isCollapsed && "px-2"
+              )}
+              onClick={() => navigate(item.href)}
+            >
+              <item.icon className={cn(
+                "h-5 w-5 shrink-0",
+                isActive && "text-primary"
+              )} />
+              {!isCollapsed && (
+                <span className="truncate">{item.label}</span>
+              )}
+            </Button>
+          );
+        })}
       </nav>
 
       {/* Footer */}

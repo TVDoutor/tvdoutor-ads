@@ -4,21 +4,15 @@ import { Sidebar } from "@/components/Sidebar";
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
-  user?: {
-    name?: string;
-    email?: string;
-    role?: string;
-  } | null;
 }
 
-export const DashboardLayout = ({ children, user }: DashboardLayoutProps) => {
+export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   return (
     <div className="min-h-screen bg-background">
       <Header 
-        user={user}
         onMenuClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
       />
       

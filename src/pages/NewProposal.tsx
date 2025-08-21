@@ -431,7 +431,7 @@ const NewProposal = () => {
   };
 
   return (
-    <DashboardLayout user={mockUser}>
+    <DashboardLayout>
       <div className="space-y-6">
         {/* Header */}
         <div className="flex justify-between items-center">

@@ -299,7 +299,7 @@ const InteractiveMap = () => {
   };
 
   return (
-    <DashboardLayout user={mockUser}>
+    <DashboardLayout>
       <div className="flex h-screen -m-6">
         {/* Sidebar Esquerda - Filtros */}
         <div className="w-80 bg-card shadow-lg overflow-y-auto">

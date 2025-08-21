@@ -48,7 +48,7 @@ const Settings = () => {
   };
 
   return (
-    <DashboardLayout user={mockUser}>
+    <DashboardLayout>
       <div className="p-6 space-y-6">
         <div className="flex items-center gap-3">
           <SettingsIcon className="h-8 w-8 text-primary" />

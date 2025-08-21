@@ -9,17 +9,25 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import logoImage from "@/assets/logo.jpg";
+import { useAuth } from "@/contexts/AuthContext";
+import { useNavigate } from "react-router-dom";
 
 interface HeaderProps {
   onMenuClick?: () => void;
-  user?: {
-    name?: string;
-    email?: string;
-    role?: string;
-  } | null;
 }
 
-export const Header = ({ onMenuClick, user }: HeaderProps) => {
+export const Header = ({ onMenuClick }: HeaderProps) => {
+  const { profile, signOut } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    await signOut();
+    navigate('/login');
+  };
+
+  const handleLogin = () => {
+    navigate('/login');
+  };
   return (
     <header className="bg-card border-b border-border sticky top-0 z-50 backdrop-blur-sm bg-card/95">
       <div className="flex h-16 items-center justify-between px-4 lg:px-8">
@@ -65,16 +73,24 @@ export const Header = ({ onMenuClick, user }: HeaderProps) => {
           </Button>
 
           {/* User Menu */}
-          {user ? (
+          {profile ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="gap-2 px-3">
                   <div className="h-8 w-8 rounded-full bg-gradient-primary flex items-center justify-center">
-                    <User className="h-4 w-4 text-white" />
+                    {profile.avatar ? (
+                      <img 
+                        src={profile.avatar} 
+                        alt={profile.name} 
+                        className="h-8 w-8 rounded-full object-cover"
+                      />
+                    ) : (
+                      <User className="h-4 w-4 text-white" />
+                    )}
                   </div>
                   <div className="hidden md:block text-left">
-                    <p className="text-sm font-medium">{user.name || "Usuário"}</p>
-                    <p className="text-xs text-muted-foreground">{user.role || "user"}</p>
+                    <p className="text-sm font-medium">{profile.name}</p>
+                    <p className="text-xs text-muted-foreground">{profile.role}</p>
                   </div>
                 </Button>
               </DropdownMenuTrigger>
@@ -88,14 +104,14 @@ export const Header = ({ onMenuClick, user }: HeaderProps) => {
                   Configurações
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem className="text-destructive">
+                <DropdownMenuItem className="text-destructive" onClick={handleLogout}>
                   <LogOut className="mr-2 h-4 w-4" />
                   Sair
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           ) : (
-            <Button variant="default" size="sm">
+            <Button variant="default" size="sm" onClick={handleLogin}>
               Entrar
             </Button>
           )}

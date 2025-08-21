@@ -10,12 +10,7 @@ import dashboardPreview from "@/assets/dashboard-preview.jpg";
 const Index = () => {
   const navigate = useNavigate();
   
-  // Mock user - será substituído por autenticação real
-  const mockUser = {
-    name: "João Silva",
-    email: "joao@tvdoutorada.com",
-    role: "Admin"
-  };
+
 
   const statsData = [
     {
@@ -76,7 +71,7 @@ const Index = () => {
   };
 
   return (
-    <DashboardLayout user={mockUser}>
+    <DashboardLayout>
       <div className="p-6 space-y-6">
         {/* Hero Section */}
         <div className="relative rounded-2xl overflow-hidden bg-gradient-hero p-8 text-white">

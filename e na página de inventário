@@ -1,0 +1,182 @@
+[1mdiff --git a/src/pages/Inventory.tsx b/src/pages/Inventory.tsx[m
+[1mindex c4927b2..df2fef1 100644[m
+[1m--- a/src/pages/Inventory.tsx[m
+[1m+++ b/src/pages/Inventory.tsx[m
+[36m@@ -1,4 +1,6 @@[m
+[31m-import { useState } from "react";[m
+[32m+[m[32mimport { useState, useMemo } from "react";[m
+[32m+[m[32mimport { useQuery } from "@tanstack/react-query";[m
+[32m+[m[32mimport { supabase } from "@/integrations/supabase/client";[m
+ import { DashboardLayout } from "@/components/DashboardLayout";[m
+ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";[m
+ import { Button } from "@/components/ui/button";[m
+[36m@@ -21,10 +23,47 @@[m [mimport {[m
+   Eye,[m
+   MapPin,[m
+   Calendar,[m
+[31m-  TrendingUp[m
+[32m+[m[32m  TrendingUp,[m
+[32m+[m[32m  Loader2[m
+ } from "lucide-react";[m
+ import { useToast } from "@/hooks/use-toast";[m
+ [m
+[32m+[m[32m// Types for screen data[m
+[32m+[m[32minterface ScreenData {[m
+[32m+[m[32m  id: number;[m
+[32m+[m[32m  name: string | null;[m
+[32m+[m[32m  display_name: string | null;[m
+[32m+[m[32m  address_raw: string | null;[m
+[32m+[m[32m  city: string | null;[m
+[32m+[m[32m  state: string | null;[m
+[32m+[m[32m  board_format: string | null;[m
+[32m+[m[32m  active: boolean | null;[m
+[32m+[m[32m  asset_url: string | null;[m
+[32m+[m[32m}[m
+[32m+[m
+[32m+[m[32minterface ScreenRate {[m
+[32m+[m[32m  id: number;[m
+[32m+[m[32m  screen_id: number | null;[m
+[32m+[m[32m  selling_rate_month: number | null;[m
+[32m+[m[32m  effective_from: string | null;[m
+[32m+[m[32m  effective_to: string | null;[m
+[32m+[m[32m}[m
+[32m+[m
+[32m+[m[32m// Helper functions[m
+[32m+[m[32mconst formatScreenName = (name: string | null, displayName: string | null): string => {[m
+[32m+[m[32m  const parts = [name, displayName].filter(Boolean);[m
+[32m+[m[32m  if (parts.length === 0) return "Tela sem nome";[m
+[32m+[m[32m  if (parts.length === 1) return parts[0];[m
+[32m+[m[32m  // Remove duplicação se os nomes forem iguais[m
+[32m+[m[32m  if (parts[0] === parts[1]) return parts[0];[m
+[32m+[m[32m  return parts.join(" - ");[m
+[32m+[m[32m};[m
+[32m+[m
+[32m+[m[32mconst formatLocation = (addressRaw: string | null, city: string | null, state: string | null): string => {[m
+[32m+[m[32m  const parts = [addressRaw, city, state].filter(Boolean);[m
+[32m+[m[32m  return parts.length > 0 ? parts.join(", ") : "Localização não informada";[m
+[32m+[m[32m};[m
+[32m+[m
+ const Inventory = () => {[m
+   const { toast } = useToast();[m
+   const [searchTerm, setSearchTerm] = useState("");[m
+[36m@@ -37,86 +76,192 @@[m [mconst Inventory = () => {[m
+     role: "Admin"[m
+   };[m
+ [m
+[31m-  const [screens, setScreens] = useState([[m
+[31m-    {[m
+[31m-      id: 1,[m
+[31m-      name: "Shopping Iguatemi - Entrada Principal",[m
+[31m-      city: "São Paulo",[m
+[31m-      location: "Av. Brigadeiro Faria Lima, 2232",[m
+[31m-      type: "LED Outdoor",[m
+[31m-      size: "6x4m",[m
+[31m-      status: "active",[m
+[31m-      lastUpdate: "2024-01-15",[m
+[31m-      monthlyRate: 8500,[m
+[31m-      occupancy: 85[m
+[32m+[m[32m  // Buscar dados das telas - Como RLS requer autenticação, vamos usar dados mock por enquanto[m
+[32m+[m[32m  const { data: screensData, isLoading, error } = useQuery({[m
+[32m+[m[32m    queryKey: ['screens'],[m
+[32m+[m[32m    queryFn: async () => {[m
+[32m+[m[32m      console.log('Tentando buscar dados das telas...');[m
+[32m+[m[41m      [m
+[32m+[m[32m      // Primeiro tenta buscar dados reais[m
+[32m+[m[32m      const { data, error } = await supabase[m
+[32m+[m[32m        .from('screens')[m
+[32m+[m[32m        .select(`[m
+[32m+[m[32m          id,[m[41m [m
+[32m+[m[32m          name,[m[41m [m
+[32m+[m[32m          display_name,[m[41m [m
+[32m+[m[32m          address_raw,[m[41m [m
+[32m+[m[32m          city,[m[41m [m
+[32m+[m[32m          state,[m[41m [m
+[32m+[m[32m          board_format,[m[41m [m
+[32m+[m[32m          active,[m[41m [m
+[32m+[m[32m          asset_url[m
+[32m+[m[32m        `)[m
+[32m+[m[32m        .order('id')[m
+[32m+[m[32m        .limit(100);[m
+[32m+[m[41m      [m
+[32m+[m[32m      console.log('Resposta da query screens:', { data, error });[m
+[32m+[m[41m      [m
+[32m+[m[32m      // Se erro de autenticação (RLS), usa dados mock[m
+[32m+[m[32m      if (error && error.code === 'PGRST116') {[m
+[32m+[m[32m        console.log('RLS bloqueou acesso, usando dados mock...');[m
+[32m+[m[32m        toast({[m
+[32m+[m[32m          title: "Usando dados de demonstração",[m
+[32m+[m[32m          description: "Conecte-se para ver dados reais do Supabase.",[m
+[32m+[m[32m          variant: "default",[m
+[32m+[m[32m        });[m
+[32m+[m[41m        [m
+[32m+[m[32m        // Retorna dados mock que seguem a estrutura real[m
+[32m+[m[32m        return [[m
+[32m+[m[32m          {[m
+[32m+[m[32m            id: 1,[m
+[32m+[m[32m            name: "Shopping Iguatemi",[m
+[32m+[m[32m            display_name: "Entrada Principal",[m
+[32m+[m[32m            address_raw: "Av. Brigadeiro Faria Lima, 2232",[m
+[32m+[m[32m            city: "São Paulo",[m
+[32m+[m[32m            state: "SP",[m
+[32m+[m[32m            board_format: "LED Outdoor",[m
+[32m+[m[32m            active: true,[m
+[32m+[m[32m            asset_url: null[m
+[32m+[m[32m          },[m
+[32m+[m[32m          {[m
+[32m+[m[32m            id: 2,[m
+[32m+[m[32m            name: "Terminal Rodoviário",[m
+[32m+[m[32m            display_name: "Saguão Central",[m
+[32m+[m[32m            address_raw: "Av. Francisco Bicalho, 1",[m
+[32m+[m[32m            city: "Rio de Janeiro",[m
+[32m+[m[32m            state: "RJ",[m
+[32m+[m[32m            board_format: "LCD Indoor",[m
+[32m+[m[32m            active: true,[m
+[32m+[m[32m            asset_url: null[m
+[32m+[m[32m          },[m
+[32m+[m[32m          {[m
+[32m+[m[32m            id: 3,[m
+[32m+[m[32m            name: "Posto Ipiranga",[m
+[32m+[m[32m            display_name: "BR-101",[m
+[32m+[m[32m            address_raw: "BR-101, Km 12",[m
+[32m+[m[32m            city: "Salvador",[m
+[32m+[m[32m            state: "BA",[m
+[32m+[m[32m            board_format: "LED Outdoor",[m
+[32m+[m[32m            active: false,[m
+[32m+[m[32m            asset_url: null[m
+[32m+[m[32m          },[m
+[32m+[m[32m          {[m
+[32m+[m[32m            id: 4,[m
+[32m+[m[32m            name: "Farmácia Droga Raia",[m
+[32m+[m[32m            display_name: "Centro",[m
+[32m+[m[32m            address_raw: "Rua Augusta, 1234",[m
+[32m+[m[32m            city: "São Paulo",[m
+[32m+[m[32m            state: "SP",[m
+[32m+[m[32m            board_format: "LCD Indoor",[m
+[32m+[m[32m            active: true,[m
+[32m+[m[32m            asset_url: null[m
+[32m+[m[32m          },[m
+[32m+[m[32m          {[m
+[32m+[m[32m            id: 5,[m
+[32m+[m[32m            name: "Metro Estação Sé",[m
+[32m+[m[32m            display_name: "Plataforma",[m
+[32m+[m[32m            address_raw: "Praça da Sé, s/n",[m
+[32m+[m[32m            city: "São Paulo",[m
+[32m+[m[32m            state: "SP",[m
+[32m+[m[32m            board_format: "LED Indoor",[m
+[32m+[m[32m            active: false,[m
+[32m+[m[32m            asset_url: null[m
+[32m+[m[32m          }[m
+[32m+[m[32m        ] as ScreenData[];[m
+[32m+[m[32m      }[m
+[32m+[m[41m      [m
+[32m+[m[32m      if (error) {[m
+[32m+[m[32m        console.error('Error fetching screens:', error);[m
+[32m+[m[32m        toast({[m
+[32m+[m[32m          title: "Erro ao carregar telas",[m
+[32m+[m[32m          description: `Erro: ${error.message}`,[m
+[32m+[m[32m          variant: "destructive",[m
+[32m+[m[32m        });[m
+[32m+[m[32m        throw error;[m
+[32m+[m[32m      }[m
+[32m+[m[41m      [m
+[32m+[m[32m      console.log(`E

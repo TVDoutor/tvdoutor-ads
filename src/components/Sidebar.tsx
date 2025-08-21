@@ -12,6 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useNavigate, useLocation } from "react-router-dom";
+import { useAuth, UserRole } from "@/contexts/AuthContext";
 
 interface SidebarProps {
   isCollapsed?: boolean;
@@ -42,23 +43,26 @@ const menuItems = [
   {
     label: "Campanhas",
     icon: Calendar,
-    href: "/campaigns"
+    href: "/campaigns",
+    requiredRole: "Manager" as UserRole
   },
   {
     label: "Relatórios",
     icon: BarChart3,
-    href: "/reports"
+    href: "/reports",
+    requiredRole: "Manager" as UserRole
   },
   {
     label: "Pontos de Venda",
     icon: Package,
-    href: "/venues"
+    href: "/venues",
+    requiredRole: "Manager" as UserRole
   },
   {
     label: "Usuários",
     icon: Users,
     href: "/users",
-    adminOnly: true
+    requiredRole: "Admin" as UserRole
   },
   {
     label: "Configurações",
@@ -70,6 +74,7 @@ const menuItems = [
 export const Sidebar = ({ isCollapsed = false, className }: SidebarProps) => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { hasRole } = useAuth();
 
   return (
     <aside className={cn(
@@ -79,28 +84,30 @@ export const Sidebar = ({ isCollapsed = false, className }: SidebarProps) => {
     )}>
       {/* Navigation */}
       <nav className="flex-1 p-4 space-y-2">
-        {menuItems.map((item) => {
-          const isActive = location.pathname === item.href;
-          return (
-            <Button
-              key={item.href}
-              variant={isActive ? "secondary" : "ghost"}
-              className={cn(
-                "w-full justify-start gap-3 transition-all duration-200",
-                isCollapsed && "px-2"
-              )}
-              onClick={() => navigate(item.href)}
-            >
-              <item.icon className={cn(
-                "h-5 w-5 shrink-0",
-                isActive && "text-primary"
-              )} />
-              {!isCollapsed && (
-                <span className="truncate">{item.label}</span>
-              )}
-            </Button>
-          );
-        })}
+        {menuItems
+          .filter((item) => !item.requiredRole || hasRole(item.requiredRole))
+          .map((item) => {
+            const isActive = location.pathname === item.href;
+            return (
+              <Button
+                key={item.href}
+                variant={isActive ? "secondary" : "ghost"}
+                className={cn(
+                  "w-full justify-start gap-3 transition-all duration-200",
+                  isCollapsed && "px-2"
+                )}
+                onClick={() => navigate(item.href)}
+              >
+                <item.icon className={cn(
+                  "h-5 w-5 shrink-0",
+                  isActive && "text-primary"
+                )} />
+                {!isCollapsed && (
+                  <span className="truncate">{item.label}</span>
+                )}
+              </Button>
+            );
+          })}
       </nav>
 
       {/* Footer */}

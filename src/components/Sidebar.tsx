@@ -110,31 +110,7 @@ export const Sidebar = ({ isCollapsed = false, className }: SidebarProps) => {
           })}
       </nav>
 
-      {/* Footer */}
-      <div className="p-4 border-t border-border">
-        <div className={cn(
-          "bg-primary-soft rounded-lg p-3 transition-all duration-200",
-          isCollapsed && "p-2"
-        )}>
-          {!isCollapsed ? (
-            <div className="space-y-2">
-              <p className="text-sm font-medium text-primary">
-                Upgrade para Pro
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Desbloqueie recursos avançados
-              </p>
-              <Button size="sm" className="w-full">
-                Upgrade
-              </Button>
-            </div>
-          ) : (
-            <Button size="icon" variant="ghost" className="w-full h-8">
-              <Package className="h-4 w-4 text-primary" />
-            </Button>
-          )}
-        </div>
-      </div>
+
     </aside>
   );
 };

@@ -13,6 +13,8 @@ import Settings from "./pages/Settings";
 import Users from "./pages/Users";
 import Reports from "./pages/Reports";
 import Login from "./pages/Login";
+import Venues from "./pages/Venues";
+import VenueDetails from "./pages/VenueDetails";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -77,10 +79,13 @@ const App = () => (
             
             <Route path="/venues" element={
               <ProtectedRoute requiredRole="Manager">
-                <div className="p-8 text-center">
-                  <h1 className="text-2xl font-bold">Pontos de Venda</h1>
-                  <p className="text-muted-foreground">Página em desenvolvimento</p>
-                </div>
+                <Venues />
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/venues/:id" element={
+              <ProtectedRoute requiredRole="Manager">
+                <VenueDetails />
               </ProtectedRoute>
             } />
             

@@ -133,6 +133,15 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       setUser(session?.user ?? null);
       
       if (session?.user) {
+        // Call ensure_profile after OAuth login/redirect
+        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+          try {
+            await supabase.rpc('ensure_profile');
+          } catch (error) {
+            console.error('Error ensuring profile:', error);
+          }
+        }
+        
         const userProfile = await fetchUserProfile(session.user.id);
         setProfile(userProfile);
       } else {

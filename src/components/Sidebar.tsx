@@ -23,7 +23,7 @@ const menuItems = [
   {
     label: "Dashboard",
     icon: LayoutDashboard,
-    href: "/",
+    href: "/dashboard",
   },
   {
     label: "Inventário",

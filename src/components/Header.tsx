@@ -22,7 +22,7 @@ export const Header = ({ onMenuClick }: HeaderProps) => {
 
   const handleLogout = async () => {
     await signOut();
-    navigate('/login');
+    navigate('/');
   };
 
   const handleLogin = () => {

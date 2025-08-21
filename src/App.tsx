@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import Index from "./pages/Index";
+import LandingPage from "./pages/LandingPage";
 import NewProposal from "./pages/NewProposal";
 import InteractiveMap from "./pages/InteractiveMap";
 import Inventory from "./pages/Inventory";
@@ -13,6 +14,7 @@ import Settings from "./pages/Settings";
 import Users from "./pages/Users";
 import Reports from "./pages/Reports";
 import Login from "./pages/Login";
+import ResetPassword from "./pages/ResetPassword";
 import Venues from "./pages/Venues";
 import VenueDetails from "./pages/VenueDetails";
 import NotFound from "./pages/NotFound";
@@ -27,11 +29,17 @@ const App = () => (
       <BrowserRouter>
         <AuthProvider>
           <Routes>
+            {/* Rota pública da landing page */}
+            <Route path="/" element={<LandingPage />} />
+            
             {/* Rota pública de login */}
             <Route path="/login" element={<Login />} />
             
-            {/* Rotas protegidas */}
-            <Route path="/" element={
+            {/* Rota pública de reset de senha */}
+            <Route path="/reset-password" element={<ResetPassword />} />
+            
+            {/* Rotas protegidas - Dashboard */}
+            <Route path="/dashboard" element={
               <ProtectedRoute>
                 <Index />
               </ProtectedRoute>

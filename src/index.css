@@ -18,15 +18,15 @@ All colors MUST be HSL.
     --popover-foreground: 210 17% 13%;
 
     /* TV Doutor ADS Brand Colors */
-    --primary: 216 100% 40%; /* #0066CC - Medical Blue */
+    --primary: 216 100% 50%; /* #0080FF - Medical Blue */
     --primary-foreground: 0 0% 100%;
     --primary-soft: 216 100% 95%;
-    --primary-hover: 216 100% 35%;
+    --primary-hover: 216 100% 45%;
 
-    --secondary: 149 100% 40%; /* #00CC66 - Health Green */
+    --secondary: 180 100% 40%; /* #00CC99 - Health Teal */
     --secondary-foreground: 0 0% 100%;
-    --secondary-soft: 149 100% 95%;
-    --secondary-hover: 149 100% 35%;
+    --secondary-soft: 180 100% 95%;
+    --secondary-hover: 180 100% 35%;
 
     --accent: 16 100% 60%; /* #FF6B35 - Energy Orange */
     --accent-foreground: 0 0% 100%;
@@ -49,7 +49,7 @@ All colors MUST be HSL.
     --gradient-primary: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary-hover)));
     --gradient-secondary: linear-gradient(135deg, hsl(var(--secondary)), hsl(var(--secondary-hover)));
     --gradient-accent: linear-gradient(135deg, hsl(var(--accent)), hsl(var(--accent-hover)));
-    --gradient-hero: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--secondary)));
+    --gradient-hero: linear-gradient(135deg, hsl(216 100% 50%), hsl(180 100% 40%));
     
     /* Shadows */
     --shadow-primary: 0 10px 30px -10px hsl(var(--primary) / 0.3);
@@ -88,15 +88,15 @@ All colors MUST be HSL.
     --popover: 222 47% 4%;
     --popover-foreground: 210 40% 98%;
 
-    --primary: 216 100% 45%;
+    --primary: 216 100% 55%;
     --primary-foreground: 0 0% 100%;
     --primary-soft: 216 100% 8%;
-    --primary-hover: 216 100% 50%;
+    --primary-hover: 216 100% 60%;
 
-    --secondary: 149 100% 45%;
+    --secondary: 180 100% 45%;
     --secondary-foreground: 0 0% 100%;
-    --secondary-soft: 149 100% 8%;
-    --secondary-hover: 149 100% 50%;
+    --secondary-soft: 180 100% 8%;
+    --secondary-hover: 180 100% 50%;
 
     --accent: 16 100% 65%;
     --accent-foreground: 0 0% 100%;
@@ -181,5 +181,9 @@ All colors MUST be HSL.
 
   .transition-bounce {
     transition: var(--transition-bounce);
+  }
+
+  .medical-cta-gradient {
+    background: linear-gradient(135deg, #0066ff 0%, #0080ff 30%, #00a6b8 60%, #00cc99 100%);
   }
 }

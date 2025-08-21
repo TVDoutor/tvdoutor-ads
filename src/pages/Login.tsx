@@ -7,6 +7,7 @@ import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useAuth } from "@/contexts/AuthContext";
+import { ForgotPasswordModal } from "@/components/ForgotPasswordModal";
 import { 
   Tv, 
   Mail, 
@@ -23,11 +24,12 @@ const Login = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
+  const [showForgotPasswordModal, setShowForgotPasswordModal] = useState(false);
   const { signIn, signUp, signInWithGoogle, user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
-  const from = location.state?.from?.pathname || "/";
+  const from = location.state?.from?.pathname || "/dashboard";
 
   const [loginForm, setLoginForm] = useState({
     email: "",
@@ -90,8 +92,7 @@ const Login = () => {
   };
 
   const handleForgotPassword = () => {
-    // TODO: Implementar recuperação de senha
-    console.log("Forgot password clicked");
+    setShowForgotPasswordModal(true);
   };
 
   return (
@@ -367,6 +368,12 @@ const Login = () => {
           <p className="mt-1">Plataforma de comunicação em saúde e bem-estar</p>
         </div>
       </div>
+
+      {/* Forgot Password Modal */}
+      <ForgotPasswordModal 
+        isOpen={showForgotPasswordModal}
+        onClose={() => setShowForgotPasswordModal(false)}
+      />
     </div>
   );
 };

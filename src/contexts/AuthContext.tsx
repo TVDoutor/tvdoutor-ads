@@ -22,6 +22,7 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<{ error: AuthError | null }>;
   signUp: (email: string, password: string, name: string) => Promise<{ error: AuthError | null }>;
   signInWithGoogle: () => Promise<{ error: AuthError | null }>;
+  resetPassword: (email: string) => Promise<{ error: AuthError | null }>;
   signOut: () => Promise<void>;
   hasRole: (role: UserRole) => boolean;
   isAdmin: () => boolean;
@@ -218,7 +219,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/`
+          redirectTo: `${window.location.origin}/dashboard`
         }
       });
 
@@ -233,6 +234,32 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       return { error };
     } catch (error) {
       console.error('Google sign in error:', error);
+      return { error: error as AuthError };
+    }
+  };
+
+  const resetPassword = async (email: string) => {
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password`
+      });
+
+      if (error) {
+        toast({
+          title: "Erro na recuperação",
+          description: error.message,
+          variant: "destructive"
+        });
+      } else {
+        toast({
+          title: "Email enviado!",
+          description: "Verifique sua caixa de entrada para redefinir sua senha."
+        });
+      }
+
+      return { error };
+    } catch (error) {
+      console.error('Reset password error:', error);
       return { error: error as AuthError };
     }
   };
@@ -286,6 +313,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     signIn,
     signUp,
     signInWithGoogle,
+    resetPassword,
     signOut,
     hasRole,
     isAdmin,

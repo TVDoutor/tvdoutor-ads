@@ -37,8 +37,6 @@ BEGIN
     IF user_profile IS NULL THEN
         INSERT INTO public.profiles (
             id,
-            email,
-            full_name,
             display_name,
             avatar_url,
             role,
@@ -46,8 +44,6 @@ BEGIN
             updated_at
         ) VALUES (
             current_user_id,
-            user_auth_data.email,
-            user_auth_data.full_name,
             user_auth_data.full_name,
             user_auth_data.avatar_url,
             'user',
@@ -70,8 +66,6 @@ BEGIN
         -- Update existing profile with latest auth data if needed
         UPDATE public.profiles
         SET 
-            email = COALESCE(user_auth_data.email, email),
-            full_name = COALESCE(user_auth_data.full_name, full_name),
             display_name = COALESCE(user_auth_data.full_name, display_name),
             avatar_url = COALESCE(user_auth_data.avatar_url, avatar_url),
             updated_at = now()

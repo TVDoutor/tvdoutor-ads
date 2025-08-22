@@ -73,9 +73,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         .single();
 
       const rolesPromise = supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', userId);
+        .rpc('get_user_role', { _user_id: userId });
 
       // Timeout de 5 segundos para as consultas
       const timeoutPromise = new Promise((_, reject) => {
@@ -88,11 +86,17 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       ]) as [any, any];
 
       const { data: profileData, error: profileError } = profileResult;
-      const { data: rolesData, error: rolesError } = rolesResult;
+      const { data: roleData, error: rolesError } = rolesResult;
 
       // Se não conseguir buscar o perfil, criar um perfil básico
       if (profileError) {
         console.error('Error fetching profile:', profileError);
+        
+        // Mesmo se o perfil falhar, tente obter o role
+        let fallbackRole: UserRole = 'User';
+        if (roleData && !rolesError) {
+          fallbackRole = mapDatabaseRoleToUserRole(roleData);
+        }
         
         // Tentar obter informações básicas do usuário autenticado
         const { data: { user } } = await supabase.auth.getUser();
@@ -101,7 +105,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             id: user.id,
             name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'Usuário',
             email: user.email || '',
-            role: 'User',
+            role: fallbackRole,
             avatar: user.user_metadata?.avatar_url
           };
         }
@@ -112,22 +116,19 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         console.error('Error fetching roles:', rolesError);
       }
 
-      // Determinar o role mais alto do usuário
+      // Mapear o role do banco para o frontend
       let userRole: UserRole = 'User';
-      if (rolesData && rolesData.length > 0) {
-        const roles = rolesData.map(r => r.role);
-        if (roles.includes('super_admin')) {
-          userRole = 'Admin';
-        } else if (roles.includes('admin')) {
-          userRole = 'Manager';
-        } else {
-          userRole = 'User';
-        }
+      
+      // Verificar primeiro se é super admin (campo booleano)
+      if (profileData.super_admin === true) {
+        userRole = 'Admin';
+      } else if (roleData && !rolesError) {
+        userRole = mapDatabaseRoleToUserRole(roleData);
       }
 
       return {
         id: profileData.id,
-        name: profileData.full_name || profileData.email || 'Usuário',
+        name: profileData.full_name || profileData.display_name || profileData.email || 'Usuário',
         email: profileData.email || '',
         role: userRole,
         avatar: profileData.avatar_url
@@ -204,6 +205,10 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     const timeoutId = setTimeout(() => {
       if (mounted && loading) {
         console.warn('Auth initialization timeout, setting loading to false');
+        // Garantir que não há usuário fantasma
+        setUser(null);
+        setProfile(null);
+        setSession(null);
         setLoading(false);
       }
     }, 10000); // 10 segundos

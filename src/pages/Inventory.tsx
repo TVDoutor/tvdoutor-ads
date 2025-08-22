@@ -49,6 +49,7 @@ const Inventory = () => {
   const [selectedScreen, setSelectedScreen] = useState<Screen | null>(null);
   const [editingScreen, setEditingScreen] = useState<Screen | null>(null);
   const [saving, setSaving] = useState(false);
+  const [specialtyText, setSpecialtyText] = useState('');
 
   useEffect(() => {
     fetchScreens();
@@ -161,39 +162,63 @@ const Inventory = () => {
       return;
     }
     setEditingScreen({ ...screen });
+    setSpecialtyText(screen.specialty ? screen.specialty.join(', ') : '');
     setEditModalOpen(true);
   };
 
   const handleSaveEdit = async () => {
     if (!editingScreen || !isAdmin() && !isManager()) return;
 
+    console.log('Starting save process...', { editingScreen: editingScreen.id, specialtyText });
     setSaving(true);
+    
     try {
-      const { error } = await supabase
+      // Processar especialidades do texto
+      const specialties = specialtyText.split(',').map(s => s.trim()).filter(Boolean);
+      console.log('Processed specialties:', specialties);
+      
+      const updateData = {
+        name: editingScreen.name || null,
+        display_name: editingScreen.display_name || null,
+        city: editingScreen.city || null,
+        state: editingScreen.state || null,
+        address_raw: editingScreen.address_raw || null,
+        class: editingScreen.class,
+        active: editingScreen.active ?? true,
+        venue_type_parent: editingScreen.venue_type_parent || null,
+        venue_type_child: editingScreen.venue_type_child || null,
+        venue_type_grandchildren: editingScreen.venue_type_grandchildren || null,
+        specialty: specialties.length > 0 ? specialties : null,
+      };
+      
+      console.log('Updating screen with data:', updateData);
+      
+      // Adicionar timeout para evitar travamento
+      const updatePromise = supabase
         .from('screens')
-        .update({
-          name: editingScreen.name,
-          display_name: editingScreen.display_name,
-          city: editingScreen.city,
-          state: editingScreen.state,
-          address_raw: editingScreen.address_raw,
-          class: editingScreen.class,
-          active: editingScreen.active,
-          venue_type_parent: editingScreen.venue_type_parent,
-          venue_type_child: editingScreen.venue_type_child,
-          venue_type_grandchildren: editingScreen.venue_type_grandchildren,
-          specialty: editingScreen.specialty,
-        })
+        .update(updateData)
         .eq('id', editingScreen.id);
+      
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Timeout: A operação demorou mais de 10 segundos')), 10000);
+      });
+      
+      const { error } = await Promise.race([updatePromise, timeoutPromise]) as any;
 
       if (error) {
+        console.error('Supabase update error:', error);
         throw error;
       }
 
+      console.log('Update successful, updating local state...');
+
       // Atualizar a lista local
+      const updatedScreen = { ...editingScreen, specialty: specialties };
       setScreens(screens.map(screen => 
-        screen.id === editingScreen.id ? editingScreen : screen
+        screen.id === editingScreen.id ? updatedScreen : screen
       ));
+
+      console.log('Local state updated, showing success message...');
 
       toast({
         title: "Sucesso",
@@ -202,15 +227,19 @@ const Inventory = () => {
 
       setEditModalOpen(false);
       setEditingScreen(null);
+      setSpecialtyText('');
+      
+      console.log('Save process completed successfully');
     } catch (err: any) {
       console.error('Error updating screen:', err);
       toast({
         title: "Erro",
-        description: "Não foi possível atualizar a tela.",
+        description: `Não foi possível atualizar a tela: ${err.message || 'Erro desconhecido'}`,
         variant: "destructive",
       });
     } finally {
       setSaving(false);
+      console.log('Save process finished, saving state reset');
     }
   };
 
@@ -658,14 +687,16 @@ const Inventory = () => {
                   <Label htmlFor="specialty">Especialidades (separadas por vírgula)</Label>
                   <Textarea
                     id="specialty"
-                    value={editingScreen.specialty ? editingScreen.specialty.join(', ') : ''}
-                    onChange={(e) => {
-                      const specialties = e.target.value.split(',').map(s => s.trim()).filter(Boolean);
-                      updateEditingScreen('specialty', specialties);
-                    }}
-                    placeholder="Digite as especialidades separadas por vírgula"
+                    value={specialtyText}
+                    onChange={(e) => setSpecialtyText(e.target.value)}
+                    placeholder="Digite as especialidades separadas por vírgula (ex: Cardiologia, Neurologia, Pediatria)"
                     rows={2}
                   />
+                  {specialtyText && (
+                    <div className="text-xs text-muted-foreground">
+                      Especialidades: {specialtyText.split(',').map(s => s.trim()).filter(Boolean).join(' • ')}
+                    </div>
+                  )}
                 </div>
                 
                 <div className="flex items-center space-x-2">

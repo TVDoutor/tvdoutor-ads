@@ -18,6 +18,17 @@ export const ProtectedRoute = ({
   const { user, profile, loading } = useAuth();
   const location = useLocation();
 
+  // Debug logs para investigar o problema
+  console.log('ProtectedRoute Debug:', {
+    path: location.pathname,
+    user: user ? 'Present' : 'Null',
+    userId: user?.id,
+    profile: profile ? `${profile.name} (${profile.role})` : 'Null',
+    loading,
+    requireAuth,
+    requiredRole
+  });
+
   // Mostrar loading enquanto verifica autenticação
   if (loading) {
     return (

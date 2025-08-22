@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { 
   ArrowLeft, 
   Search, 
@@ -123,64 +123,43 @@ const InteractiveMap = () => {
   // Buscar dados reais do Supabase
   useEffect(() => {
     fetchScreens();
-    fetchFilterData();
   }, []);
 
-  const fetchFilterData = async () => {
+  const fetchFilterData = async (screensData: Screen[]) => {
     try {
-      // Buscar cidades e estados únicos
-      const { data: locationData } = await supabase
-        .from('screens')
-        .select('city, state')
-        .not('city', 'is', null)
-        .not('state', 'is', null);
-
-      if (locationData) {
-        const uniqueCities = [...new Set(locationData.map(item => item.city).filter(Boolean))].sort();
-        const uniqueStates = [...new Set(locationData.map(item => item.state).filter(Boolean))].sort();
-        setCities(uniqueCities);
-        setStates(uniqueStates);
+      if (!screensData || screensData.length === 0) {
+        console.log('No screens data available for filter processing');
+        return;
       }
 
-      // Buscar especialidades mais comuns
-      const { data: specialtyData } = await supabase
-        .from('screens')
-        .select('specialty')
-        .not('specialty', 'is', null);
+      // Processar cidades e estados dos dados já carregados
+      const cities = [...new Set(screensData.map(item => item.city).filter(Boolean))].sort();
+      const states = [...new Set(screensData.map(item => item.state).filter(Boolean))].sort();
+      setCities(cities);
+      setStates(states);
 
-      if (specialtyData) {
-        const specialtyCounts: Record<string, number> = {};
-        specialtyData.forEach(item => {
-          if (item.specialty && Array.isArray(item.specialty)) {
-            item.specialty.forEach(spec => {
-              specialtyCounts[spec] = (specialtyCounts[spec] || 0) + 1;
-            });
-          }
-        });
+      // Processar especialidades dos dados já carregados
+      const specialtyCounts: Record<string, number> = {};
+      screensData.forEach(item => {
+        if (item.specialty && Array.isArray(item.specialty)) {
+          item.specialty.forEach(spec => {
+            specialtyCounts[spec] = (specialtyCounts[spec] || 0) + 1;
+          });
+        }
+      });
 
-        const topSpecialties = Object.entries(specialtyCounts)
-          .sort(([,a], [,b]) => b - a)
-          .slice(0, 5)
-          .map(([name, count]) => ({ name, count }));
+      const topSpecialties = Object.entries(specialtyCounts)
+        .sort(([,a], [,b]) => b - a)
+        .slice(0, 10)
+        .map(([name, count]) => ({ name, count }));
 
-        setSpecialties(topSpecialties);
-      }
+      setSpecialties(topSpecialties);
 
-      // Buscar range de CPM
-      const { data: cpmData } = await supabase
-        .from('stg_billboard_data')
-        .select('cpm')
-        .not('cpm', 'is', null);
-
-      if (cpmData && cpmData.length > 0) {
-        const cpmValues = cpmData.map(item => item.cpm).filter(Boolean);
-        const minCpm = Math.min(...cpmValues);
-        const maxCpm = Math.max(...cpmValues);
-        setCpmRange({ min: Math.floor(minCpm), max: Math.ceil(maxCpm) });
-      }
+      // Definir range de CPM padrão (pode ser customizado depois)
+      setCpmRange({ min: 0, max: 100 });
 
     } catch (error) {
-      console.error('Erro ao buscar dados de filtros:', error);
+      console.error('Erro ao processar dados de filtros:', error);
     }
   };
 
@@ -188,32 +167,39 @@ const InteractiveMap = () => {
     try {
       setLoading(true);
       setError(null);
+      console.log('Fetching screens data...');
 
       const { data, error } = await supabase
         .from('screens')
         .select('*')
         .eq('active', true) // Apenas telas ativas
         .not('lat', 'is', null) // Apenas telas com coordenadas
-        .not('lng', 'is', null);
+        .not('lng', 'is', null)
+        .limit(1000); // Limitar para evitar consultas muito grandes
 
       if (error) {
         throw error;
       }
 
-      setScreens(data || []);
+      console.log(`Loaded ${data?.length || 0} screens`);
+      const screensData = data || [];
+      setScreens(screensData);
+      
+      // Processar dados de filtros após carregar as telas
+      await fetchFilterData(screensData);
       
       toast({
         title: "Dados carregados",
-        description: `${data?.length || 0} telas encontradas no mapa.`,
+        description: `${screensData.length} telas encontradas no mapa.`,
       });
 
-    } catch (err) {
+    } catch (err: any) {
       console.error('Erro ao buscar telas:', err);
-      setError('Erro ao carregar dados das telas');
+      setError(`Erro ao carregar dados das telas: ${err.message || 'Erro desconhecido'}`);
       
       toast({
         title: "Erro",
-        description: "Não foi possível carregar os dados das telas.",
+        description: `Não foi possível carregar os dados das telas: ${err.message || 'Erro desconhecido'}`,
         variant: "destructive"
       });
     } finally {
@@ -343,60 +329,65 @@ const InteractiveMap = () => {
     return clusters;
   };
 
-  // Filtrar telas baseado nos filtros aplicados
-  const filteredScreens = screens.filter(screen => {
-    // Filtro por classe
-    if (!classFilters[screen.class as keyof typeof classFilters]) {
-      return false;
-    }
-
-    // Filtro por cidade
-    if (selectedCity !== "all" && screen.city !== selectedCity) {
-      return false;
-    }
-
-    // Filtro por estado
-    if (selectedState !== "all" && screen.state !== selectedState) {
-      return false;
-    }
-
-    // Filtro por especialidades
-    if (selectedSpecialties.length > 0) {
-      const screenSpecialties = screen.specialty || [];
-      const hasMatchingSpecialty = selectedSpecialties.some(selected => 
-        screenSpecialties.some(screenSpec => 
-          screenSpec.toLowerCase().includes(selected.toLowerCase())
-        )
-      );
-      if (!hasMatchingSpecialty) {
+  // Filtrar telas baseado nos filtros aplicados (memoizado)
+  const filteredScreens = useMemo(() => {
+    return screens.filter(screen => {
+      // Filtro por classe
+      if (!classFilters[screen.class as keyof typeof classFilters]) {
         return false;
       }
-    }
 
-    // Filtro por busca
-    if (searchQuery) {
-      const searchLower = searchQuery.toLowerCase();
-      const matchesName = screen.name?.toLowerCase().includes(searchLower);
-      const matchesDisplayName = screen.display_name?.toLowerCase().includes(searchLower);
-      const matchesAddress = screen.address_raw?.toLowerCase().includes(searchLower);
-      const matchesAddressNorm = screen.address_norm?.toLowerCase().includes(searchLower);
-      const matchesCity = screen.city?.toLowerCase().includes(searchLower);
-      const matchesState = screen.state?.toLowerCase().includes(searchLower);
-      const matchesCode = screen.code?.toLowerCase().includes(searchLower);
-      
-      if (!matchesName && !matchesDisplayName && !matchesAddress && !matchesAddressNorm && 
-          !matchesCity && !matchesState && !matchesCode) {
+      // Filtro por cidade
+      if (selectedCity !== "all" && screen.city !== selectedCity) {
         return false;
       }
-    }
 
-    return true;
-  });
+      // Filtro por estado
+      if (selectedState !== "all" && screen.state !== selectedState) {
+        return false;
+      }
 
-  // Calcular clusters baseado nos filtros
-  const clusters = createClusters(filteredScreens, 3); // 3% de raio de cluster
+      // Filtro por especialidades
+      if (selectedSpecialties.length > 0) {
+        const screenSpecialties = screen.specialty || [];
+        const hasMatchingSpecialty = selectedSpecialties.some(selected => 
+          screenSpecialties.some(screenSpec => 
+            screenSpec.toLowerCase().includes(selected.toLowerCase())
+          )
+        );
+        if (!hasMatchingSpecialty) {
+          return false;
+        }
+      }
 
-  const calculateTotals = () => {
+      // Filtro por busca
+      if (searchQuery) {
+        const searchLower = searchQuery.toLowerCase();
+        const matchesName = screen.name?.toLowerCase().includes(searchLower);
+        const matchesDisplayName = screen.display_name?.toLowerCase().includes(searchLower);
+        const matchesAddress = screen.address_raw?.toLowerCase().includes(searchLower);
+        const matchesAddressNorm = screen.address_norm?.toLowerCase().includes(searchLower);
+        const matchesCity = screen.city?.toLowerCase().includes(searchLower);
+        const matchesState = screen.state?.toLowerCase().includes(searchLower);
+        const matchesCode = screen.code?.toLowerCase().includes(searchLower);
+        
+        if (!matchesName && !matchesDisplayName && !matchesAddress && !matchesAddressNorm && 
+            !matchesCity && !matchesState && !matchesCode) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  }, [screens, classFilters, selectedCity, selectedState, selectedSpecialties, searchQuery]);
+
+  // Calcular clusters baseado nos filtros (memoizado)
+  const clusters = useMemo(() => {
+    return createClusters(filteredScreens, 3); // 3% de raio de cluster
+  }, [filteredScreens]);
+
+  // Calcular totais (memoizado)
+  const totals = useMemo(() => {
     const selectedScreensData = screens.filter(screen => selectedScreens.includes(screen.id));
     
     const classCounts = selectedScreensData.reduce((acc, screen) => {
@@ -413,9 +404,7 @@ const InteractiveMap = () => {
       classE: classCounts.E || 0,
       classND: classCounts.ND || 0
     };
-  };
-
-  const totals = calculateTotals();
+  }, [screens, selectedScreens]);
 
   const handleSaveSelection = () => {
     if (selectedScreens.length === 0) {

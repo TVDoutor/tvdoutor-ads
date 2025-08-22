@@ -7,9 +7,14 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Search, Filter, Eye, Edit, Monitor, Building, AlertCircle } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
+import { Search, Filter, Eye, Edit, Monitor, Building, AlertCircle, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface Screen {
   id: number;
@@ -29,6 +34,7 @@ interface Screen {
 
 const Inventory = () => {
   const { toast } = useToast();
+  const { profile, isAdmin, isManager } = useAuth();
   const [screens, setScreens] = useState<Screen[]>([]);
   const [filteredScreens, setFilteredScreens] = useState<Screen[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -37,12 +43,12 @@ const Inventory = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
-  // Mock user - será substituído por autenticação real
-  const mockUser = {
-    name: "João Silva",
-    email: "joao@tvdoutorada.com",
-    role: "Admin"
-  };
+  // Modal states
+  const [viewModalOpen, setViewModalOpen] = useState(false);
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [selectedScreen, setSelectedScreen] = useState<Screen | null>(null);
+  const [editingScreen, setEditingScreen] = useState<Screen | null>(null);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     fetchScreens();
@@ -140,9 +146,82 @@ const Inventory = () => {
     return [...new Set(classes)];
   };
 
+  const handleViewScreen = (screen: Screen) => {
+    setSelectedScreen(screen);
+    setViewModalOpen(true);
+  };
+
+  const handleEditScreen = (screen: Screen) => {
+    if (!isAdmin() && !isManager()) {
+      toast({
+        title: "Acesso Negado",
+        description: "Você não tem permissão para editar telas.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setEditingScreen({ ...screen });
+    setEditModalOpen(true);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingScreen || !isAdmin() && !isManager()) return;
+
+    setSaving(true);
+    try {
+      const { error } = await supabase
+        .from('screens')
+        .update({
+          name: editingScreen.name,
+          display_name: editingScreen.display_name,
+          city: editingScreen.city,
+          state: editingScreen.state,
+          address_raw: editingScreen.address_raw,
+          class: editingScreen.class,
+          active: editingScreen.active,
+          venue_type_parent: editingScreen.venue_type_parent,
+          venue_type_child: editingScreen.venue_type_child,
+          venue_type_grandchildren: editingScreen.venue_type_grandchildren,
+          specialty: editingScreen.specialty,
+        })
+        .eq('id', editingScreen.id);
+
+      if (error) {
+        throw error;
+      }
+
+      // Atualizar a lista local
+      setScreens(screens.map(screen => 
+        screen.id === editingScreen.id ? editingScreen : screen
+      ));
+
+      toast({
+        title: "Sucesso",
+        description: "Tela atualizada com sucesso!",
+      });
+
+      setEditModalOpen(false);
+      setEditingScreen(null);
+    } catch (err: any) {
+      console.error('Error updating screen:', err);
+      toast({
+        title: "Erro",
+        description: "Não foi possível atualizar a tela.",
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const updateEditingScreen = (field: keyof Screen, value: any) => {
+    if (!editingScreen) return;
+    setEditingScreen({ ...editingScreen, [field]: value });
+  };
+
   if (error && !loading) {
     return (
-      <DashboardLayout user={mockUser}>
+      <DashboardLayout>
         <div className="p-6">
           <div className="flex items-center justify-center min-h-[400px]">
             <Card className="w-full max-w-md">
@@ -342,12 +421,22 @@ const Inventory = () => {
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
-                          <Button size="sm" variant="outline">
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => handleViewScreen(screen)}
+                          >
                             <Eye className="h-4 w-4" />
                           </Button>
-                          <Button size="sm" variant="outline">
-                            <Edit className="h-4 w-4" />
-                          </Button>
+                          {(isAdmin() || isManager()) && (
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              onClick={() => handleEditScreen(screen)}
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>
@@ -375,6 +464,237 @@ const Inventory = () => {
             )}
           </CardContent>
         </Card>
+
+        {/* Modal de Visualização */}
+        <Dialog open={viewModalOpen} onOpenChange={setViewModalOpen}>
+          <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Monitor className="h-5 w-5" />
+                Detalhes da Tela
+              </DialogTitle>
+            </DialogHeader>
+            {selectedScreen && (
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium text-muted-foreground">Nome da Tela</Label>
+                    <p className="text-sm">{getDisplayName(selectedScreen)}</p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium text-muted-foreground">Código</Label>
+                    <p className="text-sm font-mono">{selectedScreen.code || `ID: ${selectedScreen.id}`}</p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium text-muted-foreground">Status</Label>
+                    <div>{getStatusBadge(selectedScreen.active)}</div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium text-muted-foreground">Classe</Label>
+                    <Badge variant="outline">{selectedScreen.class || "N/A"}</Badge>
+                  </div>
+                </div>
+                
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium text-muted-foreground">Endereço Completo</Label>
+                    <p className="text-sm">{getLocation(selectedScreen)}</p>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium text-muted-foreground">Cidade</Label>
+                      <p className="text-sm">{selectedScreen.city || "N/A"}</p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium text-muted-foreground">Estado</Label>
+                      <p className="text-sm">{selectedScreen.state || "N/A"}</p>
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium text-muted-foreground">Tipo Principal</Label>
+                      <p className="text-sm">{selectedScreen.venue_type_parent || "N/A"}</p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium text-muted-foreground">Subtipo</Label>
+                      <p className="text-sm">{selectedScreen.venue_type_child || "N/A"}</p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium text-muted-foreground">Categoria</Label>
+                      <p className="text-sm">{selectedScreen.venue_type_grandchildren || "N/A"}</p>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium text-muted-foreground">Especialidades</Label>
+                    {selectedScreen.specialty && selectedScreen.specialty.length > 0 ? (
+                      <div className="flex flex-wrap gap-2">
+                        {selectedScreen.specialty.map((spec, index) => (
+                          <Badge key={index} variant="secondary">{spec}</Badge>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">Nenhuma especialidade cadastrada</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setViewModalOpen(false)}>
+                Fechar
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Modal de Edição */}
+        <Dialog open={editModalOpen} onOpenChange={setEditModalOpen}>
+          <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Edit className="h-5 w-5" />
+                Editar Tela
+              </DialogTitle>
+            </DialogHeader>
+            {editingScreen && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="name">Nome</Label>
+                    <Input
+                      id="name"
+                      value={editingScreen.name || ''}
+                      onChange={(e) => updateEditingScreen('name', e.target.value)}
+                      placeholder="Nome da tela"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="display_name">Nome de Exibição</Label>
+                    <Input
+                      id="display_name"
+                      value={editingScreen.display_name || ''}
+                      onChange={(e) => updateEditingScreen('display_name', e.target.value)}
+                      placeholder="Nome de exibição"
+                    />
+                  </div>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="address">Endereço</Label>
+                  <Textarea
+                    id="address"
+                    value={editingScreen.address_raw || ''}
+                    onChange={(e) => updateEditingScreen('address_raw', e.target.value)}
+                    placeholder="Endereço completo"
+                    rows={2}
+                  />
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="city">Cidade</Label>
+                    <Input
+                      id="city"
+                      value={editingScreen.city || ''}
+                      onChange={(e) => updateEditingScreen('city', e.target.value)}
+                      placeholder="Cidade"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="state">Estado</Label>
+                    <Input
+                      id="state"
+                      value={editingScreen.state || ''}
+                      onChange={(e) => updateEditingScreen('state', e.target.value)}
+                      placeholder="Estado"
+                    />
+                  </div>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="class">Classe</Label>
+                  <Input
+                    id="class"
+                    value={editingScreen.class || ''}
+                    onChange={(e) => updateEditingScreen('class', e.target.value)}
+                    placeholder="Classe da tela"
+                  />
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="venue_parent">Tipo Principal</Label>
+                    <Input
+                      id="venue_parent"
+                      value={editingScreen.venue_type_parent || ''}
+                      onChange={(e) => updateEditingScreen('venue_type_parent', e.target.value)}
+                      placeholder="Tipo principal"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="venue_child">Subtipo</Label>
+                    <Input
+                      id="venue_child"
+                      value={editingScreen.venue_type_child || ''}
+                      onChange={(e) => updateEditingScreen('venue_type_child', e.target.value)}
+                      placeholder="Subtipo"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="venue_grandchildren">Categoria</Label>
+                    <Input
+                      id="venue_grandchildren"
+                      value={editingScreen.venue_type_grandchildren || ''}
+                      onChange={(e) => updateEditingScreen('venue_type_grandchildren', e.target.value)}
+                      placeholder="Categoria"
+                    />
+                  </div>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="specialty">Especialidades (separadas por vírgula)</Label>
+                  <Textarea
+                    id="specialty"
+                    value={editingScreen.specialty ? editingScreen.specialty.join(', ') : ''}
+                    onChange={(e) => {
+                      const specialties = e.target.value.split(',').map(s => s.trim()).filter(Boolean);
+                      updateEditingScreen('specialty', specialties);
+                    }}
+                    placeholder="Digite as especialidades separadas por vírgula"
+                    rows={2}
+                  />
+                </div>
+                
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id="active"
+                    checked={editingScreen.active}
+                    onCheckedChange={(checked) => updateEditingScreen('active', checked)}
+                  />
+                  <Label htmlFor="active">Tela Ativa</Label>
+                </div>
+              </div>
+            )}
+            <DialogFooter>
+              <Button 
+                variant="outline" 
+                onClick={() => setEditModalOpen(false)}
+                disabled={saving}
+              >
+                Cancelar
+              </Button>
+              <Button 
+                onClick={handleSaveEdit}
+                disabled={saving}
+              >
+                {saving ? "Salvando..." : "Salvar Alterações"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </DashboardLayout>
   );

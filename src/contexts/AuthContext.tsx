@@ -63,25 +63,50 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
-  const fetchUserProfile = async (userId: string) => {
+  const fetchUserProfile = async (userId: string): Promise<UserProfile | null> => {
     try {
-      // Buscar perfil do usuário
-      const { data: profileData, error: profileError } = await supabase
+      // Timeout para evitar requests eternos
+      const profilePromise = supabase
         .from('profiles')
         .select('*')
         .eq('id', userId)
         .single();
 
-      if (profileError) {
-        console.error('Error fetching profile:', profileError);
-        return null;
-      }
-
-      // Buscar roles do usuário
-      const { data: rolesData, error: rolesError } = await supabase
+      const rolesPromise = supabase
         .from('user_roles')
         .select('role')
         .eq('user_id', userId);
+
+      // Timeout de 5 segundos para as consultas
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Profile fetch timeout')), 5000);
+      });
+
+      const [profileResult, rolesResult] = await Promise.race([
+        Promise.all([profilePromise, rolesPromise]),
+        timeoutPromise
+      ]) as [any, any];
+
+      const { data: profileData, error: profileError } = profileResult;
+      const { data: rolesData, error: rolesError } = rolesResult;
+
+      // Se não conseguir buscar o perfil, criar um perfil básico
+      if (profileError) {
+        console.error('Error fetching profile:', profileError);
+        
+        // Tentar obter informações básicas do usuário autenticado
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          return {
+            id: user.id,
+            name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'Usuário',
+            email: user.email || '',
+            role: 'User',
+            avatar: user.user_metadata?.avatar_url
+          };
+        }
+        return null;
+      }
 
       if (rolesError) {
         console.error('Error fetching roles:', rolesError);
@@ -109,50 +134,126 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       };
     } catch (error) {
       console.error('Error fetching user profile:', error);
+      
+      // Fallback: tentar obter informações básicas do usuário
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          return {
+            id: user.id,
+            name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'Usuário',
+            email: user.email || '',
+            role: 'User',
+            avatar: user.user_metadata?.avatar_url
+          };
+        }
+      } catch (fallbackError) {
+        console.error('Error in fallback profile fetch:', fallbackError);
+      }
+      
       return null;
     }
   };
 
   useEffect(() => {
-    // Obter sessão inicial
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      
-      if (session?.user) {
-        fetchUserProfile(session.user.id).then(setProfile);
+    let mounted = true;
+
+    const initializeAuth = async () => {
+      try {
+        // Obter sessão inicial
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error('Error getting session:', error);
+          if (mounted) {
+            setLoading(false);
+          }
+          return;
+        }
+
+        if (mounted) {
+          setSession(session);
+          setUser(session?.user ?? null);
+          
+          if (session?.user) {
+            try {
+              const userProfile = await fetchUserProfile(session.user.id);
+              if (mounted) {
+                setProfile(userProfile);
+              }
+            } catch (profileError) {
+              console.error('Error fetching initial profile:', profileError);
+              // Continue mesmo se não conseguir buscar o perfil
+              if (mounted) {
+                setProfile(null);
+              }
+            }
+          }
+          
+          setLoading(false);
+        }
+      } catch (error) {
+        console.error('Error initializing auth:', error);
+        if (mounted) {
+          setLoading(false);
+        }
       }
-      
-      setLoading(false);
-    });
+    };
+
+    // Timeout de segurança para evitar loading infinito
+    const timeoutId = setTimeout(() => {
+      if (mounted && loading) {
+        console.warn('Auth initialization timeout, setting loading to false');
+        setLoading(false);
+      }
+    }, 10000); // 10 segundos
+
+    initializeAuth();
 
     // Escutar mudanças na autenticação
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (!mounted) return;
+
       setSession(session);
       setUser(session?.user ?? null);
       
       if (session?.user) {
-        // Call ensure_profile after OAuth login/redirect
-        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-          try {
-            await supabase.rpc('ensure_profile');
-          } catch (error) {
-            console.error('Error ensuring profile:', error);
+        try {
+          // Call ensure_profile after OAuth login/redirect
+          if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+            try {
+              await supabase.rpc('ensure_profile');
+            } catch (error) {
+              console.error('Error ensuring profile:', error);
+            }
+          }
+          
+          const userProfile = await fetchUserProfile(session.user.id);
+          if (mounted) {
+            setProfile(userProfile);
+          }
+        } catch (error) {
+          console.error('Error fetching profile on auth change:', error);
+          if (mounted) {
+            setProfile(null);
           }
         }
-        
-        const userProfile = await fetchUserProfile(session.user.id);
-        setProfile(userProfile);
       } else {
         setProfile(null);
       }
       
-      setLoading(false);
+      if (mounted) {
+        setLoading(false);
+      }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      mounted = false;
+      clearTimeout(timeoutId);
+      subscription.unsubscribe();
+    };
   }, []);
 
   const signIn = async (email: string, password: string) => {
@@ -201,6 +302,45 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           variant: "destructive"
         });
       } else if (data.user) {
+        // Try to create profile manually if user was created
+        try {
+          // First create the profile
+          const { error: profileError } = await supabase
+            .from('profiles')
+            .insert({
+              id: data.user.id,
+              email: data.user.email,
+              full_name: name,
+              display_name: name,
+              role: 'user'
+            });
+
+          if (profileError) {
+            console.error('Profile creation error:', profileError);
+          }
+
+          // Then create the user role
+          const { error: roleError } = await supabase
+            .from('user_roles')
+            .insert({
+              user_id: data.user.id,
+              role: 'user'
+            });
+
+          if (roleError) {
+            console.error('Role creation error:', roleError);
+          }
+
+        } catch (profileCreationError) {
+          console.error('Error creating user profile:', profileCreationError);
+          toast({
+            title: "Erro no cadastro",
+            description: "Database error saving new user",
+            variant: "destructive"
+          });
+          return { error: profileCreationError as AuthError };
+        }
+
         toast({
           title: "Conta criada!",
           description: "Verifique seu email para ativar a conta."
@@ -210,6 +350,11 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       return { error };
     } catch (error) {
       console.error('Sign up error:', error);
+      toast({
+        title: "Erro no cadastro", 
+        description: "Database error saving new user",
+        variant: "destructive"
+      });
       return { error: error as AuthError };
     }
   };

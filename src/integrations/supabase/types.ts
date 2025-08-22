@@ -12,35 +12,43 @@ export type Database = {
       profiles: {
         Row: {
           id: string
-          email: string | null
-          full_name: string | null
           display_name: string | null
           avatar_url: string | null
-          role: string
           created_at: string
           updated_at: string
+          role: Database["public"]["Enums"]["role_kind"]
+          phone: string | null
+          organization: string | null
         }
         Insert: {
           id: string
-          email?: string | null
-          full_name?: string | null
           display_name?: string | null
           avatar_url?: string | null
-          role?: string
           created_at?: string
           updated_at?: string
+          role?: Database["public"]["Enums"]["role_kind"]
+          phone?: string | null
+          organization?: string | null
         }
         Update: {
           id?: string
-          email?: string | null
-          full_name?: string | null
           display_name?: string | null
           avatar_url?: string | null
-          role?: string
           created_at?: string
           updated_at?: string
+          role?: Database["public"]["Enums"]["role_kind"]
+          phone?: string | null
+          organization?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "profiles_id_fkey"
+            columns: ["id"]
+            isOneToOne: true
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          }
+        ]
       }
       user_roles: {
         Row: {
@@ -254,72 +262,62 @@ export type Database = {
       proposals: {
         Row: {
           id: string
-          user_id: string
-          title: string
-          description: string | null
-          campaign_start_date: string
-          campaign_end_date: string
-          budget: number | null
-          currency: string
-          target_audience: Json | null
-          geographic_targeting: Json | null
-          content_requirements: Json | null
+          created_by: string | null
+          customer_name: string
+          customer_email: string | null
+          city: string | null
+          class: Database["public"]["Enums"]["class_band"] | null
+          filters: Json
+          quote: Json
+          screens: Json
+          pdf_path: string | null
+          pdf_url: string | null
+          clicksign_document_key: string | null
+          clicksign_sign_url: string | null
+          pipedrive_deal_id: number | null
           status: string
           created_at: string
-          updated_at: string
-          approved_at: string | null
-          approved_by: string | null
-          rejection_reason: string | null
         }
         Insert: {
           id?: string
-          user_id: string
-          title: string
-          description?: string | null
-          campaign_start_date: string
-          campaign_end_date: string
-          budget?: number | null
-          currency?: string
-          target_audience?: Json | null
-          geographic_targeting?: Json | null
-          content_requirements?: Json | null
+          created_by?: string | null
+          customer_name: string
+          customer_email?: string | null
+          city?: string | null
+          class?: Database["public"]["Enums"]["class_band"] | null
+          filters: Json
+          quote: Json
+          screens: Json
+          pdf_path?: string | null
+          pdf_url?: string | null
+          clicksign_document_key?: string | null
+          clicksign_sign_url?: string | null
+          pipedrive_deal_id?: number | null
           status?: string
           created_at?: string
-          updated_at?: string
-          approved_at?: string | null
-          approved_by?: string | null
-          rejection_reason?: string | null
         }
         Update: {
           id?: string
-          user_id?: string
-          title?: string
-          description?: string | null
-          campaign_start_date?: string
-          campaign_end_date?: string
-          budget?: number | null
-          currency?: string
-          target_audience?: Json | null
-          geographic_targeting?: Json | null
-          content_requirements?: Json | null
+          created_by?: string | null
+          customer_name?: string
+          customer_email?: string | null
+          city?: string | null
+          class?: Database["public"]["Enums"]["class_band"] | null
+          filters?: Json
+          quote?: Json
+          screens?: Json
+          pdf_path?: string | null
+          pdf_url?: string | null
+          clicksign_document_key?: string | null
+          clicksign_sign_url?: string | null
+          pipedrive_deal_id?: number | null
           status?: string
           created_at?: string
-          updated_at?: string
-          approved_at?: string | null
-          approved_by?: string | null
-          rejection_reason?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "proposals_approved_by_fkey"
-            columns: ["approved_by"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "proposals_user_id_fkey"
-            columns: ["user_id"]
+            foreignKeyName: "proposals_created_by_fkey"
+            columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "users"
             referencedColumns: ["id"]
@@ -386,56 +384,41 @@ export type Database = {
       price_rules: {
         Row: {
           id: string
-          name: string
-          description: string | null
-          rule_type: string
-          conditions: Json
-          discount_type: string
-          discount_value: number
-          min_duration: number | null
-          max_duration: number | null
-          valid_from: string
-          valid_until: string | null
-          is_active: boolean
-          priority: number
+          city: string | null
+          class: Database["public"]["Enums"]["class_band"] | null
+          base_monthly: number
+          uplift: number
           created_at: string
-          updated_at: string
+          min_months: number | null
+          setup_fee: number | null
+          logistics_km_price: number | null
+          city_norm: string | null
           created_by: string | null
         }
         Insert: {
           id?: string
-          name: string
-          description?: string | null
-          rule_type: string
-          conditions: Json
-          discount_type: string
-          discount_value: number
-          min_duration?: number | null
-          max_duration?: number | null
-          valid_from: string
-          valid_until?: string | null
-          is_active?: boolean
-          priority?: number
+          city?: string | null
+          class?: Database["public"]["Enums"]["class_band"] | null
+          base_monthly?: number
+          uplift?: number
           created_at?: string
-          updated_at?: string
+          min_months?: number | null
+          setup_fee?: number | null
+          logistics_km_price?: number | null
+          city_norm?: string | null
           created_by?: string | null
         }
         Update: {
           id?: string
-          name?: string
-          description?: string | null
-          rule_type?: string
-          conditions?: Json
-          discount_type?: string
-          discount_value?: number
-          min_duration?: number | null
-          max_duration?: number | null
-          valid_from?: string
-          valid_until?: string | null
-          is_active?: boolean
-          priority?: number
+          city?: string | null
+          class?: Database["public"]["Enums"]["class_band"] | null
+          base_monthly?: number
+          uplift?: number
           created_at?: string
-          updated_at?: string
+          min_months?: number | null
+          setup_fee?: number | null
+          logistics_km_price?: number | null
+          city_norm?: string | null
           created_by?: string | null
         }
         Relationships: [
@@ -581,6 +564,215 @@ export type Database = {
           }
         ]
       }
+      venue_audience_monthly: {
+        Row: {
+          id: string
+          venue_id: string
+          month: string
+          audience: number
+          created_at: string
+          created_by: string | null
+        }
+        Insert: {
+          id?: string
+          venue_id: string
+          month: string
+          audience: number
+          created_at?: string
+          created_by?: string | null
+        }
+        Update: {
+          id?: string
+          venue_id?: string
+          month?: string
+          audience?: number
+          created_at?: string
+          created_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "venue_audience_monthly_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "venue_audience_monthly_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      stg_billboard_data: {
+        Row: {
+          raw_id: string
+          board_name: string | null
+          display_name: string | null
+          facing: string | null
+          screen_facing: string | null
+          board_format: string | null
+          category: string | null
+          venue_type_parent: string | null
+          venue_type_child: string | null
+          venue_type_grandchildren: string | null
+          latitude: number | null
+          longitude: number | null
+          country: string | null
+          state: string | null
+          district: string | null
+          active: string | null
+          available: string | null
+          screen_start_time: string | null
+          screen_end_time: string | null
+          spot_duration_secs: number | null
+          spots_per_hour: number | null
+          no_of_clients_per_loop: number | null
+          minimum_spots_per_day: number | null
+          maximum_spots_per_day: number | null
+          mode_of_operation: string | null
+          spots_reserved_for_mw: string | null
+          expose_to_max: string | null
+          expose_to_mad: string | null
+          standard_rates_month: number | null
+          selling_rate_month: number | null
+          asset_url: string | null
+          cpm: number | null
+          audiences_monthly: number | null
+          imported_at: string
+          imported_by: string | null
+        }
+        Insert: {
+          raw_id?: string
+          board_name?: string | null
+          display_name?: string | null
+          facing?: string | null
+          screen_facing?: string | null
+          board_format?: string | null
+          category?: string | null
+          venue_type_parent?: string | null
+          venue_type_child?: string | null
+          venue_type_grandchildren?: string | null
+          latitude?: number | null
+          longitude?: number | null
+          country?: string | null
+          state?: string | null
+          district?: string | null
+          active?: string | null
+          available?: string | null
+          screen_start_time?: string | null
+          screen_end_time?: string | null
+          spot_duration_secs?: number | null
+          spots_per_hour?: number | null
+          no_of_clients_per_loop?: number | null
+          minimum_spots_per_day?: number | null
+          maximum_spots_per_day?: number | null
+          mode_of_operation?: string | null
+          spots_reserved_for_mw?: string | null
+          expose_to_max?: string | null
+          expose_to_mad?: string | null
+          standard_rates_month?: number | null
+          selling_rate_month?: number | null
+          asset_url?: string | null
+          cpm?: number | null
+          audiences_monthly?: number | null
+          imported_at?: string
+          imported_by?: string | null
+        }
+        Update: {
+          raw_id?: string
+          board_name?: string | null
+          display_name?: string | null
+          facing?: string | null
+          screen_facing?: string | null
+          board_format?: string | null
+          category?: string | null
+          venue_type_parent?: string | null
+          venue_type_child?: string | null
+          venue_type_grandchildren?: string | null
+          latitude?: number | null
+          longitude?: number | null
+          country?: string | null
+          state?: string | null
+          district?: string | null
+          active?: string | null
+          available?: string | null
+          screen_start_time?: string | null
+          screen_end_time?: string | null
+          spot_duration_secs?: number | null
+          spots_per_hour?: number | null
+          no_of_clients_per_loop?: number | null
+          minimum_spots_per_day?: number | null
+          maximum_spots_per_day?: number | null
+          mode_of_operation?: string | null
+          spots_reserved_for_mw?: string | null
+          expose_to_max?: string | null
+          expose_to_mad?: string | null
+          standard_rates_month?: number | null
+          selling_rate_month?: number | null
+          asset_url?: string | null
+          cpm?: number | null
+          audiences_monthly?: number | null
+          imported_at?: string
+          imported_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stg_billboard_data_imported_by_fkey"
+            columns: ["imported_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      stg_ponto: {
+        Row: {
+          raw_id: string
+          codigo_de_ponto: string | null
+          ponto_de_cuidado: string | null
+          audiencia: number | null
+          imported_at: string
+          imported_by: string | null
+          screen_id: string | null
+        }
+        Insert: {
+          raw_id?: string
+          codigo_de_ponto?: string | null
+          ponto_de_cuidado?: string | null
+          audiencia?: number | null
+          imported_at?: string
+          imported_by?: string | null
+          screen_id?: string | null
+        }
+        Update: {
+          raw_id?: string
+          codigo_de_ponto?: string | null
+          ponto_de_cuidado?: string | null
+          audiencia?: number | null
+          imported_at?: string
+          imported_by?: string | null
+          screen_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stg_ponto_imported_by_fkey"
+            columns: ["imported_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stg_ponto_screen_id_fkey"
+            columns: ["screen_id"]
+            isOneToOne: false
+            referencedRelation: "screens"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -614,6 +806,8 @@ export type Database = {
     }
     Enums: {
       app_role: "super_admin" | "admin" | "user"
+      class_band: "A" | "B" | "C" | "D" | "ND"
+      role_kind: "super_admin" | "admin" | "user"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -717,3 +911,4 @@ export type CompositeTypes<
   : PublicCompositeTypeNameOrOptions extends keyof PublicSchema["CompositeTypes"]
     ? PublicSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
     : never
+

@@ -1789,8 +1789,12 @@ export type Database = {
         Returns: string
       }
       get_user_role: {
-        Args: { _user_id?: string }
-        Returns: Database["public"]["Enums"]["app_role"]
+        Args: { _user_id: string }
+        Returns: string
+      }
+      get_venue_details: {
+        Args: { venue_id_in: number }
+        Returns: Json
       }
       gettransactionid: {
         Args: Record<PropertyKey, never>
@@ -1854,6 +1858,21 @@ export type Database = {
       jsonb: {
         Args: { "": unknown }
         Returns: Json
+      }
+      list_venue_summaries: {
+        Args: { limit_count?: number; offset_count?: number; search?: string }
+        Returns: {
+          active: boolean
+          cep: string
+          city: string
+          class: Database["public"]["Enums"]["class_band"]
+          screens_count: number
+          specialty: string[]
+          state: string
+          venue_code: string
+          venue_id: number
+          venue_name: string
+        }[]
       }
       longtransactionsenabled: {
         Args: Record<PropertyKey, never>

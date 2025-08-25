@@ -66,7 +66,7 @@ const Inventory = () => {
 
       const { data, error } = await supabase
         .from('screens')
-        .select('*')
+        .select('id, code, name, display_name, city, state, address_raw, class, active, venue_type_parent, venue_type_child, venue_type_grandchildren, specialty')
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -183,7 +183,7 @@ const Inventory = () => {
         city: editingScreen.city || null,
         state: editingScreen.state || null,
         address_raw: editingScreen.address_raw || null,
-        class: editingScreen.class,
+        class: editingScreen.class as "A" | "B" | "C" | "D" | "E" | "ND",
         active: editingScreen.active ?? true,
         venue_type_parent: editingScreen.venue_type_parent || null,
         venue_type_child: editingScreen.venue_type_child || null,

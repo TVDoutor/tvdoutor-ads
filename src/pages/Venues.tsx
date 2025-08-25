@@ -62,31 +62,30 @@ const Venues = () => {
       setLoading(true);
       setError(null);
 
-      const { data, error } = await supabase
-        .from('venues')
-        .select(`
-          id,
-          code,
-          name,
-          screens (
-            city,
-            state,
-            cep,
-            class,
-            specialty,
-            active
-          )
-        `);
+      const { data, error } = await supabase.rpc('list_venue_summaries', {
+        search: searchTerm.trim() || null,
+        limit_count: 50,
+        offset_count: 0
+      });
 
       if (error) {
         throw error;
       }
 
       const venuesWithStats = data?.map(venue => ({
-        ...venue,
-        screens: venue.screens || [],
-        screenCount: venue.screens?.length || 0,
-        activeScreens: venue.screens?.filter(screen => screen.active).length || 0
+        id: venue.venue_id,
+        code: venue.venue_code,
+        name: venue.venue_name,
+        screens: [{
+          city: venue.city,
+          state: venue.state,
+          cep: venue.cep,
+          class: venue.class,
+          specialty: venue.specialty,
+          active: venue.active
+        }],
+        screenCount: venue.screens_count,
+        activeScreens: venue.active ? venue.screens_count : 0
       })) || [];
 
       setVenues(venuesWithStats);
@@ -156,7 +155,7 @@ const Venues = () => {
 
   if (error && !loading) {
     return (
-      <DashboardLayout user={mockUser}>
+      <DashboardLayout>
         <div className="p-6">
           <div className="flex items-center justify-center min-h-[400px]">
             <Card className="w-full max-w-md">
@@ -178,7 +177,7 @@ const Venues = () => {
   }
 
   return (
-    <DashboardLayout user={mockUser}>
+    <DashboardLayout>
       <div className="p-6 space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">

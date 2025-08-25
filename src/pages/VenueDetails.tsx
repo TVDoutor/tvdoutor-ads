@@ -83,20 +83,15 @@ const VenueDetails = () => {
       setLoading(true);
       setError(null);
 
-      const { data, error } = await supabase
-        .from('venues')
-        .select(`
-          *,
-          screens (*)
-        `)
-        .eq('id', parseInt(id))
-        .single();
+      const { data, error } = await supabase.rpc('get_venue_details', {
+        venue_id_in: parseInt(id!)
+      });
 
       if (error) {
         throw error;
       }
 
-      setVenue(data);
+      setVenue(data as unknown as VenueDetail);
     } catch (err: any) {
       console.error('Error fetching venue details:', err);
       setError(err.message);
@@ -135,7 +130,7 @@ const VenueDetails = () => {
 
   if (error && !loading) {
     return (
-      <DashboardLayout user={mockUser}>
+      <DashboardLayout>
         <div className="p-6">
           <div className="flex items-center justify-center min-h-[400px]">
             <Card className="w-full max-w-md">
@@ -162,7 +157,7 @@ const VenueDetails = () => {
   }
 
   return (
-    <DashboardLayout user={mockUser}>
+    <DashboardLayout>
       <div className="p-6 space-y-6">
         {/* Header */}
         <div className="flex items-center gap-4">

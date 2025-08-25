@@ -218,33 +218,37 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     // Escutar mudanças na autenticação
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
+    } = supabase.auth.onAuthStateChange((event, session) => {
       if (!mounted) return;
 
       setSession(session);
       setUser(session?.user ?? null);
       
       if (session?.user) {
-        try {
-          // Call ensure_profile after OAuth login/redirect
-          if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        // Call ensure_profile after OAuth login/redirect
+        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+          setTimeout(async () => {
             try {
               await supabase.rpc('ensure_profile');
             } catch (error) {
               console.error('Error ensuring profile:', error);
             }
-          }
-          
-          const userProfile = await fetchUserProfile(session.user.id);
-          if (mounted) {
-            setProfile(userProfile);
-          }
-        } catch (error) {
-          console.error('Error fetching profile on auth change:', error);
-          if (mounted) {
-            setProfile(null);
-          }
+          }, 0);
         }
+        
+        setTimeout(async () => {
+          try {
+            const userProfile = await fetchUserProfile(session.user.id);
+            if (mounted) {
+              setProfile(userProfile);
+            }
+          } catch (error) {
+            console.error('Error fetching profile on auth change:', error);
+            if (mounted) {
+              setProfile(null);
+            }
+          }
+        }, 0);
       } else {
         setProfile(null);
       }
@@ -294,6 +298,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         email,
         password,
         options: {
+          emailRedirectTo: `${window.location.origin}/`,
           data: {
             full_name: name,
           }

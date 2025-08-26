@@ -411,6 +411,8 @@ export type Database = {
           display_name: string | null
           facing: string | null
           geom: unknown | null
+          google_formatted_address: string | null
+          google_place_id: string | null
           id: number
           lat: number | null
           lng: number | null
@@ -443,6 +445,8 @@ export type Database = {
           display_name?: string | null
           facing?: string | null
           geom?: unknown | null
+          google_formatted_address?: string | null
+          google_place_id?: string | null
           id?: number
           lat?: number | null
           lng?: number | null
@@ -475,6 +479,8 @@ export type Database = {
           display_name?: string | null
           facing?: string | null
           geom?: unknown | null
+          google_formatted_address?: string | null
+          google_place_id?: string | null
           id?: number
           lat?: number | null
           lng?: number | null

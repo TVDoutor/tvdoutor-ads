@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { DashboardLayout } from '@/components/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { MapPin, Search, Filter, Zap, ZapOff } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { runSupabaseDebug } from '@/utils/debugSupabase';
 
 // Simplified types to avoid type instantiation issues
 interface SimpleScreen {
@@ -33,15 +34,15 @@ export default function InteractiveMap() {
   const [selectedScreen, setSelectedScreen] = useState<SimpleScreen | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filters, setFilters] = useState<MapFilters>({
-    city: '',
-    status: '',
-    class: ''
+    city: 'all',
+    status: 'all',
+    class: 'all'
   });
   const [loading, setLoading] = useState(true);
 
-  // Available filter options
-  const cities = Array.from(new Set(screens.map(s => s.city).filter(Boolean))).sort();
-  const classes = Array.from(new Set(screens.map(s => s.class).filter(Boolean))).sort();
+  // Available filter options - garantir que não há valores vazios
+  const cities = Array.from(new Set(screens.map(s => s.city).filter(city => city && city.trim() !== ''))).sort();
+  const classes = Array.from(new Set(screens.map(s => s.class).filter(cls => cls && cls.trim() !== ''))).sort();
 
   useEffect(() => {
     fetchScreens();
@@ -49,40 +50,95 @@ export default function InteractiveMap() {
 
   useEffect(() => {
     applyFilters();
-  }, [screens, searchTerm, filters]);
+  }, [applyFilters]);
 
   const fetchScreens = async () => {
     setLoading(true);
     try {
+      console.log('🔍 Iniciando busca por telas...');
+      
+      // Primeiro, vamos verificar a conexão com o Supabase
+      const { data: testData, error: testError } = await supabase
+        .from('screens')
+        .select('count')
+        .limit(1);
+      
+      if (testError) {
+        console.error('❌ Erro de conexão com Supabase:', testError);
+        throw new Error(`Erro de conexão: ${testError.message}`);
+      }
+      
+      console.log('✅ Conexão com Supabase OK');
+
+      // Agora buscar as telas
       const { data, error } = await supabase
         .from('screens')
         .select('id, name, city, state, lat, lng, active, class')
         .not('lat', 'is', null)
         .not('lng', 'is', null);
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Erro na query screens:', error);
+        throw new Error(`Erro na consulta: ${error.message}`);
+      }
 
-      const mappedScreens: SimpleScreen[] = (data || []).map(screen => ({
+      console.log('📊 Dados retornados:', { 
+        total: data?.length || 0, 
+        sample: data?.slice(0, 3) 
+      });
+
+      if (!data || data.length === 0) {
+        console.warn('⚠️ Nenhuma tela encontrada na base de dados');
+        toast.error('Nenhuma tela encontrada na base de dados');
+        setScreens([]);
+        return;
+      }
+
+      const mappedScreens: SimpleScreen[] = data.map(screen => ({
         id: String(screen.id),
         name: screen.name || 'Tela sem nome',
-        city: screen.city || '',
-        state: screen.state || '',
-        lat: screen.lat || 0,
-        lng: screen.lng || 0,
+        city: screen.city || 'Cidade não informada',
+        state: screen.state || 'Estado não informado',
+        lat: Number(screen.lat) || 0,
+        lng: Number(screen.lng) || 0,
         active: Boolean(screen.active),
         class: screen.class || 'ND'
       }));
 
+      console.log('✅ Telas processadas:', mappedScreens.length);
       setScreens(mappedScreens);
-    } catch (error) {
-      console.error('Error fetching screens:', error);
-      toast.error('Erro ao carregar telas');
+      
+      if (mappedScreens.length > 0) {
+        toast.success(`${mappedScreens.length} telas carregadas com sucesso`);
+      }
+      
+    } catch (error: unknown) {
+      console.error('💥 Erro completo ao buscar telas:', {
+        message: error.message,
+        stack: error.stack,
+        error
+      });
+      
+      // Mensagem de erro mais específica
+      let errorMessage = 'Erro ao carregar telas';
+      const errorMessageStr = error instanceof Error ? error.message : String(error);
+      
+      if (errorMessageStr.includes('JWT')) {
+        errorMessage = 'Erro de autenticação. Tente fazer login novamente.';
+      } else if (errorMessageStr.includes('permission')) {
+        errorMessage = 'Sem permissão para acessar os dados.';
+      } else if (errorMessageStr.includes('connection')) {
+        errorMessage = 'Erro de conexão com o banco de dados.';
+      }
+      
+      toast.error(errorMessage);
+      setScreens([]);
     } finally {
       setLoading(false);
     }
   };
 
-  const applyFilters = () => {
+  const applyFilters = useCallback(() => {
     let filtered = screens;
 
     // Text search
@@ -95,23 +151,23 @@ export default function InteractiveMap() {
     }
 
     // City filter
-    if (filters.city) {
+    if (filters.city && filters.city !== 'all') {
       filtered = filtered.filter(screen => screen.city === filters.city);
     }
 
     // Status filter
-    if (filters.status) {
+    if (filters.status && filters.status !== 'all') {
       const isActive = filters.status === 'active';
       filtered = filtered.filter(screen => screen.active === isActive);
     }
 
     // Class filter
-    if (filters.class) {
+    if (filters.class && filters.class !== 'all') {
       filtered = filtered.filter(screen => screen.class === filters.class);
     }
 
     setFilteredScreens(filtered);
-  };
+  }, [screens, searchTerm, filters]);
 
   const handleScreenSelect = (screen: SimpleScreen) => {
     setSelectedScreen(screen);
@@ -119,8 +175,19 @@ export default function InteractiveMap() {
 
   const clearFilters = () => {
     setSearchTerm('');
-    setFilters({ city: '', status: '', class: '' });
+    setFilters({ city: 'all', status: 'all', class: 'all' });
     setSelectedScreen(null);
+  };
+
+  const handleDebug = async () => {
+    toast.info('Executando diagnóstico...');
+    const result = await runSupabaseDebug();
+    
+    if (result.success) {
+      toast.success('Diagnóstico concluído! Verifique o console para detalhes.');
+    } else {
+      toast.error('Problemas encontrados no diagnóstico. Verifique o console.');
+    }
   };
 
   if (loading) {
@@ -144,6 +211,15 @@ export default function InteractiveMap() {
         <div>
           <h1 className="text-3xl font-bold text-foreground">Mapa Interativo</h1>
           <p className="text-muted-foreground">Visualize e gerencie todas as telas no mapa</p>
+          
+          {/* Debug Info */}
+          {process.env.NODE_ENV === 'development' && (
+            <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs text-yellow-800">
+              <strong>Debug:</strong> {screens.length} telas carregadas | 
+              Estado: {loading ? 'Carregando...' : 'Pronto'} |
+              Filtradas: {filteredScreens.length}
+            </div>
+          )}
         </div>
 
         {/* Filters */}
@@ -176,7 +252,7 @@ export default function InteractiveMap() {
                     <SelectValue placeholder="Todas as cidades" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Todas as cidades</SelectItem>
+                    <SelectItem value="all">Todas as cidades</SelectItem>
                     {cities.map(city => (
                       <SelectItem key={city} value={city}>{city}</SelectItem>
                     ))}
@@ -191,7 +267,7 @@ export default function InteractiveMap() {
                     <SelectValue placeholder="Todos os status" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Todos os status</SelectItem>
+                    <SelectItem value="all">Todos os status</SelectItem>
                     <SelectItem value="active">Ativo</SelectItem>
                     <SelectItem value="inactive">Inativo</SelectItem>
                   </SelectContent>
@@ -205,7 +281,7 @@ export default function InteractiveMap() {
                     <SelectValue placeholder="Todas as classes" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Todas as classes</SelectItem>
+                    <SelectItem value="all">Todas as classes</SelectItem>
                     {classes.map(cls => (
                       <SelectItem key={cls} value={cls}>{cls}</SelectItem>
                     ))}
@@ -218,9 +294,17 @@ export default function InteractiveMap() {
               <p className="text-sm text-muted-foreground">
                 {filteredScreens.length} de {screens.length} telas
               </p>
-              <Button variant="outline" onClick={clearFilters}>
-                Limpar filtros
-              </Button>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={fetchScreens}>
+                  🔄 Recarregar
+                </Button>
+                <Button variant="outline" size="sm" onClick={handleDebug}>
+                  🔧 Debug
+                </Button>
+                <Button variant="outline" onClick={clearFilters}>
+                  Limpar filtros
+                </Button>
+              </div>
             </div>
           </CardContent>
         </Card>

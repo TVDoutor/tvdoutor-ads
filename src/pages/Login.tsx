@@ -364,7 +364,7 @@ const Login = () => {
 
         {/* Footer */}
         <div className="text-center text-xs text-muted-foreground">
-          <p>© 2024 TV Doutor. Todos os direitos reservados.</p>
+          <p>© 2025 TV Doutor. Todos os direitos reservados.</p>
           <p className="mt-1">Plataforma de comunicação em saúde e bem-estar</p>
         </div>
       </div>

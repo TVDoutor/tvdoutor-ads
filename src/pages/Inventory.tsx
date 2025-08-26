@@ -19,6 +19,9 @@ import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { addScreenAsAdmin, deleteScreenAsAdmin } from "@/lib/admin-operations";
 
+// Valid class options
+const ALLOWED_CLASSES = ['A', 'B', 'C', 'D', 'E', 'ND'] as const;
+
 interface Screen {
   id: number;
   code: string;
@@ -27,7 +30,7 @@ interface Screen {
   city: string;
   state: string;
   address_raw: string;
-  class: string;
+  class: typeof ALLOWED_CLASSES[number];
   active: boolean;
   venue_type_parent: string;
   venue_type_child: string;
@@ -255,22 +258,27 @@ const Inventory = () => {
     try {
       const specialties = specialtyText.split(',').map(s => s.trim()).filter(Boolean);
       
-             const updateData = {
-         code: editingScreen.code || null,
-         name: editingScreen.code || null, // Keep name field for backward compatibility
-         display_name: editingScreen.display_name || null,
-         city: editingScreen.city || null,
-         state: editingScreen.state || null,
-         address_raw: editingScreen.address_raw || null,
-         class: editingScreen.class as "A" | "B" | "C" | "D" | "E" | "ND",
-         active: editingScreen.active ?? true,
-         venue_type_parent: editingScreen.venue_type_parent || null,
-         venue_type_child: editingScreen.venue_type_child || null,
-         venue_type_grandchildren: editingScreen.venue_type_grandchildren || null,
-         specialty: specialties.length > 0 ? specialties : null,
-         lat: editingScreen.lat || null,
-         lng: editingScreen.lng || null,
-       };
+      // Validate and sanitize class value
+      const sanitizedClass = ALLOWED_CLASSES.includes(editingScreen.class as any) 
+        ? editingScreen.class 
+        : 'ND';
+      
+      const updateData = {
+        code: editingScreen.code || null,
+        name: editingScreen.code || null,
+        display_name: editingScreen.display_name || null,
+        city: editingScreen.city || null,
+        state: editingScreen.state || null,
+        address_raw: editingScreen.address_raw || null,
+        class: sanitizedClass,
+        active: editingScreen.active ?? true,
+        venue_type_parent: editingScreen.venue_type_parent || null,
+        venue_type_child: editingScreen.venue_type_child || null,
+        venue_type_grandchildren: editingScreen.venue_type_grandchildren || null,
+        specialty: specialties.length > 0 ? specialties : null,
+        lat: editingScreen.lat || null,
+        lng: editingScreen.lng || null,
+      };
       
       const { error } = await supabase
         .from('screens')
@@ -279,7 +287,7 @@ const Inventory = () => {
 
       if (error) throw error;
 
-      const updatedScreen = { ...editingScreen, specialty: specialties };
+      const updatedScreen = { ...editingScreen, specialty: specialties, class: sanitizedClass };
       setScreens(screens.map(screen => 
         screen.id === editingScreen.id ? updatedScreen : screen
       ));
@@ -294,7 +302,18 @@ const Inventory = () => {
       
     } catch (err: unknown) {
       console.error('Error updating screen:', err);
-      const errorMessage = err instanceof Error ? err.message : 'Erro desconhecido';
+      let errorMessage = 'Erro desconhecido';
+      
+      if (err instanceof Error) {
+        errorMessage = err.message;
+        // Check for specific enum error
+        if (err.message.includes('22P02') || err.message.toLowerCase().includes('enum class_band')) {
+          errorMessage = 'Classe inválida. Use A, B, C, D, E ou ND.';
+        }
+      } else if (typeof err === 'object' && err !== null) {
+        errorMessage = (err as any).error_description || (err as any).message || JSON.stringify(err);
+      }
+      
       toast({
         title: "Erro",
         description: `Não foi possível atualizar a tela: ${errorMessage}`,
@@ -320,22 +339,27 @@ const Inventory = () => {
     try {
       const specialties = specialtyText.split(',').map(s => s.trim()).filter(Boolean);
       
-             const insertData = {
-         code: newScreen.code || null,
-         name: newScreen.code || null, // Keep name field for backward compatibility
-         display_name: newScreen.display_name || null,
-         city: newScreen.city || null,
-         state: newScreen.state || null,
-         address_raw: newScreen.address_raw || null,
-         class: newScreen.class as "A" | "B" | "C" | "D" | "E" | "ND",
-         active: newScreen.active ?? true,
-         venue_type_parent: newScreen.venue_type_parent || null,
-         venue_type_child: newScreen.venue_type_child || null,
-         venue_type_grandchildren: newScreen.venue_type_grandchildren || null,
-         specialty: specialties.length > 0 ? specialties : null,
-         lat: newScreen.lat || null,
-         lng: newScreen.lng || null,
-       };
+      // Validate and sanitize class value
+      const sanitizedClass = ALLOWED_CLASSES.includes(newScreen.class as any) 
+        ? newScreen.class 
+        : 'ND';
+      
+      const insertData = {
+        code: newScreen.code || null,
+        name: newScreen.code || null,
+        display_name: newScreen.display_name || null,
+        city: newScreen.city || null,
+        state: newScreen.state || null,
+        address_raw: newScreen.address_raw || null,
+        class: sanitizedClass,
+        active: newScreen.active ?? true,
+        venue_type_parent: newScreen.venue_type_parent || null,
+        venue_type_child: newScreen.venue_type_child || null,
+        venue_type_grandchildren: newScreen.venue_type_grandchildren || null,
+        specialty: specialties.length > 0 ? specialties : null,
+        lat: newScreen.lat || null,
+        lng: newScreen.lng || null,
+      };
       
       // Try using the admin function first, fallback to direct insert
       let data;
@@ -365,7 +389,18 @@ const Inventory = () => {
       
     } catch (err: unknown) {
       console.error('Error adding screen:', err);
-      const errorMessage = err instanceof Error ? err.message : 'Erro desconhecido';
+      let errorMessage = 'Erro desconhecido';
+      
+      if (err instanceof Error) {
+        errorMessage = err.message;
+        // Check for specific enum error
+        if (err.message.includes('22P02') || err.message.toLowerCase().includes('enum class_band')) {
+          errorMessage = 'Classe inválida. Use A, B, C, D, E ou ND.';
+        }
+      } else if (typeof err === 'object' && err !== null) {
+        errorMessage = (err as any).error_description || (err as any).message || JSON.stringify(err);
+      }
+      
       toast({
         title: "Erro",
         description: `Não foi possível adicionar a tela: ${errorMessage}`,
@@ -979,12 +1014,19 @@ const Inventory = () => {
                 
                 <div className="space-y-2">
                   <Label htmlFor="class">Classe</Label>
-                  <Input
-                    id="class"
-                    value={editingScreen.class || ''}
-                    onChange={(e) => updateEditingScreen('class', e.target.value)}
-                    placeholder="Classe da tela"
-                  />
+                  <Select value={editingScreen.class || ''} onValueChange={(value) => updateEditingScreen('class', value)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione a classe" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="A">A</SelectItem>
+                      <SelectItem value="B">B</SelectItem>
+                      <SelectItem value="C">C</SelectItem>
+                      <SelectItem value="D">D</SelectItem>
+                      <SelectItem value="E">E</SelectItem>
+                      <SelectItem value="ND">ND</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

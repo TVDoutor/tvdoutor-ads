@@ -50,7 +50,7 @@ export default function InteractiveMap() {
 
   useEffect(() => {
     applyFilters();
-  }, [applyFilters]);
+  }, [screens, searchTerm, filters]);
 
   const fetchScreens = async () => {
     setLoading(true);
@@ -114,8 +114,8 @@ export default function InteractiveMap() {
       
     } catch (error: unknown) {
       console.error('💥 Erro completo ao buscar telas:', {
-        message: error.message,
-        stack: error.stack,
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : 'No stack',
         error
       });
       
@@ -183,7 +183,7 @@ export default function InteractiveMap() {
     toast.info('Executando diagnóstico...');
     const result = await runSupabaseDebug();
     
-    if (result.success) {
+    if (result && typeof result === 'object' && 'authenticated' in result) {
       toast.success('Diagnóstico concluído! Verifique o console para detalhes.');
     } else {
       toast.error('Problemas encontrados no diagnóstico. Verifique o console.');

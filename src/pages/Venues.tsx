@@ -18,19 +18,25 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
 interface VenueWithScreens {
-  id: number;
-  code: string;
+  id: string;
   name: string;
+  venue_type_parent: string;
+  venue_type_child: string;
+  city: string;
+  state: string;
   screens: {
-    city: string;
-    state: string;
-    cep: string;
+    id: number;
+    code: string;
+    name: string;
+    display_name: string;
     class: string;
-    specialty: string[];
     active: boolean;
+    lat?: number;
+    lng?: number;
   }[];
   screenCount: number;
   activeScreens: number;
+  coordinates: boolean;
 }
 
 const Venues = () => {
@@ -42,12 +48,7 @@ const Venues = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-  // Mock user - será substituído por autenticação real
-  const mockUser = {
-    name: "João Silva",
-    email: "joao@tvdoutorada.com",
-    role: "Admin"
-  };
+
 
   useEffect(() => {
     fetchVenues();
@@ -62,35 +63,76 @@ const Venues = () => {
       setLoading(true);
       setError(null);
 
-      const { data, error } = await supabase.rpc('list_venue_summaries', {
-        search: searchTerm.trim() || null,
-        limit_count: 50,
-        offset_count: 0
-      });
+      console.log('🔍 Buscando pontos de venda do inventário...');
+
+      // Buscar todas as telas do inventário
+      const { data: screensData, error } = await supabase
+        .from('screens')
+        .select(`
+          id, code, name, display_name, city, state, class, active, 
+          venue_type_parent, venue_type_child, venue_type_grandchildren,
+          lat, lng
+        `)
+        .order('display_name');
 
       if (error) {
+        console.error('❌ Erro ao buscar telas:', error);
         throw error;
       }
 
-      const venuesWithStats = data?.map(venue => ({
-        id: venue.venue_id,
-        code: venue.venue_code,
-        name: venue.venue_name,
-        screens: [{
-          city: venue.city,
-          state: venue.state,
-          cep: venue.cep,
-          class: venue.class,
-          specialty: venue.specialty,
-          active: venue.active
-        }],
-        screenCount: venue.screens_count,
-        activeScreens: venue.active ? venue.screens_count : 0
-      })) || [];
+      console.log('✅ Telas encontradas:', screensData?.length || 0);
 
-      setVenues(venuesWithStats);
+      // Agrupar telas por ponto de venda (usando display_name como identificador do venue)
+      const venuesMap = new Map<string, VenueWithScreens>();
+
+      screensData?.forEach(screen => {
+        const venueName = screen.display_name || 'Ponto sem nome';
+        const venueKey = `${venueName}-${screen.city}-${screen.state}`;
+
+        if (!venuesMap.has(venueKey)) {
+          venuesMap.set(venueKey, {
+            id: venueKey,
+            name: venueName,
+            venue_type_parent: screen.venue_type_parent || 'Não informado',
+            venue_type_child: screen.venue_type_child || '',
+            city: screen.city || 'Cidade não informada',
+            state: screen.state || 'Estado não informado',
+            screens: [],
+            screenCount: 0,
+            activeScreens: 0,
+            coordinates: false
+          });
+        }
+
+        const venue = venuesMap.get(venueKey)!;
+        venue.screens.push({
+          id: screen.id,
+          code: screen.code || screen.name || `ID-${screen.id}`,
+          name: screen.name || `ID-${screen.id}`,
+          display_name: screen.display_name || 'Sem nome',
+          class: screen.class || 'ND',
+          active: Boolean(screen.active),
+          lat: screen.lat,
+          lng: screen.lng
+        });
+
+        venue.screenCount++;
+        if (screen.active) {
+          venue.activeScreens++;
+        }
+        if (screen.lat && screen.lng) {
+          venue.coordinates = true;
+        }
+      });
+
+      const venuesArray = Array.from(venuesMap.values())
+        .sort((a, b) => a.name.localeCompare(b.name));
+
+      console.log('✅ Pontos de venda agrupados:', venuesArray.length);
+      setVenues(venuesArray);
+
     } catch (err: any) {
-      console.error('Error fetching venues:', err);
+      console.error('💥 Erro ao buscar pontos de venda:', err);
       setError(err.message);
       
       if (err.message?.includes('JWT') || err.message?.includes('auth')) {
@@ -119,31 +161,25 @@ const Venues = () => {
 
     const filtered = venues.filter(venue =>
       venue.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      venue.code?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      venue.venue_type_parent?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      venue.city?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      venue.state?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       venue.screens.some(screen => 
-        screen.city?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        screen.state?.toLowerCase().includes(searchTerm.toLowerCase())
+        screen.code?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        screen.display_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        screen.class?.toLowerCase().includes(searchTerm.toLowerCase())
       )
     );
 
     setFilteredVenues(filtered);
   };
 
-  const handleViewDetails = (venueId: number) => {
+  const handleViewDetails = (venueId: string) => {
     navigate(`/venues/${venueId}`);
   };
 
-  const getLocationDisplay = (screens: any[]) => {
-    if (!screens.length) return "Localização não informada";
-    
-    const cities = [...new Set(screens.map(s => s.city).filter(Boolean))];
-    const states = [...new Set(screens.map(s => s.state).filter(Boolean))];
-    
-    if (cities.length && states.length) {
-      return `${cities[0]}${cities.length > 1 ? ` (+${cities.length - 1})` : ''}, ${states[0]}`;
-    }
-    
-    return "Localização não informada";
+  const getLocationDisplay = (venue: VenueWithScreens) => {
+    return `${venue.city}, ${venue.state}`;
   };
 
   const getClassDisplay = (screens: any[]) => {
@@ -151,6 +187,13 @@ const Venues = () => {
     
     const classes = [...new Set(screens.map(s => s.class).filter(Boolean))];
     return classes.slice(0, 3); // Show max 3 classes
+  };
+
+  const getVenueTypeDisplay = (venue: VenueWithScreens) => {
+    if (venue.venue_type_parent === 'Não informado') return 'Tipo não informado';
+    return venue.venue_type_child 
+      ? `${venue.venue_type_parent} - ${venue.venue_type_child}`
+      : venue.venue_type_parent;
   };
 
   if (error && !loading) {
@@ -199,7 +242,7 @@ const Venues = () => {
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Buscar por nome, código, cidade ou estado..."
+                  placeholder="Buscar por nome do ponto, tipo, cidade, código de tela..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10"
@@ -275,13 +318,20 @@ const Venues = () => {
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <CardTitle className="text-lg">{venue.name}</CardTitle>
-                      <p className="text-sm text-muted-foreground font-mono">
-                        {venue.code || "Código não informado"}
+                      <p className="text-sm text-muted-foreground">
+                        {getVenueTypeDisplay(venue)}
                       </p>
                     </div>
-                    <Badge variant={venue.activeScreens > 0 ? "default" : "secondary"}>
-                      {venue.activeScreens}/{venue.screenCount} ativas
-                    </Badge>
+                    <div className="text-right">
+                      <Badge variant={venue.activeScreens > 0 ? "default" : "secondary"}>
+                        {venue.activeScreens}/{venue.screenCount} ativas
+                      </Badge>
+                      {venue.coordinates && (
+                        <Badge variant="outline" className="text-xs mt-1">
+                          📍 Com coordenadas
+                        </Badge>
+                      )}
+                    </div>
                   </div>
                 </CardHeader>
                 
@@ -289,7 +339,7 @@ const Venues = () => {
                   <div className="space-y-3">
                     <div className="flex items-center gap-2 text-sm">
                       <MapPin className="h-4 w-4 text-muted-foreground" />
-                      <span>{getLocationDisplay(venue.screens)}</span>
+                      <span>{getLocationDisplay(venue)}</span>
                     </div>
                     
                     {getClassDisplay(venue.screens).length > 0 && (
@@ -302,6 +352,10 @@ const Venues = () => {
                         ))}
                       </div>
                     )}
+
+                    <div className="text-xs text-muted-foreground">
+                      <strong>{venue.screenCount}</strong> {venue.screenCount === 1 ? 'tela' : 'telas'} no inventário
+                    </div>
                     
                     <Button 
                       className="w-full" 
@@ -324,12 +378,12 @@ const Venues = () => {
             <CardContent className="p-12 text-center">
               <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
               <h3 className="text-lg font-semibold mb-2">
-                {searchTerm ? "Nenhum ponto encontrado" : "Nenhum ponto cadastrado"}
+                {searchTerm ? "Nenhum ponto encontrado" : "Nenhuma tela no inventário"}
               </h3>
               <p className="text-muted-foreground">
                 {searchTerm 
                   ? "Tente ajustar os termos da busca."
-                  : "Quando houver pontos de venda cadastrados, eles aparecerão aqui."
+                  : "Os pontos de venda são agrupados automaticamente a partir das telas do inventário."
                 }
               </p>
             </CardContent>

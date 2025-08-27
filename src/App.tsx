@@ -17,6 +17,8 @@ import Login from "./pages/Login";
 import ResetPassword from "./pages/ResetPassword";
 import Venues from "./pages/Venues";
 import VenueDetails from "./pages/VenueDetails";
+import Campaigns from "./pages/Campaigns";
+import CampaignDetails from "./pages/CampaignDetails";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -72,10 +74,13 @@ const App = () => (
             {/* Rotas com controle de acesso por role */}
             <Route path="/campaigns" element={
               <ProtectedRoute requiredRole="Manager">
-                <div className="p-8 text-center">
-                  <h1 className="text-2xl font-bold">Campanhas</h1>
-                  <p className="text-muted-foreground">Página em desenvolvimento</p>
-                </div>
+                <Campaigns />
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/campaigns/:id" element={
+              <ProtectedRoute requiredRole="Manager">
+                <CampaignDetails />
               </ProtectedRoute>
             } />
             

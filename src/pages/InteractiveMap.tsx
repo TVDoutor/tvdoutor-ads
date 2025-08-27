@@ -1,19 +1,23 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { DashboardLayout } from '@/components/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { MapPin, Search, Filter, Zap, ZapOff } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { MapPin, Search, Filter, Zap, ZapOff, AlertCircle, Info } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { runSupabaseDebug } from '@/utils/debugSupabase';
+import mapboxgl from 'mapbox-gl';
+import 'mapbox-gl/dist/mapbox-gl.css';
 
 // Simplified types to avoid type instantiation issues
 interface SimpleScreen {
   id: string;
   name: string;
+  display_name: string;
   city: string;
   state: string;
   lat: number;
@@ -39,18 +43,179 @@ export default function InteractiveMap() {
     class: 'all'
   });
   const [loading, setLoading] = useState(true);
+  const [mapboxToken, setMapboxToken] = useState<string | null>(null);
+  const [mapError, setMapError] = useState<string | null>(null);
+  const [invalidScreensCount, setInvalidScreensCount] = useState(0);
+  const mapContainer = useRef<HTMLDivElement>(null);
+  const map = useRef<mapboxgl.Map | null>(null);
+  const markers = useRef<mapboxgl.Marker[]>([]);
 
   // Available filter options - garantir que não há valores vazios
   const cities = Array.from(new Set(screens.map(s => s.city).filter(city => city && city.trim() !== ''))).sort();
   const classes = Array.from(new Set(screens.map(s => s.class).filter(cls => cls && cls.trim() !== ''))).sort();
 
   useEffect(() => {
+    fetchMapboxToken();
     fetchScreens();
   }, []);
 
   useEffect(() => {
     applyFilters();
   }, [screens, searchTerm, filters]);
+
+  useEffect(() => {
+    if (mapboxToken && !map.current && mapContainer.current) {
+      initializeMap();
+    }
+  }, [mapboxToken]);
+
+  useEffect(() => {
+    if (map.current) {
+      updateMapMarkers();
+    }
+  }, [filteredScreens]);
+
+  const fetchMapboxToken = async () => {
+    try {
+      console.log('🗺️ Buscando token do Mapbox...');
+      
+      const { data, error } = await supabase.functions.invoke('mapbox-token');
+      
+      if (error) {
+        console.error('❌ Erro ao buscar token do Mapbox:', error);
+        setMapError('Erro ao configurar mapa. Verifique as configurações.');
+        return;
+      }
+
+      if (data?.error) {
+        console.error('❌ Erro na resposta do token:', data.error);
+        setMapError(data.message || 'Token do Mapbox não configurado');
+        return;
+      }
+
+      if (data?.token) {
+        console.log('✅ Token do Mapbox obtido com sucesso');
+        setMapboxToken(data.token);
+        setMapError(null);
+      } else {
+        setMapError('Token do Mapbox não encontrado na resposta');
+      }
+    } catch (error) {
+      console.error('💥 Erro ao buscar token do Mapbox:', error);
+      setMapError('Erro de conexão ao buscar token do mapa');
+    }
+  };
+
+  const initializeMap = () => {
+    if (!mapboxToken || !mapContainer.current || map.current) return;
+
+    console.log('🗺️ Inicializando mapa Mapbox...');
+    
+    mapboxgl.accessToken = mapboxToken;
+    
+    map.current = new mapboxgl.Map({
+      container: mapContainer.current,
+      style: 'mapbox://styles/mapbox/light-v11',
+      center: [-46.6333, -23.5505], // São Paulo como centro padrão
+      zoom: 10
+    });
+
+    map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
+    map.current.addControl(new mapboxgl.FullscreenControl(), 'top-right');
+
+    map.current.on('load', () => {
+      console.log('✅ Mapa carregado com sucesso');
+      updateMapMarkers();
+    });
+  };
+
+  const updateMapMarkers = () => {
+    if (!map.current) return;
+
+    // Limpar marcadores existentes
+    markers.current.forEach(marker => marker.remove());
+    markers.current = [];
+
+    if (filteredScreens.length === 0) return;
+
+    // Adicionar novos marcadores
+    filteredScreens.forEach(screen => {
+      if (!screen.lat || !screen.lng) return;
+
+      // Criar elemento customizado para o marcador
+      const el = document.createElement('div');
+      el.className = 'custom-marker';
+      el.style.cssText = `
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        background-color: ${screen.active ? '#10B981' : '#6B7280'};
+        border: 3px solid white;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+        font-weight: bold;
+        color: white;
+      `;
+      el.textContent = screen.class.charAt(0).toUpperCase();
+
+      // Criar popup
+      const popup = new mapboxgl.Popup({
+        offset: 25,
+        closeButton: true,
+        closeOnClick: false
+      }).setHTML(`
+        <div class="p-3 min-w-[200px]">
+          <h3 class="font-bold text-sm mb-2">${screen.display_name}</h3>
+          <div class="space-y-1 text-xs">
+            <div><strong>Código:</strong> ${screen.name}</div>
+            <div><strong>Localização:</strong> ${screen.city}, ${screen.state}</div>
+            <div><strong>Classe:</strong> ${screen.class}</div>
+            <div><strong>Status:</strong> 
+              <span class="px-2 py-1 rounded text-xs ${screen.active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}">
+                ${screen.active ? 'Ativo' : 'Inativo'}
+              </span>
+            </div>
+            <div><strong>Coordenadas:</strong> ${screen.lat.toFixed(6)}, ${screen.lng.toFixed(6)}</div>
+          </div>
+        </div>
+      `);
+
+      // Criar marcador
+      const marker = new mapboxgl.Marker(el)
+        .setLngLat([screen.lng, screen.lat])
+        .setPopup(popup)
+        .addTo(map.current!);
+
+      // Adicionar evento de clique
+      el.addEventListener('click', () => {
+        setSelectedScreen(screen);
+        marker.togglePopup();
+      });
+
+      markers.current.push(marker);
+    });
+
+    // Ajustar zoom para mostrar todos os marcadores
+    if (filteredScreens.length > 0) {
+      const bounds = new mapboxgl.LngLatBounds();
+      filteredScreens.forEach(screen => {
+        if (screen.lat && screen.lng) {
+          bounds.extend([screen.lng, screen.lat]);
+        }
+      });
+      
+      if (!bounds.isEmpty()) {
+        map.current.fitBounds(bounds, {
+          padding: 50,
+          maxZoom: 15
+        });
+      }
+    }
+  };
 
   const fetchScreens = async () => {
     setLoading(true);
@@ -70,10 +235,22 @@ export default function InteractiveMap() {
       
       console.log('✅ Conexão com Supabase OK');
 
-      // Agora buscar as telas
+      // Primeiro buscar todas as telas para contar inválidas
+      const { data: allScreens, error: allError } = await supabase
+        .from('screens')
+        .select('id, lat, lng');
+
+      if (allError) {
+        console.error('❌ Erro ao buscar contagem de telas:', allError);
+      } else {
+        const invalidCount = allScreens?.filter(s => !s.lat || !s.lng).length || 0;
+        setInvalidScreensCount(invalidCount);
+      }
+
+      // Agora buscar as telas válidas
       const { data, error } = await supabase
         .from('screens')
-        .select('id, name, city, state, lat, lng, active, class')
+        .select('id, name, display_name, city, state, lat, lng, active, class')
         .not('lat', 'is', null)
         .not('lng', 'is', null);
 
@@ -96,7 +273,8 @@ export default function InteractiveMap() {
 
       const mappedScreens: SimpleScreen[] = data.map(screen => ({
         id: String(screen.id),
-        name: screen.name || 'Tela sem nome',
+        name: screen.name || 'Código não informado',
+        display_name: screen.display_name || 'Nome não informado',
         city: screen.city || 'Cidade não informada',
         state: screen.state || 'Estado não informado',
         lat: Number(screen.lat) || 0,
@@ -145,6 +323,7 @@ export default function InteractiveMap() {
     if (searchTerm.trim()) {
       filtered = filtered.filter(screen =>
         screen.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        screen.display_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         screen.city.toLowerCase().includes(searchTerm.toLowerCase()) ||
         screen.state.toLowerCase().includes(searchTerm.toLowerCase())
       );
@@ -222,6 +401,37 @@ export default function InteractiveMap() {
           )}
         </div>
 
+        {/* Invalid screens alert */}
+        {invalidScreensCount > 0 && (
+          <Alert className="border-yellow-200 bg-yellow-50">
+            <AlertCircle className="h-4 w-4 text-yellow-600" />
+            <AlertDescription className="text-yellow-800">
+              <strong>{invalidScreensCount} telas</strong> não possuem coordenadas válidas e não aparecem no mapa.
+              Verifique os dados de latitude e longitude.
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {/* Mapbox token error */}
+        {mapError && (
+          <Alert className="border-red-200 bg-red-50">
+            <AlertCircle className="h-4 w-4 text-red-600" />
+            <AlertDescription className="text-red-800">
+              <strong>Erro no mapa:</strong> {mapError}
+              {mapError.includes('não configurado') && (
+                <div className="mt-2 text-sm">
+                  Para configurar o token do Mapbox:
+                  <ol className="list-decimal list-inside mt-1 space-y-1">
+                    <li>Acesse o painel do Supabase</li>
+                    <li>Vá em Edge Functions → Secrets</li>
+                    <li>Adicione MAPBOX_PUBLIC_TOKEN com seu token público</li>
+                  </ol>
+                </div>
+              )}
+            </AlertDescription>
+          </Alert>
+        )}
+
         {/* Filters */}
         <Card>
           <CardHeader>
@@ -237,7 +447,7 @@ export default function InteractiveMap() {
                 <div className="relative">
                   <Search className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
                   <Input
-                    placeholder="Nome, cidade..."
+                    placeholder="Código, nome, cidade..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="pl-10"
@@ -314,25 +524,48 @@ export default function InteractiveMap() {
           {/* Map Area */}
           <div className="lg:col-span-2">
             <Card className="h-[600px]">
-              <CardHeader>
+              <CardHeader className="pb-3">
                 <CardTitle className="flex items-center gap-2">
                   <MapPin className="w-5 h-5" />
                   Mapa das Telas
+                  {filteredScreens.length > 0 && (
+                    <Badge variant="secondary" className="ml-2">
+                      {filteredScreens.length} marcadores
+                    </Badge>
+                  )}
                 </CardTitle>
                 <CardDescription>
-                  Mapa interativo será implementado em breve
+                  Clique nos marcadores para ver detalhes das telas
                 </CardDescription>
               </CardHeader>
-              <CardContent className="h-full">
-                <div className="w-full h-full bg-muted/20 rounded-lg flex items-center justify-center">
-                  <div className="text-center">
-                    <MapPin className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-                    <p className="text-lg font-medium text-muted-foreground">Mapa em desenvolvimento</p>
-                    <p className="text-sm text-muted-foreground mt-2">
-                      Integração com mapas será adicionada em breve
-                    </p>
+              <CardContent className="h-[calc(100%-120px)] p-0">
+                {mapError ? (
+                  <div className="w-full h-full bg-muted/20 rounded-lg flex items-center justify-center m-4">
+                    <div className="text-center p-6">
+                      <AlertCircle className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+                      <p className="text-lg font-medium text-muted-foreground">Mapa indisponível</p>
+                      <p className="text-sm text-muted-foreground mt-2 max-w-sm">
+                        {mapError}
+                      </p>
+                    </div>
                   </div>
-                </div>
+                ) : !mapboxToken ? (
+                  <div className="w-full h-full bg-muted/20 rounded-lg flex items-center justify-center m-4">
+                    <div className="text-center p-6">
+                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+                      <p className="text-lg font-medium text-muted-foreground">Carregando mapa...</p>
+                      <p className="text-sm text-muted-foreground mt-2">
+                        Configurando token de acesso
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div 
+                    ref={mapContainer} 
+                    className="w-full h-full rounded-lg"
+                    style={{ minHeight: '400px' }}
+                  />
+                )}
               </CardContent>
             </Card>
           </div>
@@ -365,9 +598,9 @@ export default function InteractiveMap() {
                           <ZapOff className="w-4 h-4 text-muted-foreground" />
                         )}
                         <div>
-                          <p className="font-medium text-sm">{screen.name}</p>
+                          <p className="font-medium text-sm">{screen.display_name}</p>
                           <p className="text-xs text-muted-foreground">
-                            {screen.city}, {screen.state}
+                            {screen.name} • {screen.city}, {screen.state}
                           </p>
                         </div>
                       </div>
@@ -393,8 +626,12 @@ export default function InteractiveMap() {
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <div>
-                    <label className="text-sm font-medium text-muted-foreground">Nome</label>
+                    <label className="text-sm font-medium text-muted-foreground">Código</label>
                     <p className="font-medium">{selectedScreen.name}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">Nome</label>
+                    <p className="font-medium">{selectedScreen.display_name}</p>
                   </div>
                   <div>
                     <label className="text-sm font-medium text-muted-foreground">Localização</label>

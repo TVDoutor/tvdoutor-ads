@@ -21,40 +21,30 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
 interface VenueDetail {
-  id: number;
-  code: string;
+  id: string;
   name: string;
-  country: string;
+  venue_type_parent: string;
+  venue_type_child: string;
+  city: string;
   state: string;
-  district: string;
-  lat: number;
-  lng: number;
-  created_at: string;
-  updated_at: string;
   screens: {
     id: number;
     code: string;
     name: string;
     display_name: string;
-    city: string;
-    state: string;
-    cep: string;
     class: string;
-    specialty: string[];
     active: boolean;
-    lat: number;
-    lng: number;
-    facing: string;
-    screen_facing: string;
-    screen_start_time: string;
-    screen_end_time: string;
-    asset_url: string;
+    lat?: number;
+    lng?: number;
     venue_type_parent: string;
     venue_type_child: string;
     venue_type_grandchildren: string;
-    created_at: string;
-    updated_at: string;
+    specialty: string[];
+    address_raw: string;
   }[];
+  screenCount: number;
+  activeScreens: number;
+  coordinates: boolean;
 }
 
 const VenueDetails = () => {
@@ -65,12 +55,7 @@ const VenueDetails = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Mock user - será substituído por autenticação real
-  const mockUser = {
-    name: "João Silva",
-    email: "joao@tvdoutorada.com",
-    role: "Admin"
-  };
+
 
   useEffect(() => {
     if (id) {
@@ -83,17 +68,69 @@ const VenueDetails = () => {
       setLoading(true);
       setError(null);
 
-      const { data, error } = await supabase.rpc('get_venue_details', {
-        venue_id_in: parseInt(id!)
-      });
+      console.log('🔍 Buscando detalhes do ponto:', id);
+
+      if (!id) {
+        throw new Error('ID do ponto não fornecido');
+      }
+
+      // Extrair o nome do venue do ID (formato: "nome-cidade-estado")
+      const venueName = id.split('-')[0];
+      
+      // Buscar todas as telas que pertencem a este venue
+      const { data: screensData, error } = await supabase
+        .from('screens')
+        .select(`
+          id, code, name, display_name, city, state, class, active,
+          venue_type_parent, venue_type_child, venue_type_grandchildren,
+          lat, lng, specialty, address_raw
+        `)
+        .ilike('display_name', `%${venueName}%`)
+        .order('name');
 
       if (error) {
+        console.error('❌ Erro ao buscar telas:', error);
         throw error;
       }
 
-      setVenue(data as unknown as VenueDetail);
+      if (!screensData || screensData.length === 0) {
+        throw new Error('Ponto de venda não encontrado');
+      }
+
+      console.log('✅ Telas encontradas:', screensData.length);
+
+      // Construir objeto do venue
+      const firstScreen = screensData[0];
+      const venueDetail: VenueDetail = {
+        id: id,
+        name: firstScreen.display_name || 'Ponto sem nome',
+        venue_type_parent: firstScreen.venue_type_parent || 'Não informado',
+        venue_type_child: firstScreen.venue_type_child || '',
+        city: firstScreen.city || 'Cidade não informada',
+        state: firstScreen.state || 'Estado não informado',
+        screens: screensData.map(screen => ({
+          id: screen.id,
+          code: screen.code || screen.name || `ID-${screen.id}`,
+          name: screen.name || `ID-${screen.id}`,
+          display_name: screen.display_name || 'Sem nome',
+          class: screen.class || 'ND',
+          active: Boolean(screen.active),
+          lat: screen.lat,
+          lng: screen.lng,
+          venue_type_parent: screen.venue_type_parent || 'Não informado',
+          venue_type_child: screen.venue_type_child || '',
+          venue_type_grandchildren: screen.venue_type_grandchildren || '',
+          specialty: screen.specialty || [],
+          address_raw: screen.address_raw || ''
+        })),
+        screenCount: screensData.length,
+        activeScreens: screensData.filter(s => s.active).length,
+        coordinates: screensData.some(s => s.lat && s.lng)
+      };
+
+      setVenue(venueDetail);
     } catch (err: any) {
-      console.error('Error fetching venue details:', err);
+      console.error('💥 Erro ao buscar detalhes do ponto:', err);
       setError(err.message);
       
       if (err.message?.includes('JWT') || err.message?.includes('auth')) {
@@ -118,15 +155,7 @@ const VenueDetails = () => {
     navigate('/venues');
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('pt-BR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
+
 
   if (error && !loading) {
     return (
@@ -176,8 +205,8 @@ const VenueDetails = () => {
                   <Building2 className="h-6 w-6 text-primary" />
                   {venue?.name || "Ponto de Venda"}
                 </h1>
-                <p className="text-muted-foreground font-mono">
-                  {venue?.code || "Código não informado"}
+                <p className="text-muted-foreground">
+                  {venue?.venue_type_parent}{venue?.venue_type_child ? ` - ${venue.venue_type_child}` : ''}
                 </p>
               </div>
             )}
@@ -260,41 +289,33 @@ const VenueDetails = () => {
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="text-sm font-medium text-muted-foreground">Nome</label>
+                    <label className="text-sm font-medium text-muted-foreground">Nome do Ponto</label>
                     <p className="text-sm">{venue.name || "Não informado"}</p>
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-muted-foreground">Código</label>
-                    <p className="text-sm font-mono">{venue.code || "Não informado"}</p>
+                    <label className="text-sm font-medium text-muted-foreground">Tipo Principal</label>
+                    <p className="text-sm">{venue.venue_type_parent || "Não informado"}</p>
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-muted-foreground">País</label>
-                    <p className="text-sm">{venue.country || "Não informado"}</p>
+                    <label className="text-sm font-medium text-muted-foreground">Subtipo</label>
+                    <p className="text-sm">{venue.venue_type_child || "Não informado"}</p>
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-muted-foreground">Estado</label>
-                    <p className="text-sm">{venue.state || "Não informado"}</p>
+                    <label className="text-sm font-medium text-muted-foreground">Localização</label>
+                    <p className="text-sm">{venue.city}, {venue.state}</p>
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-muted-foreground">Cidade/Distrito</label>
-                    <p className="text-sm">{venue.district || "Não informado"}</p>
+                    <label className="text-sm font-medium text-muted-foreground">Total de Telas</label>
+                    <p className="text-sm">{venue.screenCount}</p>
                   </div>
                   <div>
                     <label className="text-sm font-medium text-muted-foreground">Coordenadas</label>
                     <p className="text-sm">
-                      {venue.lat && venue.lng 
-                        ? `${venue.lat.toFixed(6)}, ${venue.lng.toFixed(6)}`
-                        : "Não informado"
+                      {venue.coordinates 
+                        ? "✅ Algumas telas possuem coordenadas"
+                        : "❌ Nenhuma tela possui coordenadas"
                       }
                     </p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-muted-foreground">Criado em</label>
-                    <p className="text-sm">{formatDate(venue.created_at)}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-muted-foreground">Atualizado em</label>
-                    <p className="text-sm">{formatDate(venue.updated_at)}</p>
                   </div>
                 </div>
               </CardContent>
@@ -330,38 +351,33 @@ const VenueDetails = () => {
                           
                           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 text-sm">
                             <div>
-                              <span className="text-muted-foreground">Localização:</span>
-                              <p>{screen.city || "N/A"}, {screen.state || "N/A"}</p>
-                            </div>
-                            <div>
-                              <span className="text-muted-foreground">CEP:</span>
-                              <p>{screen.cep || "N/A"}</p>
+                              <span className="text-muted-foreground">Código:</span>
+                              <p className="font-mono">{screen.code}</p>
                             </div>
                             <div>
                               <span className="text-muted-foreground">Classe:</span>
-                              <p>{screen.class || "N/A"}</p>
+                              <p>{screen.class}</p>
                             </div>
                             <div>
-                              <span className="text-muted-foreground">Direcionamento:</span>
-                              <p>{screen.facing || "N/A"}</p>
+                              <span className="text-muted-foreground">Tipo Principal:</span>
+                              <p>{screen.venue_type_parent}</p>
                             </div>
                             <div>
-                              <span className="text-muted-foreground">Horário:</span>
-                              <p>
-                                {screen.screen_start_time && screen.screen_end_time
-                                  ? `${screen.screen_start_time} - ${screen.screen_end_time}`
-                                  : "N/A"
-                                }
-                              </p>
+                              <span className="text-muted-foreground">Subtipo:</span>
+                              <p>{screen.venue_type_child || "N/A"}</p>
                             </div>
                             <div>
                               <span className="text-muted-foreground">Coordenadas:</span>
                               <p>
                                 {screen.lat && screen.lng 
-                                  ? `${screen.lat.toFixed(4)}, ${screen.lng.toFixed(4)}`
-                                  : "N/A"
+                                  ? `${screen.lat.toFixed(6)}, ${screen.lng.toFixed(6)}`
+                                  : "❌ Não informado"
                                 }
                               </p>
+                            </div>
+                            <div>
+                              <span className="text-muted-foreground">Endereço:</span>
+                              <p>{screen.address_raw || "N/A"}</p>
                             </div>
                           </div>
                           

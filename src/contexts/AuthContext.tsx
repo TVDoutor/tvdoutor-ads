@@ -65,6 +65,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   const fetchUserProfile = async (userId: string): Promise<UserProfile | null> => {
     try {
+      console.log('🔍 Buscando perfil do usuário:', userId);
+      
       // Timeout para evitar requests eternos
       const profilePromise = supabase
         .from('profiles')
@@ -75,9 +77,9 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       const rolesPromise = supabase
         .rpc('get_user_role', { _user_id: userId });
 
-      // Timeout de 5 segundos para as consultas
+      // Timeout de 10 segundos para as consultas (aumentado)
       const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Profile fetch timeout')), 5000);
+        setTimeout(() => reject(new Error('Profile fetch timeout')), 10000);
       });
 
       const [profileResult, rolesResult] = await Promise.race([
@@ -87,20 +89,34 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
       const { data: profileData, error: profileError } = profileResult;
       const { data: roleData, error: rolesError } = rolesResult;
+      
+      console.log('📊 Resultado da busca do perfil:', { 
+        profileData, 
+        profileError, 
+        roleData, 
+        rolesError 
+      });
 
       // Se não conseguir buscar o perfil, criar um perfil básico
       if (profileError) {
-        console.error('Error fetching profile:', profileError);
+        console.error('❌ Erro ao buscar perfil:', profileError);
         
         // Mesmo se o perfil falhar, tente obter o role
         let fallbackRole: UserRole = 'User';
         if (roleData && !rolesError) {
           fallbackRole = mapDatabaseRoleToUserRole(roleData);
+          console.log('✅ Role obtido via RPC:', roleData, '-> mapeado para:', fallbackRole);
         }
         
         // Tentar obter informações básicas do usuário autenticado
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
+          // Se o email for do hildebrando, forçar role Admin
+          if (user.email === 'hildebrando.cardoso@tvdoutor.com.br') {
+            console.log('🔧 Forçando role Admin para hildebrando.cardoso@tvdoutor.com.br');
+            fallbackRole = 'Admin';
+          }
+          
           return {
             id: user.id,
             name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'Usuário',
@@ -122,9 +138,24 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       // Verificar primeiro se é super admin (campo booleano)
       if (profileData.super_admin === true) {
         userRole = 'Admin';
+        console.log('✅ Usuário identificado como super_admin via campo booleano');
       } else if (roleData && !rolesError) {
         userRole = mapDatabaseRoleToUserRole(roleData);
+        console.log('✅ Role mapeado via RPC:', roleData, '-> frontend:', userRole);
       }
+      
+      // Fallback especial para hildebrando
+      if (profileData.email === 'hildebrando.cardoso@tvdoutor.com.br' && userRole !== 'Admin') {
+        console.log('🔧 Forçando role Admin para hildebrando.cardoso@tvdoutor.com.br (fallback)');
+        userRole = 'Admin';
+      }
+
+      console.log('🎯 Perfil final do usuário:', {
+        id: profileData.id,
+        email: profileData.email,
+        role: userRole,
+        super_admin: profileData.super_admin
+      });
 
       return {
         id: profileData.id,

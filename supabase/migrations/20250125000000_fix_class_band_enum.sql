@@ -32,6 +32,10 @@ CREATE TYPE public.class_band AS ENUM (
 DO $$
 BEGIN
     IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'screens' AND table_schema = 'public') THEN
+        -- Remove default first
+        ALTER TABLE public.screens ALTER COLUMN class DROP DEFAULT;
+        
+        -- Change type
         ALTER TABLE public.screens ALTER COLUMN class TYPE class_band USING class::class_band;
 
         -- Set default value for the enum

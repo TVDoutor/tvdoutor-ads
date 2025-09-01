@@ -1,4 +1,4 @@
-import { Monitor, Menu, Bell, User, LogOut } from "lucide-react";
+import { Monitor, Menu, User, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -27,6 +27,14 @@ export const Header = ({ onMenuClick }: HeaderProps) => {
 
   const handleLogin = () => {
     navigate('/login');
+  };
+
+  const handleProfile = () => {
+    navigate('/profile');
+  };
+
+  const handleSettings = () => {
+    navigate('/settings');
   };
   return (
     <header className="bg-card border-b border-border sticky top-0 z-50 backdrop-blur-sm bg-card/95">
@@ -61,17 +69,6 @@ export const Header = ({ onMenuClick }: HeaderProps) => {
 
         {/* Actions */}
         <div className="flex items-center gap-3">
-          {/* Notifications */}
-          <Button variant="ghost" size="icon" className="relative">
-            <Bell className="h-5 w-5" />
-            <Badge
-              variant="destructive"
-              className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 text-xs"
-            >
-              3
-            </Badge>
-          </Button>
-
           {/* User Menu */}
           {profile ? (
             <DropdownMenu>
@@ -95,11 +92,11 @@ export const Header = ({ onMenuClick }: HeaderProps) => {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuItem>
+                <DropdownMenuItem onClick={handleProfile}>
                   <User className="mr-2 h-4 w-4" />
                   Meu Perfil
                 </DropdownMenuItem>
-                <DropdownMenuItem>
+                <DropdownMenuItem onClick={handleSettings}>
                   <Monitor className="mr-2 h-4 w-4" />
                   Configurações
                 </DropdownMenuItem>

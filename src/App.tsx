@@ -11,6 +11,7 @@ import NewProposal from "./pages/NewProposal";
 import InteractiveMap from "./pages/InteractiveMap";
 import Inventory from "./pages/Inventory";
 import Settings from "./pages/Settings";
+import Profile from "./pages/Profile";
 import Users from "./pages/Users";
 import Reports from "./pages/Reports";
 import Login from "./pages/Login";
@@ -68,6 +69,12 @@ const App = () => (
             <Route path="/settings" element={
               <ProtectedRoute>
                 <Settings />
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/profile" element={
+              <ProtectedRoute>
+                <Profile />
               </ProtectedRoute>
             } />
             

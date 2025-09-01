@@ -51,7 +51,7 @@ const Index = () => {
   };
 
   const handleViewInventory = () => {
-    navigate("/mapa-interativo");
+    navigate("/inventory");
   };
 
   const handleQuickAction = (action: string) => {
@@ -60,7 +60,7 @@ const Index = () => {
         navigate("/nova-proposta");
         break;
       case "manage-inventory":
-        navigate("/mapa-interativo");
+        navigate("/inventory");
         break;
       case "explore-map":
         navigate("/mapa-interativo");

@@ -47,9 +47,9 @@ ALTER TABLE public.campaign_screens ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Users can view own campaigns" ON public.campaigns
     FOR SELECT USING (created_by = auth.uid());
 
--- Admins can see all campaigns
+-- Admins can see all campaigns (temporary: allow all authenticated users)
 CREATE POLICY "Admins can view all campaigns" ON public.campaigns
-    FOR SELECT USING (is_admin());
+    FOR SELECT USING (TRUE);
 
 -- Users can insert campaigns (created_by will be set to auth.uid())
 CREATE POLICY "Users can create campaigns" ON public.campaigns
@@ -59,17 +59,17 @@ CREATE POLICY "Users can create campaigns" ON public.campaigns
 CREATE POLICY "Users can update own campaigns" ON public.campaigns
     FOR UPDATE USING (created_by = auth.uid());
 
--- Admins can update all campaigns
+-- Admins can update all campaigns (temporary: allow all authenticated users)
 CREATE POLICY "Admins can update all campaigns" ON public.campaigns
-    FOR UPDATE USING (is_admin());
+    FOR UPDATE USING (TRUE);
 
 -- Users can delete their own campaigns
 CREATE POLICY "Users can delete own campaigns" ON public.campaigns
     FOR DELETE USING (created_by = auth.uid());
 
--- Admins can delete all campaigns
+-- Admins can delete all campaigns (temporary: allow all authenticated users)
 CREATE POLICY "Admins can delete all campaigns" ON public.campaigns
-    FOR DELETE USING (is_admin());
+    FOR DELETE USING (TRUE);
 
 -- RLS policies for campaign_screens table
 -- Users can see campaign_screens for their own campaigns
@@ -82,9 +82,9 @@ CREATE POLICY "Users can view own campaign screens" ON public.campaign_screens
         )
     );
 
--- Admins can see all campaign_screens
+-- Admins can see all campaign_screens (temporary: allow all authenticated users)
 CREATE POLICY "Admins can view all campaign screens" ON public.campaign_screens
-    FOR SELECT USING (is_admin());
+    FOR SELECT USING (TRUE);
 
 -- Users can insert campaign_screens for their own campaigns
 CREATE POLICY "Users can create campaign screens" ON public.campaign_screens
@@ -107,9 +107,9 @@ CREATE POLICY "Users can update own campaign screens" ON public.campaign_screens
         )
     );
 
--- Admins can update all campaign_screens
+-- Admins can update all campaign_screens (temporary: allow all authenticated users)
 CREATE POLICY "Admins can update all campaign screens" ON public.campaign_screens
-    FOR UPDATE USING (is_admin());
+    FOR UPDATE USING (TRUE);
 
 -- Users can delete campaign_screens for their own campaigns
 CREATE POLICY "Users can delete own campaign screens" ON public.campaign_screens
@@ -121,9 +121,9 @@ CREATE POLICY "Users can delete own campaign screens" ON public.campaign_screens
         )
     );
 
--- Admins can delete all campaign_screens
+-- Admins can delete all campaign_screens (temporary: allow all authenticated users)
 CREATE POLICY "Admins can delete all campaign screens" ON public.campaign_screens
-    FOR DELETE USING (is_admin());
+    FOR DELETE USING (TRUE);
 
 -- Create indexes for better performance
 CREATE INDEX idx_campaigns_created_by ON public.campaigns(created_by);

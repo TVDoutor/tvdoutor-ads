@@ -52,7 +52,11 @@ export default function InteractiveMap() {
 
   // Available filter options - garantir que não há valores vazios
   const cities = Array.from(new Set(screens.map(s => s.city).filter(city => city && city.trim() !== ''))).sort();
-  const classes = Array.from(new Set(screens.map(s => s.class).filter(cls => cls && cls.trim() !== ''))).sort();
+  
+  // Mostrar todas as classes possíveis do enum, não apenas as que existem no banco
+  const allPossibleClasses = ['A', 'AB', 'B', 'C', 'D', 'ND'];
+  const existingClasses = Array.from(new Set(screens.map(s => s.class).filter(cls => cls && cls.trim() !== ''))).sort();
+  const classes = allPossibleClasses; // Mostrar todas as classes possíveis
 
   useEffect(() => {
     fetchMapboxToken();
@@ -396,7 +400,9 @@ export default function InteractiveMap() {
             <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs text-yellow-800">
               <strong>Debug:</strong> {screens.length} telas carregadas | 
               Estado: {loading ? 'Carregando...' : 'Pronto'} |
-              Filtradas: {filteredScreens.length}
+              Filtradas: {filteredScreens.length} |
+              Classes no banco: {existingClasses.join(', ')} |
+              Classes disponíveis no filtro: {classes.join(', ')}
             </div>
           )}
         </div>
@@ -492,11 +498,21 @@ export default function InteractiveMap() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Todas as classes</SelectItem>
-                    {classes.map(cls => (
-                      <SelectItem key={cls} value={cls}>{cls}</SelectItem>
-                    ))}
+                    {classes.map(cls => {
+                      const hasScreens = existingClasses.includes(cls);
+                      return (
+                        <SelectItem key={cls} value={cls}>
+                          {cls} {!hasScreens && '(sem telas)'}
+                        </SelectItem>
+                      );
+                    })}
                   </SelectContent>
                 </Select>
+                {existingClasses.length < allPossibleClasses.length && (
+                  <p className="text-xs text-muted-foreground">
+                    💡 Algumas classes não possuem telas cadastradas no momento
+                  </p>
+                )}
               </div>
             </div>
 

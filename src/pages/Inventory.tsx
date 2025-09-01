@@ -248,17 +248,52 @@ const Inventory = () => {
       });
       return;
     }
+    
+    console.log('🔧 Opening edit modal for screen:', {
+      id: screen.id,
+      idType: typeof screen.id,
+      name: screen.name,
+      display_name: screen.display_name
+    });
+    
     setEditingScreen({ ...screen });
     setSpecialtyText(screen.specialty ? screen.specialty.join(', ') : '');
     setEditModalOpen(true);
   };
 
   const handleSaveEdit = async () => {
-    if (!editingScreen || (!isAdmin() && !isManager())) return;
+    if (!editingScreen) return;
+
+    // Validate that we have a valid screen ID
+    if (!editingScreen.id || typeof editingScreen.id !== 'number') {
+      console.error('❌ Invalid screen ID:', editingScreen.id);
+      toast({
+        title: "Erro",
+        description: "ID da tela inválido. Tente recarregar a página.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     setSaving(true);
     
     try {
+      console.log('🔄 Attempting to update screen with ID:', editingScreen.id, 'Type:', typeof editingScreen.id);
+      
+      // Check user's database role before attempting update
+      const { data: dbRole, error: roleError } = await supabase
+        .rpc('get_user_role', { _user_id: user?.id });
+
+      // Check if user has permission to edit (admin or super_admin in database)
+      if (!dbRole || (dbRole !== 'admin' && dbRole !== 'super_admin')) {
+        toast({
+          title: "Acesso Negado",
+          description: "Você não tem permissão para editar telas. Verifique suas permissões com o administrador.",
+          variant: "destructive",
+        });
+        return;
+      }
+
       const specialties = specialtyText.split(',').map(s => s.trim()).filter(Boolean);
             // Validate and sanitize class value
       const sanitizedClass = ALLOWED_CLASSES.includes(editingScreen.class as any) 
@@ -282,12 +317,17 @@ const Inventory = () => {
         lng: editingScreen.lng || null,
       };
       
+      console.log('📝 Update data:', updateData);
+      
       const { error } = await supabase
         .from('screens')
         .update(updateData)
         .eq('id', editingScreen.id);
 
-      if (error) throw error;
+      if (error) {
+        console.error('🚫 Database update error:', error);
+        throw error;
+      }
 
       const updatedScreen = { ...editingScreen, specialty: specialties, class: sanitizedClass };
       setScreens(screens.map(screen => 

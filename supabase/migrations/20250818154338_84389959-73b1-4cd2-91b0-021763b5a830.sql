@@ -1,7 +1,12 @@
 -- SECURITY FIXES: Address privilege escalation and data exposure vulnerabilities
 
 -- 1. Create robust role model
-CREATE TYPE public.app_role AS ENUM ('super_admin', 'admin', 'user');
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'app_role') THEN
+        CREATE TYPE public.app_role AS ENUM ('super_admin', 'admin', 'user');
+    END IF;
+END $$;
 
 CREATE TABLE public.user_roles (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -101,53 +106,84 @@ CREATE POLICY "Only super admins can manage roles"
     USING (is_super_admin())
     WITH CHECK (is_super_admin());
 
--- 7. Enable RLS on exposed tables and add proper policies
-ALTER TABLE public.stg_billboard_data ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.stg_billboard_enriched ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.stg_ponto ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.venue_audience_monthly ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.price_rules_dups_backup ENABLE ROW LEVEL SECURITY;
+-- 7. Enable RLS on exposed tables and add proper policies (only if tables exist)
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'stg_billboard_data' AND table_schema = 'public') THEN
+        ALTER TABLE public.stg_billboard_data ENABLE ROW LEVEL SECURITY;
+    END IF;
+    
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'stg_billboard_enriched' AND table_schema = 'public') THEN
+        ALTER TABLE public.stg_billboard_enriched ENABLE ROW LEVEL SECURITY;
+    END IF;
+    
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'stg_ponto' AND table_schema = 'public') THEN
+        ALTER TABLE public.stg_ponto ENABLE ROW LEVEL SECURITY;
+    END IF;
+    
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'venue_audience_monthly' AND table_schema = 'public') THEN
+        ALTER TABLE public.venue_audience_monthly ENABLE ROW LEVEL SECURITY;
+    END IF;
+    
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'price_rules_dups_backup' AND table_schema = 'public') THEN
+        ALTER TABLE public.price_rules_dups_backup ENABLE ROW LEVEL SECURITY;
+    END IF;
+END $$;
 
--- Only admins can access staging/backup tables
-CREATE POLICY "Admin access only - stg_billboard_data"
-    ON public.stg_billboard_data
-    FOR ALL
-    TO authenticated
-    USING (is_admin())
-    WITH CHECK (is_admin());
+-- Only admins can access staging/backup tables (only create policies if tables exist)
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'stg_billboard_data' AND table_schema = 'public') THEN
+        CREATE POLICY "Admin access only - stg_billboard_data"
+            ON public.stg_billboard_data
+            FOR ALL
+            TO authenticated
+            USING (is_admin())
+            WITH CHECK (is_admin());
+    END IF;
 
-CREATE POLICY "Admin access only - stg_billboard_enriched"
-    ON public.stg_billboard_enriched
-    FOR ALL
-    TO authenticated
-    USING (is_admin())
-    WITH CHECK (is_admin());
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'stg_billboard_enriched' AND table_schema = 'public') THEN
+        CREATE POLICY "Admin access only - stg_billboard_enriched"
+            ON public.stg_billboard_enriched
+            FOR ALL
+            TO authenticated
+            USING (is_admin())
+            WITH CHECK (is_admin());
+    END IF;
 
-CREATE POLICY "Admin access only - stg_ponto"
-    ON public.stg_ponto
-    FOR ALL
-    TO authenticated
-    USING (is_admin())
-    WITH CHECK (is_admin());
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'stg_ponto' AND table_schema = 'public') THEN
+        CREATE POLICY "Admin access only - stg_ponto"
+            ON public.stg_ponto
+            FOR ALL
+            TO authenticated
+            USING (is_admin())
+            WITH CHECK (is_admin());
+    END IF;
 
-CREATE POLICY "Admin access only - venue_audience_monthly"
-    ON public.venue_audience_monthly
-    FOR ALL
-    TO authenticated
-    USING (is_admin())
-    WITH CHECK (is_admin());
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'venue_audience_monthly' AND table_schema = 'public') THEN
+        CREATE POLICY "Admin access only - venue_audience_monthly"
+            ON public.venue_audience_monthly
+            FOR ALL
+            TO authenticated
+            USING (is_admin())
+            WITH CHECK (is_admin());
+    END IF;
 
-CREATE POLICY "Admin access only - price_rules_dups_backup"
-    ON public.price_rules_dups_backup
-    FOR ALL
-    TO authenticated
-    USING (is_admin())
-    WITH CHECK (is_admin());
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'price_rules_dups_backup' AND table_schema = 'public') THEN
+        CREATE POLICY "Admin access only - price_rules_dups_backup"
+            ON public.price_rules_dups_backup
+            FOR ALL
+            TO authenticated
+            USING (is_admin())
+            WITH CHECK (is_admin());
+    END IF;
+END $$;
 
 -- 8. Update existing policies to use consistent role checking and require authentication
 
 -- Fix profiles policies
 DROP POLICY IF EXISTS "Profiles are viewable by everyone" ON public.profiles;
+DROP POLICY IF EXISTS "Authenticated users can view profiles" ON public.profiles;
 CREATE POLICY "Authenticated users can view profiles"
     ON public.profiles
     FOR SELECT

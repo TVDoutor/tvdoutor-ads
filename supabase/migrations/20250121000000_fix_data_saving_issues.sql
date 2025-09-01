@@ -3,12 +3,17 @@
 
 -- Ensure profiles table has correct structure and permissions
 -- Add missing email field to profiles table if it doesn't exist
-ALTER TABLE public.profiles 
-ADD COLUMN IF NOT EXISTS email text;
-
--- Add missing full_name field to profiles table if it doesn't exist  
-ALTER TABLE public.profiles 
-ADD COLUMN IF NOT EXISTS full_name text;
+-- Only if profiles table exists
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'profiles' AND table_schema = 'public') THEN
+        ALTER TABLE public.profiles 
+        ADD COLUMN IF NOT EXISTS email text;
+        
+        ALTER TABLE public.profiles 
+        ADD COLUMN IF NOT EXISTS full_name text;
+    END IF;
+END $$;
 
 -- Update ensure_profile function to handle all fields correctly
 CREATE OR REPLACE FUNCTION public.ensure_profile()
@@ -109,83 +114,112 @@ $$;
 GRANT EXECUTE ON FUNCTION public.ensure_profile() TO authenticated;
 
 -- Enable RLS on profiles and user_roles tables if not already enabled
-ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.user_roles ENABLE ROW LEVEL SECURITY;
+-- Only if tables exist
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'profiles' AND table_schema = 'public') THEN
+        ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+    END IF;
+    
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'user_roles' AND table_schema = 'public') THEN
+        ALTER TABLE public.user_roles ENABLE ROW LEVEL SECURITY;
+    END IF;
+END $$;
 
 -- Drop existing policies if they exist
-DROP POLICY IF EXISTS "Users can view own profile" ON public.profiles;
-DROP POLICY IF EXISTS "Users can update own profile" ON public.profiles;
-DROP POLICY IF EXISTS "Admins can view all profiles" ON public.profiles;
-DROP POLICY IF EXISTS "Admins can update all profiles" ON public.profiles;
-DROP POLICY IF EXISTS "Admins can insert profiles" ON public.profiles;
-DROP POLICY IF EXISTS "System can insert profiles" ON public.profiles;
-
-DROP POLICY IF EXISTS "Users can view own roles" ON public.user_roles;
-DROP POLICY IF EXISTS "Admins can view all roles" ON public.user_roles;
-DROP POLICY IF EXISTS "Admins can manage roles" ON public.user_roles;
-DROP POLICY IF EXISTS "System can insert roles" ON public.user_roles;
+-- Only if tables exist
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'profiles' AND table_schema = 'public') THEN
+        DROP POLICY IF EXISTS "Users can view own profile" ON public.profiles;
+        DROP POLICY IF EXISTS "Users can update own profile" ON public.profiles;
+        DROP POLICY IF EXISTS "Admins can view all profiles" ON public.profiles;
+        DROP POLICY IF EXISTS "Admins can update all profiles" ON public.profiles;
+        DROP POLICY IF EXISTS "Admins can insert profiles" ON public.profiles;
+        DROP POLICY IF EXISTS "System can insert profiles" ON public.profiles;
+    END IF;
+    
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'user_roles' AND table_schema = 'public') THEN
+        DROP POLICY IF EXISTS "Users can view own roles" ON public.user_roles;
+        DROP POLICY IF EXISTS "Admins can view all roles" ON public.user_roles;
+        DROP POLICY IF EXISTS "Admins can manage roles" ON public.user_roles;
+        DROP POLICY IF EXISTS "System can insert roles" ON public.user_roles;
+    END IF;
+END $$;
 
 -- Create comprehensive RLS policies for profiles
-CREATE POLICY "Users can view own profile" ON public.profiles
-    FOR SELECT USING (auth.uid() = id);
+-- Only if profiles table exists
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'profiles' AND table_schema = 'public') THEN
+        CREATE POLICY "Users can view own profile" ON public.profiles
+            FOR SELECT USING (auth.uid() = id);
 
-CREATE POLICY "Users can update own profile" ON public.profiles
-    FOR UPDATE USING (auth.uid() = id);
+        CREATE POLICY "Users can update own profile" ON public.profiles
+            FOR UPDATE USING (auth.uid() = id);
 
-CREATE POLICY "Admins can view all profiles" ON public.profiles
-    FOR SELECT USING (
-        EXISTS (
-            SELECT 1 FROM public.user_roles 
-            WHERE user_id = auth.uid() 
-            AND role IN ('admin', 'super_admin')
-        )
-    );
+        -- Only create admin policies if user_roles table exists
+        IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'user_roles' AND table_schema = 'public') THEN
+            CREATE POLICY "Admins can view all profiles" ON public.profiles
+                FOR SELECT USING (
+                    EXISTS (
+                        SELECT 1 FROM public.user_roles 
+                        WHERE user_id = auth.uid() 
+                        AND role IN ('admin', 'super_admin')
+                    )
+                );
 
-CREATE POLICY "Admins can update all profiles" ON public.profiles
-    FOR UPDATE USING (
-        EXISTS (
-            SELECT 1 FROM public.user_roles 
-            WHERE user_id = auth.uid() 
-            AND role IN ('admin', 'super_admin')
-        )
-    );
+            CREATE POLICY "Admins can update all profiles" ON public.profiles
+                FOR UPDATE USING (
+                    EXISTS (
+                        SELECT 1 FROM public.user_roles 
+                        WHERE user_id = auth.uid() 
+                        AND role IN ('admin', 'super_admin')
+                    )
+                );
 
-CREATE POLICY "Admins can insert profiles" ON public.profiles
-    FOR INSERT WITH CHECK (
-        EXISTS (
-            SELECT 1 FROM public.user_roles 
-            WHERE user_id = auth.uid() 
-            AND role IN ('admin', 'super_admin')
-        )
-    );
+            CREATE POLICY "Admins can insert profiles" ON public.profiles
+                FOR INSERT WITH CHECK (
+                    EXISTS (
+                        SELECT 1 FROM public.user_roles 
+                        WHERE user_id = auth.uid() 
+                        AND role IN ('admin', 'super_admin')
+                    )
+                );
+        END IF;
 
-CREATE POLICY "System can insert profiles" ON public.profiles
-    FOR INSERT WITH CHECK (true);
+        CREATE POLICY "System can insert profiles" ON public.profiles
+            FOR INSERT WITH CHECK (true);
+    END IF;
+    
+    -- Create comprehensive RLS policies for user_roles
+    -- Only if user_roles table exists
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'user_roles' AND table_schema = 'public') THEN
+        CREATE POLICY "Users can view own roles" ON public.user_roles
+            FOR SELECT USING (auth.uid() = user_id);
 
--- Create comprehensive RLS policies for user_roles
-CREATE POLICY "Users can view own roles" ON public.user_roles
-    FOR SELECT USING (auth.uid() = user_id);
+        CREATE POLICY "Admins can view all roles" ON public.user_roles
+            FOR SELECT USING (
+                EXISTS (
+                    SELECT 1 FROM public.user_roles ur2
+                    WHERE ur2.user_id = auth.uid() 
+                    AND ur2.role IN ('admin', 'super_admin')
+                )
+            );
 
-CREATE POLICY "Admins can view all roles" ON public.user_roles
-    FOR SELECT USING (
-        EXISTS (
-            SELECT 1 FROM public.user_roles ur2
-            WHERE ur2.user_id = auth.uid() 
-            AND ur2.role IN ('admin', 'super_admin')
-        )
-    );
+        CREATE POLICY "Admins can manage roles" ON public.user_roles
+            FOR ALL USING (
+                EXISTS (
+                    SELECT 1 FROM public.user_roles ur2
+                    WHERE ur2.user_id = auth.uid() 
+                    AND ur2.role IN ('admin', 'super_admin')
+                )
+            );
 
-CREATE POLICY "Admins can manage roles" ON public.user_roles
-    FOR ALL USING (
-        EXISTS (
-            SELECT 1 FROM public.user_roles ur2
-            WHERE ur2.user_id = auth.uid() 
-            AND ur2.role IN ('admin', 'super_admin')
-        )
-    );
-
-CREATE POLICY "System can insert roles" ON public.user_roles
-    FOR INSERT WITH CHECK (true);
+        CREATE POLICY "System can insert roles" ON public.user_roles
+            FOR INSERT WITH CHECK (true);
+    END IF;
+END $$;
 
 -- Create trigger to automatically create profile when user signs up
 CREATE OR REPLACE FUNCTION public.handle_new_user()
@@ -223,28 +257,51 @@ CREATE TRIGGER on_auth_user_created
     FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
 
 -- Add unique constraint to user_roles if it doesn't exist
-ALTER TABLE public.user_roles 
-DROP CONSTRAINT IF EXISTS user_roles_user_id_role_key,
-ADD CONSTRAINT user_roles_user_id_role_key UNIQUE (user_id, role);
+-- Only if table exists
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'user_roles' AND table_schema = 'public') THEN
+        ALTER TABLE public.user_roles 
+        DROP CONSTRAINT IF EXISTS user_roles_user_id_role_key;
+        
+        IF NOT EXISTS (
+            SELECT 1 FROM information_schema.table_constraints 
+            WHERE constraint_name = 'user_roles_user_id_role_key' 
+            AND table_name = 'user_roles'
+        ) THEN
+            ALTER TABLE public.user_roles 
+            ADD CONSTRAINT user_roles_user_id_role_key UNIQUE (user_id, role);
+        END IF;
+    END IF;
+END $$;
 
 -- Update existing users without profiles
-INSERT INTO public.profiles (id, email, display_name, role)
-SELECT 
-    au.id,
-    au.email,
-    COALESCE(au.raw_user_meta_data->>'full_name', au.email),
-    'user'
-FROM auth.users au
-LEFT JOIN public.profiles p ON p.id = au.id
-WHERE p.id IS NULL
-ON CONFLICT (id) DO NOTHING;
-
--- Update existing users without roles
-INSERT INTO public.user_roles (user_id, role)
-SELECT 
-    au.id,
-    'user'
-FROM auth.users au
-LEFT JOIN public.user_roles ur ON ur.user_id = au.id
-WHERE ur.user_id IS NULL
-ON CONFLICT (user_id, role) DO NOTHING;
+-- Only if profiles table exists
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'profiles' AND table_schema = 'public') THEN
+        INSERT INTO public.profiles (id, email, display_name, role)
+        SELECT 
+            au.id,
+            au.email,
+            COALESCE(au.raw_user_meta_data->>'full_name', au.email),
+            'user'
+        FROM auth.users au
+        LEFT JOIN public.profiles p ON p.id = au.id
+        WHERE p.id IS NULL
+        ON CONFLICT (id) DO NOTHING;
+    END IF;
+    
+    -- Update existing users without roles
+    -- Only if user_roles table exists
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'user_roles' AND table_schema = 'public') THEN
+        INSERT INTO public.user_roles (user_id, role)
+        SELECT 
+            au.id,
+            'user'
+        FROM auth.users au
+        LEFT JOIN public.user_roles ur ON ur.user_id = au.id
+        WHERE ur.user_id IS NULL
+        ON CONFLICT (user_id, role) DO NOTHING;
+    END IF;
+END $$;

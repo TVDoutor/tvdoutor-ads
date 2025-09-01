@@ -29,3 +29,18 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Docker
+.docker/
+docker-compose.override.yml
+ssl/
+*.pem
+*.key
+*.crt
+
+# Arquivos temporários do projeto
+DockerDesktopInstaller.exe
+supabase-cli.tar.gz
+supabase.exe
+et --hard*
+fix_*.sql

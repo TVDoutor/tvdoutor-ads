@@ -16,7 +16,7 @@ interface Screen {
   id: number;
   name: string;
   address: string;
-  class: "A" | "B" | "C";
+  class: "A" | "AB" | "ABC" | "B" | "BC" | "C" | "CD" | "D" | "E" | "ND";
   cpm: number;
   audience: number;
   monthlyRate: number;

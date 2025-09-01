@@ -15,7 +15,7 @@ interface Screen {
   id: number;
   name: string;
   address: string;
-  class: "A" | "B" | "C";
+  class: "A" | "AB" | "ABC" | "B" | "BC" | "C" | "CD" | "D" | "E" | "ND";
   cpm: number;
   audience: number;
   monthlyRate: number;
@@ -66,6 +66,50 @@ const mockScreens: Screen[] = [
     audience: 85000,
     monthlyRate: 5400,
     specialty: "Aeroporto",
+    available: true
+  },
+  {
+    id: 5,
+    name: "Shopping Center - Praça Central",
+    address: "Av. das Nações, 1500 - São Paulo",
+    class: "AB",
+    cpm: 10.25,
+    audience: 35000,
+    monthlyRate: 2800,
+    specialty: "Shopping",
+    available: true
+  },
+  {
+    id: 6,
+    name: "Clínica Especializada - Hall Principal",
+    address: "R. da Saúde, 800 - São Paulo",
+    class: "ABC",
+    cpm: 9.50,
+    audience: 32000,
+    monthlyRate: 2600,
+    specialty: "Hospital",
+    available: true
+  },
+  {
+    id: 7,
+    name: "Centro Comercial - Entrada",
+    address: "R. do Centro, 300 - São Paulo",
+    class: "BC",
+    cpm: 7.80,
+    audience: 22000,
+    monthlyRate: 1800,
+    specialty: "Shopping",
+    available: true
+  },
+  {
+    id: 8,
+    name: "Posto de Saúde - Recepção",
+    address: "Av. da Saúde, 150 - São Paulo",
+    class: "CD",
+    cpm: 4.50,
+    audience: 12000,
+    monthlyRate: 900,
+    specialty: "Hospital",
     available: true
   }
 ];

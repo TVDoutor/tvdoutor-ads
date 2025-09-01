@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
@@ -18,6 +18,8 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { addScreenAsAdmin, deleteScreenAsAdmin } from "@/lib/admin-operations";
+import * as XLSX from 'xlsx';
+import { saveAs } from 'file-saver';
 
 // Valid class options
 const ALLOWED_CLASSES = ['A', 'B', 'C', 'D', 'E', 'ND'] as const;
@@ -78,6 +80,7 @@ const Inventory = () => {
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
     fetchScreens();
@@ -477,6 +480,88 @@ const Inventory = () => {
     }
   };
 
+  const validateScreenData = (data: any[]): any[] => {
+    const validatedData: any[] = [];
+    const errors: string[] = [];
+    const allowedClasses = ['A', 'AB', 'ABC', 'B', 'BC', 'C', 'CD', 'D', 'E', 'ND'];
+
+    data.forEach((row, index) => {
+      const rowNumber = index + 2; // +2 porque começamos na linha 2 (linha 1 é cabeçalho)
+      
+      // Validações obrigatórias
+      if (!row['Código'] || typeof row['Código'] !== 'string') {
+        errors.push(`Linha ${rowNumber}: Código é obrigatório`);
+        return;
+      }
+      
+      if (!row['Nome de Exibição'] || typeof row['Nome de Exibição'] !== 'string') {
+        errors.push(`Linha ${rowNumber}: Nome de Exibição é obrigatório`);
+        return;
+      }
+
+      // Validar classe se fornecida
+      if (row['Classe'] && !allowedClasses.includes(row['Classe'])) {
+        errors.push(`Linha ${rowNumber}: Classe deve ser uma das opções: ${allowedClasses.join(', ')}`);
+        return;
+      }
+
+      // Validar coordenadas se fornecidas
+      if (row['Latitude'] && (isNaN(Number(row['Latitude'])) || Number(row['Latitude']) < -90 || Number(row['Latitude']) > 90)) {
+        errors.push(`Linha ${rowNumber}: Latitude deve ser um número entre -90 e 90`);
+        return;
+      }
+
+      if (row['Longitude'] && (isNaN(Number(row['Longitude'])) || Number(row['Longitude']) < -180 || Number(row['Longitude']) > 180)) {
+        errors.push(`Linha ${rowNumber}: Longitude deve ser um número entre -180 e 180`);
+        return;
+      }
+
+      // Validar status ativo
+      const activeValue = row['Ativo'];
+      let active = true; // padrão
+      if (activeValue) {
+        if (typeof activeValue === 'string') {
+          const normalizedActive = activeValue.toLowerCase().trim();
+          active = normalizedActive === 'sim' || normalizedActive === 'ativo' || normalizedActive === 'true' || normalizedActive === '1';
+        } else if (typeof activeValue === 'boolean') {
+          active = activeValue;
+        }
+      }
+
+      // Criar objeto da tela validado
+      const validatedScreen = {
+        name: row['Código'].toString().trim(),
+        display_name: row['Nome de Exibição'].toString().trim(),
+        address: row['Endereço'] ? row['Endereço'].toString().trim() : null,
+        city: row['Cidade'] ? row['Cidade'].toString().trim() : null,
+        state: row['Estado'] ? row['Estado'].toString().trim() : null,
+        zip_code: row['CEP'] ? row['CEP'].toString().trim() : null,
+        class: row['Classe'] ? row['Classe'].toString().trim() : 'ND',
+        specialty: row['Especialidade'] ? row['Especialidade'].toString().trim() : null,
+        active: active,
+        lat: row['Latitude'] ? Number(row['Latitude']) : null,
+        lng: row['Longitude'] ? Number(row['Longitude']) : null,
+        google_place_id: row['Google Place ID'] ? row['Google Place ID'].toString().trim() : null,
+        google_maps_url: row['Google Maps URL'] ? row['Google Maps URL'].toString().trim() : null,
+        // Dados de taxa se fornecidos
+        rates: {
+          standard_rate_month: row['Taxa Padrão (Mês)'] ? Number(row['Taxa Padrão (Mês)']) : null,
+          selling_rate_month: row['Taxa Venda (Mês)'] ? Number(row['Taxa Venda (Mês)']) : null,
+          spots_per_hour: row['Spots por Hora'] ? Number(row['Spots por Hora']) : null,
+          spot_duration_secs: row['Duração Spot (seg)'] ? Number(row['Duração Spot (seg)']) : null
+        }
+      };
+
+      validatedData.push(validatedScreen);
+    });
+
+    if (errors.length > 0) {
+      throw new Error(`Erros encontrados na planilha:\n${errors.join('\n')}`);
+    }
+
+    return validatedData;
+  };
+
   const handleUploadScreens = async () => {
     if (!uploadFile || !isAdmin()) {
       toast({
@@ -490,50 +575,267 @@ const Inventory = () => {
     setUploading(true);
     
     try {
-      // Aqui você implementaria a lógica de leitura da planilha
-      // Por enquanto, vamos simular o processo
       toast({
         title: "Processando",
-        description: "Processando planilha...",
+        description: "Lendo arquivo Excel...",
       });
-      
-      // Simular processamento
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      // Validar dados (implementar validação real)
-      const mockValidation = {
-        valid: true,
-        total: 10,
-        duplicates: 2,
-        new: 8
-      };
-      
-      if (mockValidation.valid) {
+
+      // Ler arquivo Excel
+      const data = await uploadFile.arrayBuffer();
+      const workbook = XLSX.read(data, { type: 'array' });
+      const sheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName];
+      const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+      if (!jsonData || jsonData.length === 0) {
+        throw new Error('Planilha está vazia ou não contém dados válidos');
+      }
+
+      toast({
+        title: "Validando",
+        description: "Validando dados da planilha...",
+      });
+
+      // Validar dados
+      const validatedData = validateScreenData(jsonData);
+
+      toast({
+        title: "Salvando",
+        description: "Inserindo telas no banco de dados...",
+      });
+
+      // Processar inserção das telas
+      let insertedCount = 0;
+      let duplicateCount = 0;
+      let errorCount = 0;
+      const errors: string[] = [];
+
+      for (const screenData of validatedData) {
+        try {
+          // Verificar se já existe uma tela com o mesmo código
+          const { data: existingScreen } = await supabase
+            .from('screens')
+            .select('id, name')
+            .eq('name', screenData.name)
+            .single();
+
+          if (existingScreen) {
+            duplicateCount++;
+            continue;
+          }
+
+          // Separar dados de taxa
+          const { rates, ...screenInsertData } = screenData;
+
+          // Inserir tela
+          const { data: insertedScreen, error: insertError } = await supabase
+            .from('screens')
+            .insert(screenInsertData)
+            .select('id')
+            .single();
+
+          if (insertError) {
+            throw insertError;
+          }
+
+          // Inserir taxa se fornecida
+          if (insertedScreen && rates && (rates.standard_rate_month || rates.selling_rate_month)) {
+            const rateData = {
+              screen_id: insertedScreen.id,
+              standard_rate_month: rates.standard_rate_month || 1500,
+              selling_rate_month: rates.selling_rate_month || 1800,
+              spots_per_hour: rates.spots_per_hour || 12,
+              spot_duration_secs: rates.spot_duration_secs || 30
+            };
+
+            const { error: rateError } = await supabase
+              .from('screen_rates')
+              .insert(rateData);
+
+            if (rateError) {
+              console.warn(`Erro ao inserir taxa para tela ${screenData.name}:`, rateError);
+            }
+          }
+
+          insertedCount++;
+
+        } catch (error: any) {
+          errorCount++;
+          errors.push(`${screenData.name}: ${error.message}`);
+          console.error(`Erro ao inserir tela ${screenData.name}:`, error);
+        }
+      }
+
+      // Mostrar resultado
+      let resultMessage = `${insertedCount} telas adicionadas`;
+      if (duplicateCount > 0) {
+        resultMessage += `, ${duplicateCount} duplicatas ignoradas`;
+      }
+      if (errorCount > 0) {
+        resultMessage += `, ${errorCount} erros`;
+      }
+
+      if (insertedCount > 0) {
         toast({
           title: "Sucesso",
-          description: `Planilha processada: ${mockValidation.new} novas telas, ${mockValidation.duplicates} duplicatas ignoradas`,
+          description: resultMessage,
         });
+        
+        // Fechar modal e recarregar dados
         setUploadModalOpen(false);
         setUploadFile(null);
-        fetchScreens(); // Recarregar dados
+        fetchScreens();
       } else {
         toast({
-          title: "Erro",
-          description: "Planilha contém erros. Verifique os dados e tente novamente.",
+          title: "Aviso",
+          description: "Nenhuma tela nova foi adicionada. " + resultMessage,
           variant: "destructive",
         });
       }
+
+      // Se houver erros, mostrar detalhes
+      if (errors.length > 0) {
+        console.error('Erros durante importação:', errors);
+      }
       
-    } catch (err: unknown) {
+    } catch (err: any) {
       console.error('Error uploading file:', err);
-      const errorMessage = err instanceof Error ? err.message : 'Erro desconhecido';
       toast({
         title: "Erro",
-        description: `Erro ao processar planilha: ${errorMessage}`,
+        description: `Erro ao processar planilha: ${err.message}`,
         variant: "destructive",
       });
     } finally {
       setUploading(false);
+    }
+  };
+
+  const handleExportScreens = async () => {
+    if (!isAdmin()) {
+      toast({
+        title: "Acesso Negado",
+        description: "Apenas super administradores podem exportar dados.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setExporting(true);
+    
+    try {
+      toast({
+        title: "Exportando",
+        description: "Preparando dados para exportação...",
+      });
+
+      // Buscar todos os dados das telas
+      const { data: screensData, error } = await supabase
+        .from('screens')
+        .select(`
+          *,
+          screen_rates (
+            standard_rate_month,
+            selling_rate_month,
+            spots_per_hour,
+            spot_duration_secs
+          )
+        `)
+        .order('name');
+
+      if (error) {
+        throw new Error(`Erro ao buscar dados: ${error.message}`);
+      }
+
+      if (!screensData || screensData.length === 0) {
+        toast({
+          title: "Aviso",
+          description: "Nenhuma tela encontrada para exportar.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Preparar dados para Excel
+      const exportData = screensData.map(screen => ({
+        'Código': screen.name || '',
+        'Nome de Exibição': screen.display_name || '',
+        'Endereço': screen.address || '',
+        'Cidade': screen.city || '',
+        'Estado': screen.state || '',
+        'CEP': screen.zip_code || '',
+        'Classe': screen.class || '',
+        'Especialidade': screen.specialty || '',
+        'Ativo': screen.active ? 'Sim' : 'Não',
+        'Latitude': screen.lat || '',
+        'Longitude': screen.lng || '',
+        'Taxa Padrão (Mês)': screen.screen_rates?.[0]?.standard_rate_month || '',
+        'Taxa Venda (Mês)': screen.screen_rates?.[0]?.selling_rate_month || '',
+        'Spots por Hora': screen.screen_rates?.[0]?.spots_per_hour || '',
+        'Duração Spot (seg)': screen.screen_rates?.[0]?.spot_duration_secs || '',
+        'Google Place ID': screen.google_place_id || '',
+        'Google Maps URL': screen.google_maps_url || '',
+        'Criado em': screen.created_at ? new Date(screen.created_at).toLocaleDateString('pt-BR') : '',
+        'Atualizado em': screen.updated_at ? new Date(screen.updated_at).toLocaleDateString('pt-BR') : ''
+      }));
+
+      // Criar planilha Excel
+      const ws = XLSX.utils.json_to_sheet(exportData);
+      
+      // Configurar largura das colunas
+      const colWidths = [
+        { wch: 15 }, // Código
+        { wch: 25 }, // Nome de Exibição
+        { wch: 30 }, // Endereço
+        { wch: 15 }, // Cidade
+        { wch: 10 }, // Estado
+        { wch: 12 }, // CEP
+        { wch: 8 },  // Classe
+        { wch: 15 }, // Especialidade
+        { wch: 8 },  // Ativo
+        { wch: 12 }, // Latitude
+        { wch: 12 }, // Longitude
+        { wch: 15 }, // Taxa Padrão
+        { wch: 15 }, // Taxa Venda
+        { wch: 12 }, // Spots por Hora
+        { wch: 15 }, // Duração Spot
+        { wch: 20 }, // Google Place ID
+        { wch: 25 }, // Google Maps URL
+        { wch: 12 }, // Criado em
+        { wch: 12 }  // Atualizado em
+      ];
+      ws['!cols'] = colWidths;
+
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Inventário TV Doutor");
+
+      // Gerar arquivo e fazer download
+      const excelBuffer = XLSX.write(wb, { 
+        bookType: 'xlsx', 
+        type: 'array',
+        compression: true
+      });
+      
+      const data = new Blob([excelBuffer], { 
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+      });
+      
+      const fileName = `inventario_tvdoutor_${new Date().toISOString().split('T')[0]}.xlsx`;
+      saveAs(data, fileName);
+
+      toast({
+        title: "Sucesso",
+        description: `Inventário exportado com sucesso! ${screensData.length} telas exportadas.`,
+      });
+
+    } catch (error: any) {
+      console.error('Error exporting screens:', error);
+      toast({
+        title: "Erro na Exportação",
+        description: `Erro ao exportar dados: ${error.message}`,
+        variant: "destructive",
+      });
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -594,9 +896,14 @@ const Inventory = () => {
               </Button>
             )}
             
-            <Button variant="outline" onClick={fetchScreens} className="gap-2">
+            <Button 
+              variant="outline" 
+              onClick={handleExportScreens} 
+              className="gap-2"
+              disabled={exporting}
+            >
               <Download className="h-4 w-4" />
-              Exportar
+              {exporting ? "Exportando..." : "Exportar"}
             </Button>
           </div>
         </div>
@@ -869,6 +1176,9 @@ const Inventory = () => {
                 <Monitor className="h-5 w-5" />
                 Detalhes da Tela
               </DialogTitle>
+              <DialogDescription>
+                Visualize todas as informações detalhadas da tela selecionada
+              </DialogDescription>
             </DialogHeader>
             {selectedScreen && (
               <div className="space-y-6">
@@ -954,6 +1264,9 @@ const Inventory = () => {
                 <Edit className="h-5 w-5" />
                 Editar Tela
               </DialogTitle>
+              <DialogDescription>
+                Modifique as informações da tela selecionada
+              </DialogDescription>
             </DialogHeader>
             {editingScreen && (
               <div className="space-y-4">
@@ -1018,8 +1331,12 @@ const Inventory = () => {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="A">A</SelectItem>
+                      <SelectItem value="AB">AB</SelectItem>
+                      <SelectItem value="ABC">ABC</SelectItem>
                       <SelectItem value="B">B</SelectItem>
+                      <SelectItem value="BC">BC</SelectItem>
                       <SelectItem value="C">C</SelectItem>
+                      <SelectItem value="CD">CD</SelectItem>
                       <SelectItem value="D">D</SelectItem>
                       <SelectItem value="E">E</SelectItem>
                       <SelectItem value="ND">ND</SelectItem>
@@ -1109,6 +1426,9 @@ const Inventory = () => {
                 <Plus className="h-5 w-5" />
                 Adicionar Nova Tela
               </DialogTitle>
+              <DialogDescription>
+                Cadastre uma nova tela no sistema de inventário
+              </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1170,8 +1490,12 @@ const Inventory = () => {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="A">A</SelectItem>
+                      <SelectItem value="AB">AB</SelectItem>
+                      <SelectItem value="ABC">ABC</SelectItem>
                       <SelectItem value="B">B</SelectItem>
+                      <SelectItem value="BC">BC</SelectItem>
                       <SelectItem value="C">C</SelectItem>
+                      <SelectItem value="CD">CD</SelectItem>
                       <SelectItem value="D">D</SelectItem>
                       <SelectItem value="E">E</SelectItem>
                       <SelectItem value="ND">ND</SelectItem>
@@ -1226,6 +1550,9 @@ const Inventory = () => {
                 <Upload className="h-5 w-5" />
                 Upload de Planilha
               </DialogTitle>
+              <DialogDescription>
+                Faça upload de uma planilha Excel para importar múltiplas telas
+              </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
               <div className="space-y-2">

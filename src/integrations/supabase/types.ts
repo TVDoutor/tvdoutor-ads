@@ -3724,7 +3724,7 @@ export type Database = {
     }
     Enums: {
       app_role: "super_admin" | "admin" | "user"
-      class_band: "A" | "B" | "C" | "D" | "E" | "ND"
+      class_band: "A" | "AB" | "ABC" | "B" | "BC" | "C" | "CD" | "D" | "E" | "ND"
       role_kind: "user" | "manager" | "admin"
       tipo_insercao_enum: "Tipo 1" | "Tipo 2" | "Tipo 3" | "Tipo 4"
     }
@@ -3863,7 +3863,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["super_admin", "admin", "user"],
-      class_band: ["A", "B", "C", "D", "E", "ND"],
+      class_band: ["A", "AB", "ABC", "B", "BC", "C", "CD", "D", "E", "ND"],
       role_kind: ["user", "manager", "admin"],
       tipo_insercao_enum: ["Tipo 1", "Tipo 2", "Tipo 3", "Tipo 4"],
     },

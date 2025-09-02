@@ -134,14 +134,20 @@ LANGUAGE sql AS $$
     LEFT JOIN public.price_rules pr ON pr.screen_id = s.id
     LEFT JOIN public.venue_audience_monthly vam ON vam.venue_id = s.venue_id
     WHERE p.id = p_proposal_id
+  ),
+  aggregated AS (
+    SELECT 
+      MAX(cpm_mode) as cpm_mode,
+      MAX(cpm_value) as cpm_value,
+      SUM(COALESCE(custom_cpm, cpm_rule, cpm_value) * NULLIF(weight,0)) as weighted_sum,
+      SUM(NULLIF(weight,0)) as total_weight
+    FROM base
   )
   SELECT CASE
-           WHEN MAX(cpm_mode) = 'manual' THEN MAX(cpm_value)
-           ELSE NULLIF(
-                  SUM(COALESCE(custom_cpm, cpm_rule, MAX(cpm_value)) * NULLIF(weight,0))
-                  / NULLIF(SUM(NULLIF(weight,0)),0), 0)
+           WHEN cpm_mode = 'manual' THEN cpm_value
+           ELSE NULLIF(weighted_sum / NULLIF(total_weight,0), 0)
          END
-  FROM base;
+  FROM aggregated;
 $$;
 
 CREATE OR REPLACE FUNCTION public.recalc_proposal_kpis(p_proposal_id bigint)

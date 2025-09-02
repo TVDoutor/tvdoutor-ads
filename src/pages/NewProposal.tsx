@@ -1,6 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { NewProposalWizard, type ProposalData } from "@/components/NewProposalWizard";
 import { supabase } from "@/integrations/supabase/client";
+import { emailService } from "@/lib/email-service";
 import { toast } from "sonner";
 
 const NewProposal = () => {
@@ -9,7 +10,7 @@ const NewProposal = () => {
   const handleComplete = async (data: ProposalData) => {
     try {
       // Create proposal in database
-      const { error } = await supabase
+      const { data: proposalData, error } = await supabase
         .from('proposals')
         .insert({
           customer_name: data.customer_name,
@@ -24,15 +25,44 @@ const NewProposal = () => {
           discount_pct: data.discount_pct,
           discount_fixed: data.discount_fixed,
           impact_formula: data.impact_formula,
+          status: 'rascunho', // Status inicial
           filters: {},
           quote: {},
           screens: data.selectedScreens
-        });
+        })
+        .select('id')
+        .single();
 
       if (error) throw error;
 
+      const proposalId = proposalData?.id;
+      
       toast.success('Proposta criada com sucesso!');
-      navigate('/');
+      
+      // Enviar notificação por email e processar imediatamente
+      if (proposalId) {
+        try {
+          await emailService.sendProposalNotification(proposalId, 'proposal_created');
+          
+          // Forçar processamento imediato
+          setTimeout(async () => {
+            try {
+              const result = await emailService.processAllPendingEmails();
+              if (result.successful > 0) {
+                toast.success(`Proposta criada e ${result.successful} email(s) enviado(s)!`);
+              }
+            } catch (processError) {
+              console.error('Erro ao processar emails:', processError);
+            }
+          }, 1000);
+          
+        } catch (emailError) {
+          console.error('Erro ao criar notificações de email:', emailError);
+          toast.error('Proposta criada, mas houve erro na configuração dos emails');
+        }
+      }
+      
+      navigate('/dashboard');
     } catch (error: any) {
       console.error('Erro ao criar proposta:', error);
       toast.error('Erro ao criar proposta: ' + error.message);
@@ -40,7 +70,7 @@ const NewProposal = () => {
   };
 
   const handleCancel = () => {
-    navigate('/');
+    navigate('/dashboard');
   };
 
   return (
@@ -48,46 +78,6 @@ const NewProposal = () => {
       onComplete={handleComplete}
       onCancel={handleCancel}
     />
-  );
-};
-
-export default NewProposal;
-        <div className="flex justify-between items-center">
-          <div className="flex items-center space-x-4">
-            <Button 
-              variant="ghost" 
-              size="icon"
-              onClick={() => navigate("/")}
-            >
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-            <div>
-              <h1 className="text-2xl font-semibold">Nova Proposta</h1>
-              <p className="text-muted-foreground">Crie uma nova proposta comercial</p>
-            </div>
-          </div>
-          
-          <div className="flex items-center space-x-3">
-            <Button variant="outline" onClick={handleSaveDraft}>
-              <Save className="h-4 w-4 mr-2" />
-              Salvar Rascunho
-            </Button>
-            <Button onClick={handleNextStep}>
-              {currentStep === 4 ? "Finalizar" : "Próximo"}
-              {currentStep < 4 && <ChevronRight className="h-4 w-4 ml-2" />}
-            </Button>
-          </div>
-        </div>
-
-        {/* Progress Bar */}
-        <ProposalProgressBar currentStep={currentStep} />
-
-        {/* Step Content */}
-        <div className="pb-6">
-          {renderStepContent()}
-        </div>
-      </div>
-    </DashboardLayout>
   );
 };
 

@@ -2,6 +2,7 @@ import { ReactNode } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth, UserRole } from '@/contexts/AuthContext';
 import { Card, CardContent } from '@/components/ui/card';
+import { LoadingScreen } from '@/components/LoadingScreen';
 import { AlertTriangle, Lock } from 'lucide-react';
 
 interface ProtectedRouteProps {
@@ -31,16 +32,7 @@ export const ProtectedRoute = ({
 
   // Mostrar loading enquanto verifica autenticação
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <Card className="w-96">
-          <CardContent className="flex flex-col items-center justify-center p-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mb-4"></div>
-            <p className="text-muted-foreground">Verificando autenticação...</p>
-          </CardContent>
-        </Card>
-      </div>
-    );
+    return <LoadingScreen message="Verificando autenticação..." />;
   }
 
   // Redirecionar para login se não estiver autenticado

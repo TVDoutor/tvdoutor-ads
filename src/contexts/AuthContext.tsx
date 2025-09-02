@@ -242,7 +242,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         setSession(null);
         setLoading(false);
       }
-    }, 10000); // 10 segundos
+    }, 5000); // 5 segundos (reduzido)
 
     initializeAuth();
 

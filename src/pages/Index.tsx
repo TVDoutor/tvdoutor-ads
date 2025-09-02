@@ -1,14 +1,20 @@
 import { Monitor, MapPin, FileText, TrendingUp, Users, Calendar, Plus, Eye } from "lucide-react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { StatsCard } from "@/components/StatsCard";
+import { RecentProposals } from "@/components/RecentProposals";
+import { EmailStatsCard } from "@/components/EmailStatsCard";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 import heroBanner from "@/assets/hero-banner.jpg";
 import dashboardPreview from "@/assets/dashboard-preview.jpg";
 
 const Index = () => {
+  console.log('📊 Dashboard Index component loading...');
   const navigate = useNavigate();
+  const { isAdmin } = useAuth();
+  console.log('🔐 Auth status:', { isAdmin: isAdmin() });
   
 
 
@@ -130,7 +136,7 @@ const Index = () => {
           ))}
         </div>
 
-        {/* Quick Actions & Recent Activity */}
+        {/* Quick Actions & Recent Proposals */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Quick Actions */}
           <Card>
@@ -179,44 +185,14 @@ const Index = () => {
             </CardContent>
           </Card>
 
-          {/* Recent Activity */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Calendar className="h-5 w-5 text-secondary" />
-                Atividade Recente
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center gap-3 p-3 rounded-lg bg-primary-soft hover:bg-primary/10 transition-colors cursor-pointer">
-                <div className="h-2 w-2 rounded-full bg-primary" />
-                <div className="flex-1">
-                  <p className="text-sm font-medium">Proposta #1247 aprovada</p>
-                  <p className="text-xs text-muted-foreground">Shopping Iguatemi - São Paulo</p>
-                </div>
-                <span className="text-xs text-muted-foreground">2h</span>
-              </div>
-              
-              <div className="flex items-center gap-3 p-3 rounded-lg bg-secondary-soft hover:bg-secondary/10 transition-colors cursor-pointer">
-                <div className="h-2 w-2 rounded-full bg-secondary" />
-                <div className="flex-1">
-                  <p className="text-sm font-medium">15 novas telas adicionadas</p>
-                  <p className="text-xs text-muted-foreground">Rio de Janeiro - Zona Sul</p>
-                </div>
-                <span className="text-xs text-muted-foreground">4h</span>
-              </div>
-              
-              <div className="flex items-center gap-3 p-3 rounded-lg bg-accent-soft hover:bg-accent/10 transition-colors cursor-pointer">
-                <div className="h-2 w-2 rounded-full bg-accent" />
-                <div className="flex-1">
-                  <p className="text-sm font-medium">Campanha finalizada</p>
-                  <p className="text-xs text-muted-foreground">Farmácias Droga Raia</p>
-                </div>
-                <span className="text-xs text-muted-foreground">1d</span>
-              </div>
-            </CardContent>
-          </Card>
+          {/* Recent Proposals */}
+          <RecentProposals limit={4} />
         </div>
+
+        {/* Admin Email Stats */}
+        {isAdmin() && (
+          <EmailStatsCard />
+        )}
 
         {/* Platform Preview */}
         <Card>

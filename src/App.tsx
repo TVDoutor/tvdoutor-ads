@@ -5,9 +5,11 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { startEmailProcessing } from "@/lib/email-service";
 import Index from "./pages/Index";
 import LandingPage from "./pages/LandingPage";
 import NewProposal from "./pages/NewProposal";
+import Propostas from "./pages/Propostas";
 import InteractiveMap from "./pages/InteractiveMap";
 import Inventory from "./pages/Inventory";
 import Settings from "./pages/Settings";
@@ -24,8 +26,22 @@ import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
+const App = () => {
+  console.log('🚀 App component loading...');
+  
+  // Inicializar sistema de email após o app carregar (não bloquear)
+  setTimeout(() => {
+    try {
+      console.log('📧 Inicializando sistema de email...');
+      startEmailProcessing();
+    } catch (error) {
+      console.error('❌ Erro ao inicializar sistema de email:', error);
+    }
+  }, 2000);
+
+  console.log('✅ App component rendering...');
+  return (
+    <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Toaster />
       <Sonner />
@@ -51,6 +67,18 @@ const App = () => (
             <Route path="/nova-proposta" element={
               <ProtectedRoute>
                 <NewProposal />
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/propostas" element={
+              <ProtectedRoute>
+                <Propostas />
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/propostas/:id" element={
+              <ProtectedRoute>
+                <Propostas />
               </ProtectedRoute>
             } />
             
@@ -122,6 +150,7 @@ const App = () => (
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
-);
+  );
+};
 
 export default App;

@@ -2,9 +2,23 @@
 -- Date: 2025-01-28
 
 -- Create missing enums
-CREATE TYPE public.role_kind AS ENUM ('user', 'admin', 'super_admin');
-CREATE TYPE public.app_role AS ENUM ('user', 'admin', 'super_admin');
-CREATE TYPE public.tipo_insercao AS ENUM ('manual', 'automatica');
+DO $$ BEGIN
+    CREATE TYPE public.role_kind AS ENUM ('user', 'admin', 'super_admin');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
+DO $$ BEGIN
+    CREATE TYPE public.app_role AS ENUM ('user', 'admin', 'super_admin');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
+DO $$ BEGIN
+    CREATE TYPE public.tipo_insercao AS ENUM ('manual', 'automatica');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
 
 -- Create venues table if it doesn't exist
 CREATE TABLE IF NOT EXISTS public.venues (
@@ -64,33 +78,9 @@ CREATE TABLE IF NOT EXISTS public.screens (
     google_formatted_address TEXT
 );
 
--- Create function for text normalization if it doesn't exist
-CREATE OR REPLACE FUNCTION norm_text_imm(input_text TEXT)
-RETURNS TEXT
-LANGUAGE SQL
-IMMUTABLE
-AS $$
-    SELECT LOWER(TRIM(REGEXP_REPLACE(input_text, '[^a-zA-Z0-9\s]', '', 'g')));
-$$;
+-- Function norm_text_imm already exists in remote database, skipping creation
 
--- Update screens table to add computed columns
-DO $$
-BEGIN
-    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'screens' AND table_schema = 'public') THEN
-        -- Add city_norm and state_norm as computed columns
-        ALTER TABLE public.screens 
-        ALTER COLUMN city_norm SET DEFAULT norm_text_imm(city);
-        
-        ALTER TABLE public.screens 
-        ALTER COLUMN state_norm SET DEFAULT norm_text_imm(state);
-        
-        -- Update existing records
-        UPDATE public.screens 
-        SET city_norm = norm_text_imm(city),
-            state_norm = norm_text_imm(state)
-        WHERE city_norm IS NULL OR state_norm IS NULL;
-    END IF;
-END $$;
+-- Computed columns city_norm and state_norm already exist in remote database, skipping updates
 
 -- Enable RLS on new tables
 ALTER TABLE public.venues ENABLE ROW LEVEL SECURITY;
@@ -128,3 +118,5 @@ COMMENT ON COLUMN public.screens.code IS 'Unique screen code following pattern P
 COMMENT ON COLUMN public.screens.class IS 'Screen classification (ND=Not Defined, A=Class A, AB=Class AB, B=Class B, C=Class C, D=Class D)';
 COMMENT ON COLUMN public.screens.geom IS 'Geographic location as PostGIS geography point';
 COMMENT ON COLUMN public.screens.tag IS 'Screen tag/brand identifier';
+
+

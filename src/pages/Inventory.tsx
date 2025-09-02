@@ -282,7 +282,7 @@ const Inventory = () => {
       
       // Check user's database role before attempting update
       const { data: dbRole, error: roleError } = await supabase
-        .rpc('get_user_role', { _user_id: user?.id });
+        .rpc('get_user_role', { _user_id: profile?.id });
 
       // Check if user has permission to edit (admin or super_admin in database)
       if (!dbRole || (dbRole !== 'admin' && dbRole !== 'super_admin')) {

@@ -1639,6 +1639,10 @@ export type Database = {
           updated_at: string
         }[]
       }
+      add_screen_as_admin: {
+        Args: { screen_data: Json }
+        Returns: Record<string, unknown>
+      }
       addauth: {
         Args: { "": string }
         Returns: boolean
@@ -1717,6 +1721,23 @@ export type Database = {
       bytea: {
         Args: { "": unknown } | { "": unknown }
         Returns: string
+      }
+      check_auth: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          is_authenticated: boolean
+          user_email: string
+          user_id: string
+          user_role: string
+        }[]
+      }
+      debug_permissions: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
+      }
+      delete_screen_as_admin: {
+        Args: { screen_id_to_delete: number }
+        Returns: Record<string, unknown>
       }
       disablelongtransactions: {
         Args: Record<PropertyKey, never>
@@ -2256,7 +2277,7 @@ export type Database = {
         }[]
       }
       get_user_role: {
-        Args: { _user_id: string }
+        Args: Record<PropertyKey, never> | { _user_id: string }
         Returns: string
       }
       get_venue_details: {
@@ -2307,6 +2328,10 @@ export type Database = {
         Returns: undefined
       }
       is_admin: {
+        Args: Record<PropertyKey, never> | { uid: string }
+        Returns: boolean
+      }
+      is_manager_or_above: {
         Args: Record<PropertyKey, never>
         Returns: boolean
       }
@@ -2315,7 +2340,7 @@ export type Database = {
         Returns: boolean
       }
       is_super_admin: {
-        Args: Record<PropertyKey, never>
+        Args: Record<PropertyKey, never> | { uid: string }
         Returns: boolean
       }
       json: {
@@ -2325,6 +2350,10 @@ export type Database = {
       jsonb: {
         Args: { "": unknown }
         Returns: Json
+      }
+      jwt_role: {
+        Args: Record<PropertyKey, never>
+        Returns: string
       }
       list_venue_summaries: {
         Args: { limit_count?: number; offset_count?: number; search?: string }
@@ -3724,7 +3753,17 @@ export type Database = {
     }
     Enums: {
       app_role: "super_admin" | "admin" | "user"
-      class_band: "A" | "AB" | "ABC" | "B" | "BC" | "C" | "CD" | "D" | "E" | "ND"
+      class_band:
+        | "A"
+        | "AB"
+        | "ABC"
+        | "B"
+        | "BC"
+        | "C"
+        | "CD"
+        | "D"
+        | "E"
+        | "ND"
       role_kind: "user" | "manager" | "admin"
       tipo_insercao_enum: "Tipo 1" | "Tipo 2" | "Tipo 3" | "Tipo 4"
     }

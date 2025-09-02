@@ -45,6 +45,7 @@ interface ChartData {
   value: number;
   propostas?: number;
   aprovadas?: number;
+  color?: string;
 }
 
 interface TopClient {

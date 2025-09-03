@@ -13,7 +13,7 @@ import { runSupabaseDebug } from '@/utils/debugSupabase';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 
-// Constante global para classes padrão
+// Constante global para classes padrão - ÚNICA DEFINIÇÃO
 const DEFAULT_CLASSES = ['A', 'AB', 'ABC', 'B', 'BC', 'C', 'CD', 'D', 'E', 'ND'] as const;
 
 // Simplified types to avoid type instantiation issues
@@ -55,12 +55,13 @@ export default function InteractiveMap() {
   const map = useRef<mapboxgl.Map | null>(null);
   const markers = useRef<mapboxgl.Marker[]>([]);
 
-  // Available filter options
+  // Available filter options - usar DEFAULT_CLASSES em vez de hardcoded
   const cities = Array.from(new Set(screens.map(s => s.city).filter(city => city && city.trim() !== ''))).sort();
   const existingClasses = Array.from(new Set(screens.map(s => s.class).filter(cls => cls && cls.trim() !== ''))).sort();
   const classes = availableClasses.length > 0 ? availableClasses : [...DEFAULT_CLASSES];
+  const allPossibleClasses = DEFAULT_CLASSES;
   
-  // Função corrigida para buscar classes
+  // Função corrigida para buscar classes - ÚNICA DEFINIÇÃO
   const fetchAvailableClasses = async () => {
     try {
       console.log('🔍 Buscando classes disponíveis...');
@@ -95,52 +96,6 @@ export default function InteractiveMap() {
   useEffect(() => {
     fetchAvailableClasses();
   }, []);
-
-  // Definir uma única vez no topo do componente
-  const DEFAULT_CLASSES = ['A', 'AB', 'ABC', 'B', 'BC', 'C', 'CD', 'D', 'E', 'ND'] as const;
-  
-  const fetchAvailableClasses = async () => {
-    try {
-      console.log('🔍 Buscando classes disponíveis...');
-      
-      const { data, error } = await supabase
-        .from('screens')
-        .select('class')
-        .not('class', 'is', null);
-      
-      console.log('📊 Resposta do Supabase:', { data, error });
-      
-      if (error) {
-        console.error('❌ Erro na consulta:', error);
-        setAvailableClasses([...DEFAULT_CLASSES]);
-        return;
-      }
-      
-      if (data && data.length > 0) {
-        const uniqueClasses = Array.from(new Set(data.map(s => s.class).filter(Boolean))).sort();
-        console.log('✅ Classes encontradas:', uniqueClasses);
-        setAvailableClasses(uniqueClasses);
-      } else {
-        console.log('⚠️ Nenhuma classe encontrada, usando fallback');
-        setAvailableClasses([...DEFAULT_CLASSES]);
-      }
-    } catch (error) {
-      console.error('Erro ao buscar classes:', error);
-      setAvailableClasses([...DEFAULT_CLASSES]);
-    }
-  };
-  const allPossibleClasses = DEFAULT_CLASSES;
-  
-  // No catch:
-  setAvailableClasses([...DEFAULT_CLASSES]);
-  
-  // No fallback:
-  const classes = availableClasses.length > 0 ? availableClasses : [...DEFAULT_CLASSES];
-  }
-
-  // Adicionar estas variáveis que estão faltando:
-  const allPossibleClasses = ['A', 'AB', 'B', 'C', 'D', 'ND'];
-  const existingClasses = Array.from(new Set(screens.map(s => s.class).filter(cls => cls && cls.trim() !== ''))).sort();
 
   useEffect(() => {
     fetchMapboxToken();

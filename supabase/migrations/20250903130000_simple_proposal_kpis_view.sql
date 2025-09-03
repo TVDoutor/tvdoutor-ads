@@ -63,3 +63,4 @@ COMMENT ON VIEW public.proposal_kpis IS 'View consolidada para KPIs de propostas
 
 -- Grant access to authenticated users
 GRANT SELECT ON public.proposal_kpis TO authenticated;
+

@@ -10,6 +10,7 @@ import Index from "./pages/Index";
 import LandingPage from "./pages/LandingPage";
 import NewProposal from "./pages/NewProposal";
 import Propostas from "./pages/Propostas";
+import ProposalDetails from "./pages/ProposalDetails";
 import InteractiveMap from "./pages/InteractiveMap";
 import Inventory from "./pages/Inventory";
 import Settings from "./pages/Settings";
@@ -78,7 +79,7 @@ const App = () => {
             
             <Route path="/propostas/:id" element={
               <ProtectedRoute>
-                <Propostas />
+                <ProposalDetails />
               </ProtectedRoute>
             } />
             

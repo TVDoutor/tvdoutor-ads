@@ -151,7 +151,6 @@ const Propostas = () => {
   };
 
   const handleView = (id: number) => {
-    // Por enquanto navega para página de detalhes (será implementada depois)
     navigate(`/propostas/${id}`);
   };
 

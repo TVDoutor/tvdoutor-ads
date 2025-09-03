@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+//import { useDashboardStats } from "@/hooks/useDashboardStats";
+import { useDashboardStats } from "../hooks/useDashboardStats";
 import heroBanner from "@/assets/hero-banner.jpg";
 import dashboardPreview from "@/assets/dashboard-preview.jpg";
 
@@ -14,38 +16,49 @@ const Index = () => {
   console.log('📊 Dashboard Index component loading...');
   const navigate = useNavigate();
   const { isAdmin } = useAuth();
-  console.log('🔐 Auth status:', { isAdmin: isAdmin() });
+  const { stats, loading, error } = useDashboardStats();
   
+  console.log('🔐 Auth status:', { isAdmin: isAdmin() });
+  console.log('📈 Dashboard stats:', { stats, loading, error });
 
+  // Função para formatar valores monetários
+  const formatCurrency = (value: number) => {
+    if (value >= 1000000) {
+      return `R$ ${(value / 1000000).toFixed(1)}M`;
+    } else if (value >= 1000) {
+      return `R$ ${(value / 1000).toFixed(0)}K`;
+    }
+    return `R$ ${value.toLocaleString('pt-BR')}`;
+  };
 
   const statsData = [
     {
       title: "Telas Ativas",
-      value: 1247,
-      change: { value: 12, label: "este mês" },
+      value: loading ? "..." : stats.activeScreens.toLocaleString('pt-BR'),
+      change: loading ? undefined : { value: stats.screenGrowth, label: "este mês" },
       icon: Monitor,
       variant: "primary" as const,
       onClick: () => navigate("/mapa-interativo")
     },
     {
       title: "Propostas Ativas",
-      value: 89,
-      change: { value: 8, label: "esta semana" },
+      value: loading ? "..." : stats.activeProposals,
+      change: loading ? undefined : { value: stats.proposalGrowth, label: "esta semana" },
       icon: FileText,
       variant: "secondary" as const,
       onClick: () => navigate("/nova-proposta")
     },
     {
       title: "Faturamento",
-      value: "R$ 2.4M",
-      change: { value: 15, label: "este mês" },
+      value: loading ? "..." : formatCurrency(stats.totalRevenue),
+      change: loading ? undefined : { value: stats.revenueGrowth, label: "este mês" },
       icon: TrendingUp,
       variant: "accent" as const
     },
     {
       title: "Cidades",
-      value: 45,
-      change: { value: 3, label: "novas cidades" },
+      value: loading ? "..." : stats.totalCities,
+      change: loading ? undefined : { value: stats.cityGrowth, label: "novas cidades" },
       icon: MapPin,
       variant: "default" as const,
       onClick: () => navigate("/mapa-interativo")
@@ -75,6 +88,11 @@ const Index = () => {
         break;
     }
   };
+
+  // Mostrar erro se houver
+  if (error) {
+    console.error('❌ Erro na dashboard:', error);
+  }
 
   return (
     <DashboardLayout>
@@ -135,6 +153,15 @@ const Index = () => {
             </div>
           ))}
         </div>
+
+        {/* Error message if any */}
+        {error && (
+          <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4">
+            <p className="text-destructive text-sm">
+              ⚠️ Erro ao carregar dados: {error}
+            </p>
+          </div>
+        )}
 
         {/* Quick Actions & Recent Proposals */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -198,52 +225,42 @@ const Index = () => {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Monitor className="h-5 w-5 text-primary" />
+              <Users className="h-5 w-5 text-primary" />
               Visão Geral da Plataforma
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-center">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
               <div className="space-y-4">
-                <h3 className="text-xl font-semibold">
-                  Gestão Completa de DOOH
-                </h3>
+                <h3 className="text-xl font-semibold">Gerencie seu inventário DOOH</h3>
                 <p className="text-muted-foreground">
-                  Nossa plataforma oferece todas as ferramentas necessárias para 
-                  gerenciar seu inventário de mídia digital, desde a criação de 
-                  propostas até o acompanhamento de campanhas.
+                  Controle completo sobre suas telas digitais, propostas comerciais e campanhas publicitárias. 
+                  Monitore performance em tempo real e otimize seus resultados.
                 </p>
-                <ul className="space-y-2">
-                  <li className="flex items-center gap-2">
-                    <div className="h-2 w-2 rounded-full bg-primary" />
-                    <span className="text-sm">Wizard de propostas inteligente</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <div className="h-2 w-2 rounded-full bg-secondary" />
-                    <span className="text-sm">Mapa interativo com geolocalização</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <div className="h-2 w-2 rounded-full bg-accent" />
-                    <span className="text-sm">Relatórios e analytics avançados</span>
-                  </li>
-                </ul>
-                <div className="flex gap-3">
-                  <Button variant="hero" className="gap-2" onClick={handleCreateProposal}>
-                    <Plus className="h-4 w-4" />
-                    Criar Proposta
+                <div className="flex flex-wrap gap-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => navigate("/mapa-interativo")}
+                  >
+                    <MapPin className="h-4 w-4 mr-2" />
+                    Explorar Mapa
                   </Button>
-                  <Button variant="outline" className="gap-2" onClick={handleViewInventory}>
-                    <Eye className="h-4 w-4" />
-                    Ver Mapa
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => navigate("/reports")}
+                  >
+                    <TrendingUp className="h-4 w-4 mr-2" />
+                    Ver Relatórios
                   </Button>
                 </div>
               </div>
-              
-              <div className="rounded-lg overflow-hidden shadow-soft">
+              <div className="relative">
                 <img 
                   src={dashboardPreview} 
                   alt="Dashboard preview" 
-                  className="w-full h-auto"
+                  className="rounded-lg shadow-lg w-full h-auto"
                 />
               </div>
             </div>

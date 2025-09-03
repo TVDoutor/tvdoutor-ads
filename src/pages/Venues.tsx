@@ -117,6 +117,7 @@ const Venues = () => {
         });
 
         venue.screenCount++;
+        // ✅ Manter apenas esta lógica:
         if (screen.active) {
           venue.activeScreens++;
         }

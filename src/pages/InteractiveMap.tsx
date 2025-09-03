@@ -13,6 +13,9 @@ import { runSupabaseDebug } from '@/utils/debugSupabase';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 
+// Constante global para classes padrão
+const DEFAULT_CLASSES = ['A', 'AB', 'ABC', 'B', 'BC', 'C', 'CD', 'D', 'E', 'ND'] as const;
+
 // Simplified types to avoid type instantiation issues
 interface SimpleScreen {
   id: string;
@@ -46,40 +49,95 @@ export default function InteractiveMap() {
   const [mapboxToken, setMapboxToken] = useState<string | null>(null);
   const [mapError, setMapError] = useState<string | null>(null);
   const [invalidScreensCount, setInvalidScreensCount] = useState(0);
+  const [availableClasses, setAvailableClasses] = useState<string[]>([]);
+  
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
   const markers = useRef<mapboxgl.Marker[]>([]);
 
-  // Available filter options - garantir que não há valores vazios
+  // Available filter options
   const cities = Array.from(new Set(screens.map(s => s.city).filter(city => city && city.trim() !== ''))).sort();
+  const existingClasses = Array.from(new Set(screens.map(s => s.class).filter(cls => cls && cls.trim() !== ''))).sort();
+  const classes = availableClasses.length > 0 ? availableClasses : [...DEFAULT_CLASSES];
   
-  // Buscar classes diretamente do banco de dados
-  const [availableClasses, setAvailableClasses] = useState<string[]>([]);
-  
-  useEffect(() => {
-    fetchAvailableClasses();
-  }, []);
-
+  // Função corrigida para buscar classes
   const fetchAvailableClasses = async () => {
     try {
+      console.log('🔍 Buscando classes disponíveis...');
+      
       const { data, error } = await supabase
         .from('screens')
         .select('class')
         .not('class', 'is', null);
       
-      if (!error && data) {
+      console.log('📊 Resposta do Supabase:', { data, error });
+      
+      if (error) {
+        console.error('❌ Erro na consulta:', error);
+        setAvailableClasses([...DEFAULT_CLASSES]);
+        return;
+      }
+      
+      if (data && data.length > 0) {
         const uniqueClasses = Array.from(new Set(data.map(s => s.class).filter(Boolean))).sort();
+        console.log('✅ Classes encontradas:', uniqueClasses);
         setAvailableClasses(uniqueClasses);
+      } else {
+        console.log('⚠️ Nenhuma classe encontrada, usando fallback');
+        setAvailableClasses([...DEFAULT_CLASSES]);
       }
     } catch (error) {
       console.error('Erro ao buscar classes:', error);
-      // Fallback para classes padrão
-      setAvailableClasses(['A', 'AB', 'ABC', 'B', 'BC', 'C', 'CD', 'D', 'E', 'ND']);
+      setAvailableClasses([...DEFAULT_CLASSES]);
     }
   };
+
+  useEffect(() => {
+    fetchAvailableClasses();
+  }, []);
+
+  // Definir uma única vez no topo do componente
+  const DEFAULT_CLASSES = ['A', 'AB', 'ABC', 'B', 'BC', 'C', 'CD', 'D', 'E', 'ND'] as const;
   
-  const classes = availableClasses.length > 0 ? availableClasses : ['A', 'AB', 'ABC', 'B', 'BC', 'C', 'CD', 'D', 'E', 'ND'];
+  const fetchAvailableClasses = async () => {
+    try {
+      console.log('🔍 Buscando classes disponíveis...');
+      
+      const { data, error } = await supabase
+        .from('screens')
+        .select('class')
+        .not('class', 'is', null);
+      
+      console.log('📊 Resposta do Supabase:', { data, error });
+      
+      if (error) {
+        console.error('❌ Erro na consulta:', error);
+        setAvailableClasses([...DEFAULT_CLASSES]);
+        return;
+      }
+      
+      if (data && data.length > 0) {
+        const uniqueClasses = Array.from(new Set(data.map(s => s.class).filter(Boolean))).sort();
+        console.log('✅ Classes encontradas:', uniqueClasses);
+        setAvailableClasses(uniqueClasses);
+      } else {
+        console.log('⚠️ Nenhuma classe encontrada, usando fallback');
+        setAvailableClasses([...DEFAULT_CLASSES]);
+      }
+    } catch (error) {
+      console.error('Erro ao buscar classes:', error);
+      setAvailableClasses([...DEFAULT_CLASSES]);
+    }
+  };
+  const allPossibleClasses = DEFAULT_CLASSES;
   
+  // No catch:
+  setAvailableClasses([...DEFAULT_CLASSES]);
+  
+  // No fallback:
+  const classes = availableClasses.length > 0 ? availableClasses : [...DEFAULT_CLASSES];
+  }
+
   // Adicionar estas variáveis que estão faltando:
   const allPossibleClasses = ['A', 'AB', 'B', 'C', 'D', 'ND'];
   const existingClasses = Array.from(new Set(screens.map(s => s.class).filter(cls => cls && cls.trim() !== ''))).sort();

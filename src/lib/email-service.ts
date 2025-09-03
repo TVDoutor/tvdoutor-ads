@@ -312,17 +312,21 @@ class EmailService {
   /**
    * Busca estatísticas de emails
    */
-  async getEmailStats(): Promise<EmailStats[]> {
+  async getEmailStats(): Promise<{ data: EmailStats[] | null; error: any }> {
     try {
       const { data, error } = await supabase
         .from('email_stats')
         .select('*');
 
-      if (error) throw error;
-      return data || [];
+      if (error) {
+        logError('Erro ao buscar estatísticas de email', error);
+        return { data: null, error };
+      }
+      
+      return { data: data || [], error: null };
     } catch (error) {
-      logError('Erro ao buscar estatísticas de email', error);
-      throw error;
+      logError('Falha ao buscar estatísticas de email', error);
+      return { data: null, error };
     }
   }
 

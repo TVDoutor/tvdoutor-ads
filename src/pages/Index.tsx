@@ -18,7 +18,17 @@ const Index = () => {
   const { isAdmin } = useAuth();
   const { stats, loading, error } = useDashboardStats();
   
-  console.log('🔐 Auth status:', { isAdmin: isAdmin() });
+  // Safe admin check with fallback
+  const isAdminUser = () => {
+    try {
+      return isAdmin && typeof isAdmin === 'function' ? isAdmin() : false;
+    } catch (error) {
+      console.warn('Erro ao verificar se usuário é admin:', error);
+      return false;
+    }
+  };
+  
+  console.log('🔐 Auth status:', { isAdmin: isAdminUser() });
   console.log('📈 Dashboard stats:', { stats, loading, error });
 
   // Função para formatar valores monetários
@@ -217,7 +227,7 @@ const Index = () => {
         </div>
 
         {/* Admin Email Stats */}
-        {isAdmin() && (
+        {isAdminUser() && (
           <EmailStatsCard />
         )}
 

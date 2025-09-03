@@ -31,12 +31,21 @@ export const EmailStatsCard = () => {
   const fetchStats = async () => {
     try {
       console.log('📧 Buscando estatísticas de email...');
-      const data = await emailService.getEmailStats();
-      setStats(data);
-      console.log('✅ Estatísticas carregadas:', data.length, 'registros');
+      
+      // Try to fetch email stats with better error handling
+      const { data, error } = await emailService.getEmailStats();
+      
+      if (error) {
+        console.warn('❌ Erro ao buscar estatísticas de email:', error);
+        // Don't throw, just use empty data
+        setStats([]);
+      } else {
+        setStats(data || []);
+        console.log('✅ Estatísticas carregadas:', (data || []).length, 'registros');
+      }
     } catch (error) {
-      console.error('❌ Erro ao buscar estatísticas de email:', error);
-      // Não mostrar toast de erro para não atrapalhar UX
+      console.warn('❌ Falha ao buscar estatísticas de email:', error);
+      // Silently fail and use empty data to not break the UI
       setStats([]);
     } finally {
       setLoading(false);

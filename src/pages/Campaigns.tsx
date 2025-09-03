@@ -12,6 +12,8 @@ import { Plus, Search, Filter, Calendar, Users, Monitor, Eye, Pencil, Trash2 } f
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
+import { AgenciaSelect } from '@/components/AgenciaSelect';
+import { ProjetoSelect } from '@/components/ProjetoSelect';
 
 interface Campaign {
   id: number;
@@ -35,6 +37,8 @@ interface CampaignFormData {
   end_date: string;
   budget: string;
   notes: string;
+  agencia_id: string | null;
+  projeto_id: string | null;
 }
 
 const statusColors = {
@@ -67,7 +71,9 @@ export default function Campaigns() {
     start_date: '',
     end_date: '',
     budget: '',
-    notes: ''
+    notes: '',
+    agencia_id: null,
+    projeto_id: null
   });
   const navigate = useNavigate();
 
@@ -154,7 +160,9 @@ export default function Campaigns() {
         start_date: formData.start_date || null,
         end_date: formData.end_date || null,
         budget: formData.budget ? parseFloat(formData.budget) : null,
-        notes: formData.notes.trim() || null
+        notes: formData.notes.trim() || null,
+        agencia_id: formData.agencia_id,
+        projeto_id: formData.projeto_id
       };
 
       const { data, error } = await supabase
@@ -179,7 +187,9 @@ export default function Campaigns() {
         start_date: '',
         end_date: '',
         budget: '',
-        notes: ''
+        notes: '',
+        agencia_id: null,
+        projeto_id: null
       });
       setIsDialogOpen(false);
       
@@ -329,6 +339,18 @@ export default function Campaigns() {
                     onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
                     placeholder="Observações sobre a campanha..."
                     rows={3}
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <AgenciaSelect 
+                    value={formData.agencia_id} 
+                    onChange={(id) => setFormData(prev => ({ ...prev, agencia_id: id, projeto_id: null }))} 
+                  />
+                  <ProjetoSelect 
+                    agenciaId={formData.agencia_id} 
+                    value={formData.projeto_id} 
+                    onChange={(id) => setFormData(prev => ({ ...prev, projeto_id: id }))} 
                   />
                 </div>
               </div>

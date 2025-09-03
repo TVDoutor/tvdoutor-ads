@@ -7,7 +7,8 @@ import {
   Settings, 
   Users,
   Calendar,
-  Package
+  Package,
+  Building2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -60,6 +61,12 @@ const menuItems = [
     label: "Pontos de Venda",
     icon: Package,
     href: "/venues",
+    requiredRole: "Manager" as UserRole
+  },
+  {
+    label: "Agências",
+    icon: Building2,
+    href: "/agencias",
     requiredRole: "Manager" as UserRole
   },
   {

@@ -316,3 +316,4 @@ COMMENT ON VIEW public.email_stats IS
 'Estatísticas de emails por tipo e status respeitando RLS';
 
 COMMIT;
+

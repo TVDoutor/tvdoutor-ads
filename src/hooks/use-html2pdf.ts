@@ -29,3 +29,4 @@ export const useHtml2pdf = () => {
 
   return { isLoaded, error };
 };
+

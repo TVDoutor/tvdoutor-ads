@@ -19,3 +19,4 @@ export const LoadingScreen = ({ message = "Carregando..." }: LoadingScreenProps)
     </div>
   );
 };
+

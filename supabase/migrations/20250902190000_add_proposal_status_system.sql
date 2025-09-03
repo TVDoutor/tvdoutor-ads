@@ -243,3 +243,4 @@ COMMENT ON VIEW public.proposal_status_stats IS
 'Estatísticas de propostas por status respeitando RLS do usuário';
 
 COMMIT;
+

@@ -29,6 +29,7 @@ import { Users as UsersIcon, Plus, Search, Edit, Trash2, UserPlus, Eye, Shield }
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import { logDebug, logError, logInfo } from "@/utils/secureLogger";
 
 interface UserProfile {
   id: string;
@@ -114,7 +115,7 @@ const Users = () => {
       setUserRoles(rolesMap);
       
     } catch (error: any) {
-      console.error('Error fetching users:', error);
+      logError('Error fetching users', error);
       toast({
         title: "Erro",
         description: "Não foi possível carregar os usuários.",
@@ -142,7 +143,7 @@ const Users = () => {
 
     setSaving(true);
     try {
-      console.log('Criando usuário no Auth:', { email: newUser.email, name: newUser.name, role: newUser.role });
+      logDebug('Criando usuário no Auth', { hasEmail: !!newUser.email, name: newUser.name, role: newUser.role });
       
       // 1. APENAS criar usuário no Supabase Auth - deixar trigger fazer o resto
       const { data: authData, error: authError } = await supabase.auth.signUp({
@@ -158,10 +159,10 @@ const Users = () => {
       if (authError) throw authError;
 
       if (authData.user) {
-        console.log('Usuário criado no Auth:', authData.user.id);
+        logDebug('Usuário criado no Auth', { userId: 'user_created' });
         
         // 2. Aguardar trigger processar (2 segundos para ser seguro)
-        console.log('Aguardando trigger processar...');
+        logDebug('Aguardando trigger processar...');
         await new Promise(resolve => setTimeout(resolve, 2000));
         
         // 3. Verificar se trigger criou perfil e role
@@ -214,7 +215,7 @@ const Users = () => {
               console.error('Erro ao atualizar role:', updateError);
               throw new Error(`Erro ao atualizar role: ${updateError.message}`);
             }
-            console.log('Role atualizado para:', newUser.role);
+            logDebug('Role atualizado para:', { role: newUser.role });
           } else {
             // Criar role
             const { error: roleError } = await supabase
@@ -228,7 +229,7 @@ const Users = () => {
               console.error('Erro ao criar role:', roleError);
               throw new Error(`Erro ao criar role: ${roleError.message}`);
             }
-            console.log('Role criado:', newUser.role);
+            logDebug('Role criado:', { role: newUser.role });
           }
         }
 
@@ -243,7 +244,7 @@ const Users = () => {
         });
       }
     } catch (error: any) {
-      console.error('Error creating user:', error);
+      logError('Error creating user', error);
       
       let errorMessage = 'Erro desconhecido';
       
@@ -282,7 +283,7 @@ const Users = () => {
 
     setSaving(true);
     try {
-      console.log('Iniciando atualização de usuário:', editingUser);
+      logDebug('Iniciando atualização de usuário', { userId: editingUser?.id });
       
       // Atualizar perfil com mais campos
       const { data: profileData, error: profileError } = await supabase
@@ -304,7 +305,7 @@ const Users = () => {
 
       // Atualizar role se necessário
       const currentRole = userRoles[editingUser.id];
-      console.log('Current role:', currentRole, 'New role:', editingUser.role);
+      logDebug('Current role vs New role', { currentRole, newRole: editingUser.role });
       
       if (currentRole !== editingUser.role) {
         // Primeiro, tentar atualizar o role existente
@@ -356,7 +357,7 @@ const Users = () => {
         description: "As alterações foram salvas com sucesso"
       });
     } catch (error: any) {
-      console.error('Error updating user:', error);
+      logError('Error updating user', error);
       
       let errorMessage = 'Erro desconhecido';
       if (error.message?.includes('permission denied')) {
@@ -402,7 +403,7 @@ const Users = () => {
         description: "O usuário foi removido do sistema"
       });
     } catch (error: any) {
-      console.error('Error deleting user:', error);
+      logError('Error deleting user', error);
       toast({
         title: "Erro",
         description: `Não foi possível remover o usuário: ${error.message}`,
@@ -442,8 +443,8 @@ const Users = () => {
   };
 
   // Debug: mostrar informações do usuário atual
-  console.log('Current user profile:', profile);
-  console.log('Is admin?', isAdmin());
+  logDebug('Current user profile loaded', { hasProfile: !!profile });
+  logDebug('User admin status', { isAdmin: isAdmin() });
 
   // Verificar se usuário atual tem permissão para gerenciar usuários
   if (!isAdmin()) {

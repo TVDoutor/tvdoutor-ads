@@ -26,13 +26,18 @@ export async function runSupabaseDebug(): Promise<DebugResult> {
       result.errors.push(`Erro de autenticação: ${authError.message}`);
     } else if (user) {
       result.authenticated = true;
-      result.user = user;
-      console.log('✅ Usuário autenticado:', user.email);
-      console.log('👤 Dados do usuário:', {
-        id: user.id,
-        email: user.email,
+      // Armazenar dados do usuário sem expor informações sensíveis
+      result.user = {
+        authenticated: true,
         role: user.user_metadata?.role || 'N/A',
-        created_at: user.created_at
+        hasEmail: !!user.email,
+        accountAge: user.created_at ? new Date(user.created_at).toDateString() : 'N/A'
+      };
+      console.log('✅ Usuário autenticado');
+      console.log('👤 Status do usuário:', {
+        role: user.user_metadata?.role || 'N/A',
+        hasEmail: !!user.email,
+        accountCreated: user.created_at ? new Date(user.created_at).toDateString() : 'N/A'
       });
     } else {
       console.log('⚠️ Usuário não autenticado');
@@ -43,9 +48,19 @@ export async function runSupabaseDebug(): Promise<DebugResult> {
     if (sessionError) {
       result.errors.push(`Erro de sessão: ${sessionError.message}`);
     } else if (session) {
-      result.session = session;
+      // Armazenar informações da sessão sem expor dados sensíveis
+      result.session = {
+        active: true,
+        hasAccessToken: !!session.access_token,
+        expiresAt: session.expires_at,
+        tokenType: session.token_type
+      };
       console.log('✅ Sessão ativa');
-      console.log('🔑 Token de acesso presente:', !!session.access_token);
+      console.log('🔑 Status da sessão:', {
+        hasAccessToken: !!session.access_token,
+        expiresAt: session.expires_at ? new Date(session.expires_at * 1000).toISOString() : 'N/A',
+        tokenType: session.token_type || 'N/A'
+      });
     }
 
     // Testar conexão com a tabela screens - teste detalhado

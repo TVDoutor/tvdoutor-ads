@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { logDebug, logError, logInfo, logWarn } from '@/utils/secureLogger';
 
 // Configuração do Resend
 interface ResendEmailData {
@@ -43,7 +44,7 @@ class EmailService {
       if (error) throw error;
       return data || [];
     } catch (error) {
-      console.error('Erro ao buscar emails pendentes:', error);
+      logError('Erro ao buscar emails pendentes', error);
       throw error;
     }
   }
@@ -54,14 +55,14 @@ class EmailService {
   async processEmail(emailLog: EmailLog): Promise<boolean> {
     // Evitar processamento duplo
     if (this.processingEmails.has(emailLog.log_id)) {
-      console.log(`Email ${emailLog.log_id} já está sendo processado`);
+      logDebug(`Email já está sendo processado`, { logId: emailLog.log_id });
       return false;
     }
 
     this.processingEmails.add(emailLog.log_id);
 
     try {
-      console.log(`Processando email ${emailLog.log_id} para ${emailLog.recipient_email}`);
+      logDebug(`Processando email`, { logId: emailLog.log_id, hasRecipient: !!emailLog.recipient_email });
 
       // Tentar envio real com Resend primeiro, fallback para simulação se falhar
       let success = false;
@@ -80,13 +81,13 @@ class EmailService {
           p_status: 'sent'
         });
         
-        console.log(`✅ Email ${emailLog.log_id} enviado com sucesso para ${emailLog.recipient_email}`);
+        logInfo(`Email enviado com sucesso`, { logId: emailLog.log_id, hasRecipient: !!emailLog.recipient_email });
         return true;
       } else {
         throw new Error('Falha na simulação de envio');
       }
     } catch (error) {
-      console.error(`❌ Erro ao processar email ${emailLog.log_id}:`, error);
+      logError(`Erro ao processar email`, { logId: emailLog.log_id, error });
       
       // Atualizar status para 'failed' em caso de erro
       try {
@@ -96,7 +97,7 @@ class EmailService {
           p_error_message: error instanceof Error ? error.message : 'Erro desconhecido'
         });
       } catch (updateError) {
-        console.error('Erro ao atualizar status do email:', updateError);
+        logError('Erro ao atualizar status do email', updateError);
       }
       
       return false;
@@ -110,7 +111,7 @@ class EmailService {
    */
   private async sendEmailWithResend(emailLog: EmailLog): Promise<boolean> {
     try {
-      console.log(`📧 [RESEND] Enviando email para ${emailLog.recipient_email}...`);
+      logDebug(`[RESEND] Enviando email`, { hasRecipient: !!emailLog.recipient_email });
 
       // Gerar conteúdo do email
       const emailContent = this.generateEmailContent(emailLog);
@@ -137,7 +138,7 @@ class EmailService {
       }
 
       if (data?.success) {
-        console.log(`✅ Email enviado com sucesso via Resend para ${emailLog.recipient_email}`);
+        logInfo(`Email enviado com sucesso via Resend`, { hasRecipient: !!emailLog.recipient_email });
         return true;
       } else {
         console.error('❌ Edge Function retornou erro:', data?.error);
@@ -145,7 +146,7 @@ class EmailService {
       }
 
     } catch (error) {
-      console.error('❌ Erro ao enviar email via Resend:', error);
+      logError('Erro ao enviar email via Resend', error);
       return false;
     }
   }
@@ -264,12 +265,10 @@ class EmailService {
     // Simular delay de envio
     await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 2000));
     
-    console.log(`📧 [SIMULADO] Email enviado:`, {
-      para: emailLog.recipient_email,
+    logDebug(`[SIMULADO] Email enviado`, {
+      hasRecipient: !!emailLog.recipient_email,
       tipo: emailLog.recipient_type,
-      assunto: emailLog.subject,
-      proposta: `#${emailLog.proposal_id}`,
-      cliente: emailLog.customer_name
+      proposal_id: emailLog.proposal_id
     });
     
     // 95% de taxa de sucesso na simulação
@@ -284,11 +283,11 @@ class EmailService {
       const pendingEmails = await this.getPendingEmails(50); // Processar até 50 por vez
       
       if (pendingEmails.length === 0) {
-        console.log('Nenhum email pendente para processar');
+        logDebug('Nenhum email pendente para processar');
         return { processed: 0, successful: 0, failed: 0 };
       }
 
-      console.log(`Processando ${pendingEmails.length} emails pendentes...`);
+      logInfo(`Processando emails pendentes`, { count: pendingEmails.length });
 
       const results = await Promise.allSettled(
         pendingEmails.map(email => this.processEmail(email))
@@ -305,7 +304,7 @@ class EmailService {
         failed
       };
     } catch (error) {
-      console.error('Erro ao processar emails pendentes:', error);
+      logError('Erro ao processar emails pendentes', error);
       throw error;
     }
   }
@@ -322,7 +321,7 @@ class EmailService {
       if (error) throw error;
       return data || [];
     } catch (error) {
-      console.error('Erro ao buscar estatísticas de email:', error);
+      logError('Erro ao buscar estatísticas de email', error);
       throw error;
     }
   }
@@ -417,7 +416,7 @@ class EmailService {
       );
 
       const successful = results.filter(r => r.status === 'fulfilled' && r.value).length;
-      console.log(`Notificação enviada: ${successful}/${emailLogs.length} emails processados`);
+      logInfo(`Notificação enviada`, { successful, total: emailLogs.length });
 
       return successful > 0;
     } catch (error) {
@@ -430,7 +429,7 @@ class EmailService {
    * Inicia processamento automático de emails em background
    */
   startAutoProcessing(intervalMs = 10000) { // 10 segundos por padrão
-    console.log(`Iniciando processamento automático de emails (intervalo: ${intervalMs}ms)`);
+    logInfo(`Iniciando processamento automático de emails`, { intervalMs });
     
     const processEmails = async () => {
       try {
@@ -457,7 +456,7 @@ let autoProcessInterval: NodeJS.Timeout | null = null;
 export const startEmailProcessing = () => {
   if (!autoProcessInterval) {
     autoProcessInterval = emailService.startAutoProcessing();
-    console.log('Processamento automático de emails iniciado');
+    logInfo('Processamento automático de emails iniciado');
   }
 };
 
@@ -465,6 +464,6 @@ export const stopEmailProcessing = () => {
   if (autoProcessInterval) {
     clearInterval(autoProcessInterval);
     autoProcessInterval = null;
-    console.log('Processamento automático de emails parado');
+    logInfo('Processamento automático de emails parado');
   }
 };

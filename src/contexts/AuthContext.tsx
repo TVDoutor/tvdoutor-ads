@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, ReactNode } from 'react
 import { User, Session, AuthError } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { logDebug, logInfo, logWarn, logError, logAuthSuccess, logAuthError } from '@/utils/secureLogger';
 
 // Mapeamento de roles do banco para o frontend
 export type UserRole = 'User' | 'Manager' | 'Admin';
@@ -65,7 +66,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   const fetchUserProfile = async (userId: string): Promise<UserProfile | null> => {
     try {
-      console.log('🔍 Buscando perfil do usuário:', userId);
+      logDebug('Buscando perfil do usuário');
       
       // Timeout para evitar requests eternos
       const profilePromise = supabase
@@ -90,22 +91,22 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       const { data: profileData, error: profileError } = profileResult;
       const { data: roleData, error: rolesError } = rolesResult;
       
-      console.log('📊 Resultado da busca do perfil:', { 
-        profileData, 
-        profileError, 
+      logDebug('Resultado da busca do perfil', { 
+        hasProfileData: !!profileData, 
+        profileError: profileError?.message, 
         roleData, 
-        rolesError 
+        rolesError: rolesError?.message 
       });
 
       // Se não conseguir buscar o perfil, criar um perfil básico
       if (profileError) {
-        console.error('❌ Erro ao buscar perfil:', profileError);
+        logError('Erro ao buscar perfil', profileError);
         
         // Mesmo se o perfil falhar, tente obter o role
         let fallbackRole: UserRole = 'User';
         if (roleData && !rolesError) {
           fallbackRole = mapDatabaseRoleToUserRole(roleData);
-          console.log('✅ Role obtido via RPC:', roleData, '-> mapeado para:', fallbackRole);
+          logDebug('Role obtido via RPC', { roleData, mappedRole: fallbackRole });
         }
         
         // Tentar obter informações básicas do usuário autenticado
@@ -113,7 +114,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         if (user) {
           // Se o email for do hildebrando, forçar role Admin
           if (user.email === 'hildebrando.cardoso@tvdoutor.com.br') {
-            console.log('🔧 Forçando role Admin para hildebrando.cardoso@tvdoutor.com.br');
+            logDebug('Forçando role Admin para usuário específico');
             fallbackRole = 'Admin';
           }
           
@@ -129,7 +130,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       }
 
       if (rolesError) {
-        console.error('Error fetching roles:', rolesError);
+        logError('Error fetching roles', rolesError);
       }
 
       // Mapear o role do banco para o frontend
@@ -138,23 +139,21 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       // Verificar primeiro se é super admin (campo booleano)
       if (profileData.super_admin === true) {
         userRole = 'Admin';
-        console.log('✅ Usuário identificado como super_admin via campo booleano');
+        logDebug('Usuário identificado como super_admin via campo booleano');
       } else if (roleData && !rolesError) {
         userRole = mapDatabaseRoleToUserRole(roleData);
-        console.log('✅ Role mapeado via RPC:', roleData, '-> frontend:', userRole);
+        logDebug('Role mapeado via RPC', { roleData, frontendRole: userRole });
       }
       
       // Fallback especial para hildebrando
       if (profileData.email === 'hildebrando.cardoso@tvdoutor.com.br' && userRole !== 'Admin') {
-        console.log('🔧 Forçando role Admin para hildebrando.cardoso@tvdoutor.com.br (fallback)');
+        logDebug('Forçando role Admin para usuário específico (fallback)');
         userRole = 'Admin';
       }
 
-      console.log('🎯 Perfil final do usuário:', {
-        id: profileData.id,
-        email: profileData.email,
+      logAuthSuccess('Perfil do usuário carregado', {
         role: userRole,
-        super_admin: profileData.super_admin
+        hasEmail: !!profileData.email
       });
 
       return {
@@ -165,7 +164,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         avatar: profileData.avatar_url
       };
     } catch (error) {
-      console.error('Error fetching user profile:', error);
+      logError('Error fetching user profile', error);
       
       // Fallback: tentar obter informações básicas do usuário
       try {
@@ -180,7 +179,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           };
         }
       } catch (fallbackError) {
-        console.error('Error in fallback profile fetch:', fallbackError);
+        logError('Error in fallback profile fetch', fallbackError);
       }
       
       return null;
@@ -196,7 +195,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         const { data: { session }, error } = await supabase.auth.getSession();
         
         if (error) {
-          console.error('Error getting session:', error);
+          logError('Error getting session', error);
           if (mounted) {
             setLoading(false);
           }
@@ -214,7 +213,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
                 setProfile(userProfile);
               }
             } catch (profileError) {
-              console.error('Error fetching initial profile:', profileError);
+              logError('Error fetching initial profile', profileError);
               // Continue mesmo se não conseguir buscar o perfil
               if (mounted) {
                 setProfile(null);
@@ -225,7 +224,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           setLoading(false);
         }
       } catch (error) {
-        console.error('Error initializing auth:', error);
+        logError('Error initializing auth', error);
         if (mounted) {
           setLoading(false);
         }
@@ -235,7 +234,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     // Timeout de segurança para evitar loading infinito
     const timeoutId = setTimeout(() => {
       if (mounted && loading) {
-        console.warn('Auth initialization timeout, setting loading to false');
+        logWarn('Auth initialization timeout, setting loading to false');
         // Garantir que não há usuário fantasma
         setUser(null);
         setProfile(null);
@@ -262,7 +261,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             try {
               await supabase.rpc('ensure_profile');
             } catch (error) {
-              console.error('Error ensuring profile:', error);
+              logError('Error ensuring profile', error);
             }
           }, 0);
         }
@@ -274,7 +273,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
               setProfile(userProfile);
             }
           } catch (error) {
-            console.error('Error fetching profile on auth change:', error);
+            logError('Error fetching profile on auth change', error);
             if (mounted) {
               setProfile(null);
             }
@@ -318,7 +317,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
       return { error };
     } catch (error) {
-      console.error('Sign in error:', error);
+      logAuthError('Sign in error', error);
       return { error: error as AuthError };
     }
   };
@@ -390,7 +389,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
       return { error };
     } catch (error) {
-      console.error('Sign up error:', error);
+      logAuthError('Sign up error', error);
       toast({
         title: "Erro no cadastro", 
         description: "Database error saving new user",
@@ -419,7 +418,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
       return { error };
     } catch (error) {
-      console.error('Google sign in error:', error);
+      logAuthError('Google sign in error', error);
       return { error: error as AuthError };
     }
   };
@@ -466,7 +465,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         });
       }
     } catch (error) {
-      console.error('Sign out error:', error);
+      logAuthError('Sign out error', error);
     }
   };
 

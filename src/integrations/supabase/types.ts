@@ -391,6 +391,63 @@ export type Database = {
         }
         Relationships: []
       }
+      email_logs: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          email_type: string
+          error_message: string | null
+          id: number
+          proposal_id: number | null
+          recipient_email: string
+          recipient_type: string
+          sent_at: string | null
+          status: string | null
+          subject: string
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          email_type: string
+          error_message?: string | null
+          id?: number
+          proposal_id?: number | null
+          recipient_email: string
+          recipient_type: string
+          sent_at?: string | null
+          status?: string | null
+          subject: string
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          email_type?: string
+          error_message?: string | null
+          id?: number
+          proposal_id?: number | null
+          recipient_email?: string
+          recipient_type?: string
+          sent_at?: string | null
+          status?: string | null
+          subject?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_logs_proposal_id_fkey"
+            columns: ["proposal_id"]
+            isOneToOne: false
+            referencedRelation: "proposal_kpis"
+            referencedColumns: ["proposal_id"]
+          },
+          {
+            foreignKeyName: "email_logs_proposal_id_fkey"
+            columns: ["proposal_id"]
+            isOneToOne: false
+            referencedRelation: "proposals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       grupos_cpm: {
         Row: {
           ativo: boolean | null
@@ -430,6 +487,33 @@ export type Database = {
           tags_incluir?: string[] | null
           tipo_selecao?: string
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      holidays: {
+        Row: {
+          city: string | null
+          day: string
+          id: number
+          name: string | null
+          scope: string | null
+          state: string | null
+        }
+        Insert: {
+          city?: string | null
+          day: string
+          id?: number
+          name?: string | null
+          scope?: string | null
+          state?: string | null
+        }
+        Update: {
+          city?: string | null
+          day?: string
+          id?: number
+          name?: string | null
+          scope?: string | null
+          state?: string | null
         }
         Relationships: []
       }
@@ -566,6 +650,9 @@ export type Database = {
       proposal_screens: {
         Row: {
           created_at: string | null
+          custom_cpm: number | null
+          daily_traffic_override: number | null
+          hours_on_override: number | null
           id: number
           proposal_id: number
           quantidade: number | null
@@ -573,6 +660,9 @@ export type Database = {
         }
         Insert: {
           created_at?: string | null
+          custom_cpm?: number | null
+          daily_traffic_override?: number | null
+          hours_on_override?: number | null
           id?: number
           proposal_id: number
           quantidade?: number | null
@@ -580,12 +670,22 @@ export type Database = {
         }
         Update: {
           created_at?: string | null
+          custom_cpm?: number | null
+          daily_traffic_override?: number | null
+          hours_on_override?: number | null
           id?: number
           proposal_id?: number
           quantidade?: number | null
           screen_id?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "proposal_screens_proposal_id_fkey"
+            columns: ["proposal_id"]
+            isOneToOne: false
+            referencedRelation: "proposal_kpis"
+            referencedColumns: ["proposal_id"]
+          },
           {
             foreignKeyName: "proposal_screens_proposal_id_fkey"
             columns: ["proposal_id"]
@@ -609,18 +709,40 @@ export type Database = {
           class: Database["public"]["Enums"]["class_band"] | null
           clicksign_document_key: string | null
           clicksign_sign_url: string | null
+          cpm_mode: string | null
+          cpm_value: number | null
           created_at: string | null
           created_by: string | null
           customer_email: string | null
           customer_name: string
+          days_business: number | null
+          days_calendar: number | null
+          discount_fixed: number | null
+          discount_pct: number | null
+          email_sent_at: string | null
+          end_date: string | null
+          film_seconds: number | null
           filters: Json
+          gross_business: number | null
+          gross_calendar: number | null
           id: number
+          impact_formula: string | null
+          impacts_business: number | null
+          impacts_calendar: number | null
+          insertions_per_hour: number | null
+          net_business: number | null
+          net_calendar: number | null
+          notes: string | null
           pdf_path: string | null
           pdf_url: string | null
           pipedrive_deal_id: number | null
+          proposal_type: string | null
           quote: Json
           screens: Json
+          start_date: string | null
           status: string | null
+          status_updated_at: string | null
+          updated_at: string | null
         }
         Insert: {
           agencia_id?: string | null
@@ -628,18 +750,40 @@ export type Database = {
           class?: Database["public"]["Enums"]["class_band"] | null
           clicksign_document_key?: string | null
           clicksign_sign_url?: string | null
+          cpm_mode?: string | null
+          cpm_value?: number | null
           created_at?: string | null
           created_by?: string | null
           customer_email?: string | null
           customer_name: string
+          days_business?: number | null
+          days_calendar?: number | null
+          discount_fixed?: number | null
+          discount_pct?: number | null
+          email_sent_at?: string | null
+          end_date?: string | null
+          film_seconds?: number | null
           filters: Json
+          gross_business?: number | null
+          gross_calendar?: number | null
           id?: number
+          impact_formula?: string | null
+          impacts_business?: number | null
+          impacts_calendar?: number | null
+          insertions_per_hour?: number | null
+          net_business?: number | null
+          net_calendar?: number | null
+          notes?: string | null
           pdf_path?: string | null
           pdf_url?: string | null
           pipedrive_deal_id?: number | null
+          proposal_type?: string | null
           quote: Json
           screens: Json
+          start_date?: string | null
           status?: string | null
+          status_updated_at?: string | null
+          updated_at?: string | null
         }
         Update: {
           agencia_id?: string | null
@@ -647,18 +791,40 @@ export type Database = {
           class?: Database["public"]["Enums"]["class_band"] | null
           clicksign_document_key?: string | null
           clicksign_sign_url?: string | null
+          cpm_mode?: string | null
+          cpm_value?: number | null
           created_at?: string | null
           created_by?: string | null
           customer_email?: string | null
           customer_name?: string
+          days_business?: number | null
+          days_calendar?: number | null
+          discount_fixed?: number | null
+          discount_pct?: number | null
+          email_sent_at?: string | null
+          end_date?: string | null
+          film_seconds?: number | null
           filters?: Json
+          gross_business?: number | null
+          gross_calendar?: number | null
           id?: number
+          impact_formula?: string | null
+          impacts_business?: number | null
+          impacts_calendar?: number | null
+          insertions_per_hour?: number | null
+          net_business?: number | null
+          net_calendar?: number | null
+          notes?: string | null
           pdf_path?: string | null
           pdf_url?: string | null
           pipedrive_deal_id?: number | null
+          proposal_type?: string | null
           quote?: Json
           screens?: Json
+          start_date?: string | null
           status?: string | null
+          status_updated_at?: string | null
+          updated_at?: string | null
         }
         Relationships: [
           {
@@ -711,6 +877,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "acoes_especiais"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proposta_servicos_especiais_proposta_id_fkey"
+            columns: ["proposta_id"]
+            isOneToOne: false
+            referencedRelation: "proposal_kpis"
+            referencedColumns: ["proposal_id"]
           },
           {
             foreignKeyName: "proposta_servicos_especiais_proposta_id_fkey"
@@ -1341,6 +1514,16 @@ export type Database = {
       }
     }
     Views: {
+      email_stats: {
+        Row: {
+          email_type: string | null
+          last_7_days: number | null
+          status: string | null
+          today: number | null
+          total: number | null
+        }
+        Relationships: []
+      }
       geography_columns: {
         Row: {
           coord_dimension: number | null
@@ -1380,6 +1563,135 @@ export type Database = {
           f_table_schema?: unknown | null
           srid?: number | null
           type?: string | null
+        }
+        Relationships: []
+      }
+      proposal_kpis: {
+        Row: {
+          cpm_mode: string | null
+          cpm_value: number | null
+          created_by: string | null
+          days_business: number | null
+          days_calendar: number | null
+          discount_fixed: number | null
+          discount_pct: number | null
+          effective_cpm: number | null
+          end_date: string | null
+          gross_business: number | null
+          gross_calendar: number | null
+          impacts_business: number | null
+          impacts_calendar: number | null
+          net_business: number | null
+          net_calendar: number | null
+          proposal_id: number | null
+          proposal_type: string | null
+          start_date: string | null
+          status: string | null
+          total_screens: number | null
+        }
+        Insert: {
+          cpm_mode?: string | null
+          cpm_value?: number | null
+          created_by?: string | null
+          days_business?: number | null
+          days_calendar?: number | null
+          discount_fixed?: number | null
+          discount_pct?: number | null
+          effective_cpm?: never
+          end_date?: string | null
+          gross_business?: number | null
+          gross_calendar?: number | null
+          impacts_business?: number | null
+          impacts_calendar?: number | null
+          net_business?: number | null
+          net_calendar?: number | null
+          proposal_id?: number | null
+          proposal_type?: string | null
+          start_date?: string | null
+          status?: never
+          total_screens?: never
+        }
+        Update: {
+          cpm_mode?: string | null
+          cpm_value?: number | null
+          created_by?: string | null
+          days_business?: number | null
+          days_calendar?: number | null
+          discount_fixed?: number | null
+          discount_pct?: number | null
+          effective_cpm?: never
+          end_date?: string | null
+          gross_business?: number | null
+          gross_calendar?: number | null
+          impacts_business?: number | null
+          impacts_calendar?: number | null
+          net_business?: number | null
+          net_calendar?: number | null
+          proposal_id?: number | null
+          proposal_type?: string | null
+          start_date?: string | null
+          status?: never
+          total_screens?: never
+        }
+        Relationships: []
+      }
+      proposal_locales: {
+        Row: {
+          city: string | null
+          city_norm: string | null
+          proposal_id: number | null
+          screens_count: number | null
+          state: string | null
+          state_norm: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proposal_screens_proposal_id_fkey"
+            columns: ["proposal_id"]
+            isOneToOne: false
+            referencedRelation: "proposal_kpis"
+            referencedColumns: ["proposal_id"]
+          },
+          {
+            foreignKeyName: "proposal_screens_proposal_id_fkey"
+            columns: ["proposal_id"]
+            isOneToOne: false
+            referencedRelation: "proposals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      proposal_locations_summary: {
+        Row: {
+          cities_count: number | null
+          cities_list: string | null
+          proposal_id: number | null
+          states_count: number | null
+          states_list: string | null
+          total_screens: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proposal_screens_proposal_id_fkey"
+            columns: ["proposal_id"]
+            isOneToOne: false
+            referencedRelation: "proposal_kpis"
+            referencedColumns: ["proposal_id"]
+          },
+          {
+            foreignKeyName: "proposal_screens_proposal_id_fkey"
+            columns: ["proposal_id"]
+            isOneToOne: false
+            referencedRelation: "proposals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      proposal_status_stats: {
+        Row: {
+          my_count: number | null
+          status: string | null
+          total: number | null
         }
         Relationships: []
       }
@@ -1718,6 +2030,10 @@ export type Database = {
         Args: { "": unknown }
         Returns: unknown
       }
+      business_days_between: {
+        Args: { p_end: string; p_start: string }
+        Returns: number
+      }
       bytea: {
         Args: { "": unknown } | { "": unknown }
         Returns: string
@@ -1730,6 +2046,16 @@ export type Database = {
           user_id: string
           user_role: string
         }[]
+      }
+      create_email_log: {
+        Args: {
+          p_email_type: string
+          p_proposal_id: number
+          p_recipient_email: string
+          p_recipient_type: string
+          p_subject: string
+        }
+        Returns: number
       }
       debug_permissions: {
         Args: Record<PropertyKey, never>
@@ -2261,13 +2587,42 @@ export type Database = {
         Args: { "": string }
         Returns: unknown
       }
+      get_current_user_role: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
       get_my_role: {
         Args: Record<PropertyKey, never>
         Returns: string
       }
+      get_pending_emails: {
+        Args: { p_limit?: number }
+        Returns: {
+          created_at: string
+          customer_name: string
+          email_type: string
+          log_id: number
+          proposal_id: number
+          proposal_type: string
+          recipient_email: string
+          recipient_type: string
+          subject: string
+        }[]
+      }
       get_proj4_from_srid: {
         Args: { "": number }
         Returns: string
+      }
+      get_proposal_stats: {
+        Args: { p_proposal_id: number }
+        Returns: {
+          avg_cpm: number
+          cities_count: number
+          estimated_daily_impacts: number
+          screens_count: number
+          states_count: number
+          total_audience: number
+        }[]
       }
       get_screens_by_grupo_cpm: {
         Args: { grupo_id: string }
@@ -2277,7 +2632,7 @@ export type Database = {
         }[]
       }
       get_user_role: {
-        Args: Record<PropertyKey, never> | { _user_id: string }
+        Args: Record<PropertyKey, never> | { _user_id?: string }
         Returns: string
       }
       get_venue_details: {
@@ -2629,6 +2984,14 @@ export type Database = {
           qty_in: number
         }
         Returns: Json
+      }
+      recalc_proposal_kpis: {
+        Args: { p_proposal_id: number }
+        Returns: undefined
+      }
+      resolve_effective_cpm: {
+        Args: { p_proposal_id: number }
+        Returns: number
       }
       search_accounts_admin: {
         Args: { search?: string }
@@ -3740,6 +4103,18 @@ export type Database = {
         Args: { "": string }
         Returns: number
       }
+      update_email_status: {
+        Args: { p_error_message?: string; p_log_id: number; p_status: string }
+        Returns: boolean
+      }
+      update_proposal_status: {
+        Args: {
+          p_new_status: Database["public"]["Enums"]["proposal_status"]
+          p_notes?: string
+          p_proposal_id: number
+        }
+        Returns: boolean
+      }
       updategeometrysrid: {
         Args: {
           catalogn_name: string
@@ -3764,7 +4139,14 @@ export type Database = {
         | "D"
         | "E"
         | "ND"
+      proposal_status:
+        | "rascunho"
+        | "enviada"
+        | "em_analise"
+        | "aceita"
+        | "rejeitada"
       role_kind: "user" | "manager" | "admin"
+      tipo_insercao: "manual" | "automatica"
       tipo_insercao_enum: "Tipo 1" | "Tipo 2" | "Tipo 3" | "Tipo 4"
     }
     CompositeTypes: {
@@ -3903,7 +4285,15 @@ export const Constants = {
     Enums: {
       app_role: ["super_admin", "admin", "user"],
       class_band: ["A", "AB", "ABC", "B", "BC", "C", "CD", "D", "E", "ND"],
+      proposal_status: [
+        "rascunho",
+        "enviada",
+        "em_analise",
+        "aceita",
+        "rejeitada",
+      ],
       role_kind: ["user", "manager", "admin"],
+      tipo_insercao: ["manual", "automatica"],
       tipo_insercao_enum: ["Tipo 1", "Tipo 2", "Tipo 3", "Tipo 4"],
     },
   },

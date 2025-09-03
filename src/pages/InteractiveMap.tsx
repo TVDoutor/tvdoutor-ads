@@ -53,10 +53,32 @@ export default function InteractiveMap() {
   // Available filter options - garantir que não há valores vazios
   const cities = Array.from(new Set(screens.map(s => s.city).filter(city => city && city.trim() !== ''))).sort();
   
-  // Mostrar todas as classes possíveis do enum, não apenas as que existem no banco
-  const allPossibleClasses = ['A', 'AB', 'B', 'C', 'D', 'ND'];
-  const existingClasses = Array.from(new Set(screens.map(s => s.class).filter(cls => cls && cls.trim() !== ''))).sort();
-  const classes = allPossibleClasses; // Mostrar todas as classes possíveis
+  // Buscar classes diretamente do banco de dados
+  const [availableClasses, setAvailableClasses] = useState<string[]>([]);
+  
+  useEffect(() => {
+    fetchAvailableClasses();
+  }, []);
+
+  const fetchAvailableClasses = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('screens')
+        .select('class')
+        .not('class', 'is', null);
+      
+      if (!error && data) {
+        const uniqueClasses = Array.from(new Set(data.map(s => s.class).filter(Boolean))).sort();
+        setAvailableClasses(uniqueClasses);
+      }
+    } catch (error) {
+      console.error('Erro ao buscar classes:', error);
+      // Fallback para classes padrão
+      setAvailableClasses(['A', 'AB', 'ABC', 'B', 'BC', 'C', 'CD', 'D', 'E', 'ND']);
+    }
+  };
+  
+  const classes = availableClasses.length > 0 ? availableClasses : ['A', 'AB', 'ABC', 'B', 'BC', 'C', 'CD', 'D', 'E', 'ND'];
 
   useEffect(() => {
     fetchMapboxToken();
@@ -401,8 +423,7 @@ export default function InteractiveMap() {
               <strong>Debug:</strong> {screens.length} telas carregadas | 
               Estado: {loading ? 'Carregando...' : 'Pronto'} |
               Filtradas: {filteredScreens.length} |
-              Classes no banco: {existingClasses.join(', ')} |
-              Classes disponíveis no filtro: {classes.join(', ')}
+              Classes disponíveis: {classes.join(', ')}
             </div>
           )}
         </div>

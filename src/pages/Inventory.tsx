@@ -21,8 +21,8 @@ import { addScreenAsAdmin, deleteScreenAsAdmin } from "@/lib/admin-operations";
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
 
-// Valid class options
-const ALLOWED_CLASSES = ['A', 'B', 'C', 'D', 'E', 'ND'] as const;
+// Valid class options from database enum
+const ALLOWED_CLASSES = ['A', 'AB', 'ABC', 'B', 'BC', 'C', 'CD', 'D', 'E', 'ND'] as const;
 
 interface Screen {
   id: number;
@@ -295,10 +295,8 @@ const Inventory = () => {
       }
 
       const specialties = specialtyText.split(',').map(s => s.trim()).filter(Boolean);
-            // Validate and sanitize class value
-      const sanitizedClass = ALLOWED_CLASSES.includes(editingScreen.class as any) 
-        ? editingScreen.class 
-        : 'ND';
+      // Use the selected class directly (no sanitization needed)
+      const selectedClass = editingScreen.class;
       
       const updateData = {
         code: editingScreen.code || null,
@@ -307,7 +305,7 @@ const Inventory = () => {
         city: editingScreen.city || null,
         state: editingScreen.state || null,
         address_raw: editingScreen.address_raw || null,
-        class: sanitizedClass,
+        class: selectedClass,
         active: editingScreen.active ?? true,
         venue_type_parent: editingScreen.venue_type_parent || null,
         venue_type_child: editingScreen.venue_type_child || null,
@@ -329,7 +327,7 @@ const Inventory = () => {
         throw error;
       }
 
-      const updatedScreen = { ...editingScreen, specialty: specialties, class: sanitizedClass };
+      const updatedScreen = { ...editingScreen, specialty: specialties, class: selectedClass };
       setScreens(screens.map(screen => 
         screen.id === editingScreen.id ? updatedScreen : screen
       ));
@@ -380,10 +378,8 @@ const Inventory = () => {
     
     try {
       const specialties = specialtyText.split(',').map(s => s.trim()).filter(Boolean);
-            // Validate and sanitize class value
-      const sanitizedClass = ALLOWED_CLASSES.includes(newScreen.class as any) 
-        ? newScreen.class 
-        : 'ND';
+      // Use the selected class directly
+      const selectedClass = newScreen.class || 'ND';
       
       const insertData = {
         code: newScreen.code || null,
@@ -392,7 +388,7 @@ const Inventory = () => {
         city: newScreen.city || null,
         state: newScreen.state || null,
         address_raw: newScreen.address_raw || null,
-        class: sanitizedClass,
+        class: selectedClass,
         active: newScreen.active ?? true,
         venue_type_parent: newScreen.venue_type_parent || null,
         venue_type_child: newScreen.venue_type_child || null,

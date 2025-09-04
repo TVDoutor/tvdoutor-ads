@@ -29,6 +29,25 @@ export type Projeto = {
   created_at: string
 }
 
+export type ProjetoWithDetails = Projeto & {
+  status_projeto?: string
+  orcamento_projeto?: number | null
+  responsavel_projeto?: string | null
+  observacoes?: string | null
+  prioridade?: string
+  tipo_projeto?: string
+  cliente_final?: string | null
+  briefing?: string | null
+  objetivos?: string[] | null
+  publico_alvo?: string | null
+  prazo_estimado_dias?: number | null
+  tags?: string[] | null
+  arquivos_anexos?: any
+  orcamento_aprovado?: number | null
+  valor_gasto?: number | null
+  valor_disponivel?: number | null
+}
+
 export type Proposta = {
   id: number
   customer_name: string

@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+
 import { ArrowLeft, ArrowRight, FileText, Settings, MapPin, CheckCircle } from "lucide-react";
 import { ProposalInfoStep } from "./wizard/ProposalInfoStep";
 import { ScreenSelectionStep } from "./wizard/ScreenSelectionStep";

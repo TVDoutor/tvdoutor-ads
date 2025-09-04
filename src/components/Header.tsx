@@ -7,7 +7,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Badge } from "@/components/ui/badge";
+
 import logoImage from "@/assets/logo.jpg";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";

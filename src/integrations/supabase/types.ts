@@ -94,6 +94,13 @@ export type Database = {
             referencedRelation: "agencias"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "agencia_contatos_agencia_id_fkey"
+            columns: ["agencia_id"]
+            isOneToOne: false
+            referencedRelation: "vw_projetos_disponiveis"
+            referencedColumns: ["agencia_id"]
+          },
         ]
       }
       agencia_deals: {
@@ -126,10 +133,142 @@ export type Database = {
             referencedRelation: "agencias"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "agencia_deals_agencia_id_fkey"
+            columns: ["agencia_id"]
+            isOneToOne: false
+            referencedRelation: "vw_projetos_disponiveis"
+            referencedColumns: ["agencia_id"]
+          },
+        ]
+      }
+      agencia_projeto_equipe: {
+        Row: {
+          ativo: boolean | null
+          created_at: string | null
+          created_by: string | null
+          data_entrada: string | null
+          data_saida: string | null
+          id: string
+          papel: string | null
+          projeto_id: string
+          usuario_id: string
+        }
+        Insert: {
+          ativo?: boolean | null
+          created_at?: string | null
+          created_by?: string | null
+          data_entrada?: string | null
+          data_saida?: string | null
+          id?: string
+          papel?: string | null
+          projeto_id: string
+          usuario_id: string
+        }
+        Update: {
+          ativo?: boolean | null
+          created_at?: string | null
+          created_by?: string | null
+          data_entrada?: string | null
+          data_saida?: string | null
+          id?: string
+          papel?: string | null
+          projeto_id?: string
+          usuario_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agencia_projeto_equipe_projeto_id_fkey"
+            columns: ["projeto_id"]
+            isOneToOne: false
+            referencedRelation: "agencia_projetos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agencia_projeto_equipe_projeto_id_fkey"
+            columns: ["projeto_id"]
+            isOneToOne: false
+            referencedRelation: "vw_projetos_completos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agencia_projeto_equipe_projeto_id_fkey"
+            columns: ["projeto_id"]
+            isOneToOne: false
+            referencedRelation: "vw_projetos_disponiveis"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agencia_projeto_marcos: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          data_conclusao: string | null
+          data_prevista: string
+          descricao: string | null
+          id: string
+          nome_marco: string
+          ordem: number | null
+          projeto_id: string
+          responsavel_id: string | null
+          status: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          data_conclusao?: string | null
+          data_prevista: string
+          descricao?: string | null
+          id?: string
+          nome_marco: string
+          ordem?: number | null
+          projeto_id: string
+          responsavel_id?: string | null
+          status?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          data_conclusao?: string | null
+          data_prevista?: string
+          descricao?: string | null
+          id?: string
+          nome_marco?: string
+          ordem?: number | null
+          projeto_id?: string
+          responsavel_id?: string | null
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agencia_projeto_marcos_projeto_id_fkey"
+            columns: ["projeto_id"]
+            isOneToOne: false
+            referencedRelation: "agencia_projetos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agencia_projeto_marcos_projeto_id_fkey"
+            columns: ["projeto_id"]
+            isOneToOne: false
+            referencedRelation: "vw_projetos_completos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agencia_projeto_marcos_projeto_id_fkey"
+            columns: ["projeto_id"]
+            isOneToOne: false
+            referencedRelation: "vw_projetos_disponiveis"
+            referencedColumns: ["id"]
+          },
         ]
       }
       agencia_projetos: {
         Row: {
+          arquivos_anexos: Json | null
+          briefing: string | null
+          cliente_final: string | null
           created_at: string | null
           created_by: string | null
           data_fim: string | null
@@ -138,15 +277,25 @@ export type Database = {
           descricao: string | null
           id: string
           nome_projeto: string
+          objetivos: string[] | null
           observacoes: string | null
+          orcamento_aprovado: number | null
           orcamento_projeto: number | null
+          prazo_estimado_dias: number | null
           prioridade: string | null
+          publico_alvo: string | null
           responsavel_projeto: string | null
           status_projeto: string | null
+          tags: string[] | null
           tipo_projeto: string | null
           updated_at: string | null
+          valor_disponivel: number | null
+          valor_gasto: number | null
         }
         Insert: {
+          arquivos_anexos?: Json | null
+          briefing?: string | null
+          cliente_final?: string | null
           created_at?: string | null
           created_by?: string | null
           data_fim?: string | null
@@ -155,15 +304,25 @@ export type Database = {
           descricao?: string | null
           id?: string
           nome_projeto: string
+          objetivos?: string[] | null
           observacoes?: string | null
+          orcamento_aprovado?: number | null
           orcamento_projeto?: number | null
+          prazo_estimado_dias?: number | null
           prioridade?: string | null
+          publico_alvo?: string | null
           responsavel_projeto?: string | null
           status_projeto?: string | null
+          tags?: string[] | null
           tipo_projeto?: string | null
           updated_at?: string | null
+          valor_disponivel?: number | null
+          valor_gasto?: number | null
         }
         Update: {
+          arquivos_anexos?: Json | null
+          briefing?: string | null
+          cliente_final?: string | null
           created_at?: string | null
           created_by?: string | null
           data_fim?: string | null
@@ -172,13 +331,20 @@ export type Database = {
           descricao?: string | null
           id?: string
           nome_projeto?: string
+          objetivos?: string[] | null
           observacoes?: string | null
+          orcamento_aprovado?: number | null
           orcamento_projeto?: number | null
+          prazo_estimado_dias?: number | null
           prioridade?: string | null
+          publico_alvo?: string | null
           responsavel_projeto?: string | null
           status_projeto?: string | null
+          tags?: string[] | null
           tipo_projeto?: string | null
           updated_at?: string | null
+          valor_disponivel?: number | null
+          valor_gasto?: number | null
         }
         Relationships: [
           {
@@ -862,10 +1028,31 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "proposals_agencia_id_fkey"
+            columns: ["agencia_id"]
+            isOneToOne: false
+            referencedRelation: "vw_projetos_disponiveis"
+            referencedColumns: ["agencia_id"]
+          },
+          {
             foreignKeyName: "proposals_projeto_id_fkey"
             columns: ["projeto_id"]
             isOneToOne: false
             referencedRelation: "agencia_projetos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proposals_projeto_id_fkey"
+            columns: ["projeto_id"]
+            isOneToOne: false
+            referencedRelation: "vw_projetos_completos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proposals_projeto_id_fkey"
+            columns: ["projeto_id"]
+            isOneToOne: false
+            referencedRelation: "vw_projetos_disponiveis"
             referencedColumns: ["id"]
           },
         ]
@@ -1851,6 +2038,58 @@ export type Database = {
           display_name: string | null
           id: string | null
           profile_role: string | null
+        }
+        Relationships: []
+      }
+      vw_projetos_completos: {
+        Row: {
+          agencia_email: string | null
+          briefing: string | null
+          cliente_final: string | null
+          codigo_agencia: string | null
+          created_at: string | null
+          data_fim: string | null
+          data_inicio: string | null
+          deal_status: string | null
+          descricao: string | null
+          id: string | null
+          marcos_concluidos: number | null
+          nome_agencia: string | null
+          nome_deal: string | null
+          nome_projeto: string | null
+          objetivos: string[] | null
+          orcamento_aprovado: number | null
+          orcamento_projeto: number | null
+          prazo_estimado_dias: number | null
+          prioridade: string | null
+          publico_alvo: string | null
+          responsavel_email: string | null
+          responsavel_nome: string | null
+          status_projeto: string | null
+          tags: string[] | null
+          tipo_projeto: string | null
+          total_marcos: number | null
+          total_membros_equipe: number | null
+          total_propostas: number | null
+          updated_at: string | null
+          valor_disponivel: number | null
+          valor_gasto: number | null
+        }
+        Relationships: []
+      }
+      vw_projetos_disponiveis: {
+        Row: {
+          agencia_id: string | null
+          cliente_final: string | null
+          codigo_agencia: string | null
+          data_fim: string | null
+          data_inicio: string | null
+          id: string | null
+          nome_agencia: string | null
+          nome_projeto: string | null
+          projeto_display_name: string | null
+          responsavel_nome: string | null
+          status_projeto: string | null
         }
         Relationships: []
       }

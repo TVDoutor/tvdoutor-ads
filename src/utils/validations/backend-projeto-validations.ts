@@ -1,5 +1,4 @@
 import { z } from 'zod';
-import { projetoSchema, type ProjetoFormData } from './projeto-validations';
 import type { ZodIssue } from 'zod';
 
 // Extrair o schema base do projetoSchema original (sem o refine)

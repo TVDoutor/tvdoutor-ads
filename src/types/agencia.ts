@@ -24,8 +24,8 @@ export type Projeto = {
   deal_id: string
   nome_projeto: string
   descricao: string | null
-  data_inicio: string | null // YYYY-MM-DD
-  data_fim: string | null // YYYY-MM-DD
+  data_inicio: string | null
+  data_fim: string | null
   created_at: string
 }
 

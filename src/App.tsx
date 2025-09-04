@@ -24,6 +24,7 @@ import VenueDetails from "./pages/VenueDetails";
 import Campaigns from "./pages/Campaigns";
 import CampaignDetails from "./pages/CampaignDetails";
 import Agencias from "./pages/Agencias";
+import AgenciasProjetos from "./pages/AgenciasProjetos";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -142,6 +143,12 @@ const App = () => {
             <Route path="/agencias" element={
               <ProtectedRoute requiredRole="Manager">
                 <Agencias />
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/agencias/projetos" element={
+              <ProtectedRoute requiredRole="Manager">
+                <AgenciasProjetos />
               </ProtectedRoute>
             } />
             

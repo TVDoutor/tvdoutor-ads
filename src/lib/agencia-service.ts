@@ -1,24 +1,8 @@
 import { supabase } from '../integrations/supabase/client'
-import type { Agencia, Deal, Projeto } from '../types'
+import type { Agencia, Deal, Projeto } from '../types/agencia'
+import { validateProjeto, sanitizeProjeto } from '../utils/validations/projeto-validations'
 
-// Função para verificar se a tabela 'agencias' existe
-async function checkAgenciasTable() {
-  try {
-    const { data, error } = await supabase
-      .from('agencias')
-      .select('id')
-      .limit(1)
-    
-    if (!error && data !== null) {
-      console.log('✅ Tabela "agencias" encontrada')
-      return true
-    }
-  } catch (error) {
-    console.log('❌ Tabela "agencias" não encontrada')
-  }
-  return false
-}
-
+// Remover completamente a função checkAgenciasTable (linhas 5-18)
 export async function listarAgencias(): Promise<Agencia[]> {
   // Sempre usar a tabela 'agencias' para listar agências
   const { data, error } = await supabase
@@ -189,19 +173,98 @@ export async function listarProjetosPorAgencia(agenciaId: string): Promise<(Proj
   }))
 }
 
-export async function criarProjeto(payload: Partial<Projeto> & { deal_id: string }) {
+export async function criarProjeto(payload: { deal_id: string; nome_projeto: string; descricao?: string; data_inicio?: string; data_fim?: string }) {
+  // Validação básica
+  if (!payload.deal_id || !payload.nome_projeto) {
+    throw new Error('deal_id e nome_projeto são obrigatórios');
+  }
+  
+  // Preparar dados apenas com campos que existem na tabela
+  const dbData = {
+    deal_id: payload.deal_id,
+    nome_projeto: payload.nome_projeto,
+    descricao: payload.descricao || null,
+    data_inicio: payload.data_inicio || null,
+    data_fim: payload.data_fim || null
+  };
+  
   const { data, error } = await supabase
     .from('agencia_projetos')
-    .insert({
-      deal_id: payload.deal_id,
-      nome_projeto: payload.nome_projeto,
-      descricao: payload.descricao ?? null,
-      data_inicio: payload.data_inicio ?? null,
-      data_fim: payload.data_fim ?? null,
-    })
+    .insert(dbData)
     .select()
     .single()
 
-  if (error) throw error
-  return data as Projeto
+  if (error) {
+    console.error('Erro do Supabase ao criar projeto:', error);
+    throw new Error(`Erro ao criar projeto: ${error.message}`);
+  }
+  
+  return data;
+}
+
+// Função atualizarProjeto já implementada corretamente (linha 206)
+export async function atualizarProjeto(id: string, payload: Partial<Projeto>): Promise<{ success: boolean; error?: string }> {
+  try {
+    // Sanitização e validação já implementadas
+    const sanitizedData = sanitizeProjeto(payload);
+    const validation = validateProjeto(sanitizedData);
+    
+    if (!validation.success) {
+      const errorMessages = Object.values(validation.errors || {}).join(', ');
+      return { success: false, error: `Dados inválidos: ${errorMessages}` };
+    }
+
+    const validatedData = validation.data;
+    
+    if (!validatedData) {
+      return { success: false, error: 'Dados de validação não disponíveis' };
+    }
+    
+    // Preparação correta dos dados para o banco
+    const dbData: Record<string, any> = {
+      nome_projeto: validatedData.nome_projeto,
+      descricao: validatedData.descricao || null,
+      data_inicio: validatedData.data_inicio || null,
+      data_fim: validatedData.data_fim || null,
+      deal_id: validatedData.deal_id,
+      status_projeto: validatedData.status_projeto,
+      orcamento_projeto: validatedData.orcamento_projeto || null,
+      responsavel_projeto: validatedData.responsavel_projeto || null,
+      observacoes: validatedData.observacoes || null,
+      prioridade: validatedData.prioridade,
+      tipo_projeto: validatedData.tipo_projeto
+    };
+
+    // Atualização no banco com tratamento de erro
+    const { error } = await supabase
+      .from('agencia_projetos')
+      .update(dbData)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Erro ao atualizar projeto:', error);
+      return { success: false, error: error.message };
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error('Erro inesperado ao atualizar projeto:', error);
+    return { success: false, error: 'Erro interno do servidor' };
+  }
+}
+
+export async function excluirProjeto(id: string) {
+  const { error } = await supabase
+    .from('agencia_projetos')
+    .delete()
+    .eq('id', id)
+
+  if (error) {
+    console.error('Erro do Supabase ao excluir projeto:', error);
+    throw new Error(`Erro ao excluir projeto: ${error.message}`);
+  }
+  
+  return { success: true }
 }

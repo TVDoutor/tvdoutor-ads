@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { 
   LayoutDashboard, 
   Monitor, 
@@ -8,7 +9,10 @@ import {
   Users,
   Calendar,
   Package,
-  Building2
+  Building2,
+  FolderOpen,
+  ChevronDown,
+  ChevronRight
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -67,7 +71,11 @@ const menuItems = [
     label: "Agências",
     icon: Building2,
     href: "/agencias",
-    requiredRole: "Manager" as UserRole
+    requiredRole: "Manager" as UserRole,
+    subItems: [
+      { label: "Gerenciar Agências", href: "/agencias" },
+      { label: "Projetos", href: "/agencias/projetos" }
+    ]
   },
   {
     label: "Usuários",
@@ -86,6 +94,7 @@ export const Sidebar = ({ isCollapsed = false, className }: SidebarProps) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { hasRole } = useAuth();
+  const [expandedMenus, setExpandedMenus] = useState<string[]>([]);
 
   return (
     <aside className={cn(
@@ -99,24 +108,73 @@ export const Sidebar = ({ isCollapsed = false, className }: SidebarProps) => {
           .filter((item) => !item.requiredRole || hasRole(item.requiredRole))
           .map((item) => {
             const isActive = location.pathname === item.href;
+            const hasSubItems = item.subItems && item.subItems.length > 0;
+            const isExpanded = expandedMenus.includes(item.label);
+            const isSubItemActive = hasSubItems && item.subItems.some(subItem => location.pathname === subItem.href);
+            
+            const toggleExpanded = () => {
+              if (hasSubItems && !isCollapsed) {
+                setExpandedMenus(prev => 
+                  prev.includes(item.label) 
+                    ? prev.filter(label => label !== item.label)
+                    : [...prev, item.label]
+                );
+              } else {
+                navigate(item.href);
+              }
+            };
+
             return (
-              <Button
-                key={item.href}
-                variant={isActive ? "secondary" : "ghost"}
-                className={cn(
-                  "w-full justify-start gap-3 transition-all duration-200",
-                  isCollapsed && "px-2"
+              <div key={item.href}>
+                <Button
+                  variant={(isActive || isSubItemActive) ? "secondary" : "ghost"}
+                  className={cn(
+                    "w-full justify-start gap-3 transition-all duration-200",
+                    isCollapsed && "px-2"
+                  )}
+                  onClick={toggleExpanded}
+                >
+                  <item.icon className={cn(
+                    "h-5 w-5 shrink-0",
+                    (isActive || isSubItemActive) && "text-primary"
+                  )} />
+                  {!isCollapsed && (
+                    <>
+                      <span className="truncate flex-1 text-left">{item.label}</span>
+                      {hasSubItems && (
+                        <div className="ml-auto">
+                          {isExpanded ? (
+                            <ChevronDown className="h-4 w-4" />
+                          ) : (
+                            <ChevronRight className="h-4 w-4" />
+                          )}
+                        </div>
+                      )}
+                    </>
+                  )}
+                </Button>
+                
+                {/* Submenu */}
+                {hasSubItems && isExpanded && !isCollapsed && (
+                  <div className="ml-6 mt-1 space-y-1">
+                    {item.subItems.map((subItem) => {
+                      const isSubActive = location.pathname === subItem.href;
+                      return (
+                        <Button
+                          key={subItem.href}
+                          variant={isSubActive ? "secondary" : "ghost"}
+                          size="sm"
+                          className="w-full justify-start gap-2 text-sm"
+                          onClick={() => navigate(subItem.href)}
+                        >
+                          <div className="w-2 h-2 rounded-full bg-muted-foreground/40" />
+                          <span className="truncate">{subItem.label}</span>
+                        </Button>
+                      );
+                    })}
+                  </div>
                 )}
-                onClick={() => navigate(item.href)}
-              >
-                <item.icon className={cn(
-                  "h-5 w-5 shrink-0",
-                  isActive && "text-primary"
-                )} />
-                {!isCollapsed && (
-                  <span className="truncate">{item.label}</span>
-                )}
-              </Button>
+              </div>
             );
           })}
       </nav>

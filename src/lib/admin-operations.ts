@@ -25,7 +25,7 @@ export const addScreenAsAdmin = async (screenData: any) => {
     const isAdmin = profile?.super_admin || 
                    profile?.role === 'admin' || 
                    profile?.role === 'super_admin' ||
-                   userRoles?.length > 0;
+                   (userRoles?.length ?? 0) > 0;
 
     if (!isAdmin) {
       throw new Error('Insufficient privileges');
@@ -68,7 +68,7 @@ export const deleteScreenAsAdmin = async (screenId: number) => {
     const isAdmin = profile?.super_admin || 
                    profile?.role === 'admin' || 
                    profile?.role === 'super_admin' ||
-                   userRoles?.length > 0;
+                   (userRoles?.length ?? 0) > 0;
 
     if (!isAdmin) {
       throw new Error('Insufficient privileges');

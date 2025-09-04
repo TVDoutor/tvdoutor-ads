@@ -100,7 +100,7 @@ const Login = () => {
       <div className="w-full max-w-md space-y-6">
         {/* Header */}
         <div className="text-center space-y-4">
-          <Link to="/" className="inline-flex items-center text-sm text-muted-foreground hover:text-primary transition-colors">
+          <Link to="/" className="inline-flex items-center text-sm text-white hover:text-primary transition-colors">
             <ArrowLeft className="h-4 w-4 mr-2" />
             Voltar ao início
           </Link>
@@ -113,7 +113,7 @@ const Login = () => {
           
           <div>
             <h1 className="text-2xl font-bold text-foreground">TV Doutor</h1>
-            <p className="text-muted-foreground">Plataforma de Anúncios Médicos</p>
+            <p className="text-white">Plataforma de Anúncios Médicos</p>
           </div>
         </div>
 
@@ -135,7 +135,7 @@ const Login = () => {
                   <div className="space-y-2">
                     <Label htmlFor="login-email">Email</Label>
                     <div className="relative">
-                      <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                      <Mail className="absolute left-3 top-3 h-4 w-4 text-white" />
                       <Input
                         id="login-email"
                         type="email"
@@ -151,7 +151,7 @@ const Login = () => {
                   <div className="space-y-2">
                     <Label htmlFor="login-password">Senha</Label>
                     <div className="relative">
-                      <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                      <Lock className="absolute left-3 top-3 h-4 w-4 text-white" />
                       <Input
                         id="login-password"
                         type={showPassword ? "text" : "password"}
@@ -204,7 +204,7 @@ const Login = () => {
                 <div className="space-y-4">
                   <div className="flex items-center">
                     <Separator className="flex-1" />
-                    <span className="px-3 text-xs text-muted-foreground">OU</span>
+                    <span className="px-3 text-xs text-white">OU</span>
                     <Separator className="flex-1" />
                   </div>
 
@@ -232,7 +232,7 @@ const Login = () => {
                   <div className="space-y-2">
                     <Label htmlFor="register-name">Nome completo</Label>
                     <div className="relative">
-                      <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                      <User className="absolute left-3 top-3 h-4 w-4 text-white" />
                       <Input
                         id="register-name"
                         type="text"
@@ -248,7 +248,7 @@ const Login = () => {
                   <div className="space-y-2">
                     <Label htmlFor="register-email">Email</Label>
                     <div className="relative">
-                      <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                      <Mail className="absolute left-3 top-3 h-4 w-4 text-white" />
                       <Input
                         id="register-email"
                         type="email"
@@ -264,7 +264,7 @@ const Login = () => {
                   <div className="space-y-2">
                     <Label htmlFor="register-password">Senha</Label>
                     <div className="relative">
-                      <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                      <Lock className="absolute left-3 top-3 h-4 w-4 text-white" />
                       <Input
                         id="register-password"
                         type={showPassword ? "text" : "password"}
@@ -289,7 +289,7 @@ const Login = () => {
                   <div className="space-y-2">
                     <Label htmlFor="register-confirm-password">Confirmar senha</Label>
                     <div className="relative">
-                      <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                      <Lock className="absolute left-3 top-3 h-4 w-4 text-white" />
                       <Input
                         id="register-confirm-password"
                         type={showConfirmPassword ? "text" : "password"}
@@ -337,7 +337,7 @@ const Login = () => {
                 <div className="space-y-4">
                   <div className="flex items-center">
                     <Separator className="flex-1" />
-                    <span className="px-3 text-xs text-muted-foreground">OU</span>
+                    <span className="px-3 text-xs text-white">OU</span>
                     <Separator className="flex-1" />
                   </div>
 
@@ -363,7 +363,7 @@ const Login = () => {
         </Card>
 
         {/* Footer */}
-        <div className="text-center text-xs text-muted-foreground">
+        <div className="text-center text-xs text-white">
           <p>© 2025 TV Doutor. Todos os direitos reservados.</p>
           <p className="mt-1">Plataforma de comunicação em saúde e bem-estar</p>
         </div>

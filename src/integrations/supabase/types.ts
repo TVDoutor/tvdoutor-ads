@@ -131,30 +131,54 @@ export type Database = {
       agencia_projetos: {
         Row: {
           created_at: string | null
+          created_by: string | null
           data_fim: string | null
           data_inicio: string | null
           deal_id: string
           descricao: string | null
           id: string
           nome_projeto: string
+          observacoes: string | null
+          orcamento_projeto: number | null
+          prioridade: string | null
+          responsavel_projeto: string | null
+          status_projeto: string | null
+          tipo_projeto: string | null
+          updated_at: string | null
         }
         Insert: {
           created_at?: string | null
+          created_by?: string | null
           data_fim?: string | null
           data_inicio?: string | null
           deal_id: string
           descricao?: string | null
           id?: string
           nome_projeto: string
+          observacoes?: string | null
+          orcamento_projeto?: number | null
+          prioridade?: string | null
+          responsavel_projeto?: string | null
+          status_projeto?: string | null
+          tipo_projeto?: string | null
+          updated_at?: string | null
         }
         Update: {
           created_at?: string | null
+          created_by?: string | null
           data_fim?: string | null
           data_inicio?: string | null
           deal_id?: string
           descricao?: string | null
           id?: string
           nome_projeto?: string
+          observacoes?: string | null
+          orcamento_projeto?: number | null
+          prioridade?: string | null
+          responsavel_projeto?: string | null
+          status_projeto?: string | null
+          tipo_projeto?: string | null
+          updated_at?: string | null
         }
         Relationships: [
           {
@@ -437,7 +461,7 @@ export type Database = {
             columns: ["proposal_id"]
             isOneToOne: false
             referencedRelation: "proposal_kpis"
-            referencedColumns: ["proposal_id"]
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "email_logs_proposal_id_fkey"
@@ -684,7 +708,7 @@ export type Database = {
             columns: ["proposal_id"]
             isOneToOne: false
             referencedRelation: "proposal_kpis"
-            referencedColumns: ["proposal_id"]
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "proposal_screens_proposal_id_fkey"
@@ -736,6 +760,7 @@ export type Database = {
           pdf_path: string | null
           pdf_url: string | null
           pipedrive_deal_id: number | null
+          projeto_id: string | null
           proposal_type: string | null
           quote: Json
           screens: Json
@@ -777,6 +802,7 @@ export type Database = {
           pdf_path?: string | null
           pdf_url?: string | null
           pipedrive_deal_id?: number | null
+          projeto_id?: string | null
           proposal_type?: string | null
           quote: Json
           screens: Json
@@ -818,6 +844,7 @@ export type Database = {
           pdf_path?: string | null
           pdf_url?: string | null
           pipedrive_deal_id?: number | null
+          projeto_id?: string | null
           proposal_type?: string | null
           quote?: Json
           screens?: Json
@@ -832,6 +859,13 @@ export type Database = {
             columns: ["agencia_id"]
             isOneToOne: false
             referencedRelation: "agencias"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proposals_projeto_id_fkey"
+            columns: ["projeto_id"]
+            isOneToOne: false
+            referencedRelation: "agencia_projetos"
             referencedColumns: ["id"]
           },
         ]
@@ -883,7 +917,7 @@ export type Database = {
             columns: ["proposta_id"]
             isOneToOne: false
             referencedRelation: "proposal_kpis"
-            referencedColumns: ["proposal_id"]
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "proposta_servicos_especiais_proposta_id_fkey"
@@ -1570,6 +1604,7 @@ export type Database = {
         Row: {
           cpm_mode: string | null
           cpm_value: number | null
+          created_at: string | null
           created_by: string | null
           days_business: number | null
           days_calendar: number | null
@@ -1579,19 +1614,21 @@ export type Database = {
           end_date: string | null
           gross_business: number | null
           gross_calendar: number | null
+          id: number | null
           impacts_business: number | null
           impacts_calendar: number | null
           net_business: number | null
           net_calendar: number | null
-          proposal_id: number | null
           proposal_type: string | null
           start_date: string | null
           status: string | null
           total_screens: number | null
+          total_value: number | null
         }
         Insert: {
           cpm_mode?: string | null
           cpm_value?: number | null
+          created_at?: string | null
           created_by?: string | null
           days_business?: number | null
           days_calendar?: number | null
@@ -1601,19 +1638,21 @@ export type Database = {
           end_date?: string | null
           gross_business?: number | null
           gross_calendar?: number | null
+          id?: number | null
           impacts_business?: number | null
           impacts_calendar?: number | null
           net_business?: number | null
           net_calendar?: number | null
-          proposal_id?: number | null
           proposal_type?: string | null
           start_date?: string | null
           status?: never
           total_screens?: never
+          total_value?: never
         }
         Update: {
           cpm_mode?: string | null
           cpm_value?: number | null
+          created_at?: string | null
           created_by?: string | null
           days_business?: number | null
           days_calendar?: number | null
@@ -1623,15 +1662,16 @@ export type Database = {
           end_date?: string | null
           gross_business?: number | null
           gross_calendar?: number | null
+          id?: number | null
           impacts_business?: number | null
           impacts_calendar?: number | null
           net_business?: number | null
           net_calendar?: number | null
-          proposal_id?: number | null
           proposal_type?: string | null
           start_date?: string | null
           status?: never
           total_screens?: never
+          total_value?: never
         }
         Relationships: []
       }
@@ -1650,7 +1690,7 @@ export type Database = {
             columns: ["proposal_id"]
             isOneToOne: false
             referencedRelation: "proposal_kpis"
-            referencedColumns: ["proposal_id"]
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "proposal_screens_proposal_id_fkey"
@@ -1676,7 +1716,7 @@ export type Database = {
             columns: ["proposal_id"]
             isOneToOne: false
             referencedRelation: "proposal_kpis"
-            referencedColumns: ["proposal_id"]
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "proposal_screens_proposal_id_fkey"
@@ -1686,14 +1726,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
-      }
-      proposal_status_stats: {
-        Row: {
-          my_count: number | null
-          status: string | null
-          total: number | null
-        }
-        Relationships: []
       }
       safe_user_profiles: {
         Row: {

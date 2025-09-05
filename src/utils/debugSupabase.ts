@@ -67,7 +67,7 @@ export async function runSupabaseDebug(): Promise<DebugResult> {
     console.log('🔍 Testando acesso à tabela screens...');
     try {
       // Teste 1: Contagem simples
-      const { data: countData, error: countError } = await supabase
+      const { error: countError } = await supabase
         .from('screens')
         .select('count')
         .limit(1);
@@ -80,7 +80,7 @@ export async function runSupabaseDebug(): Promise<DebugResult> {
       }
 
       // Teste 2: Seleção de dados
-      const { data: selectData, error: selectError } = await supabase
+      const { error: selectError } = await supabase
         .from('screens')
         .select('id, name, display_name')
         .limit(1);
@@ -104,7 +104,7 @@ export async function runSupabaseDebug(): Promise<DebugResult> {
     const commonTables = ['profiles', 'campaigns', 'venues', 'screen_rates'];
     for (const table of commonTables) {
       try {
-        const { data, error } = await supabase
+        const { error } = await supabase
           .from(table)
           .select('count')
           .limit(1);

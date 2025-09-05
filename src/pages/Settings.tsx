@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
-import { Settings as SettingsIcon, Bell, Shield, Palette, Database, Mail } from "lucide-react";
+import { Settings as SettingsIcon, Bell, Shield, Palette, Database } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const Settings = () => {
@@ -41,11 +41,12 @@ const Settings = () => {
     });
   };
 
-  const mockUser = {
-    name: "João Silva",
-    email: "joao@tvdoutorada.com", 
-    role: "Admin"
-  };
+  // Mock user data for demo
+  // const mockUser = {
+  //   name: "João Silva",
+  //   email: "joao@tvdoutorada.com", 
+  //   role: "Admin"
+  // };
 
   return (
     <DashboardLayout>

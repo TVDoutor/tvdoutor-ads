@@ -6,7 +6,6 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
 import { 
   Table,
   TableBody,
@@ -29,7 +28,7 @@ import { Users as UsersIcon, Plus, Search, Edit, Trash2, UserPlus, Eye, Shield }
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { logDebug, logError, logInfo } from "@/utils/secureLogger";
+import { logDebug, logError } from "@/utils/secureLogger";
 
 interface UserProfile {
   id: string;
@@ -44,10 +43,11 @@ interface UserProfile {
   organization?: string;
 }
 
-interface UserRole {
-  user_id: string;
-  role: 'user' | 'admin' | 'super_admin';
-}
+// Interface for user roles
+// interface UserRole {
+//   user_id: string;
+//   role: 'user' | 'admin' | 'super_admin';
+// }
 
 const Users = () => {
   const { toast } = useToast();

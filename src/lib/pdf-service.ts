@@ -341,11 +341,11 @@ class PDFService {
     });
   }
 
-  /**
-   * Fallback: usar window.print para salvar como PDF
-   */
-  private async printToPDF(element: HTMLElement, filename: string): Promise<Blob> {
-    return new Promise((resolve, reject) => {
+   /**
+    * Fallback: usar window.print para salvar como PDF (unused)
+    */
+  // private async printToPDF(element: HTMLElement, filename: string): Promise<Blob> {
+  //   return new Promise((resolve, reject) => {
       // Criar nova janela para impressão
       const printWindow = window.open('', '_blank');
       

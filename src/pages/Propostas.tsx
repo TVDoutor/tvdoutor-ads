@@ -3,7 +3,6 @@ import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import {
   Select,
   SelectContent,
@@ -12,18 +11,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ProposalCard } from "@/components/ProposalCard";
-import { ProposalStatusBadge, type ProposalStatus } from "@/components/ProposalStatusBadge";
-import { PDFDownloadButton } from "@/components/PDFDownloadButton";
+import { type ProposalStatus } from "@/components/ProposalStatusBadge";
 import { 
   FileText, 
   Plus, 
   Search, 
   Filter,
   RefreshCw,
-  TrendingUp,
-  Clock,
-  CheckCircle,
-  XCircle
+  Filter
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -170,15 +165,16 @@ const Propostas = () => {
     fetchProposals();
   };
 
-  const getStatusIcon = (status: ProposalStatus) => {
-    switch (status) {
-      case 'rascunho': return FileText;
-      case 'enviada': return TrendingUp;
-      case 'em_analise': return Clock;
-      case 'aceita': return CheckCircle;
-      case 'rejeitada': return XCircle;
-    }
-  };
+  // Helper function for status icons
+  // const getStatusIcon = (status: ProposalStatus) => {
+  //   switch (status) {
+  //     case 'rascunho': return FileText;
+  //     case 'enviada': return TrendingUp;
+  //     case 'em_analise': return Clock;
+  //     case 'aceita': return CheckCircle;
+  //     case 'rejeitada': return XCircle;
+  //   }
+  // };
 
   if (loading) {
     return (

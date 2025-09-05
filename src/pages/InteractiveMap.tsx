@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { MapPin, Search, Filter, Zap, ZapOff, AlertCircle, Info } from 'lucide-react';
+import { MapPin, Search, Filter, Zap, ZapOff, AlertCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { runSupabaseDebug } from '@/utils/debugSupabase';
@@ -266,7 +266,7 @@ export default function InteractiveMap() {
       console.log('🔍 Iniciando busca por telas...');
       
       // Primeiro, vamos verificar a conexão com o Supabase
-      const { data: testData, error: testError } = await supabase
+      const { error: testError } = await supabase
         .from('screens')
         .select('count')
         .limit(1);

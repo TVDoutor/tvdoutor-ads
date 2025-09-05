@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,11 +12,11 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Search, Filter, Eye, Edit, Monitor, Building, AlertCircle, X, Trash2, Upload, Download, Plus } from "lucide-react";
+import { Search, Filter, Eye, Edit, Monitor, Building, AlertCircle, Trash2, Upload, Download, Plus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
 import { addScreenAsAdmin, deleteScreenAsAdmin } from "@/lib/admin-operations";
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
@@ -281,7 +281,7 @@ const Inventory = () => {
       console.log('🔄 Attempting to update screen with ID:', editingScreen.id, 'Type:', typeof editingScreen.id);
       
       // Check user's database role before attempting update
-      const { data: dbRole, error: roleError } = await supabase
+      const { data: dbRole } = await supabase
         .rpc('get_user_role', { _user_id: profile?.id });
 
       // Check if user has permission to edit (admin or super_admin in database)

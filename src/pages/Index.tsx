@@ -1,4 +1,4 @@
-import { Monitor, MapPin, FileText, TrendingUp, Users, Calendar, Plus, Eye } from "lucide-react";
+import { Monitor, MapPin, FileText, TrendingUp, Users, Plus, Eye } from "lucide-react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { StatsCard } from "@/components/StatsCard";
 import { RecentProposals } from "@/components/RecentProposals";

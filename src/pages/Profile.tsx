@@ -25,7 +25,7 @@ interface ProfileData {
 }
 
 export default function Profile() {
-  const { profile, user } = useAuth();
+  const { user } = useAuth();
   const { toast } = useToast();
   const [profileData, setProfileData] = useState<ProfileData | null>(null);
   const [isEditing, setIsEditing] = useState(false);

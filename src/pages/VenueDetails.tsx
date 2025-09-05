@@ -7,13 +7,10 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { 
   ArrowLeft, 
-  MapPin, 
   Building2, 
   Monitor,
   Package,
   AlertCircle,
-  Clock,
-  Eye,
   CheckCircle,
   XCircle
 } from "lucide-react";

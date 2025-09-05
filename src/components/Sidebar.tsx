@@ -74,7 +74,8 @@ const menuItems = [
     requiredRole: "Manager" as UserRole,
     subItems: [
       { label: "Gerenciar Agências", href: "/agencias" },
-      { label: "Projetos", href: "/agencias/projetos" }
+      { label: "Projetos", href: "/agencias/projetos" },
+      { label: "Gerenciamento Completo", href: "/gerenciamento-projetos" }
     ]
   },
   {

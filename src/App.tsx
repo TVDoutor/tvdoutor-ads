@@ -25,6 +25,7 @@ import Campaigns from "./pages/Campaigns";
 import CampaignDetails from "./pages/CampaignDetails";
 import Agencias from "./pages/Agencias";
 import AgenciasProjetos from "./pages/AgenciasProjetos";
+import ProjectManagement from "./pages/ProjectManagement";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -149,6 +150,12 @@ const App = () => {
             <Route path="/agencias/projetos" element={
               <ProtectedRoute requiredRole="Manager">
                 <AgenciasProjetos />
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/gerenciamento-projetos" element={
+              <ProtectedRoute requiredRole="Manager">
+                <ProjectManagement />
               </ProtectedRoute>
             } />
             

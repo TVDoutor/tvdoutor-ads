@@ -16,7 +16,6 @@ import { Search, Filter, Eye, Edit, Monitor, Building, AlertCircle, Trash2, Uplo
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import { useAuth } from "@/contexts/AuthContext";
 import { addScreenAsAdmin, deleteScreenAsAdmin } from "@/lib/admin-operations";
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';

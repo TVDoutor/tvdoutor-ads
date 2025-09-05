@@ -20,9 +20,9 @@ import {
   Plus, 
   Search, 
   MapPin,
-  MapPin,
   Zap,
   ZapOff,
+  Trash2,
   Save
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';

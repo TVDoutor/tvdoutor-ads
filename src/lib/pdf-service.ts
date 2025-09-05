@@ -341,54 +341,6 @@ class PDFService {
     });
   }
 
-   /**
-    * Fallback: usar window.print para salvar como PDF (unused)
-    */
-  // private async printToPDF(element: HTMLElement, filename: string): Promise<Blob> {
-  //   return new Promise((resolve, reject) => {
-      // Criar nova janela para impressão
-      const printWindow = window.open('', '_blank');
-      
-      if (!printWindow) {
-        reject(new Error('Não foi possível abrir janela de impressão'));
-        return;
-      }
-
-      printWindow.document.write(`
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <title>${filename}</title>
-          <style>
-            body { font-family: Arial, sans-serif; margin: 0; padding: 20px; }
-            @media print {
-              body { print-color-adjust: exact; }
-              .no-print { display: none; }
-            }
-          </style>
-        </head>
-        <body>
-          ${element.innerHTML}
-          <div class="no-print" style="position: fixed; top: 10px; right: 10px;">
-            <button onclick="window.print()" style="padding: 10px 20px; background: #667eea; color: white; border: none; border-radius: 4px; cursor: pointer;">
-              Imprimir/Salvar PDF
-            </button>
-            <button onclick="window.close()" style="padding: 10px 20px; background: #6b7280; color: white; border: none; border-radius: 4px; cursor: pointer; margin-left: 10px;">
-              Fechar
-            </button>
-          </div>
-        </body>
-        </html>
-      `);
-
-      printWindow.document.close();
-
-      // Simular blob (não é possível capturar o PDF real do print)
-      const textBlob = new Blob([element.innerHTML], { type: 'text/html' });
-      resolve(textBlob);
-    });
-  }
-
   /**
    * Gera HTML da proposta para PDF
    */

@@ -5,7 +5,7 @@ import {
   Zap, 
   Users, 
   Shield, 
-  Clock,
+  
   TrendingUp,
   MapPin
 } from "lucide-react";

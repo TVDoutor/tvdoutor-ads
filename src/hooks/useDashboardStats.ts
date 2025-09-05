@@ -100,7 +100,7 @@ export const useDashboardStats = () => {
         try {
           const currentDate = new Date();
           const lastMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, currentDate.getDate());
-          const lastWeek = new Date(currentDate.getTime() - 7 * 24 * 60 * 60 * 1000);
+          
 
           // Try to fetch previous data for growth calculation
           const { data: prevScreensData } = await supabase

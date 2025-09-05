@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { ArrowRight, Play, TrendingUp, Users, Clock } from "lucide-react";
+import { TrendingUp } from "lucide-react";
 import { Link } from "react-router-dom";
 import heroImage from "@/assets/hero-banner.jpg";
 

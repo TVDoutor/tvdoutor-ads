@@ -10,7 +10,7 @@ import {
   Calendar,
   Package,
   Building2,
-  FolderOpen,
+  
   ChevronDown,
   ChevronRight
 } from "lucide-react";

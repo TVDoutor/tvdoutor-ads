@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useState, ReactNode } from 'react
 import { User, Session, AuthError } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { logDebug, logInfo, logWarn, logError, logAuthSuccess, logAuthError } from '@/utils/secureLogger';
+import { logDebug, logWarn, logError, logAuthSuccess, logAuthError } from '@/utils/secureLogger';
 
 // Mapeamento de roles do banco para o frontend
 export type UserRole = 'User' | 'Manager' | 'Admin';

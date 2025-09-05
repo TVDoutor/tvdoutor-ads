@@ -1,13 +1,7 @@
 import { supabase } from '@/integrations/supabase/client';
-import { logDebug, logError, logInfo, logWarn } from '@/utils/secureLogger';
+import { logDebug, logError, logInfo } from '@/utils/secureLogger';
 
 // Configuração do Resend
-interface ResendEmailData {
-  recipientEmail: string;
-  subject: string;
-  html: string;
-  text: string;
-}
 
 export interface EmailLog {
   log_id: number;

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 import { Button } from "@/components/ui/button";
-import { FileText, Eye, Calendar } from "lucide-react";
+import { FileText, Eye } from "lucide-react";
 import { ProposalStatusBadge, type ProposalStatus } from "./ProposalStatusBadge";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
@@ -94,7 +94,7 @@ export const RecentProposals = ({ limit = 5, showViewAll = true }: RecentProposa
     return formatDate(dateString);
   };
 
-  const handleViewProposal = (proposalId: number) => {
+  const handleViewProposal = () => {
     // Navegar para a lista de propostas (por enquanto)
     navigate('/propostas');
   };
@@ -170,7 +170,7 @@ export const RecentProposals = ({ limit = 5, showViewAll = true }: RecentProposa
             <div
               key={proposal.id}
               className="flex items-center gap-3 p-3 rounded-lg border hover:bg-accent/50 transition-colors cursor-pointer"
-              onClick={() => handleViewProposal(proposal.id)}
+              onClick={handleViewProposal}
             >
               {/* Status Badge */}
               <div className="flex-shrink-0">
@@ -207,7 +207,7 @@ export const RecentProposals = ({ limit = 5, showViewAll = true }: RecentProposa
                 className="flex-shrink-0"
                 onClick={(e) => {
                   e.stopPropagation();
-                  handleViewProposal(proposal.id);
+                  handleViewProposal();
                 }}
               >
                 <Eye className="h-4 w-4" />

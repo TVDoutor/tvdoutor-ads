@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button"
 import { Form, FormField, FormItem, FormLabel, FormMessage, FormControl } from "@/components/ui/form"
 import { useToast } from "@/components/ui/use-toast"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
+
 import { Loader2, Upload, MapPin, CheckCircle, AlertCircle } from "lucide-react"
 
 // Serviços

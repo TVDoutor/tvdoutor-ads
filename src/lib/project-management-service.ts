@@ -1,4 +1,4 @@
-import { supabase } from '@/integrations/supabase/client';
+import { SupabaseClient } from '@supabase/supabase-js';
 import { toast } from 'sonner';
 
 // Tipos baseados na estrutura do banco de dados
@@ -53,15 +53,43 @@ export interface Contato {
   cargo: string;
 }
 
+// Tipos para funções de equipe
+export type FuncaoEquipe = 'membro' | 'coordenador' | 'gerente' | 'diretor';
+
 export interface Equipe {
   id: string;
   projeto_id: string;
   usuario_id: string;
-  nome_usuario: string;
-  email: string;
-  papel: string;
+  papel: FuncaoEquipe;
   data_entrada: string;
+  data_saida?: string;
   ativo: boolean;
+  created_at?: string;
+  created_by?: string;
+}
+
+// Interface para estatísticas de equipe
+export interface EstatisticasEquipe {
+  total_membros: number;
+  total_coordenadores: number;
+  total_gerentes: number;
+  total_diretores: number;
+  membros_ativos: number;
+}
+
+// Interface para dados completos da equipe
+export interface EquipeCompleta extends Equipe {
+  nome_usuario: string;
+  email_usuario: string;
+  avatar_usuario?: string;
+  nome_projeto: string;
+  status_projeto: string;
+  cliente_final: string;
+  nome_agencia: string;
+  codigo_agencia: string;
+  nome_deal: string;
+  nivel_hierarquia: number;
+  status_membro: string;
 }
 
 export interface Marco {
@@ -78,24 +106,30 @@ export interface Marco {
 // Serviços para Agências
 export const agenciaService = {
   // Listar todas as agências
-  async listar(): Promise<Agencia[]> {
+  async listar(supabase: SupabaseClient): Promise<Agencia[]> {
     try {
+      console.log('🏢 Buscando agências na tabela...');
       const { data, error } = await supabase
         .from('agencias')
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Erro na query de agências:', error);
+        throw error;
+      }
+      
+      console.log('✅ Agências encontradas:', data?.length || 0, data);
       return data || [];
     } catch (error) {
-      console.error('Erro ao listar agências:', error);
+      console.error('❌ Erro ao listar agências:', error);
       toast.error('Erro ao carregar agências');
       throw error;
     }
   },
 
   // Criar nova agência
-  async criar(agencia: Omit<Agencia, 'id' | 'created_at'>): Promise<Agencia> {
+  async criar(supabase: SupabaseClient, agencia: Omit<Agencia, 'id' | 'created_at'>): Promise<Agencia> {
     try {
       const { data, error } = await supabase
         .from('agencias')
@@ -114,7 +148,7 @@ export const agenciaService = {
   },
 
   // Atualizar agência
-  async atualizar(id: string, agencia: Partial<Agencia>): Promise<Agencia> {
+  async atualizar(supabase: SupabaseClient, id: string, agencia: Partial<Agencia>): Promise<Agencia> {
     try {
       const { data, error } = await supabase
         .from('agencias')
@@ -134,7 +168,7 @@ export const agenciaService = {
   },
 
   // Excluir agência
-  async excluir(id: string): Promise<void> {
+  async excluir(supabase: SupabaseClient, id: string): Promise<void> {
     try {
       const { error } = await supabase
         .from('agencias')
@@ -154,24 +188,30 @@ export const agenciaService = {
 // Serviços para Deals
 export const dealService = {
   // Listar todos os deals
-  async listar(): Promise<Deal[]> {
+  async listar(supabase: SupabaseClient): Promise<Deal[]> {
     try {
+      console.log('💼 Buscando deals na tabela...');
       const { data, error } = await supabase
         .from('agencia_deals')
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Erro na query de deals:', error);
+        throw error;
+      }
+      
+      console.log('✅ Deals encontrados:', data?.length || 0, data);
       return data || [];
     } catch (error) {
-      console.error('Erro ao listar deals:', error);
+      console.error('❌ Erro ao listar deals:', error);
       toast.error('Erro ao carregar deals');
       throw error;
     }
   },
 
   // Criar novo deal
-  async criar(deal: Omit<Deal, 'id' | 'created_at'>): Promise<Deal> {
+  async criar(supabase: SupabaseClient, deal: Omit<Deal, 'id' | 'created_at'>): Promise<Deal> {
     try {
       const { data, error } = await supabase
         .from('agencia_deals')
@@ -190,7 +230,7 @@ export const dealService = {
   },
 
   // Atualizar deal
-  async atualizar(id: string, deal: Partial<Deal>): Promise<Deal> {
+  async atualizar(supabase: SupabaseClient, id: string, deal: Partial<Deal>): Promise<Deal> {
     try {
       const { data, error } = await supabase
         .from('agencia_deals')
@@ -210,7 +250,7 @@ export const dealService = {
   },
 
   // Excluir deal
-  async excluir(id: string): Promise<void> {
+  async excluir(supabase: SupabaseClient, id: string): Promise<void> {
     try {
       const { error } = await supabase
         .from('agencia_deals')
@@ -230,7 +270,7 @@ export const dealService = {
 // Serviços para Projetos
 export const projetoService = {
   // Listar todos os projetos
-  async listar(): Promise<Projeto[]> {
+  async listar(supabase: SupabaseClient): Promise<Projeto[]> {
     try {
       const { data, error } = await supabase
         .from('agencia_projetos')
@@ -247,7 +287,7 @@ export const projetoService = {
   },
 
   // Criar novo projeto
-  async criar(projeto: Omit<Projeto, 'id'>): Promise<Projeto> {
+  async criar(supabase: SupabaseClient, projeto: Omit<Projeto, 'id'>): Promise<Projeto> {
     try {
       const { data, error } = await supabase
         .from('agencia_projetos')
@@ -266,7 +306,7 @@ export const projetoService = {
   },
 
   // Atualizar projeto
-  async atualizar(id: string, projeto: Partial<Projeto>): Promise<Projeto> {
+  async atualizar(supabase: SupabaseClient, id: string, projeto: Partial<Projeto>): Promise<Projeto> {
     try {
       const { data, error } = await supabase
         .from('agencia_projetos')
@@ -286,7 +326,7 @@ export const projetoService = {
   },
 
   // Excluir projeto
-  async excluir(id: string): Promise<void> {
+  async excluir(supabase: SupabaseClient, id: string): Promise<void> {
     try {
       const { error } = await supabase
         .from('agencia_projetos')
@@ -306,7 +346,7 @@ export const projetoService = {
 // Serviços para Contatos
 export const contatoService = {
   // Listar contatos por agência
-  async listarPorAgencia(agenciaId: string): Promise<Contato[]> {
+  async listarPorAgencia(supabase: SupabaseClient, agenciaId: string): Promise<Contato[]> {
     try {
       const { data, error } = await supabase
         .from('agencia_contatos')
@@ -324,7 +364,7 @@ export const contatoService = {
   },
 
   // Criar novo contato
-  async criar(contato: Omit<Contato, 'id'>): Promise<Contato> {
+  async criar(supabase: SupabaseClient, contato: Omit<Contato, 'id'>): Promise<Contato> {
     try {
       const { data, error } = await supabase
         .from('agencia_contatos')
@@ -343,7 +383,7 @@ export const contatoService = {
   },
 
   // Atualizar contato
-  async atualizar(id: string, contato: Partial<Contato>): Promise<Contato> {
+  async atualizar(supabase: SupabaseClient, id: string, contato: Partial<Contato>): Promise<Contato> {
     try {
       const { data, error } = await supabase
         .from('agencia_contatos')
@@ -363,7 +403,7 @@ export const contatoService = {
   },
 
   // Excluir contato
-  async excluir(id: string): Promise<void> {
+  async excluir(supabase: SupabaseClient, id: string): Promise<void> {
     try {
       const { error } = await supabase
         .from('agencia_contatos')
@@ -382,14 +422,15 @@ export const contatoService = {
 
 // Serviços para Equipes
 export const equipeService = {
-  // Listar equipe por projeto
-  async listarPorProjeto(projetoId: string): Promise<Equipe[]> {
+  // Listar equipe por projeto com dados completos
+  async listarPorProjeto(supabase: SupabaseClient, projetoId: string): Promise<EquipeCompleta[]> {
     try {
       const { data, error } = await supabase
-        .from('agencia_projeto_equipe')
+        .from('vw_equipe_projeto_completa')
         .select('*')
         .eq('projeto_id', projetoId)
         .eq('ativo', true)
+        .order('nivel_hierarquia', { ascending: false })
         .order('data_entrada', { ascending: false });
 
       if (error) throw error;
@@ -401,12 +442,40 @@ export const equipeService = {
     }
   },
 
+  // Listar todas as equipes
+  async listarTodas(supabase: SupabaseClient): Promise<EquipeCompleta[]> {
+    try {
+      const { data, error } = await supabase
+        .from('vw_equipe_projeto_completa')
+        .select('*')
+        .eq('ativo', true)
+        .order('nome_projeto', { ascending: true })
+        .order('nivel_hierarquia', { ascending: false });
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Erro ao listar todas as equipes:', error);
+      toast.error('Erro ao carregar equipes');
+      throw error;
+    }
+  },
+
   // Adicionar membro à equipe
-  async adicionarMembro(membro: Omit<Equipe, 'id'>): Promise<Equipe> {
+  async adicionarMembro(supabase: SupabaseClient, membro: {
+    projeto_id: string;
+    usuario_id: string;
+    papel: FuncaoEquipe;
+    data_entrada?: string;
+  }): Promise<Equipe> {
     try {
       const { data, error } = await supabase
         .from('agencia_projeto_equipe')
-        .insert([membro])
+        .insert([{
+          ...membro,
+          data_entrada: membro.data_entrada || new Date().toISOString().split('T')[0],
+          ativo: true
+        }])
         .select()
         .single();
 
@@ -420,12 +489,40 @@ export const equipeService = {
     }
   },
 
+  // Atualizar membro da equipe
+  async atualizarMembro(supabase: SupabaseClient, id: string, membro: {
+    papel?: FuncaoEquipe;
+    data_entrada?: string;
+    data_saida?: string;
+    ativo?: boolean;
+  }): Promise<Equipe> {
+    try {
+      const { data, error } = await supabase
+        .from('agencia_projeto_equipe')
+        .update(membro)
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      toast.success('Membro atualizado com sucesso!');
+      return data;
+    } catch (error) {
+      console.error('Erro ao atualizar membro:', error);
+      toast.error('Erro ao atualizar membro da equipe');
+      throw error;
+    }
+  },
+
   // Remover membro da equipe
-  async removerMembro(id: string): Promise<void> {
+  async removerMembro(supabase: SupabaseClient, id: string): Promise<void> {
     try {
       const { error } = await supabase
         .from('agencia_projeto_equipe')
-        .update({ ativo: false, data_saida: new Date().toISOString() })
+        .update({ 
+          ativo: false, 
+          data_saida: new Date().toISOString().split('T')[0] 
+        })
         .eq('id', id);
 
       if (error) throw error;
@@ -435,13 +532,56 @@ export const equipeService = {
       toast.error('Erro ao remover membro da equipe');
       throw error;
     }
+  },
+
+  // Obter estatísticas de equipe por projeto
+  async obterEstatisticas(supabase: SupabaseClient, projetoId: string): Promise<EstatisticasEquipe> {
+    try {
+      const { data, error } = await supabase
+        .rpc('get_equipe_stats', { projeto_uuid: projetoId });
+
+      if (error) throw error;
+      return data?.[0] || {
+        total_membros: 0,
+        total_coordenadores: 0,
+        total_gerentes: 0,
+        total_diretores: 0,
+        membros_ativos: 0
+      };
+    } catch (error) {
+      console.error('Erro ao obter estatísticas da equipe:', error);
+      return {
+        total_membros: 0,
+        total_coordenadores: 0,
+        total_gerentes: 0,
+        total_diretores: 0,
+        membros_ativos: 0
+      };
+    }
+  },
+
+  // Verificar se usuário já está na equipe
+  async verificarMembroExistente(supabase: SupabaseClient, projetoId: string, usuarioId: string): Promise<boolean> {
+    try {
+      const { data } = await supabase
+        .from('agencia_projeto_equipe')
+        .select('id')
+        .eq('projeto_id', projetoId)
+        .eq('usuario_id', usuarioId)
+        .eq('ativo', true)
+        .single();
+
+      return !!data;
+    } catch {
+      return false;
+    }
   }
 };
 
 // Serviços para Marcos
 export const marcoService = {
   // Listar marcos por projeto
-  async listarPorProjeto(projetoId: string): Promise<Marco[]> {
+  async listarPorProjeto(supabase: SupabaseClient, projetoId: string): Promise<Marco[]> {
     try {
       const { data, error } = await supabase
         .from('agencia_projeto_marcos')
@@ -459,7 +599,7 @@ export const marcoService = {
   },
 
   // Criar novo marco
-  async criar(marco: Omit<Marco, 'id'>): Promise<Marco> {
+  async criar(supabase: SupabaseClient, marco: Omit<Marco, 'id'>): Promise<Marco> {
     try {
       const { data, error } = await supabase
         .from('agencia_projeto_marcos')
@@ -478,7 +618,7 @@ export const marcoService = {
   },
 
   // Atualizar marco
-  async atualizar(id: string, marco: Partial<Marco>): Promise<Marco> {
+  async atualizar(supabase: SupabaseClient, id: string, marco: Partial<Marco>): Promise<Marco> {
     try {
       const { data, error } = await supabase
         .from('agencia_projeto_marcos')
@@ -498,7 +638,7 @@ export const marcoService = {
   },
 
   // Excluir marco
-  async excluir(id: string): Promise<void> {
+  async excluir(supabase: SupabaseClient, id: string): Promise<void> {
     try {
       const { error } = await supabase
         .from('agencia_projeto_marcos')
@@ -517,16 +657,27 @@ export const marcoService = {
 
 // Serviço principal para carregar todos os dados
 export const projectManagementService = {
-  async carregarTodosDados() {
+  async carregarTodosDados(supabase: SupabaseClient) {
     try {
+      console.log('🔍 Iniciando carregamento de dados no serviço...');
+      
       const [agencias, deals, projetos, contatos, equipes, marcos] = await Promise.all([
-        agenciaService.listar(),
-        dealService.listar(),
-        projetoService.listar(),
+        agenciaService.listar(supabase),
+        dealService.listar(supabase),
+        projetoService.listar(supabase),
         supabase.from('agencia_contatos').select('*'),
         supabase.from('agencia_projeto_equipe').select('*'),
         supabase.from('agencia_projeto_marcos').select('*')
       ]);
+
+      console.log('📋 Resultados individuais:', {
+        agencias: agencias?.length || 0,
+        deals: deals?.length || 0,
+        projetos: projetos?.length || 0,
+        contatos: contatos.data?.length || 0,
+        equipes: equipes.data?.length || 0,
+        marcos: marcos.data?.length || 0
+      });
 
       return {
         agencias,
@@ -537,7 +688,7 @@ export const projectManagementService = {
         marcos: marcos.data || []
       };
     } catch (error) {
-      console.error('Erro ao carregar dados:', error);
+      console.error('❌ Erro ao carregar dados no serviço:', error);
       toast.error('Erro ao carregar dados do sistema');
       throw error;
     }

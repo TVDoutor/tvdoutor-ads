@@ -93,7 +93,7 @@ export const projetoSchema = z.object({
 export type ProjetoFormData = z.infer<typeof projetoSchema>;
 
 // Função para validar dados do projeto
-export const validateProjeto = (data: any) => {
+export const validateProjeto = (data: unknown) => {
   try {
     return {
       success: true,
@@ -166,18 +166,18 @@ export const fieldValidations = {
 };
 
 // Função para sanitizar dados de entrada
-export const sanitizeProjeto = (data: any): Partial<ProjetoFormData> => {
+export const sanitizeProjeto = (data: Record<string, unknown>): Partial<ProjetoFormData> => {
   return {
     nome_projeto: data.nome_projeto?.toString().trim() || '',
     descricao: data.descricao?.toString().trim() || '',
-    data_inicio: data.data_inicio || '',
-    data_fim: data.data_fim || '',
-    deal_id: data.deal_id || '',
-    status_projeto: data.status_projeto || 'planejamento',
-    orcamento_projeto: data.orcamento_projeto ? data.orcamento_projeto.toString() : '',
-    responsavel_projeto: data.responsavel_projeto?.toString().trim() || '',
+    data_inicio: data.data_inicio?.toString() || '',
+    data_fim: data.data_fim?.toString() || '',
+    deal_id: data.deal_id?.toString() || '',
+    status_projeto: (data.status_projeto as 'planejamento' | 'em_andamento' | 'pausado' | 'concluido' | 'cancelado') || 'planejamento',
+    orcamento_projeto: data.orcamento_projeto ? Number(data.orcamento_projeto) : null,
+    responsavel_projeto: data.responsavel_projeto ? data.responsavel_projeto.toString().trim() : undefined,
     observacoes: data.observacoes?.toString().trim() || '',
-    prioridade: data.prioridade || 'media',
-    tipo_projeto: data.tipo_projeto || 'campanha'
+    prioridade: (data.prioridade as 'baixa' | 'media' | 'alta' | 'critica') || 'media',
+    tipo_projeto: (data.tipo_projeto as 'campanha' | 'desenvolvimento' | 'manutencao' | 'consultoria' | 'treinamento') || 'campanha'
   };
 };

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Header } from "@/components/Header";
 import { Sidebar } from "@/components/Sidebar";
+import { TVDoutorFooter } from "@/components/Footer";
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -11,12 +12,12 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background flex flex-col">
       <Header 
         onMenuClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
       />
       
-      <div className="flex">
+      <div className="flex flex-1">
         {/* Desktop Sidebar */}
         <div className="hidden lg:block">
           <Sidebar isCollapsed={isSidebarCollapsed} />
@@ -40,6 +41,9 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
           {children}
         </main>
       </div>
+      
+      {/* Footer */}
+      <TVDoutorFooter />
     </div>
   );
 };

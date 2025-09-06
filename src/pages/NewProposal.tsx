@@ -1,4 +1,5 @@
 import { useNavigate } from "react-router-dom";
+import { DashboardLayout } from "@/components/DashboardLayout";
 import { NewProposalWizard, type ProposalData } from "@/components/NewProposalWizard";
 import { supabase } from "@/integrations/supabase/client";
 import { emailService } from "@/lib/email-service";
@@ -74,10 +75,12 @@ const NewProposal = () => {
   };
 
   return (
-    <NewProposalWizard 
-      onComplete={handleComplete}
-      onCancel={handleCancel}
-    />
+    <DashboardLayout>
+      <NewProposalWizard 
+        onComplete={handleComplete}
+        onCancel={handleCancel}
+      />
+    </DashboardLayout>
   );
 };
 

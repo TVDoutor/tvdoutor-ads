@@ -105,9 +105,10 @@ export const ProposalCard = ({
           // Não mostrar erro para não confundir o usuário, apenas log
         });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Erro ao alterar status:', error);
-      toast.error('Erro ao alterar status: ' + error.message);
+      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+      toast.error('Erro ao alterar status: ' + errorMessage);
     }
   };
 

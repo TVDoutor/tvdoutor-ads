@@ -9,7 +9,8 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { MapPin, Search, Filter, Zap, ZapOff, AlertCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { runSupabaseDebug } from '@/utils/debugSupabase';
+// Remover esta linha:
+// import { runSupabaseDebug } from '@/utils/debugSupabase';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 
@@ -401,17 +402,18 @@ export default function InteractiveMap() {
     setSelectedScreen(null);
   };
 
-  const handleDebug = async () => {
-    toast.info('Executando diagnóstico...');
-    const result = await runSupabaseDebug();
-    
-    if (result && typeof result === 'object' && 'authenticated' in result) {
-      toast.success('Diagnóstico concluído! Verifique o console para detalhes.');
-    } else {
-      toast.error('Problemas encontrados no diagnóstico. Verifique o console.');
-    }
-  };
-
+  // Remover a função handleDebug e o botão de debug
+  // const handleDebug = async () => {
+  //   toast.info('Executando diagnóstico...');
+  //   const result = await runSupabaseDebug();
+  //   
+  //   if (result && typeof result === 'object' && 'authenticated' in result) {
+  //     toast.success('Diagnóstico concluído! Verifique o console para detalhes.');
+  //   } else {
+  //     toast.error('Problemas encontrados no diagnóstico. Verifique o console.');
+  //   }
+  // };
+  
   if (loading) {
     return (
       <DashboardLayout>
@@ -562,9 +564,10 @@ export default function InteractiveMap() {
                 <Button variant="outline" size="sm" onClick={fetchScreens}>
                   🔄 Recarregar
                 </Button>
-                <Button variant="outline" size="sm" onClick={handleDebug}>
-                  🔧 Debug
-                </Button>
+                // Remover do JSX:
+                // <Button variant="outline" size="sm" onClick={handleDebug}>
+                //   🔧 Debug
+                // </Button>
                 <Button variant="outline" onClick={clearFilters}>
                   Limpar filtros
                 </Button>

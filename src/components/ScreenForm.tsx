@@ -31,8 +31,12 @@ const screenSchema = z.object({
     .regex(/^\d*$/, "Deve ser um número")
     .optional(),
   file: z
-    .any()
-    .refine((f) => f?.length === 1, "Selecione uma imagem"),
+    .instanceof(FileList)
+    .refine((f) => f?.length === 1, "Selecione uma imagem")
+    .refine((f) => {
+      const file = f?.[0];
+      return file && ['image/jpeg', 'image/png', 'image/webp'].includes(file.type);
+    }, "Arquivo deve ser uma imagem (JPEG, PNG ou WebP)"),
 })
 
 type FormData = z.infer<typeof screenSchema>

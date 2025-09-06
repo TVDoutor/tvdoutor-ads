@@ -155,25 +155,30 @@ CREATE POLICY "Authenticated users can view profiles"
     TO authenticated
     USING (true);
 
--- Fix price_rules policies - remove duplicate and inconsistent policies
-DROP POLICY IF EXISTS "Authenticated can read price_rules" ON public.price_rules;
-DROP POLICY IF EXISTS "price_rules.select.auth" ON public.price_rules;
-DROP POLICY IF EXISTS "price_rules.write.admin" ON public.price_rules;
-DROP POLICY IF EXISTS "price_rules_admin_write" ON public.price_rules;
-DROP POLICY IF EXISTS "price_rules_read" ON public.price_rules;
+-- Fix price_rules policies - remove duplicate and inconsistent policies (only if table exists)
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'price_rules' AND table_schema = 'public') THEN
+        DROP POLICY IF EXISTS "Authenticated can read price_rules" ON public.price_rules;
+        DROP POLICY IF EXISTS "price_rules.select.auth" ON public.price_rules;
+        DROP POLICY IF EXISTS "price_rules.write.admin" ON public.price_rules;
+        DROP POLICY IF EXISTS "price_rules_admin_write" ON public.price_rules;
+        DROP POLICY IF EXISTS "price_rules_read" ON public.price_rules;
 
-CREATE POLICY "Authenticated users can read price_rules"
-    ON public.price_rules
-    FOR SELECT
-    TO authenticated
-    USING (true);
+        CREATE POLICY "Authenticated users can read price_rules"
+            ON public.price_rules
+            FOR SELECT
+            TO authenticated
+            USING (true);
 
-CREATE POLICY "Only admins can modify price_rules"
-    ON public.price_rules
-    FOR ALL
-    TO authenticated
-    USING (is_admin())
-    WITH CHECK (is_admin());
+        CREATE POLICY "Only admins can modify price_rules"
+            ON public.price_rules
+            FOR ALL
+            TO authenticated
+            USING (is_admin())
+            WITH CHECK (is_admin());
+    END IF;
+END $$;
 
 -- Fix screens policies - remove duplicate and inconsistent policies
 DROP POLICY IF EXISTS "Authenticated can read screens" ON public.screens;

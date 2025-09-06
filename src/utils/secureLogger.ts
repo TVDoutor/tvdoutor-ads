@@ -24,7 +24,7 @@ class SecureLogger {
   /**
    * Sanitiza dados sensíveis antes do log
    */
-  private sanitizeData(data: any): any {
+  private sanitizeData(data: unknown): unknown {
     if (!data) return data;
     
     if (typeof data === 'string') {
@@ -37,7 +37,7 @@ class SecureLogger {
     }
     
     if (typeof data === 'object') {
-      const sanitized: any = {};
+      const sanitized: Record<string, unknown> = {};
       
       for (const [key, value] of Object.entries(data)) {
         const lowerKey = key.toLowerCase();
@@ -88,25 +88,27 @@ class SecureLogger {
     return requestedLevelIndex >= currentLevelIndex;
   }
 
-  debug(message: string, data?: any): void {
+  // Manter apenas logs de produção (info, warn, error)
+  // Remover ou comentar a função debug em produção
+  debug(message: string, data?: unknown): void {
     if (this.shouldLog('debug')) {
       console.log(`🔧 ${message}`, data ? this.sanitizeData(data) : '');
     }
   }
 
-  info(message: string, data?: any): void {
+  info(message: string, data?: unknown): void {
     if (this.shouldLog('info')) {
       console.log(`ℹ️ ${message}`, data ? this.sanitizeData(data) : '');
     }
   }
 
-  warn(message: string, data?: any): void {
+  warn(message: string, data?: unknown): void {
     if (this.shouldLog('warn')) {
       console.warn(`⚠️ ${message}`, data ? this.sanitizeData(data) : '');
     }
   }
 
-  error(message: string, error?: any): void {
+  error(message: string, error?: unknown): void {
     if (this.shouldLog('error')) {
       const sanitizedError = error instanceof Error 
         ? { message: error.message, name: error.name }
@@ -123,7 +125,7 @@ class SecureLogger {
     this.info(message, userInfo);
   }
 
-  authError(message: string, error?: any): void {
+  authError(message: string, error?: unknown): void {
     this.error(message, error);
   }
 }
@@ -132,9 +134,15 @@ class SecureLogger {
 export const secureLogger = new SecureLogger();
 
 // Funções de conveniência
-export const logDebug = (message: string, data?: any) => secureLogger.debug(message, data);
-export const logInfo = (message: string, data?: any) => secureLogger.info(message, data);
-export const logWarn = (message: string, data?: any) => secureLogger.warn(message, data);
-export const logError = (message: string, error?: any) => secureLogger.error(message, error);
+export const logDebug = (message: string, data?: unknown) => secureLogger.debug(message, data);
+export const logInfo = (message: string, data?: unknown) => secureLogger.info(message, data);
+export const logWarn = (message: string, data?: unknown) => secureLogger.warn(message, data);
+export const logError = (message: string, error?: unknown) => secureLogger.error(message, error);
 export const logAuthSuccess = (message: string, userInfo?: { role?: string; hasEmail?: boolean }) => secureLogger.authSuccess(message, userInfo);
-export const logAuthError = (message: string, error?: any) => secureLogger.authError(message, error);
+export const logAuthError = (message: string, error?: unknown) => secureLogger.authError(message, error);
+
+// Definir PHI se não estiver definido
+const PHI = {
+  // Adicione as propriedades necessárias aqui
+  // ou importe de onde deveria vir
+};

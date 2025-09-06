@@ -507,3 +507,45 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
+
+// Adicionar logs no contexto de autenticação
+
+const checkUserProfile = async (user: any) => {
+  console.log('🔍 [DEBUG] Verificando perfil do usuário:', user?.id);
+  
+  try {
+    const { data: profile, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', user.id)
+      .single();
+    
+    console.log('🔍 [DEBUG] Resultado busca perfil:', { profile, error });
+    
+    if (error) {
+      console.error('❌ [DEBUG] Erro ao buscar perfil:', error);
+      if (error.code === 'PGRST116') {
+        console.log('🔍 [DEBUG] Perfil não encontrado, criando novo perfil');
+        // Criar perfil se não existir
+        const { data: newProfile, error: createError } = await supabase
+          .from('profiles')
+          .insert({
+            id: user.id,
+            email: user.email,
+            full_name: user.user_metadata?.full_name || user.email
+          })
+          .select()
+          .single();
+        
+        console.log('🔍 [DEBUG] Resultado criação perfil:', { newProfile, createError });
+        return newProfile;
+      }
+      throw error;
+    }
+    
+    return profile;
+  } catch (error) {
+    console.error('💥 [DEBUG] Erro inesperado ao verificar perfil:', error);
+    throw error;
+  }
+};

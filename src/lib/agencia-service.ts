@@ -4,14 +4,32 @@ import { validateProjeto, sanitizeProjeto } from '../utils/validations/projeto-v
 
 // Remover completamente a função checkAgenciasTable (linhas 5-18)
 export async function listarAgencias(): Promise<Agencia[]> {
-  // Sempre usar a tabela 'agencias' para listar agências
-  const { data, error } = await supabase
-    .from('agencias')
-    .select('id, codigo_agencia, nome_agencia, cnpj, site, cidade, estado, email_empresa, telefone_empresa, taxa_porcentagem')
-    .order('nome_agencia', { ascending: true })
+  console.log('🔍 [DEBUG] Iniciando listagem de agências');
+  
+  try {
+    console.log('🔍 [DEBUG] Executando query na tabela agencias');
+    const { data, error } = await supabase
+      .from('agencias')
+      .select('*')
+      .order('nome_agencia');
 
-  if (error) throw error
-  return data as Agencia[]
+    console.log('🔍 [DEBUG] Resultado query agencias:', { 
+      dataLength: data?.length || 0, 
+      error,
+      firstItem: data?.[0] 
+    });
+
+    if (error) {
+      console.error('❌ [DEBUG] Erro ao listar agências:', error);
+      throw error;
+    }
+
+    console.log('✅ [DEBUG] Agências carregadas com sucesso:', data?.length || 0, 'registros');
+    return data || [];
+  } catch (error) {
+    console.error('💥 [DEBUG] Erro inesperado ao listar agências:', error);
+    throw error;
+  }
 }
 
 export async function criarAgencia(payload: Partial<Agencia>, criarDealPadrao = true) {
@@ -179,9 +197,21 @@ export async function criarProjeto(payload: { deal_id: string; nome_projeto: str
     throw new Error('deal_id e nome_projeto são obrigatórios');
   }
   
-  // Preparar dados apenas com campos que existem na tabela
+  // ✅ CORREÇÃO: Buscar agencia_id a partir do deal_id
+  const { data: dealData, error: dealError } = await supabase
+    .from('agencia_deals')
+    .select('agencia_id')
+    .eq('id', payload.deal_id)
+    .single();
+    
+  if (dealError || !dealData) {
+    throw new Error(`Deal não encontrado: ${dealError?.message || 'ID inválido'}`);
+  }
+  
+  // Preparar dados com agencia_id incluído
   const dbData = {
     deal_id: payload.deal_id,
+    agencia_id: dealData.agencia_id, // ✅ Agora incluído!
     nome_projeto: payload.nome_projeto,
     descricao: payload.descricao || null,
     data_inicio: payload.data_inicio || null,

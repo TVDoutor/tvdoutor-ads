@@ -190,25 +190,35 @@ CREATE POLICY "Authenticated users can view profiles"
     TO authenticated
     USING (true);
 
--- Fix price_rules policies - remove duplicate and inconsistent policies
-DROP POLICY IF EXISTS "Authenticated can read price_rules" ON public.price_rules;
-DROP POLICY IF EXISTS "price_rules.select.auth" ON public.price_rules;
-DROP POLICY IF EXISTS "price_rules.write.admin" ON public.price_rules;
-DROP POLICY IF EXISTS "price_rules_admin_write" ON public.price_rules;
-DROP POLICY IF EXISTS "price_rules_read" ON public.price_rules;
+-- Fix price_rules policies - remove duplicate and inconsistent policies (only if table exists)
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'price_rules' AND table_schema = 'public') THEN
+        DROP POLICY IF EXISTS "Authenticated can read price_rules" ON public.price_rules;
+        DROP POLICY IF EXISTS "price_rules.select.auth" ON public.price_rules;
+        DROP POLICY IF EXISTS "price_rules.write.admin" ON public.price_rules;
+        DROP POLICY IF EXISTS "price_rules_admin_write" ON public.price_rules;
+        DROP POLICY IF EXISTS "price_rules_read" ON public.price_rules;
+    END IF;
+END $$;
 
-CREATE POLICY "Authenticated users can read price_rules"
-    ON public.price_rules
-    FOR SELECT
-    TO authenticated
-    USING (true);
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'price_rules' AND table_schema = 'public') THEN
+        CREATE POLICY "Authenticated users can read price_rules"
+            ON public.price_rules
+            FOR SELECT
+            TO authenticated
+            USING (true);
 
-CREATE POLICY "Only admins can modify price_rules"
-    ON public.price_rules
-    FOR ALL
-    TO authenticated
-    USING (is_admin())
-    WITH CHECK (is_admin());
+        CREATE POLICY "Only admins can modify price_rules"
+            ON public.price_rules
+            FOR ALL
+            TO authenticated
+            USING (is_admin())
+            WITH CHECK (is_admin());
+    END IF;
+END $$;
 
 -- Fix screens policies - remove duplicate and inconsistent policies
 DROP POLICY IF EXISTS "Authenticated can read screens" ON public.screens;
@@ -217,12 +227,14 @@ DROP POLICY IF EXISTS "screens.write.admin" ON public.screens;
 DROP POLICY IF EXISTS "screens_admin_write" ON public.screens;
 DROP POLICY IF EXISTS "screens_read" ON public.screens;
 
+DROP POLICY IF EXISTS "Authenticated users can read screens" ON public.screens;
 CREATE POLICY "Authenticated users can read screens"
     ON public.screens
     FOR SELECT
     TO authenticated
     USING (true);
 
+DROP POLICY IF EXISTS "Only admins can modify screens" ON public.screens;
 CREATE POLICY "Only admins can modify screens"
     ON public.screens
     FOR ALL
@@ -230,28 +242,35 @@ CREATE POLICY "Only admins can modify screens"
     USING (is_admin())
     WITH CHECK (is_admin());
 
--- Fix screen_rates policies - remove duplicate and inconsistent policies
-DROP POLICY IF EXISTS "screen_rates.select.auth" ON public.screen_rates;
-DROP POLICY IF EXISTS "screen_rates.write.admin" ON public.screen_rates;
-DROP POLICY IF EXISTS "screen_rates_admin_write" ON public.screen_rates;
-DROP POLICY IF EXISTS "screen_rates_read" ON public.screen_rates;
+-- Fix screen_rates policies - remove duplicate and inconsistent policies (only if table exists)
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'screen_rates' AND table_schema = 'public') THEN
+        DROP POLICY IF EXISTS "screen_rates.select.auth" ON public.screen_rates;
+        DROP POLICY IF EXISTS "screen_rates.write.admin" ON public.screen_rates;
+        DROP POLICY IF EXISTS "screen_rates_admin_write" ON public.screen_rates;
+        DROP POLICY IF EXISTS "screen_rates_read" ON public.screen_rates;
 
-CREATE POLICY "Authenticated users can read screen_rates"
-    ON public.screen_rates
-    FOR SELECT
-    TO authenticated
-    USING (true);
+        CREATE POLICY "Authenticated users can read screen_rates"
+            ON public.screen_rates
+            FOR SELECT
+            TO authenticated
+            USING (true);
 
-CREATE POLICY "Only admins can modify screen_rates"
-    ON public.screen_rates
-    FOR ALL
-    TO authenticated
-    USING (is_admin())
-    WITH CHECK (is_admin());
+        CREATE POLICY "Only admins can modify screen_rates"
+            ON public.screen_rates
+            FOR ALL
+            TO authenticated
+            USING (is_admin())
+            WITH CHECK (is_admin());
+    END IF;
+END $$;
 
 -- Fix venues policies - remove duplicate and inconsistent policies
 DROP POLICY IF EXISTS "venues.select.auth" ON public.venues;
 DROP POLICY IF EXISTS "venues.write.admin" ON public.venues;
+DROP POLICY IF EXISTS "Authenticated users can read venues" ON public.venues;
+DROP POLICY IF EXISTS "Only admins can modify venues" ON public.venues;
 
 CREATE POLICY "Authenticated users can read venues"
     ON public.venues

@@ -1,39 +1,33 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/DashboardLayout';
+import { Button } from '@/components/ui/button';
 import { 
   Plus, 
   Search, 
-  Filter, 
   MoreVertical, 
   Calendar, 
   Users, 
   DollarSign, 
-  TrendingUp, 
-  AlertCircle,
+  TrendingUp,
   Eye,
   Edit,
   Trash2,
-  ChevronDown,
   Building2,
   Target,
-  Clock,
   CheckCircle,
-  Upload,
   X,
   Phone,
   Mail,
   MapPin,
   UserPlus,
   Flag,
-  FileText,
-  Settings,
   ArrowLeft,
-  Save,
   Bell,
-  Activity,
   BarChart3,
   Paperclip
 } from 'lucide-react';
+import { UserSelector } from '@/components/UserSelector';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { 
@@ -42,8 +36,6 @@ import {
   dealService,
   projetoService,
   contatoService,
-  equipeService,
-  marcoService,
   type Agencia,
   type Deal,
   type Projeto,
@@ -51,6 +43,7 @@ import {
   type Equipe,
   type Marco
 } from '@/lib/project-management-service';
+import { TelaEquipes, TelaMarcos, TelaRelatorios } from '@/components/ProjectManagementScreens';
 
 interface Notificacao {
   id: string;
@@ -62,7 +55,8 @@ interface Notificacao {
 }
 
 const ProjectManagement = () => {
-  const [telaAtiva, setTelaAtiva] = useState('projetos');
+  const navigate = useNavigate();
+  const [telaAtiva, setTelaAtiva] = useState('agencias');
   const [dados, setDados] = useState({
     agencias: [] as Agencia[],
     deals: [] as Deal[],
@@ -84,8 +78,19 @@ const ProjectManagement = () => {
   const carregarDados = async () => {
     try {
       setLoading(true);
+      console.log('🔄 Iniciando carregamento de dados...');
       
-      const dadosCarregados = await projectManagementService.carregarTodosDados();
+      const dadosCarregados = await projectManagementService.carregarTodosDados(supabase);
+      
+      console.log('📊 Dados carregados:', {
+        agencias: dadosCarregados.agencias?.length || 0,
+        deals: dadosCarregados.deals?.length || 0,
+        projetos: dadosCarregados.projetos?.length || 0,
+        contatos: dadosCarregados.contatos?.length || 0
+      });
+      
+      console.log('🏢 Agências encontradas:', dadosCarregados.agencias);
+      console.log('💼 Deals encontrados:', dadosCarregados.deals);
       
       setDados({
         ...dadosCarregados,
@@ -93,7 +98,7 @@ const ProjectManagement = () => {
       });
 
     } catch (error) {
-      console.error('Erro ao carregar dados:', error);
+      console.error('❌ Erro ao carregar dados:', error);
       toast.error('Erro ao carregar dados do sistema');
     } finally {
       setLoading(false);
@@ -106,51 +111,64 @@ const ProjectManagement = () => {
 
   // Componente de navegação lateral
   const Navigation = () => (
-    <div className="w-64 bg-gray-900 text-white h-screen fixed left-0 top-0 overflow-y-auto flex flex-col">
+    <div className="w-64 bg-card border-r border-border h-screen fixed left-0 top-0 overflow-y-auto flex flex-col">
       <div className="p-6">
-        <h1 className="text-xl font-bold">SaaS Projetos</h1>
+        <h1 className="text-xl font-bold text-card-foreground truncate">Gerenciamento de Projetos</h1>
       </div>
       
-      <nav className="mt-6 flex-grow">
+      <nav className="mt-6 flex-grow px-3">
         {[
-          { id: 'projetos', nome: 'Projetos', icon: Target },
           { id: 'agencias', nome: 'Agências', icon: Building2 },
+          { id: 'projetos', nome: 'Projetos', icon: Target },
           { id: 'deals', nome: 'Deals', icon: TrendingUp },
           { id: 'equipes', nome: 'Equipes', icon: Users },
           { id: 'marcos', nome: 'Marcos', icon: Flag },
           { id: 'relatorios', nome: 'Relatórios', icon: BarChart3 }
         ].map(item => (
-          <button
+          <Button
             key={item.id}
+            variant={telaAtiva === item.id ? "secondary" : "ghost"}
+            className="w-full justify-start gap-3 transition-all duration-200 mb-1"
             onClick={() => setTelaAtiva(item.id)}
-            className={`w-full flex items-center gap-3 px-6 py-3 text-left hover:bg-gray-800 transition-colors ${
-              telaAtiva === item.id ? 'bg-gray-800 border-r-4 border-blue-500' : ''
-            }`}
           >
-            <item.icon className="w-5 h-5" />
-            <span>{item.nome}</span>
-          </button>
+            <item.icon className={`h-5 w-5 shrink-0 ${
+              telaAtiva === item.id ? 'text-primary' : 'text-muted-foreground'
+            }`} />
+            <span className="truncate flex-1 text-left">{item.nome}</span>
+          </Button>
         ))}
       </nav>
       
       {/* Notificações */}
       <div className="p-4">
-        <div className="bg-gray-800 rounded-lg p-3">
+        <div className="bg-muted rounded-lg p-3">
           <div className="flex items-center gap-2 mb-2">
-            <Bell className="w-4 h-4" />
-            <span className="text-sm font-medium">Notificações</span>
+            <Bell className="w-4 h-4 text-muted-foreground" />
+            <span className="text-sm font-medium text-card-foreground">Notificações</span>
             {dados.notificacoes.filter(n => !n.lida).length > 0 && (
-              <span className="bg-red-500 text-xs font-semibold px-2 py-0.5 rounded-full">
+              <span className="bg-destructive text-destructive-foreground text-xs font-semibold px-2 py-0.5 rounded-full">
                 {dados.notificacoes.filter(n => !n.lida).length}
               </span>
             )}
           </div>
           {dados.notificacoes.slice(0, 2).map(notif => (
-            <div key={notif.id} className="text-xs text-gray-300 mb-1 p-1 rounded hover:bg-gray-700 cursor-pointer">
+            <div key={notif.id} className="text-xs text-muted-foreground mb-1 p-1 rounded hover:bg-accent cursor-pointer">
               {notif.titulo}
             </div>
           ))}
         </div>
+      </div>
+
+      {/* Botão para voltar ao Dashboard */}
+      <div className="p-4 border-t border-border">
+        <Button
+          variant="ghost"
+          className="w-full justify-start gap-3 transition-all duration-200"
+          onClick={() => navigate('/dashboard')}
+        >
+          <ArrowLeft className="h-5 w-5 shrink-0 text-muted-foreground" />
+          <span className="truncate flex-1 text-left">Voltar ao Dashboard</span>
+        </Button>
       </div>
     </div>
   );
@@ -160,6 +178,137 @@ const ProjectManagement = () => {
     const [showModal, setShowModal] = useState(false);
     const [agenciaSelecionada, setAgenciaSelecionada] = useState<Agencia | null>(null);
     const [showContatos, setShowContatos] = useState<string | null>(null);
+    const [showModalContato, setShowModalContato] = useState(false);
+    const [contatoSelecionado, setContatoSelecionado] = useState<Contato | null>(null);
+    const [formDataContato, setFormDataContato] = useState({
+      nome_contato: '',
+      cargo: '',
+      email_contato: '',
+      telefone_contato: ''
+    });
+    const [formData, setFormData] = useState({
+      nome_agencia: '',
+      codigo_agencia: '',
+      cnpj: '',
+      email_empresa: '',
+      telefone_empresa: '',
+      cidade: '',
+      estado: '',
+      taxa_porcentagem: 0,
+      site: '',
+      rua_av: '',
+      numero: '',
+      cep: ''
+    });
+
+    const resetForm = () => {
+      setFormData({
+        nome_agencia: '',
+        codigo_agencia: '',
+        cnpj: '',
+        email_empresa: '',
+        telefone_empresa: '',
+        cidade: '',
+        estado: '',
+        taxa_porcentagem: 0,
+        site: '',
+        rua_av: '',
+        numero: '',
+        cep: ''
+      });
+      setAgenciaSelecionada(null);
+    };
+
+    const handleSubmit = async (e: React.FormEvent) => {
+      e.preventDefault();
+      
+      try {
+        if (agenciaSelecionada) {
+          await agenciaService.atualizar(supabase, agenciaSelecionada.id, formData);
+        } else {
+          await agenciaService.criar(supabase, formData);
+        }
+        
+        setShowModal(false);
+        resetForm();
+        carregarDados();
+      } catch (error) {
+        console.error('Erro ao salvar agência:', error);
+      }
+    };
+
+    const openEditModal = (agencia: Agencia) => {
+      setAgenciaSelecionada(agencia);
+      setFormData({
+        nome_agencia: agencia.nome_agencia,
+        codigo_agencia: agencia.codigo_agencia,
+        cnpj: agencia.cnpj,
+        email_empresa: agencia.email_empresa || '',
+        telefone_empresa: agencia.telefone_empresa || '',
+        cidade: agencia.cidade || '',
+        estado: agencia.estado || '',
+        taxa_porcentagem: agencia.taxa_porcentagem || 0,
+        site: '',
+        rua_av: '',
+        numero: '',
+        cep: ''
+      });
+      setShowModal(true);
+    };
+
+    const openNewModal = () => {
+      resetForm();
+      setShowModal(true);
+    };
+
+    const resetFormContato = () => {
+      setFormDataContato({
+        nome_contato: '',
+        cargo: '',
+        email_contato: '',
+        telefone_contato: ''
+      });
+      setContatoSelecionado(null);
+    };
+
+    const handleSubmitContato = async (e: React.FormEvent) => {
+      e.preventDefault();
+      
+      if (!showContatos) return;
+      
+      try {
+        if (contatoSelecionado) {
+          await contatoService.atualizar(supabase, contatoSelecionado.id, formDataContato);
+        } else {
+          await contatoService.criar(supabase, {
+            ...formDataContato,
+            agencia_id: showContatos
+          });
+        }
+        
+        setShowModalContato(false);
+        resetFormContato();
+        carregarDados();
+      } catch (error) {
+        console.error('Erro ao salvar contato:', error);
+      }
+    };
+
+    const openEditModalContato = (contato: Contato) => {
+      setContatoSelecionado(contato);
+      setFormDataContato({
+        nome_contato: contato.nome_contato,
+        cargo: contato.cargo || '',
+        email_contato: contato.email_contato || '',
+        telefone_contato: contato.telefone_contato || ''
+      });
+      setShowModalContato(true);
+    };
+
+    const openNewModalContato = () => {
+      resetFormContato();
+      setShowModalContato(true);
+    };
 
     const AgenciaCard = ({ agencia }: { agencia: Agencia }) => (
       <div className="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-md transition-shadow">
@@ -201,7 +350,7 @@ const ProjectManagement = () => {
           </button>
           <div className="flex gap-2">
             <button 
-              onClick={() => {setAgenciaSelecionada(agencia); setShowModal(true);}}
+              onClick={() => openEditModal(agencia)}
               className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded"
             >
               <Edit className="w-4 h-4" />
@@ -222,7 +371,7 @@ const ProjectManagement = () => {
             <p className="text-gray-600">Gerencie todas as agências parceiras</p>
           </div>
           <button 
-            onClick={() => {setAgenciaSelecionada(null); setShowModal(true);}}
+            onClick={openNewModal}
             className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
           >
             <Plus className="w-4 h-4" />
@@ -235,6 +384,170 @@ const ProjectManagement = () => {
             <AgenciaCard key={agencia.id} agencia={agencia} />
           ))}
         </div>
+
+        {/* Modal de Agência */}
+        {showModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="p-6 border-b">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-xl font-semibold">
+                    {agenciaSelecionada ? 'Editar Agência' : 'Nova Agência'}
+                  </h2>
+                  <button onClick={() => {setShowModal(false); resetForm();}}>
+                    <X className="w-6 h-6" />
+                  </button>
+                </div>
+              </div>
+              <form onSubmit={handleSubmit} className="p-6 space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Nome da Agência *
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.nome_agencia}
+                      onChange={(e) => setFormData({...formData, nome_agencia: e.target.value})}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Código da Agência
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.codigo_agencia}
+                      onChange={(e) => setFormData({...formData, codigo_agencia: e.target.value})}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="Ex: A001"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      CNPJ *
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.cnpj}
+                      onChange={(e) => setFormData({...formData, cnpj: e.target.value})}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="00.000.000/0000-00"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Taxa (%)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      value={formData.taxa_porcentagem}
+                      onChange={(e) => setFormData({...formData, taxa_porcentagem: parseFloat(e.target.value) || 0})}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Email
+                    </label>
+                    <input
+                      type="email"
+                      value={formData.email_empresa}
+                      onChange={(e) => setFormData({...formData, email_empresa: e.target.value})}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Telefone
+                    </label>
+                    <input
+                      type="tel"
+                      value={formData.telefone_empresa}
+                      onChange={(e) => setFormData({...formData, telefone_empresa: e.target.value})}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Cidade
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.cidade}
+                      onChange={(e) => setFormData({...formData, cidade: e.target.value})}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Estado
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.estado}
+                      onChange={(e) => setFormData({...formData, estado: e.target.value})}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      maxLength={2}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      CEP
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.cep}
+                      onChange={(e) => setFormData({...formData, cep: e.target.value})}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Site
+                  </label>
+                  <input
+                    type="url"
+                    value={formData.site}
+                    onChange={(e) => setFormData({...formData, site: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                <div className="flex justify-end gap-2 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => {setShowModal(false); resetForm();}}
+                    className="px-4 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                  >
+                    {agenciaSelecionada ? 'Atualizar' : 'Criar'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
 
         {/* Modal de contatos */}
         {showContatos && (
@@ -257,16 +570,110 @@ const ProjectManagement = () => {
                       <p className="text-sm text-gray-600">{contato.email_contato}</p>
                       <p className="text-sm text-gray-600">{contato.telefone_contato}</p>
                     </div>
-                    <button className="text-blue-600 hover:text-blue-700">
+                    <button 
+                      onClick={() => openEditModalContato(contato)}
+                      className="text-blue-600 hover:text-blue-700"
+                    >
                       <Edit className="w-4 h-4" />
                     </button>
                   </div>
                 ))}
-                <button className="w-full mt-2 p-3 border-2 border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-blue-500 hover:text-blue-600 flex items-center justify-center gap-2">
+                <button 
+                  onClick={openNewModalContato}
+                  className="w-full mt-2 p-3 border-2 border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-blue-500 hover:text-blue-600 flex items-center justify-center gap-2"
+                >
                   <UserPlus className="w-5 h-5" />
                   Adicionar Contato
                 </button>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal de Contato */}
+        {showModalContato && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg max-w-md w-full">
+              <div className="p-6 border-b">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-xl font-semibold">
+                    {contatoSelecionado ? 'Editar Contato' : 'Novo Contato'}
+                  </h2>
+                  <button onClick={() => {setShowModalContato(false); resetFormContato();}}>
+                    <X className="w-6 h-6" />
+                  </button>
+                </div>
+              </div>
+              <form onSubmit={handleSubmitContato} className="p-6 space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Nome do Contato *
+                  </label>
+                  <input
+                    type="text"
+                    value={formDataContato.nome_contato}
+                    onChange={(e) => setFormDataContato({...formDataContato, nome_contato: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Nome completo do contato"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Cargo
+                  </label>
+                  <input
+                    type="text"
+                    value={formDataContato.cargo}
+                    onChange={(e) => setFormDataContato({...formDataContato, cargo: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Ex: Gerente de Vendas"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Email
+                  </label>
+                  <input
+                    type="email"
+                    value={formDataContato.email_contato}
+                    onChange={(e) => setFormDataContato({...formDataContato, email_contato: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="contato@email.com"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Telefone
+                  </label>
+                  <input
+                    type="tel"
+                    value={formDataContato.telefone_contato}
+                    onChange={(e) => setFormDataContato({...formDataContato, telefone_contato: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="(11) 99999-9999"
+                  />
+                </div>
+
+                <div className="flex justify-end gap-2 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => {setShowModalContato(false); resetFormContato();}}
+                    className="px-4 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                  >
+                    {contatoSelecionado ? 'Atualizar' : 'Criar'}
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         )}
@@ -277,6 +684,54 @@ const ProjectManagement = () => {
   // Tela de Deals
   const TelaDeals = () => {
     const [showModal, setShowModal] = useState(false);
+    const [dealSelecionado, setDealSelecionado] = useState<Deal | null>(null);
+    const [formData, setFormData] = useState({
+      nome_deal: '',
+      agencia_id: '',
+      status: 'ativo'
+    });
+
+    const resetForm = () => {
+      setFormData({
+        nome_deal: '',
+        agencia_id: '',
+        status: 'ativo'
+      });
+      setDealSelecionado(null);
+    };
+
+    const handleSubmit = async (e: React.FormEvent) => {
+      e.preventDefault();
+      
+      try {
+        if (dealSelecionado) {
+          await dealService.atualizar(supabase, dealSelecionado.id, formData);
+        } else {
+          await dealService.criar(supabase, formData);
+        }
+        
+        setShowModal(false);
+        resetForm();
+        carregarDados();
+      } catch (error) {
+        console.error('Erro ao salvar deal:', error);
+      }
+    };
+
+    const openEditModal = (deal: Deal) => {
+      setDealSelecionado(deal);
+      setFormData({
+        nome_deal: deal.nome_deal,
+        agencia_id: deal.agencia_id,
+        status: deal.status
+      });
+      setShowModal(true);
+    };
+
+    const openNewModal = () => {
+      resetForm();
+      setShowModal(true);
+    };
 
     const DealCard = ({ deal }: { deal: Deal }) => {
       const agencia = dados.agencias.find(a => a.id === deal.agencia_id);
@@ -314,7 +769,10 @@ const ProjectManagement = () => {
             >
               Ver Projetos
             </button>
-            <button className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded">
+            <button 
+              onClick={() => openEditModal(deal)}
+              className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded"
+            >
               <Edit className="w-4 h-4" />
             </button>
           </div>
@@ -330,7 +788,7 @@ const ProjectManagement = () => {
             <p className="text-gray-600">Gerencie os deals de todas as agências</p>
           </div>
           <button 
-            onClick={() => setShowModal(true)}
+            onClick={openNewModal}
             className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
           >
             <Plus className="w-4 h-4" />
@@ -343,6 +801,90 @@ const ProjectManagement = () => {
             <DealCard key={deal.id} deal={deal} />
           ))}
         </div>
+
+        {/* Modal de Deal */}
+        {showModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg max-w-md w-full">
+              <div className="p-6 border-b">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-xl font-semibold">
+                    {dealSelecionado ? 'Editar Deal' : 'Novo Deal'}
+                  </h2>
+                  <button onClick={() => {setShowModal(false); resetForm();}}>
+                    <X className="w-6 h-6" />
+                  </button>
+                </div>
+              </div>
+              <form onSubmit={handleSubmit} className="p-6 space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Nome do Deal *
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.nome_deal}
+                    onChange={(e) => setFormData({...formData, nome_deal: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Ex: Campanha Verão 2024"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Agência *
+                  </label>
+                  <select
+                    value={formData.agencia_id}
+                    onChange={(e) => setFormData({...formData, agencia_id: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    required
+                  >
+                    <option value="">Selecione uma agência</option>
+                    {dados.agencias.map(agencia => (
+                      <option key={agencia.id} value={agencia.id}>
+                        {agencia.nome_agencia}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Status
+                  </label>
+                  <select
+                    value={formData.status}
+                    onChange={(e) => setFormData({...formData, status: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="ativo">Ativo</option>
+                    <option value="inativo">Inativo</option>
+                    <option value="pausado">Pausado</option>
+                    <option value="concluido">Concluído</option>
+                  </select>
+                </div>
+
+                <div className="flex justify-end gap-2 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => {setShowModal(false); resetForm();}}
+                    className="px-4 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                  >
+                    {dealSelecionado ? 'Atualizar' : 'Criar'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
       </div>
     );
   };
@@ -351,7 +893,96 @@ const ProjectManagement = () => {
   const TelaProjetos = () => {
     const [showModal, setShowModal] = useState(false);
     const [projetoSelecionado, setProjetoSelecionado] = useState<Projeto | null>(null);
+    const [formData, setFormData] = useState({
+      nome_projeto: '',
+      agencia_id: '',
+      deal_id: '',
+      status_projeto: 'ativo',
+      orcamento_projeto: 0,
+      valor_gasto: 0,
+      data_inicio: '',
+      data_fim: '',
+      descricao: '',
+      cliente_final: '',
+      responsavel_projeto: '',
+      prioridade: 'media',
+      progresso: 0,
+      briefing: '',
+      objetivos: [] as string[],
+      tags: [] as string[],
+      arquivos_anexos: [] as Array<{ nome: string; url: string; tamanho: string }>
+    });
     const [showDetalhes, setShowDetalhes] = useState<Projeto | null>(null);
+
+    const resetForm = () => {
+      setFormData({
+        nome_projeto: '',
+        agencia_id: '',
+        deal_id: '',
+        status_projeto: 'ativo',
+        orcamento_projeto: 0,
+        valor_gasto: 0,
+        data_inicio: '',
+        data_fim: '',
+        descricao: '',
+        cliente_final: '',
+        responsavel_projeto: '',
+        prioridade: 'media',
+        progresso: 0,
+        briefing: '',
+        objetivos: [],
+        tags: [],
+        arquivos_anexos: []
+      });
+      setProjetoSelecionado(null);
+    };
+
+    const handleSubmit = async (e: React.FormEvent) => {
+      e.preventDefault();
+      
+      try {
+        if (projetoSelecionado) {
+          await projetoService.atualizar(supabase, projetoSelecionado.id, formData);
+        } else {
+          await projetoService.criar(supabase, formData);
+        }
+        
+        setShowModal(false);
+        resetForm();
+        carregarDados();
+      } catch (error) {
+        console.error('Erro ao salvar projeto:', error);
+      }
+    };
+
+    const openEditModal = (projeto: Projeto) => {
+      setProjetoSelecionado(projeto);
+      setFormData({
+        nome_projeto: projeto.nome_projeto,
+        agencia_id: projeto.agencia_id,
+        deal_id: projeto.deal_id || '',
+        status_projeto: projeto.status_projeto,
+        orcamento_projeto: projeto.orcamento_projeto || 0,
+        valor_gasto: projeto.valor_gasto || 0,
+        data_inicio: projeto.data_inicio || '',
+        data_fim: projeto.data_fim || '',
+        descricao: projeto.descricao || '',
+        cliente_final: projeto.cliente_final || '',
+        responsavel_projeto: projeto.responsavel_projeto || '',
+        prioridade: projeto.prioridade || 'media',
+        progresso: projeto.progresso || 0,
+        briefing: projeto.briefing || '',
+        objetivos: projeto.objetivos || [],
+        tags: projeto.tags || [],
+        arquivos_anexos: projeto.arquivos_anexos || []
+      });
+      setShowModal(true);
+    };
+
+    const openNewModal = () => {
+      resetForm();
+      setShowModal(true);
+    };
 
     const ProjetoCard = ({ projeto }: { projeto: Projeto }) => {
       const agencia = dados.agencias.find(a => a.id === projeto.agencia_id);
@@ -434,7 +1065,7 @@ const ProjectManagement = () => {
                 <Eye className="w-4 h-4" />
               </button>
               <button 
-                onClick={() => {setProjetoSelecionado(projeto); setShowModal(true);}}
+                onClick={() => openEditModal(projeto)}
                 className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded"
               >
                 <Edit className="w-4 h-4" />
@@ -469,7 +1100,7 @@ const ProjectManagement = () => {
             <p className="text-gray-600">Gerencie todos os projetos das suas agências</p>
           </div>
           <button 
-            onClick={() => {setProjetoSelecionado(null); setShowModal(true);}}
+            onClick={openNewModal}
             className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
           >
             <Plus className="w-4 h-4" />
@@ -699,17 +1330,219 @@ const ProjectManagement = () => {
             </div>
           </div>
         )}
+
+        {/* Modal de Projeto */}
+        {showModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="p-6 border-b">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-xl font-semibold">
+                    {projetoSelecionado ? 'Editar Projeto' : 'Novo Projeto'}
+                  </h2>
+                  <button onClick={() => {setShowModal(false); resetForm();}}>
+                    <X className="w-6 h-6" />
+                  </button>
+                </div>
+              </div>
+              <form onSubmit={handleSubmit} className="p-6 space-y-6">
+                {/* Informações Básicas */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-medium text-gray-900">Informações Básicas</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Nome do Projeto *
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.nome_projeto}
+                        onChange={(e) => setFormData({...formData, nome_projeto: e.target.value})}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="Ex: Campanha Digital Verão 2024"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Agência *
+                      </label>
+                      <select
+                        value={formData.agencia_id}
+                        onChange={(e) => setFormData({...formData, agencia_id: e.target.value})}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        required
+                      >
+                        <option value="">Selecione uma agência</option>
+                        {dados.agencias.map(agencia => (
+                          <option key={agencia.id} value={agencia.id}>
+                            {agencia.nome_agencia}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Deal (Opcional)
+                      </label>
+                      <select
+                        value={formData.deal_id}
+                        onChange={(e) => setFormData({...formData, deal_id: e.target.value})}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="">Selecione um deal</option>
+                        {dados.deals.filter(deal => deal.agencia_id === formData.agencia_id).map(deal => (
+                          <option key={deal.id} value={deal.id}>
+                            {deal.nome_deal}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Status
+                      </label>
+                      <select
+                        value={formData.status_projeto}
+                        onChange={(e) => setFormData({...formData, status_projeto: e.target.value})}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="ativo">Ativo</option>
+                        <option value="pausado">Pausado</option>
+                        <option value="concluido">Concluído</option>
+                        <option value="cancelado">Cancelado</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Informações Financeiras */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-medium text-gray-900">Informações Financeiras</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Orçamento Total (R$)
+                      </label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={formData.orcamento_projeto}
+                        onChange={(e) => setFormData({...formData, orcamento_projeto: parseFloat(e.target.value) || 0})}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="0.00"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Datas */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-medium text-gray-900">Cronograma</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Data de Início
+                      </label>
+                      <input
+                        type="date"
+                        value={formData.data_inicio}
+                        onChange={(e) => setFormData({...formData, data_inicio: e.target.value})}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Data de Fim
+                      </label>
+                      <input
+                        type="date"
+                        value={formData.data_fim}
+                        onChange={(e) => setFormData({...formData, data_fim: e.target.value})}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Informações do Cliente */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-medium text-gray-900">Informações do Cliente</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Nome do Cliente
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.cliente_final}
+                        onChange={(e) => setFormData({...formData, cliente_final: e.target.value})}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="Nome do cliente"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Responsável do Projeto
+                      </label>
+                      <UserSelector
+                        value={formData.responsavel_projeto}
+                        onValueChange={(value) => setFormData({...formData, responsavel_projeto: value})}
+                        placeholder="Selecione o responsável"
+                        className="w-full"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Descrição */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-medium text-gray-900">Descrição</h3>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Descrição do Projeto
+                    </label>
+                    <textarea
+                      value={formData.descricao}
+                      onChange={(e) => setFormData({...formData, descricao: e.target.value})}
+                      rows={4}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="Descreva os objetivos e detalhes do projeto..."
+                    />
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-2 pt-4 border-t">
+                  <button
+                    type="button"
+                    onClick={() => {setShowModal(false); resetForm();}}
+                    className="px-4 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                  >
+                    {projetoSelecionado ? 'Atualizar' : 'Criar'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
       </div>
     );
   };
 
-  // Telas de Placeholder
-  const TelaEquipes = () => <div className="p-6"><h1 className="text-2xl font-bold">Gerenciamento de Equipes</h1></div>;
-  const TelaMarcos = () => <div className="p-6"><h1 className="text-2xl font-bold">Gerenciamento de Marcos</h1></div>;
-  const TelaRelatorios = () => <div className="p-6"><h1 className="text-2xl font-bold">Relatórios e Dashboards</h1></div>;
   
   // Função para renderizar a tela ativa
   const renderTelaAtiva = () => {
+    const props = { dados, carregarDados };
+    
     switch (telaAtiva) {
       case 'projetos':
         return <TelaProjetos />;
@@ -718,11 +1551,11 @@ const ProjectManagement = () => {
       case 'deals':
         return <TelaDeals />;
       case 'equipes':
-        return <TelaEquipes />;
+        return <TelaEquipes {...props} />;
       case 'marcos':
-        return <TelaMarcos />;
+        return <TelaMarcos {...props} />;
       case 'relatorios':
-        return <TelaRelatorios />;
+        return <TelaRelatorios {...props} />;
       default:
         return <TelaProjetos />;
     }

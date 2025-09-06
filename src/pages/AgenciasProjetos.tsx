@@ -10,6 +10,7 @@ import { Plus, Edit } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { validateBackendProjeto, sanitizeBackendProjeto } from "@/utils/validations/backend-projeto-validations";
 import type { ProjetoWithDetails } from "@/types/agencia";
+import { UserSelector } from '@/components/UserSelector';
 
 export default function AgenciasProjetos() {
   const [projetos, setProjetos] = useState<ProjetoWithDetails[]>([]);
@@ -190,12 +191,20 @@ export default function AgenciasProjetos() {
 
               <div className="space-y-2">
                 <Label htmlFor="deal_id">Deal</Label>
-                <Input
+                <select
                   id="deal_id"
                   value={formData.deal_id}
                   onChange={(e) => setFormData(prev => ({ ...prev, deal_id: e.target.value }))}
                   required
-                />
+                  className="w-full p-2 border rounded"
+                >
+                  <option value="">Selecione um deal...</option>
+                  {deals.map(deal => (
+                    <option key={deal.id} value={deal.id}>
+                      {deal.nome_deal} - {deal.agencia_nome}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div className="space-y-2">
@@ -224,6 +233,14 @@ export default function AgenciasProjetos() {
                     type="date"
                     value={formData.data_fim}
                     onChange={(e) => setFormData(prev => ({ ...prev, data_fim: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="responsavel_projeto">Responsável do Projeto</Label>
+                  <UserSelector
+                    value={formData.responsavel_projeto}
+                    onValueChange={(value) => setFormData({...formData, responsavel_projeto: value})}
+                    placeholder="Selecione o responsável"
                   />
                 </div>
               </div>

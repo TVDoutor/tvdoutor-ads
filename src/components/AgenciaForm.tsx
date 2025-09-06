@@ -26,15 +26,47 @@ export function AgenciaForm() {
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     const { name, value } = e.target
-    setForm((s) => ({ ...s, [name]: value }))
+    
+    // Tratar campos numéricos especificamente
+    if (name === 'taxa_porcentagem') {
+      const numericValue = value === '' ? 0 : parseFloat(value) || 0
+      setForm((s) => ({ ...s, [name]: numericValue }))
+    } else {
+      setForm((s) => ({ ...s, [name]: value }))
+    }
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true)
     try {
-      if (!form.nome_agencia || !form.cnpj) {
-        alert('Nome da agência e CNPJ são obrigatórios')
+      // Validações obrigatórias
+      if (!form.nome_agencia?.trim()) {
+        alert('Nome da agência é obrigatório')
+        return
+      }
+      
+      if (!form.cnpj?.trim()) {
+        alert('CNPJ é obrigatório')
+        return
+      }
+      
+      // Validação básica de CNPJ (apenas números e tamanho)
+      const cnpjNumbers = form.cnpj.replace(/\D/g, '')
+      if (cnpjNumbers.length !== 14) {
+        alert('CNPJ deve conter 14 dígitos')
+        return
+      }
+      
+      // Validação de email se fornecido
+      if (form.email_empresa && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email_empresa)) {
+        alert('Email inválido')
+        return
+      }
+      
+      // Validação de taxa
+      if (form.taxa_porcentagem && (form.taxa_porcentagem < 0 || form.taxa_porcentagem > 100)) {
+        alert('Taxa deve estar entre 0 e 100%')
         return
       }
       if (form.id) {
@@ -44,8 +76,9 @@ export function AgenciaForm() {
       }
       setForm({ taxa_porcentagem: 0 })
       await load()
-    } catch (err: any) {
-      alert(err.message || 'Erro ao salvar')
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Erro ao salvar'
+      alert(errorMessage)
     } finally {
       setLoading(false)
     }
@@ -61,8 +94,9 @@ export function AgenciaForm() {
     try {
       await excluirAgencia(id)
       await load()
-    } catch (err: any) {
-      alert(err.message || 'Erro ao excluir')
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Erro ao excluir'
+      alert(errorMessage)
     } finally {
       setLoading(false)
     }
@@ -133,6 +167,10 @@ export function AgenciaForm() {
             <label className="text-sm font-medium">Taxa (%)</label>
             <input 
               name="taxa_porcentagem" 
+              type="number"
+              min="0"
+              max="100"
+              step="0.01"
               value={form.taxa_porcentagem ?? 0} 
               onChange={handleChange} 
               placeholder="0" 

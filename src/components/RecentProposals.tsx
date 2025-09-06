@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 import { Button } from "@/components/ui/button";
@@ -30,15 +30,7 @@ export const RecentProposals = ({ limit = 5, showViewAll = true }: RecentProposa
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
-  useEffect(() => {
-    fetchRecentProposals();
-    
-    // Atualizar a cada 30 segundos
-    const interval = setInterval(fetchRecentProposals, 30000);
-    return () => clearInterval(interval);
-  }, [limit]);
-
-  const fetchRecentProposals = async () => {
+  const fetchRecentProposals = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('proposals')
@@ -57,13 +49,23 @@ export const RecentProposals = ({ limit = 5, showViewAll = true }: RecentProposa
       if (error) throw error;
 
       setProposals(data || []);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Erro ao buscar propostas recentes:', error);
       toast.error('Erro ao carregar propostas recentes');
     } finally {
       setLoading(false);
     }
-  };
+  }, [limit]);
+
+  useEffect(() => {
+    fetchRecentProposals();
+    
+    // Atualizar a cada 30 segundos
+    const interval = setInterval(fetchRecentProposals, 30000);
+    return () => clearInterval(interval);
+  }, [limit, fetchRecentProposals]);
+
+
 
   const formatCurrency = (value?: number) => {
     if (!value) return 'R$ 0,00';

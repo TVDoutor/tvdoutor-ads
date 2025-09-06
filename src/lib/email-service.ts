@@ -307,20 +307,42 @@ class EmailService {
    * Busca estatísticas de emails
    */
   async getEmailStats(): Promise<{ data: EmailStats[] | null; error: any }> {
+    console.log('🔍 [DEBUG] Iniciando busca de estatísticas de email');
+    
     try {
-      const { data, error } = await supabase
-        .from('email_stats')
-        .select('*');
-
-      if (error) {
-        logError('Erro ao buscar estatísticas de email', error);
-        return { data: null, error };
-      }
+      // Log de verificação de tabela
+      console.log('🔍 [DEBUG] Verificando se tabela email_stats existe');
       
-      return { data: data || [], error: null };
+      const { data: tableCheck } = await supabase
+        .rpc('check_table_exists', { table_name: 'email_stats' })
+        .single();
+      
+      console.log('🔍 [DEBUG] Resultado verificação tabela:', tableCheck);
+      
+      if (!tableCheck?.exists) {
+        console.warn('⚠️ [DEBUG] Tabela email_stats não existe, retornando dados vazios');
+        return { data: [], error: null };
+      }
+    
+    console.log('🔍 [DEBUG] Executando query na tabela email_stats');
+    const { data, error } = await supabase
+      .from('email_stats')
+      .select('*');
+    
+    console.log('🔍 [DEBUG] Resultado da query:', { data, error });
+    
+    if (error) {
+      console.error('❌ [DEBUG] Erro na query email_stats:', error);
+      logError('Erro ao buscar estatísticas de email', error);
+      return { data: [], error: null }; // Graceful fallback
+    }
+    
+    console.log('✅ [DEBUG] Estatísticas carregadas com sucesso:', data?.length || 0, 'registros');
+    return { data: data || [], error: null };
     } catch (error) {
+      console.error('💥 [DEBUG] Erro inesperado em getEmailStats:', error);
       logError('Falha ao buscar estatísticas de email', error);
-      return { data: null, error };
+      return { data: [], error: null }; // Graceful fallback
     }
   }
 

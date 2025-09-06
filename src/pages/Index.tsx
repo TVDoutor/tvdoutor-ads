@@ -7,16 +7,28 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-//import { useDashboardStats } from "@/hooks/useDashboardStats";
+import { useEffect } from "react";
 import { useDashboardStats } from "../hooks/useDashboardStats";
 import heroBanner from "@/assets/hero-banner.jpg";
 import dashboardPreview from "@/assets/dashboard-preview.jpg";
+import { runFullSystemDiagnostic } from '../utils/system-diagnostics';
 
 const Index = () => {
   console.log('📊 Dashboard Index component loading...');
   const navigate = useNavigate();
   const { isAdmin } = useAuth();
   const { stats, loading, error } = useDashboardStats();
+  
+  // Executar diagnóstico apenas em desenvolvimento
+  useEffect(() => {
+    if (import.meta.env.DEV) {
+      runFullSystemDiagnostic().then(report => {
+        console.log('📊 Relatório de diagnóstico salvo no localStorage');
+      }).catch(err => {
+        console.error('❌ Erro no diagnóstico:', err);
+      });
+    }
+  }, []);
   
   // Safe admin check with fallback
   const isAdminUser = () => {

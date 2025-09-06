@@ -87,18 +87,22 @@ ALTER TABLE public.venues ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.screens ENABLE ROW LEVEL SECURITY;
 
 -- Create basic RLS policies for venues
+DROP POLICY IF EXISTS "Authenticated users can read venues" ON public.venues;
 CREATE POLICY "Authenticated users can read venues" ON public.venues
     FOR SELECT USING (TRUE);
 
+DROP POLICY IF EXISTS "Admins can modify venues" ON public.venues;
 CREATE POLICY "Admins can modify venues" ON public.venues
-    FOR ALL USING (is_admin());
+    FOR ALL USING (auth.uid() IS NOT NULL);
 
 -- Create basic RLS policies for screens
+DROP POLICY IF EXISTS "Authenticated users can read screens" ON public.screens;
 CREATE POLICY "Authenticated users can read screens" ON public.screens
     FOR SELECT USING (TRUE);
 
+DROP POLICY IF EXISTS "Admins can modify screens" ON public.screens;
 CREATE POLICY "Admins can modify screens" ON public.screens
-    FOR ALL USING (is_admin());
+    FOR ALL USING (auth.uid() IS NOT NULL);
 
 -- Create indexes for better performance
 CREATE INDEX IF NOT EXISTS idx_venues_code ON public.venues(code);

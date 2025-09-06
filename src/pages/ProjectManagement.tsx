@@ -43,6 +43,7 @@ import {
   type EquipeCompleta,
   type Marco
 } from '@/lib/project-management-service';
+import type { PessoaProjeto } from '@/types/agencia';
 import { TelaEquipes, TelaMarcos, TelaRelatorios } from '@/components/ProjectManagementScreens';
 
 interface Notificacao {
@@ -64,7 +65,8 @@ const ProjectManagement = () => {
     equipes: [] as EquipeCompleta[],
     marcos: [] as Marco[],
     contatos: [] as Contato[],
-    notificacoes: [] as Notificacao[]
+    notificacoes: [] as Notificacao[],
+    pessoasProjeto: [] as PessoaProjeto[]
   });
   
   const [loading, setLoading] = useState(false);
@@ -94,7 +96,8 @@ const ProjectManagement = () => {
       
       setDados({
         ...dadosCarregados,
-        notificacoes: [] // Implementar notificações futuramente
+        notificacoes: [], // Implementar notificações futuramente
+        pessoasProjeto: dadosCarregados.pessoasProjeto || []
       });
 
     } catch (error) {

@@ -1,5 +1,6 @@
 import { SupabaseClient } from '@supabase/supabase-js';
 import { toast } from 'sonner';
+import type { PessoaProjeto } from '@/types/agencia';
 
 // Tipos baseados na estrutura do banco de dados
 export interface Agencia {
@@ -80,8 +81,9 @@ export interface EstatisticasEquipe {
 // Interface para dados completos da equipe
 export interface EquipeCompleta extends Equipe {
   nome_pessoa: string;
-  email_pessoa: string;
-  avatar_pessoa?: string;
+  email_pessoa: string | null;
+  telefone_pessoa: string | null;
+  cargo_pessoa: string | null;
   nome_projeto: string;
   status_projeto: string;
   cliente_final: string;
@@ -442,23 +444,71 @@ export const equipeService = {
     }
   },
 
-  // Listar todas as equipes
+  // Listar todas as equipes com dados de pessoas_projeto
   async listarTodas(supabase: SupabaseClient): Promise<EquipeCompleta[]> {
     try {
       const { data, error } = await supabase
-        .from('vw_equipe_projeto_completa')
-        .select('*')
+        .from('agencia_projeto_equipe')
+        .select(`
+          *,
+          pessoas_projeto!agencia_projeto_equipe_pessoa_id_fkey (
+            nome,
+            email,
+            telefone,
+            cargo
+          ),
+          projetos!agencia_projeto_equipe_projeto_id_fkey (
+            nome_projeto,
+            status_projeto,
+            cliente_final,
+            agencias!projetos_agencia_id_fkey (
+              nome_agencia,
+              codigo_agencia
+            ),
+            deals!projetos_deal_id_fkey (
+              nome_deal
+            )
+          )
+        `)
         .eq('ativo', true)
-        .order('nome_projeto', { ascending: true })
-        .order('nivel_hierarquia', { ascending: false });
+        .order('data_entrada', { ascending: false });
 
       if (error) throw error;
-      return data || [];
+      
+      // Transformar os dados para o formato esperado
+      const equipesCompletas = data?.map(item => ({
+        ...item,
+        nome_pessoa: item.pessoas_projeto?.nome || 'Nome não disponível',
+        email_pessoa: item.pessoas_projeto?.email || null,
+        telefone_pessoa: item.pessoas_projeto?.telefone || null,
+        cargo_pessoa: item.pessoas_projeto?.cargo || null,
+        nome_projeto: item.projetos?.nome_projeto || 'Projeto não encontrado',
+        status_projeto: item.projetos?.status_projeto || 'indefinido',
+        cliente_final: item.projetos?.cliente_final || 'Cliente não definido',
+        nome_agencia: item.projetos?.agencias?.nome_agencia || 'Agência não encontrada',
+        codigo_agencia: item.projetos?.agencias?.codigo_agencia || 'Código não disponível',
+        nome_deal: item.projetos?.deals?.nome_deal || 'Deal não encontrado',
+        nivel_hierarquia: this.getNivelHierarquia(item.papel),
+        status_membro: item.ativo ? 'ativo' : 'inativo'
+      })) || [];
+      
+      return equipesCompletas;
     } catch (error) {
       console.error('Erro ao listar todas as equipes:', error);
       toast.error('Erro ao carregar equipes');
       throw error;
     }
+  },
+
+  // Função auxiliar para determinar nível hierárquico
+  getNivelHierarquia(papel: FuncaoEquipe): number {
+    const niveis = {
+      'diretor': 4,
+      'gerente': 3,
+      'coordenador': 2,
+      'membro': 1
+    };
+    return niveis[papel] || 1;
   },
 
   // Adicionar membro à equipe
@@ -661,13 +711,14 @@ export const projectManagementService = {
     try {
       console.log('🔍 Iniciando carregamento de dados no serviço...');
       
-      const [agencias, deals, projetos, contatos, equipes, marcos] = await Promise.all([
+      const [agencias, deals, projetos, contatos, equipes, marcos, pessoasProjeto] = await Promise.all([
         agenciaService.listar(supabase),
         dealService.listar(supabase),
         projetoService.listar(supabase),
         supabase.from('agencia_contatos').select('*'),
         supabase.from('agencia_projeto_equipe').select('*'),
-        supabase.from('agencia_projeto_marcos').select('*')
+        supabase.from('agencia_projeto_marcos').select('*'),
+        supabase.from('pessoas_projeto').select('*')
       ]);
 
       console.log('📋 Resultados individuais:', {
@@ -676,7 +727,8 @@ export const projectManagementService = {
         projetos: projetos?.length || 0,
         contatos: contatos.data?.length || 0,
         equipes: equipes.data?.length || 0,
-        marcos: marcos.data?.length || 0
+        marcos: marcos.data?.length || 0,
+        pessoasProjeto: pessoasProjeto.data?.length || 0
       });
 
       return {
@@ -685,7 +737,8 @@ export const projectManagementService = {
         projetos,
         contatos: contatos.data || [],
         equipes: equipes.data || [],
-        marcos: marcos.data || []
+        marcos: marcos.data || [],
+        pessoasProjeto: pessoasProjeto.data || []
       };
     } catch (error) {
       console.error('❌ Erro ao carregar dados no serviço:', error);

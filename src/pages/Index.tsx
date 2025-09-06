@@ -11,7 +11,7 @@ import { useEffect } from "react";
 import { useDashboardStats } from "../hooks/useDashboardStats";
 import heroBanner from "@/assets/hero-banner.jpg";
 import dashboardPreview from "@/assets/dashboard-preview.jpg";
-import { runFullSystemDiagnostic } from '../utils/system-diagnostics';
+
 
 const Index = () => {
   console.log('📊 Dashboard Index component loading...');
@@ -19,16 +19,7 @@ const Index = () => {
   const { isAdmin } = useAuth();
   const { stats, loading, error } = useDashboardStats();
   
-  // Executar diagnóstico apenas em desenvolvimento
-  useEffect(() => {
-    if (import.meta.env.DEV) {
-      runFullSystemDiagnostic().then(report => {
-        console.log('📊 Relatório de diagnóstico salvo no localStorage');
-      }).catch(err => {
-        console.error('❌ Erro no diagnóstico:', err);
-      });
-    }
-  }, []);
+
   
   // Safe admin check with fallback
   const isAdminUser = () => {

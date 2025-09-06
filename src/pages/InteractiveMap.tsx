@@ -9,8 +9,6 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { MapPin, Search, Filter, Zap, ZapOff, AlertCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-// Remover esta linha:
-// import { runSupabaseDebug } from '@/utils/debugSupabase';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 
@@ -564,10 +562,6 @@ export default function InteractiveMap() {
                 <Button variant="outline" size="sm" onClick={fetchScreens}>
                   🔄 Recarregar
                 </Button>
-                // Remover do JSX:
-                // <Button variant="outline" size="sm" onClick={handleDebug}>
-                //   🔧 Debug
-                // </Button>
                 <Button variant="outline" onClick={clearFilters}>
                   Limpar filtros
                 </Button>

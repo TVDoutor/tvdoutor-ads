@@ -1,5 +1,4 @@
-// Corrigir import
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react'; 
 import { 
   Plus, 
   Edit, 
@@ -19,18 +18,18 @@ import {
   Shield,
   Crown
 } from 'lucide-react';
-import { 
-  equipeService,
-  marcoService,
-  type Agencia,
-  type Deal,
-  type Projeto,
-  type Contato,
-  type Equipe,
-  type Marco
-} from '@/lib/project-management-service';
 import { supabase } from '@/integrations/supabase/client';
+import type { PessoaProjeto } from '@/types/agencia';
+import type { 
+  Agencia, 
+  Deal, 
+  Projeto, 
+  Contato, 
+  Equipe, 
+  Marco 
+} from '@/lib/project-management-service';
 
+// Tipos de Exemplo
 interface Notificacao {
   id: string;
   titulo: string;
@@ -39,6 +38,78 @@ interface Notificacao {
   data: string;
   lida: boolean;
 }
+
+// Serviços de Exemplo
+const PessoasProjetoService = {
+  listar: async (): Promise<PessoaProjeto[]> => {
+    const { data, error } = await supabase
+      .from('pessoas_projeto')
+      .select('id, nome, email, telefone, cargo, agencia_id, created_at, updated_at');
+    
+    if (error) {
+      console.error('Erro ao buscar pessoas do projeto:', error);
+      return [];
+    }
+    
+    return data || [];
+  }
+};
+
+const equipeService = {
+  adicionarMembro: async (membro: Omit<Equipe, 'id' | 'ativo' | 'data_entrada'>): Promise<any> => {
+    const { data, error } = await supabase
+      .from('agencia_projeto_equipe')
+      .insert([{ ...membro, ativo: true, data_entrada: new Date().toISOString() }]);
+    
+    if (error) {
+      console.error('Erro ao adicionar membro:', error);
+      throw error;
+    }
+    
+    return data;
+  },
+  atualizarMembro: async (id: string, updates: Partial<Equipe>): Promise<any> => {
+    const { data, error } = await supabase
+      .from('agencia_projeto_equipe')
+      .update(updates)
+      .eq('id', id);
+    
+    if (error) {
+      console.error('Erro ao atualizar membro:', error);
+      throw error;
+    }
+    
+    return data;
+  }
+};
+
+const marcoService = {
+    criar: async (marco: Omit<Marco, 'id'>): Promise<any> => {
+        const { data, error } = await supabase
+            .from('agencia_projeto_marcos')
+            .insert([marco]);
+        
+        if (error) {
+            console.error('Erro ao criar marco:', error);
+            throw error;
+        }
+        
+        return data;
+    },
+    atualizar: async (id: string, updates: Partial<Marco>): Promise<any> => {
+        const { data, error } = await supabase
+            .from('agencia_projeto_marcos')
+            .update(updates)
+            .eq('id', id);
+        
+        if (error) {
+            console.error('Erro ao atualizar marco:', error);
+            throw error;
+        }
+        
+        return data;
+    }
+};
 
 interface ProjectManagementScreensProps {
   dados: {
@@ -49,6 +120,7 @@ interface ProjectManagementScreensProps {
     marcos: Marco[];
     contatos: Contato[];
     notificacoes: Notificacao[];
+    pessoasProjeto: PessoaProjeto[];
   };
   carregarDados: () => Promise<void>;
 }
@@ -57,50 +129,48 @@ export const TelaEquipes = ({ dados, carregarDados }: ProjectManagementScreensPr
   const [showModal, setShowModal] = useState(false);
   const [projetoSelecionado, setProjetoSelecionado] = useState<string>('');
   const [membroSelecionado, setMembroSelecionado] = useState<Equipe | null>(null);
-  const [usuarios, setUsuarios] = useState<any[]>([]);
-  const [carregandoUsuarios, setCarregandoUsuarios] = useState(false);
+  const [pessoasDisponiveis, setPessoasDisponiveis] = useState<PessoaProjeto[]>([]);
+  const [carregandoPessoas, setCarregandoPessoas] = useState(false);
+  const [erroPessoas, setErroPessoas] = useState<string | null>(null);
 
-  // Carregar usuários disponíveis
-  const carregarUsuarios = async () => {
+  // Carregar pessoas disponíveis que ainda não estão na equipe do projeto selecionado.
+  const carregarPessoasDisponiveis = async () => {
+    if (!projetoSelecionado) return;
+
     try {
-      setCarregandoUsuarios(true);
+      setCarregandoPessoas(true);
+      setErroPessoas(null);
       
-      // Buscar todos os usuários do sistema
-      const { data: usuariosData, error } = await supabase
-        .from('profiles')
-        .select('id, full_name, email')
-        .order('full_name');
-
-      if (error) throw error;
-
-      // Verificar quais usuários já estão na equipe do projeto selecionado
       const { data: membrosExistentes } = await supabase
         .from('agencia_projeto_equipe')
-        .select('usuario_id')
+        .select('pessoa_id')
         .eq('projeto_id', projetoSelecionado)
         .eq('ativo', true);
 
-      const idsMembrosExistentes = new Set(membrosExistentes?.map(m => m.usuario_id) || []);
+      const idsMembrosExistentes = new Set((membrosExistentes || []).map((m: any) => m.pessoa_id));
       
-      // Filtrar usuários que não estão na equipe
-      const usuariosDisponiveis = usuariosData?.filter(u => !idsMembrosExistentes.has(u.id)) || [];
+      // Usar sempre o PessoasProjetoService para carregar usuários
+      const pessoasFonte: PessoaProjeto[] = await PessoasProjetoService.listar();
       
-      setUsuarios(usuariosDisponiveis);
+      const disponiveis = (pessoasFonte || []).filter(p => !idsMembrosExistentes.has(p.id));
+      
+      setPessoasDisponiveis(disponiveis);
     } catch (error) {
-      console.error('Erro ao carregar usuários:', error);
+      console.error('Erro ao carregar pessoas do projeto:', error);
+      setErroPessoas('Não foi possível carregar a lista de pessoas.');
+      setPessoasDisponiveis([]);
     } finally {
-      setCarregandoUsuarios(false);
+      setCarregandoPessoas(false);
     }
   };
 
-  // Carregar usuários quando o modal abrir
+  // Carregar pessoas quando o modal abrir para um projeto específico.
   useEffect(() => {
-    if (showModal && projetoSelecionado) {
-      carregarUsuarios();
+    if (showModal && projetoSelecionado && !membroSelecionado) {
+      carregarPessoasDisponiveis();
     }
-  }, [showModal, projetoSelecionado]);
+  }, [showModal, projetoSelecionado, membroSelecionado]);
   
-  // Configuração das funções com ícones e cores
   const FUNCOES_CONFIG = {
     membro: {
       label: 'Membro',
@@ -114,73 +184,65 @@ export const TelaEquipes = ({ dados, carregarDados }: ProjectManagementScreensPr
       color: 'bg-green-100 text-green-800',
       borderColor: 'border-green-200'
     },
-    gerente: {
-      label: 'Gerente',
-      icon: Shield,
-      color: 'bg-purple-100 text-purple-800',
-      borderColor: 'border-purple-200'
-    },
-    diretor: {
-      label: 'Diretor',
-      icon: Crown,
-      color: 'bg-yellow-100 text-yellow-800',
-      borderColor: 'border-yellow-200'
+    consultor: {
+        label: 'Consultor',
+        icon: Shield,
+        color: 'bg-purple-100 text-purple-800',
+        borderColor: 'border-purple-200'
     }
-  };
+  } as const;
   
   const EquipeCard = ({ projeto }: { projeto: Projeto }) => {
-    const agencia = dados.agencias.find(a => a.id === projeto.agencia_id);
-    const equipeProjeto = dados.equipes.filter(e => e.projeto_id === projeto.id && e.ativo);
-
+    const equipesProjeto = dados.equipes.filter(e => e.projeto_id === projeto.id && e.ativo);
+    
     return (
       <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <div className="flex items-start justify-between mb-4">
+        <div className="flex items-center justify-between mb-4">
           <div>
-            <h3 className="text-lg font-semibold text-gray-900">{projeto.nome_projeto}</h3>
-            <p className="text-sm text-gray-600">{agencia?.nome_agencia}</p>
+            <h3 className="text-lg font-semibold">{projeto.nome_projeto}</h3>
+            <p className="text-sm text-gray-600">{projeto.descricao}</p>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs">
-              {equipeProjeto.length} membro(s)
-            </span>
-            <button 
-              onClick={() => {setProjetoSelecionado(projeto.id); setShowModal(true);}}
-              className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded"
-            >
-              <UserPlus className="w-4 h-4" />
-            </button>
-          </div>
+          <button
+            onClick={() => {
+              setProjetoSelecionado(projeto.id);
+              setMembroSelecionado(null);
+              setShowModal(true);
+              // Dispara a carga imediatamente para melhor UX
+              setTimeout(() => carregarPessoasDisponiveis(), 0);
+            }}
+            className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+          >
+            <UserPlus className="w-5 h-5" />
+          </button>
         </div>
-
+        
         <div className="space-y-3">
-          {equipeProjeto.map(membro => {
+          {equipesProjeto.map(membro => {
+            const pessoa = dados.pessoasProjeto.find(p => p.id === membro.pessoa_id);
             const config = FUNCOES_CONFIG[membro.papel as keyof typeof FUNCOES_CONFIG];
-            const IconComponent = config?.icon || User;
+            const nomePessoa = pessoa?.nome || 'Pessoa não encontrada';
             
             return (
-              <div key={membro.id} className={`flex items-center justify-between p-3 rounded-lg border-2 ${config?.borderColor || 'border-gray-200'} bg-white`}>
+              <div key={membro.id} className={`flex items-center justify-between p-3 rounded-lg border-2 ${config?.borderColor || 'border-gray-200'}`}>
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center text-white font-semibold">
-                    {(membro.nome_pessoa || 'U').charAt(0).toUpperCase()}
+                  <div className={`w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center text-white font-semibold`}>
+                    {(nomePessoa?.[0] || 'P').toUpperCase()}
                   </div>
                   <div>
-                    <p className="font-medium text-gray-900">{membro.nome_pessoa || 'Usuário'}</p>
-                    <p className="text-sm text-gray-600">{membro.email_pessoa || 'Email não disponível'}</p>
-                    <div className="flex items-center gap-1 mt-1">
-                      <IconComponent className="w-3 h-3" />
-                      <span className={`text-xs px-2 py-0.5 rounded-full ${config?.color || 'bg-gray-100 text-gray-800'}`}>
-                        {config?.label || membro.papel}
-                      </span>
-                    </div>
+                    <p className="font-medium text-gray-900">{nomePessoa}</p>
+                    <p className="text-sm text-gray-600">{pessoa?.email || 'Email não disponível'}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-gray-500">
-                    Entrou em {new Date(membro.data_entrada).toLocaleDateString()}
+                  <span className={`text-xs px-2 py-0.5 rounded-full ${config?.color || 'bg-gray-200'}`}>
+                    {config?.label || membro.papel}
                   </span>
-                  <button 
-                    onClick={() => {setMembroSelecionado(membro); setShowModal(true);}}
-                    className="p-1 text-gray-400 hover:text-gray-600 rounded"
+                   <span className="text-xs text-gray-500">
+                      Entrou em {new Date(membro.data_entrada).toLocaleDateString()}
+                    </span>
+                  <button
+                    onClick={() => {setMembroSelecionado(membro); setProjetoSelecionado(projeto.id); setShowModal(true);}}
+                    className="p-1 text-gray-400 hover:text-gray-600 rounded transition-colors"
                   >
                     <Edit className="w-4 h-4" />
                   </button>
@@ -202,8 +264,7 @@ export const TelaEquipes = ({ dados, carregarDados }: ProjectManagementScreensPr
         </div>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
         <div className="bg-white p-6 rounded-lg border border-gray-200">
           <div className="flex items-center justify-between">
             <div>
@@ -246,9 +307,9 @@ export const TelaEquipes = ({ dados, carregarDados }: ProjectManagementScreensPr
         <div className="bg-white p-6 rounded-lg border border-gray-200">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Gerentes</p>
+              <p className="text-sm font-medium text-gray-600">Consultores</p>
               <p className="text-2xl font-bold text-purple-600">
-                {dados.equipes.filter(e => e.ativo && e.papel === 'gerente').length}
+                {dados.equipes.filter(e => e.ativo && e.papel === 'consultor').length}
               </p>
             </div>
             <div className="p-3 bg-purple-100 rounded-lg">
@@ -256,36 +317,21 @@ export const TelaEquipes = ({ dados, carregarDados }: ProjectManagementScreensPr
             </div>
           </div>
         </div>
-        <div className="bg-white p-6 rounded-lg border border-gray-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Diretores</p>
-              <p className="text-2xl font-bold text-yellow-600">
-                {dados.equipes.filter(e => e.ativo && e.papel === 'diretor').length}
-              </p>
-            </div>
-            <div className="p-3 bg-yellow-100 rounded-lg">
-              <Crown className="w-6 h-6 text-yellow-600" />
-            </div>
-          </div>
-        </div>
       </div>
 
-      {/* Projects with Teams */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {dados.projetos.map(projeto => (
           <EquipeCard key={projeto.id} projeto={projeto} />
         ))}
       </div>
 
-      {/* Modal para adicionar/editar membro */}
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg max-w-md w-full">
             <div className="p-6 border-b">
               <div className="flex items-center justify-between">
                 <h2 className="text-xl font-semibold">
-                  {membroSelecionado ? 'Editar Membro' : 'Adicionar Membro'}
+                  {membroSelecionado ? 'Editar Papel do Membro' : 'Adicionar Membro'}
                 </h2>
                 <button onClick={() => {setShowModal(false); setMembroSelecionado(null); setProjetoSelecionado('');}}>
                   <X className="w-6 h-6" />
@@ -295,48 +341,62 @@ export const TelaEquipes = ({ dados, carregarDados }: ProjectManagementScreensPr
             <div className="p-6">
               <form onSubmit={async (e) => {
                 e.preventDefault();
-                const formData = new FormData(e.currentTarget);
-                const dadosMembro = {
-                  projeto_id: projetoSelecionado,
-                  usuario_id: formData.get('usuario_id') as string,
-                  papel: formData.get('papel') as string,
-                  data_entrada: new Date().toISOString().split('T')[0]
-                };
-
+                const formData = new FormData(e.currentTarget as HTMLFormElement);
+                
                 try {
                   if (membroSelecionado) {
-                    await equipeService.atualizarMembro(supabase, membroSelecionado.id, { papel: dadosMembro.papel });
+                    const dadosAtualizados = {
+                      papel: formData.get('papel') as string,
+                    };
+                    await equipeService.atualizarMembro(membroSelecionado.id, dadosAtualizados);
                   } else {
-                    await equipeService.adicionarMembro(supabase, dadosMembro);
+                    const dadosMembro = {
+                      projeto_id: projetoSelecionado,
+                      pessoa_id: formData.get('pessoa_id') as string,
+                      papel: formData.get('papel') as string,
+                    };
+                    await equipeService.adicionarMembro(dadosMembro);
                   }
                   setShowModal(false);
                   setMembroSelecionado(null);
                   setProjetoSelecionado('');
-                  carregarDados();
+                  await carregarDados();
                 } catch (error) {
                   console.error('Erro ao salvar membro:', error);
                 }
               }} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Selecionar Usuário
-                  </label>
-                  <select
-                    name="usuario_id"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    required
-                    disabled={carregandoUsuarios}
-                  >
-                    <option value="">
-                      {carregandoUsuarios ? 'Carregando usuários...' : 'Selecione um usuário'}
-                    </option>
-                    {usuarios.map(usuario => (
-                      <option key={usuario.id} value={usuario.id}>
-                        {usuario.full_name} ({usuario.email})
+                
+                {!membroSelecionado && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Selecionar Pessoa
+                    </label>
+                    <select
+                      name="pessoa_id"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      required
+                      disabled={carregandoPessoas || !!erroPessoas}
+                      defaultValue=""
+                    >
+                      <option value="">
+                        {carregandoPessoas
+                          ? 'Carregando pessoas...'
+                          : erroPessoas
+                            ? 'Erro ao carregar — tente novamente'
+                            : 'Selecione uma pessoa'}
                       </option>
-                    ))}
-                  </select>
-                </div>
+                      {pessoasDisponiveis.map(pessoa => (
+                        <option key={pessoa.id} value={pessoa.id}>
+                          {pessoa.nome} {pessoa.email ? `(${pessoa.email})` : ''}
+                        </option>
+                      ))}
+                    </select>
+                    {erroPessoas && (
+                      <p className="mt-1 text-sm text-red-600">{erroPessoas}</p>
+                    )}
+                  </div>
+                )}
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Papel
@@ -349,11 +409,11 @@ export const TelaEquipes = ({ dados, carregarDados }: ProjectManagementScreensPr
                   >
                     <option value="membro">Membro</option>
                     <option value="coordenador">Coordenador</option>
-                    <option value="gerente">Gerente</option>
-                    <option value="diretor">Diretor</option>
+                    <option value="consultor">Consultor</option>
                   </select>
                 </div>
-                <div className="flex justify-end gap-2">
+
+                <div className="flex justify-end gap-2 pt-2">
                   <button
                     type="button"
                     onClick={() => {setShowModal(false); setMembroSelecionado(null); setProjetoSelecionado('');}}
@@ -365,7 +425,7 @@ export const TelaEquipes = ({ dados, carregarDados }: ProjectManagementScreensPr
                     type="submit"
                     className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
                   >
-                    {membroSelecionado ? 'Atualizar' : 'Adicionar'}
+                    {membroSelecionado ? 'Atualizar Papel' : 'Adicionar Membro'}
                   </button>
                 </div>
               </form>
@@ -384,7 +444,7 @@ export const TelaMarcos = ({ dados, carregarDados }: ProjectManagementScreensPro
 
   const MarcoCard = ({ projeto }: { projeto: Projeto }) => {
     const agencia = dados.agencias.find(a => a.id === projeto.agencia_id);
-    const marcosProjeto = dados.marcos.filter(m => m.projeto_id === projeto.id).sort((a, b) => a.ordem - b.ordem);
+    const marcosProjeto = dados.marcos.filter(m => m.projeto_id === projeto.id).sort((a, b) => (a.ordem || 0) - (b.ordem || 0));
 
     return (
       <div className="bg-white rounded-lg border border-gray-200 p-6">
@@ -398,7 +458,7 @@ export const TelaMarcos = ({ dados, carregarDados }: ProjectManagementScreensPro
               {marcosProjeto.length} marco(s)
             </span>
             <button 
-              onClick={() => {setProjetoSelecionado(projeto.id); setShowModal(true);}}
+              onClick={() => {setProjetoSelecionado(projeto.id); setMarcoSelecionado(null); setShowModal(true);}}
               className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded"
             >
               <Plus className="w-4 h-4" />
@@ -433,7 +493,7 @@ export const TelaMarcos = ({ dados, carregarDados }: ProjectManagementScreensPro
                 </p>
               </div>
               <button 
-                onClick={() => {setMarcoSelecionado(marco); setShowModal(true);}}
+                onClick={() => {setMarcoSelecionado(marco); setProjetoSelecionado(marco.projeto_id); setShowModal(true);}}
                 className="p-1 text-gray-400 hover:text-gray-600 rounded"
               >
                 <Edit className="w-4 h-4" />
@@ -454,8 +514,7 @@ export const TelaMarcos = ({ dados, carregarDados }: ProjectManagementScreensPro
         </div>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
         <div className="bg-white p-6 rounded-lg border border-gray-200">
           <div className="flex items-center justify-between">
             <div>
@@ -508,14 +567,12 @@ export const TelaMarcos = ({ dados, carregarDados }: ProjectManagementScreensPro
         </div>
       </div>
 
-      {/* Projects with Milestones */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {dados.projetos.map(projeto => (
           <MarcoCard key={projeto.id} projeto={projeto} />
         ))}
       </div>
 
-      {/* Modal para adicionar/editar marco */}
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg max-w-md w-full">
@@ -532,7 +589,7 @@ export const TelaMarcos = ({ dados, carregarDados }: ProjectManagementScreensPro
             <div className="p-6">
               <form onSubmit={async (e) => {
                 e.preventDefault();
-                const formData = new FormData(e.currentTarget);
+                const formData = new FormData(e.currentTarget as HTMLFormElement);
                 const projetoId = projetoSelecionado || marcoSelecionado?.projeto_id;
                 
                 if (!projetoId) {
@@ -547,19 +604,19 @@ export const TelaMarcos = ({ dados, carregarDados }: ProjectManagementScreensPro
                   data_prevista: formData.get('data_prevista') as string,
                   status: formData.get('status') as string,
                   ordem: parseInt(formData.get('ordem') as string) || 1,
-                  responsavel_id: (formData.get('responsavel_id') as string) || ''
+                  responsavel_id: (formData.get('responsavel_id') as string) || null
                 };
 
                 try {
                   if (marcoSelecionado) {
-                    await marcoService.atualizar(supabase, marcoSelecionado.id, dadosMarco);
+                    await marcoService.atualizar(marcoSelecionado.id, dadosMarco);
                   } else {
-                    await marcoService.criar(supabase, dadosMarco);
+                    await marcoService.criar(dadosMarco);
                   }
                   setShowModal(false);
                   setMarcoSelecionado(null);
                   setProjetoSelecionado('');
-                  carregarDados();
+                  await carregarDados();
                 } catch (error) {
                   console.error('Erro ao salvar marco:', error);
                 }
@@ -576,7 +633,7 @@ export const TelaMarcos = ({ dados, carregarDados }: ProjectManagementScreensPro
                     required
                   />
                 </div>
-                <div>
+                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Descrição
                   </label>
@@ -643,6 +700,7 @@ export const TelaMarcos = ({ dados, carregarDados }: ProjectManagementScreensPro
                     {marcoSelecionado ? 'Atualizar' : 'Criar'}
                   </button>
                 </div>
+
               </form>
             </div>
           </div>
@@ -653,250 +711,243 @@ export const TelaMarcos = ({ dados, carregarDados }: ProjectManagementScreensPro
 };
 
 export const TelaRelatorios = ({ dados }: ProjectManagementScreensProps) => {
-  const [filtroPeriodo, setFiltroPeriodo] = useState('30'); // dias
-  const [filtroAgencia, setFiltroAgencia] = useState('');
-
-  // Cálculos para relatórios
-  const projetosAtivos = dados.projetos.filter(p => p.status_projeto === 'ativo');
-  const projetosConcluidos = dados.projetos.filter(p => p.status_projeto === 'concluido');
-  const orcamentoTotal = dados.projetos.reduce((acc, p) => acc + p.orcamento_projeto, 0);
-  const gastoTotal = dados.projetos.reduce((acc, p) => acc + p.valor_gasto, 0);
-  const marcosConcluidos = dados.marcos.filter(m => m.status === 'concluido').length;
-  const marcosPendentes = dados.marcos.filter(m => m.status === 'pendente').length;
-
-  return (
-    <div>
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Relatórios e Dashboards</h1>
-          <p className="text-gray-600">Visão geral do desempenho dos projetos</p>
+    const [filtroPeriodo, setFiltroPeriodo] = useState('30');
+    const [filtroAgencia, setFiltroAgencia] = useState('');
+  
+    const projetosAtivos = dados.projetos.filter(p => p.status_projeto === 'ativo');
+    const projetosConcluidos = dados.projetos.filter(p => p.status_projeto === 'concluido');
+    const orcamentoTotal = dados.projetos.reduce((acc, p) => acc + (p.orcamento_projeto || 0), 0);
+    const gastoTotal = dados.projetos.reduce((acc, p) => acc + (p.valor_gasto || 0), 0);
+    const marcosConcluidos = dados.marcos.filter(m => m.status === 'concluido').length;
+    const marcosPendentes = dados.marcos.filter(m => m.status === 'pendente').length;
+  
+    return (
+      <div>
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Relatórios e Dashboards</h1>
+            <p className="text-gray-600">Visão geral do desempenho dos projetos</p>
+          </div>
+          <div className="flex gap-4">
+            <select 
+              value={filtroPeriodo}
+              onChange={(e) => setFiltroPeriodo(e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="7">Últimos 7 dias</option>
+              <option value="30">Últimos 30 dias</option>
+              <option value="90">Últimos 90 dias</option>
+              <option value="365">Último ano</option>
+            </select>
+            <select 
+              value={filtroAgencia}
+              onChange={(e) => setFiltroAgencia(e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">Todas as Agências</option>
+              {dados.agencias.map(agencia => (
+                <option key={agencia.id} value={agencia.id}>
+                  {agencia.nome_agencia}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
-        <div className="flex gap-4">
-          <select 
-            value={filtroPeriodo}
-            onChange={(e) => setFiltroPeriodo(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="7">Últimos 7 dias</option>
-            <option value="30">Últimos 30 dias</option>
-            <option value="90">Últimos 90 dias</option>
-            <option value="365">Último ano</option>
-          </select>
-          <select 
-            value={filtroAgencia}
-            onChange={(e) => setFiltroAgencia(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="">Todas as Agências</option>
-            {dados.agencias.map(agencia => (
-              <option key={agencia.id} value={agencia.id}>
-                {agencia.nome_agencia}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      {/* Métricas Principais */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <div className="bg-white p-6 rounded-lg border border-gray-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Projetos Ativos</p>
-              <p className="text-2xl font-bold text-blue-600">{projetosAtivos.length}</p>
-              <p className="text-xs text-gray-500 mt-1">
-                {dados.projetos.length > 0 ? ((projetosAtivos.length / dados.projetos.length) * 100).toFixed(1) : 0}% do total
-              </p>
+  
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <div className="bg-white p-6 rounded-lg border border-gray-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Projetos Ativos</p>
+                <p className="text-2xl font-bold text-blue-600">{projetosAtivos.length}</p>
+                <p className="text-xs text-gray-500 mt-1">
+                  {dados.projetos.length > 0 ? ((projetosAtivos.length / dados.projetos.length) * 100).toFixed(1) : 0}% do total
+                </p>
+              </div>
+              <div className="p-3 bg-blue-100 rounded-lg">
+                <Target className="w-6 h-6 text-blue-600" />
+              </div>
             </div>
-            <div className="p-3 bg-blue-100 rounded-lg">
-              <Target className="w-6 h-6 text-blue-600" />
+          </div>
+  
+          <div className="bg-white p-6 rounded-lg border border-gray-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Orçamento Total</p>
+                <p className="text-2xl font-bold text-green-600">
+                  R$ {orcamentoTotal.toLocaleString('pt-BR')}
+                </p>
+                <p className="text-xs text-gray-500 mt-1">
+                  Gasto: R$ {gastoTotal.toLocaleString('pt-BR')}
+                </p>
+              </div>
+              <div className="p-3 bg-green-100 rounded-lg">
+                <DollarSign className="w-6 h-6 text-green-600" />
+              </div>
+            </div>
+          </div>
+  
+          <div className="bg-white p-6 rounded-lg border border-gray-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Marcos Concluídos</p>
+                <p className="text-2xl font-bold text-purple-600">{marcosConcluidos}</p>
+                <p className="text-xs text-gray-500 mt-1">
+                  {marcosPendentes} pendentes
+                </p>
+              </div>
+              <div className="p-3 bg-purple-100 rounded-lg">
+                <CheckCircle className="w-6 h-6 text-purple-600" />
+              </div>
+            </div>
+          </div>
+  
+          <div className="bg-white p-6 rounded-lg border border-gray-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Taxa de Conclusão</p>
+                <p className="text-2xl font-bold text-orange-600">
+                  {dados.projetos.length > 0 ? ((projetosConcluidos.length / dados.projetos.length) * 100).toFixed(1) : 0}%
+                </p>
+                <p className="text-xs text-gray-500 mt-1">
+                  {projetosConcluidos.length} de {dados.projetos.length} projetos
+                </p>
+              </div>
+              <div className="p-3 bg-orange-100 rounded-lg">
+                <TrendingUp className="w-6 h-6 text-orange-600" />
+              </div>
             </div>
           </div>
         </div>
-
-        <div className="bg-white p-6 rounded-lg border border-gray-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Orçamento Total</p>
-              <p className="text-2xl font-bold text-green-600">
-                R$ {orcamentoTotal.toLocaleString()}
-              </p>
-              <p className="text-xs text-gray-500 mt-1">
-                Gasto: R$ {gastoTotal.toLocaleString()}
-              </p>
-            </div>
-            <div className="p-3 bg-green-100 rounded-lg">
-              <DollarSign className="w-6 h-6 text-green-600" />
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-lg border border-gray-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Marcos Concluídos</p>
-              <p className="text-2xl font-bold text-purple-600">{marcosConcluidos}</p>
-              <p className="text-xs text-gray-500 mt-1">
-                {marcosPendentes} pendentes
-              </p>
-            </div>
-            <div className="p-3 bg-purple-100 rounded-lg">
-              <CheckCircle className="w-6 h-6 text-purple-600" />
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-lg border border-gray-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Taxa de Conclusão</p>
-              <p className="text-2xl font-bold text-orange-600">
-                {dados.projetos.length > 0 ? ((projetosConcluidos.length / dados.projetos.length) * 100).toFixed(1) : 0}%
-              </p>
-              <p className="text-xs text-gray-500 mt-1">
-                {projetosConcluidos.length} de {dados.projetos.length} projetos
-              </p>
-            </div>
-            <div className="p-3 bg-orange-100 rounded-lg">
-              <TrendingUp className="w-6 h-6 text-orange-600" />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Gráficos e Tabelas */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        {/* Status dos Projetos */}
-        <div className="bg-white p-6 rounded-lg border border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Status dos Projetos</h3>
-          <div className="space-y-3">
-            {['ativo', 'concluido', 'pausado', 'cancelado'].map(status => {
-              const count = dados.projetos.filter(p => p.status_projeto === status).length;
-              const percentage = dados.projetos.length > 0 ? (count / dados.projetos.length) * 100 : 0;
-              return (
-                <div key={status} className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className={`w-3 h-3 rounded-full ${
-                      status === 'ativo' ? 'bg-green-500' :
-                      status === 'concluido' ? 'bg-blue-500' :
-                      status === 'pausado' ? 'bg-yellow-500' :
-                      'bg-red-500'
-                    }`}></div>
-                    <span className="text-sm font-medium capitalize">{status}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-gray-600">{count}</span>
-                    <span className="text-xs text-gray-500">({percentage.toFixed(1)}%)</span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Performance por Agência */}
-        <div className="bg-white p-6 rounded-lg border border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Performance por Agência</h3>
-          <div className="space-y-3">
-            {dados.agencias.map(agencia => {
-              const projetosAgencia = dados.projetos.filter(p => p.agencia_id === agencia.id);
-              const projetosConcluidosAgencia = projetosAgencia.filter(p => p.status_projeto === 'concluido');
-              const taxaConclusao = projetosAgencia.length > 0 ? (projetosConcluidosAgencia.length / projetosAgencia.length) * 100 : 0;
-              
-              return (
-                <div key={agencia.id} className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-900">{agencia.nome_agencia}</p>
-                    <p className="text-xs text-gray-500">{projetosAgencia.length} projeto(s)</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm font-semibold text-gray-900">{taxaConclusao.toFixed(1)}%</p>
-                    <p className="text-xs text-gray-500">conclusão</p>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-
-      {/* Tabela de Projetos Recentes */}
-      <div className="bg-white rounded-lg border border-gray-200">
-        <div className="p-6 border-b">
-          <h3 className="text-lg font-semibold text-gray-900">Projetos Recentes</h3>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Projeto
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Agência
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Status
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Orçamento
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Progresso
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {dados.projetos.slice(0, 10).map(projeto => {
-                const agencia = dados.agencias.find(a => a.id === projeto.agencia_id);
-                const percentualGasto = (projeto.valor_gasto / projeto.orcamento_projeto) * 100;
-                
+  
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+          <div className="bg-white p-6 rounded-lg border border-gray-200">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Status dos Projetos</h3>
+            <div className="space-y-3">
+              {['ativo', 'concluido', 'pausado', 'cancelado'].map(status => {
+                const count = dados.projetos.filter(p => p.status_projeto === status).length;
+                const percentage = dados.projetos.length > 0 ? (count / dados.projetos.length) * 100 : 0;
                 return (
-                  <tr key={projeto.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div>
-                        <div className="text-sm font-medium text-gray-900">{projeto.nome_projeto}</div>
-                        <div className="text-sm text-gray-500">{projeto.cliente_final}</div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {agencia?.nome_agencia}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        projeto.status_projeto === 'ativo' ? 'bg-green-100 text-green-800' :
-                        projeto.status_projeto === 'concluido' ? 'bg-blue-100 text-blue-800' :
-                        projeto.status_projeto === 'pausado' ? 'bg-yellow-100 text-yellow-800' :
-                        'bg-red-100 text-red-800'
-                      }`}>
-                        {projeto.status_projeto}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      R$ {projeto.orcamento_projeto.toLocaleString()}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <div className="w-16 bg-gray-200 rounded-full h-2 mr-2">
-                          <div 
-                            className={`h-2 rounded-full ${
-                              percentualGasto > 80 ? 'bg-red-500' : 
-                              percentualGasto > 60 ? 'bg-yellow-500' : 'bg-green-500'
-                            }`}
-                            style={{ width: `${Math.min(percentualGasto, 100)}%` }}
-                          ></div>
-                        </div>
-                        <span className="text-sm text-gray-600">{percentualGasto.toFixed(1)}%</span>
-                      </div>
-                    </td>
-                  </tr>
+                  <div key={status} className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className={`w-3 h-3 rounded-full ${
+                        status === 'ativo' ? 'bg-green-500' :
+                        status === 'concluido' ? 'bg-blue-500' :
+                        status === 'pausado' ? 'bg-yellow-500' :
+                        'bg-red-500'
+                      }`}></div>
+                      <span className="text-sm font-medium capitalize">{status}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-gray-600">{count}</span>
+                      <span className="text-xs text-gray-500">({percentage.toFixed(1)}%)</span>
+                    </div>
+                  </div>
                 );
               })}
-            </tbody>
-          </table>
+            </div>
+          </div>
+  
+          <div className="bg-white p-6 rounded-lg border border-gray-200">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Performance por Agência</h3>
+            <div className="space-y-3">
+              {dados.agencias.map(agencia => {
+                const projetosAgencia = dados.projetos.filter(p => p.agencia_id === agencia.id);
+                const projetosConcluidosAgencia = projetosAgencia.filter(p => p.status_projeto === 'concluido');
+                const taxaConclusao = projetosAgencia.length > 0 ? (projetosConcluidosAgencia.length / projetosAgencia.length) * 100 : 0;
+                
+                return (
+                  <div key={agencia.id} className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">{agencia.nome_agencia}</p>
+                      <p className="text-xs text-gray-500">{projetosAgencia.length} projeto(s)</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-semibold text-gray-900">{taxaConclusao.toFixed(1)}%</p>
+                      <p className="text-xs text-gray-500">conclusão</p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+  
+        <div className="bg-white rounded-lg border border-gray-200">
+          <div className="p-6 border-b">
+            <h3 className="text-lg font-semibold text-gray-900">Projetos Recentes</h3>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Projeto
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Agência
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Status
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Orçamento
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Progresso
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {dados.projetos.slice(0, 10).map(projeto => {
+                  const agencia = dados.agencias.find(a => a.id === projeto.agencia_id);
+                  const percentualGasto = (projeto.orcamento_projeto && projeto.orcamento_projeto > 0) ? ((projeto.valor_gasto || 0) / projeto.orcamento_projeto) * 100 : 0;
+                  
+                  return (
+                    <tr key={projeto.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div>
+                          <div className="text-sm font-medium text-gray-900">{projeto.nome_projeto}</div>
+                          <div className="text-sm text-gray-500">{projeto.cliente_final}</div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {agencia?.nome_agencia}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          projeto.status_projeto === 'ativo' ? 'bg-green-100 text-green-800' :
+                          projeto.status_projeto === 'concluido' ? 'bg-blue-100 text-blue-800' :
+                          projeto.status_projeto === 'pausado' ? 'bg-yellow-100 text-yellow-800' :
+                          'bg-red-100 text-red-800'
+                        }`}>
+                          {projeto.status_projeto}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        R$ {(projeto.orcamento_projeto || 0).toLocaleString('pt-BR')}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          <div className="w-16 bg-gray-200 rounded-full h-2 mr-2">
+                            <div 
+                              className={`h-2 rounded-full ${
+                                percentualGasto > 80 ? 'bg-red-500' : 
+                                percentualGasto > 60 ? 'bg-yellow-500' : 'bg-green-500'
+                              }`}
+                              style={{ width: `${Math.min(percentualGasto, 100)}%` }}
+                            ></div>
+                          </div>
+                          <span className="text-sm text-gray-600">{percentualGasto.toFixed(1)}%</span>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
-    </div>
-  );
-};
-
+    );
+  };

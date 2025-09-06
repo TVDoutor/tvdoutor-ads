@@ -267,13 +267,13 @@ export const ProjectTeamManager: React.FC<ProjectTeamManagerProps> = ({
                           <Avatar className="w-12 h-12">
                             <AvatarImage src={membro.avatar_usuario} />
                             <AvatarFallback className="text-sm">
-                              {getIniciais(membro.nome_usuario)}
+                              {getIniciais(membro.nome_pessoa)}
                             </AvatarFallback>
                           </Avatar>
                           
                           <div className="flex-1">
                             <div className="flex items-center gap-3 mb-2">
-                              <h4 className="font-medium text-gray-900">{membro.nome_usuario}</h4>
+                              <h4 className="font-medium text-gray-900">{membro.nome_pessoa}</h4>
                               <Badge className={config.color}>
                                 <IconComponent className="w-3 h-3 mr-1" />
                                 {config.label}
@@ -309,7 +309,7 @@ export const ProjectTeamManager: React.FC<ProjectTeamManagerProps> = ({
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => handleRemoverMembro(membro.id, membro.nome_usuario)}
+                            onClick={() => handleRemoverMembro(membro.id, membro.nome_pessoa)}
                             className="text-red-600 hover:text-red-700 hover:bg-red-50"
                           >
                             <Trash2 className="w-4 h-4" />

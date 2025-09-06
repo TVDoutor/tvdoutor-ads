@@ -9,11 +9,12 @@ import { toast } from "sonner";
 import { Plus, Edit } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { validateBackendProjeto, sanitizeBackendProjeto } from "@/utils/validations/backend-projeto-validations";
-import type { ProjetoWithDetails } from "@/types/agencia";
-import { UserSelector } from '@/components/UserSelector';
+import type { ProjetoWithDetails, Deal } from "@/types/agencia";
+import { PessoaProjetoSelector } from '@/components/PessoaProjetoSelector';
 
 export default function AgenciasProjetos() {
   const [projetos, setProjetos] = useState<ProjetoWithDetails[]>([]);
+  const [deals, setDeals] = useState<Deal[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<ProjetoWithDetails | null>(null);
@@ -34,6 +35,7 @@ export default function AgenciasProjetos() {
 
   useEffect(() => {
     loadProjetos();
+    loadDeals();
   }, []);
 
   const loadProjetos = async () => {
@@ -50,6 +52,35 @@ export default function AgenciasProjetos() {
       toast.error('Erro ao carregar projetos');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadDeals = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('agencia_deals')
+        .select(`
+          id,
+          nome_deal,
+          agencia_id,
+          agencias!inner(nome_agencia)
+        `);
+
+      if (error) throw error;
+      
+      const dealsWithAgencia = (data || []).map(deal => ({
+        id: deal.id,
+        agencia_id: deal.agencia_id,
+        nome_deal: deal.nome_deal,
+        status: 'ativo',
+        created_at: new Date().toISOString(),
+        agencia_nome: deal.agencias?.nome_agencia || 'Agência não encontrada'
+      }));
+      
+      setDeals(dealsWithAgencia);
+    } catch (error) {
+      console.error('Erro ao carregar deals:', error);
+      toast.error('Erro ao carregar deals');
     }
   };
 
@@ -237,7 +268,7 @@ export default function AgenciasProjetos() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="responsavel_projeto">Responsável do Projeto</Label>
-                  <UserSelector
+                  <PessoaProjetoSelector
                     value={formData.responsavel_projeto}
                     onValueChange={(value) => setFormData({...formData, responsavel_projeto: value})}
                     placeholder="Selecione o responsável"

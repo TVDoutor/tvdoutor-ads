@@ -54,3 +54,30 @@ export type Proposta = {
   agencia_id: string | null
   projeto_id: string | null
 }
+
+export type PessoaProjeto = {
+  id: string
+  nome: string
+  email: string | null
+  telefone: string | null
+  cargo: string | null
+  agencia_id: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type PessoaProjetoInsert = {
+  nome: string
+  email?: string | null
+  telefone?: string | null
+  cargo?: string | null
+  agencia_id?: string | null
+}
+
+export type PessoaProjetoUpdate = {
+  nome?: string
+  email?: string | null
+  telefone?: string | null
+  cargo?: string | null
+  agencia_id?: string | null
+}

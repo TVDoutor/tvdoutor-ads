@@ -26,6 +26,7 @@ import CampaignDetails from "./pages/CampaignDetails";
 import Agencias from "./pages/Agencias";
 import AgenciasProjetos from "./pages/AgenciasProjetos";
 import ProjectManagement from "./pages/ProjectManagement";
+import PessoasProjeto from "./pages/PessoasProjeto";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -162,6 +163,12 @@ const App = () => {
             <Route path="/users" element={
               <ProtectedRoute requiredRole="Admin">
                 <Users />
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/pessoas-projeto" element={
+              <ProtectedRoute requiredRole="Admin">
+                <PessoasProjeto />
               </ProtectedRoute>
             } />
             

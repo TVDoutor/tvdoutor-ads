@@ -161,11 +161,11 @@ export const TelaEquipes = ({ dados, carregarDados }: ProjectManagementScreensPr
               <div key={membro.id} className={`flex items-center justify-between p-3 rounded-lg border-2 ${config?.borderColor || 'border-gray-200'} bg-white`}>
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center text-white font-semibold">
-                    {(membro.nome_usuario || 'U').charAt(0).toUpperCase()}
+                    {(membro.nome_pessoa || 'U').charAt(0).toUpperCase()}
                   </div>
                   <div>
-                    <p className="font-medium text-gray-900">{membro.nome_usuario || 'Usuário'}</p>
-                    <p className="text-sm text-gray-600">{membro.email_usuario || 'Email não disponível'}</p>
+                    <p className="font-medium text-gray-900">{membro.nome_pessoa || 'Usuário'}</p>
+                    <p className="text-sm text-gray-600">{membro.email_pessoa || 'Email não disponível'}</p>
                     <div className="flex items-center gap-1 mt-1">
                       <IconComponent className="w-3 h-3" />
                       <span className={`text-xs px-2 py-0.5 rounded-full ${config?.color || 'bg-gray-100 text-gray-800'}`}>

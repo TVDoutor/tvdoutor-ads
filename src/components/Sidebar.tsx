@@ -10,7 +10,7 @@ import {
   Calendar,
   Package,
   Building2,
-  
+  UserCheck,
   ChevronDown,
   ChevronRight
 } from "lucide-react";
@@ -77,6 +77,12 @@ const menuItems = [
     label: "Usuários",
     icon: Users,
     href: "/users",
+    requiredRole: "Admin" as UserRole
+  },
+  {
+    label: "Pessoas do Projeto",
+    icon: UserCheck,
+    href: "/pessoas-projeto",
     requiredRole: "Admin" as UserRole
   },
   {

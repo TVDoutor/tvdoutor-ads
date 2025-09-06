@@ -33,7 +33,7 @@ export interface Projeto {
   data_fim: string;
   orcamento_projeto: number;
   valor_gasto: number;
-  responsavel_projeto: string;
+  responsavel_projeto: string | null;
   cliente_final: string;
   prioridade: string;
   progresso: number;
@@ -59,7 +59,7 @@ export type FuncaoEquipe = 'membro' | 'coordenador' | 'gerente' | 'diretor';
 export interface Equipe {
   id: string;
   projeto_id: string;
-  usuario_id: string;
+  pessoa_id: string;
   papel: FuncaoEquipe;
   data_entrada: string;
   data_saida?: string;
@@ -79,9 +79,9 @@ export interface EstatisticasEquipe {
 
 // Interface para dados completos da equipe
 export interface EquipeCompleta extends Equipe {
-  nome_usuario: string;
-  email_usuario: string;
-  avatar_usuario?: string;
+  nome_pessoa: string;
+  email_pessoa: string;
+  avatar_pessoa?: string;
   nome_projeto: string;
   status_projeto: string;
   cliente_final: string;
@@ -464,7 +464,7 @@ export const equipeService = {
   // Adicionar membro à equipe
   async adicionarMembro(supabase: SupabaseClient, membro: {
     projeto_id: string;
-    usuario_id: string;
+    pessoa_id: string;
     papel: FuncaoEquipe;
     data_entrada?: string;
   }): Promise<Equipe> {
@@ -561,13 +561,13 @@ export const equipeService = {
   },
 
   // Verificar se usuário já está na equipe
-  async verificarMembroExistente(supabase: SupabaseClient, projetoId: string, usuarioId: string): Promise<boolean> {
+  async verificarMembroExistente(supabase: SupabaseClient, projetoId: string, pessoaId: string): Promise<boolean> {
     try {
       const { data } = await supabase
         .from('agencia_projeto_equipe')
         .select('id')
         .eq('projeto_id', projetoId)
-        .eq('usuario_id', usuarioId)
+        .eq('pessoa_id', pessoaId)
         .eq('ativo', true)
         .single();
 

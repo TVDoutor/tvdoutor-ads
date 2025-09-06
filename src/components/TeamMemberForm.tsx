@@ -22,11 +22,15 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { FuncaoEquipe, equipeService } from '@/lib/project-management-service';
+import { PessoasProjetoService } from '@/lib/pessoas-projeto-service';
+import type { PessoaProjeto } from '@/types/agencia';
 
 interface Usuario {
   id: string;
-  full_name: string;
-  email: string;
+  nome: string;
+  email: string | null;
+  telefone?: string | null;
+  cargo?: string | null;
   avatar_url?: string;
 }
 
@@ -91,8 +95,8 @@ export const TeamMemberForm: React.FC<TeamMemberFormProps> = ({
       setUsuariosFiltrados(usuarios);
     } else {
       const filtrados = usuarios.filter(usuario =>
-        usuario.full_name.toLowerCase().includes(busca.toLowerCase()) ||
-        usuario.email.toLowerCase().includes(busca.toLowerCase())
+        usuario.nome.toLowerCase().includes(busca.toLowerCase()) ||
+        (usuario.email && usuario.email.toLowerCase().includes(busca.toLowerCase()))
       );
       setUsuariosFiltrados(filtrados);
     }
@@ -102,30 +106,78 @@ export const TeamMemberForm: React.FC<TeamMemberFormProps> = ({
     try {
       setCarregandoUsuarios(true);
       
-      // Buscar todos os usuários do sistema
-      const { data: usuariosData, error } = await supabase
-        .from('profiles')
-        .select('id, full_name, email, avatar_url')
-        .order('full_name');
-
-      if (error) throw error;
-
-      // Verificar quais usuários já estão na equipe
-      const { data: membrosExistentes } = await supabase
-        .from('agencia_projeto_equipe')
-        .select('usuario_id')
-        .eq('projeto_id', projetoId)
-        .eq('ativo', true);
-
-      const idsMembrosExistentes = new Set(membrosExistentes?.map(m => m.usuario_id) || []);
+      console.log('🔍 Tentando carregar pessoas da tabela pessoas_projeto...');
       
-      // Filtrar usuários que não estão na equipe
-      const usuariosDisponiveis = usuariosData?.filter(u => !idsMembrosExistentes.has(u.id)) || [];
+      // Tentar buscar da tabela pessoas_projeto primeiro
+      try {
+        const pessoasData = await PessoasProjetoService.listar();
+        console.log('✅ Pessoas carregadas da tabela pessoas_projeto:', pessoasData.length);
+        
+        // Verificar quais pessoas já estão na equipe
+        const { data: membrosExistentes } = await supabase
+          .from('agencia_projeto_equipe')
+          .select('pessoa_id')
+          .eq('projeto_id', projetoId)
+          .eq('ativo', true);
+
+        const idsMembrosExistentes = new Set(membrosExistentes?.map(m => m.pessoa_id) || []);
+        
+        // Filtrar pessoas que não estão na equipe e converter para formato Usuario
+        const usuariosDisponiveis = pessoasData
+          .filter(pessoa => !idsMembrosExistentes.has(pessoa.id))
+          .map(pessoa => ({
+            id: pessoa.id,
+            nome: pessoa.nome,
+            email: pessoa.email,
+            telefone: pessoa.telefone,
+            cargo: pessoa.cargo,
+            avatar_url: undefined // pessoas_projeto não tem avatar_url
+          }));
+        
+        console.log('✅ Usuários disponíveis (pessoas_projeto):', usuariosDisponiveis.length);
+        setUsuarios(usuariosDisponiveis);
+        setUsuariosFiltrados(usuariosDisponiveis);
+        return;
+        
+      } catch (pessoasError) {
+        console.warn('⚠️ Erro ao carregar pessoas_projeto, tentando profiles:', pessoasError);
+        
+        // Fallback: buscar da tabela profiles se pessoas_projeto não existir
+        const { data: usuariosData, error } = await supabase
+          .from('profiles')
+          .select('id, full_name, email, avatar_url')
+          .order('full_name');
+
+        if (error) throw error;
+
+        // Verificar quais usuários já estão na equipe
+        const { data: membrosExistentes } = await supabase
+          .from('agencia_projeto_equipe')
+          .select('pessoa_id')
+          .eq('projeto_id', projetoId)
+          .eq('ativo', true);
+
+        const idsMembrosExistentes = new Set(membrosExistentes?.map(m => m.pessoa_id) || []);
+        
+        // Filtrar usuários que não estão na equipe e converter para formato Usuario
+        const usuariosDisponiveis = usuariosData
+          ?.filter(u => !idsMembrosExistentes.has(u.id))
+          .map(u => ({
+            id: u.id,
+            nome: u.full_name,
+            email: u.email,
+            telefone: null,
+            cargo: null,
+            avatar_url: u.avatar_url
+          })) || [];
+        
+        console.log('✅ Usuários disponíveis (profiles fallback):', usuariosDisponiveis.length);
+        setUsuarios(usuariosDisponiveis);
+        setUsuariosFiltrados(usuariosDisponiveis);
+      }
       
-      setUsuarios(usuariosDisponiveis);
-      setUsuariosFiltrados(usuariosDisponiveis);
     } catch (error) {
-      console.error('Erro ao carregar usuários:', error);
+      console.error('❌ Erro ao carregar usuários:', error);
       toast.error('Erro ao carregar usuários disponíveis');
     } finally {
       setCarregandoUsuarios(false);
@@ -156,12 +208,12 @@ export const TeamMemberForm: React.FC<TeamMemberFormProps> = ({
       // Adicionar membro à equipe
       await equipeService.adicionarMembro(supabase, {
         projeto_id: projetoId,
-        usuario_id: usuarioSelecionado.id,
+        pessoa_id: usuarioSelecionado.id,
         papel: funcaoSelecionada,
         data_entrada: dataEntrada
       });
 
-      toast.success(`${usuarioSelecionado.full_name} adicionado à equipe como ${FUNCOES_CONFIG[funcaoSelecionada].label}`);
+      toast.success(`${usuarioSelecionado.nome} adicionado à equipe como ${FUNCOES_CONFIG[funcaoSelecionada].label}`);
       onMemberAdded();
       onClose();
     } catch (error) {
@@ -204,7 +256,7 @@ export const TeamMemberForm: React.FC<TeamMemberFormProps> = ({
         <CardContent className="space-y-6">
           {/* Seleção de Usuário */}
           <div className="space-y-4">
-            <Label className="text-base font-medium">Selecionar Usuário</Label>
+            <Label className="text-base font-medium">Selecionar Pessoa</Label>
             
             <div className="space-y-3">
               <Input
@@ -217,13 +269,13 @@ export const TeamMemberForm: React.FC<TeamMemberFormProps> = ({
               {carregandoUsuarios ? (
                 <div className="flex items-center justify-center py-8">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                  <span className="ml-2 text-gray-600">Carregando usuários...</span>
+                  <span className="ml-2 text-gray-600">Carregando pessoas...</span>
                 </div>
               ) : (
                 <div className="max-h-48 overflow-y-auto border rounded-lg">
                   {usuariosFiltrados.length === 0 ? (
                     <div className="p-4 text-center text-gray-500">
-                      {busca ? 'Nenhum usuário encontrado' : 'Nenhum usuário disponível'}
+                      {busca ? 'Nenhuma pessoa encontrada' : 'Nenhuma pessoa disponível'}
                     </div>
                   ) : (
                     usuariosFiltrados.map(usuario => (
@@ -238,12 +290,12 @@ export const TeamMemberForm: React.FC<TeamMemberFormProps> = ({
                           <Avatar className="w-10 h-10">
                             <AvatarImage src={usuario.avatar_url} />
                             <AvatarFallback className="text-sm">
-                              {getIniciais(usuario.full_name)}
+                              {getIniciais(usuario.nome)}
                             </AvatarFallback>
                           </Avatar>
                           <div className="flex-1">
-                            <p className="font-medium text-gray-900">{usuario.full_name}</p>
-                            <p className="text-sm text-gray-600">{usuario.email}</p>
+                            <p className="font-medium text-gray-900">{usuario.nome}</p>
+                            <p className="text-sm text-gray-600">{usuario.email || 'Sem email'}</p>
                           </div>
                           {usuarioSelecionado?.id === usuario.id && (
                             <div className="w-2 h-2 bg-blue-600 rounded-full"></div>
@@ -319,12 +371,12 @@ export const TeamMemberForm: React.FC<TeamMemberFormProps> = ({
                 <Avatar className="w-12 h-12">
                   <AvatarImage src={usuarioSelecionado.avatar_url} />
                   <AvatarFallback>
-                    {getIniciais(usuarioSelecionado.full_name)}
+                    {getIniciais(usuarioSelecionado.nome)}
                   </AvatarFallback>
                 </Avatar>
                 <div className="flex-1">
-                  <p className="font-medium text-gray-900">{usuarioSelecionado.full_name}</p>
-                  <p className="text-sm text-gray-600">{usuarioSelecionado.email}</p>
+                  <p className="font-medium text-gray-900">{usuarioSelecionado.nome}</p>
+                  <p className="text-sm text-gray-600">{usuarioSelecionado.email || 'Sem email'}</p>
                 </div>
                 <Badge className={FUNCOES_CONFIG[funcaoSelecionada].color}>
                   {FUNCOES_CONFIG[funcaoSelecionada].label}

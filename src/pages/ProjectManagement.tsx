@@ -27,7 +27,7 @@ import {
   BarChart3,
   Paperclip
 } from 'lucide-react';
-import { UserSelector } from '@/components/UserSelector';
+import { PessoaProjetoSelector } from '@/components/PessoaProjetoSelector';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { 
@@ -40,7 +40,7 @@ import {
   type Deal,
   type Projeto,
   type Contato,
-  type Equipe,
+  type EquipeCompleta,
   type Marco
 } from '@/lib/project-management-service';
 import { TelaEquipes, TelaMarcos, TelaRelatorios } from '@/components/ProjectManagementScreens';
@@ -61,7 +61,7 @@ const ProjectManagement = () => {
     agencias: [] as Agencia[],
     deals: [] as Deal[],
     projetos: [] as Projeto[],
-    equipes: [] as Equipe[],
+    equipes: [] as EquipeCompleta[],
     marcos: [] as Marco[],
     contatos: [] as Contato[],
     notificacoes: [] as Notificacao[]
@@ -904,7 +904,7 @@ const ProjectManagement = () => {
       data_fim: '',
       descricao: '',
       cliente_final: '',
-      responsavel_projeto: '',
+      responsavel_projeto: '' as string | null,
       prioridade: 'media',
       progresso: 0,
       briefing: '',
@@ -968,7 +968,7 @@ const ProjectManagement = () => {
         data_fim: projeto.data_fim || '',
         descricao: projeto.descricao || '',
         cliente_final: projeto.cliente_final || '',
-        responsavel_projeto: projeto.responsavel_projeto || '',
+        responsavel_projeto: projeto.responsavel_projeto || null,
         prioridade: projeto.prioridade || 'media',
         progresso: projeto.progresso || 0,
         briefing: projeto.briefing || '',
@@ -1299,10 +1299,10 @@ const ProjectManagement = () => {
                             {dados.equipes.filter(e => e.projeto_id === showDetalhes.id).map(membro => (
                                 <div key={membro.id} className="flex items-center gap-3 p-2 bg-gray-50 rounded-md">
                                     <div className="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center text-sm font-bold text-gray-600">
-                                        {membro.nome_usuario.charAt(0)}
+                                        {membro.nome_pessoa.charAt(0)}
                                     </div>
                                     <div>
-                                        <p className="font-medium text-gray-800">{membro.nome_usuario}</p>
+                                        <p className="font-medium text-gray-800">{membro.nome_pessoa}</p>
                                         <p className="text-sm text-gray-500 capitalize">{membro.papel}</p>
                                     </div>
                                 </div>
@@ -1488,11 +1488,12 @@ const ProjectManagement = () => {
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         Responsável do Projeto
                       </label>
-                      <UserSelector
+                      <PessoaProjetoSelector
                         value={formData.responsavel_projeto}
-                        onValueChange={(value) => setFormData({...formData, responsavel_projeto: value})}
+                        onValueChange={(value) => setFormData({...formData, responsavel_projeto: value || null})}
                         placeholder="Selecione o responsável"
                         className="w-full"
+                        agenciaId={formData.agencia_id}
                       />
                     </div>
                   </div>

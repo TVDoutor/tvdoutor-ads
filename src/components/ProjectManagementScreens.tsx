@@ -5,7 +5,7 @@ import {
   X, 
   Users, 
   Target, 
-  Activity, 
+   
   UserPlus,
   Flag,
   CheckCircle,
@@ -13,7 +13,7 @@ import {
   AlertCircle,
   DollarSign,
   TrendingUp,
-  BarChart3,
+  
   User,
   Shield,
   Crown

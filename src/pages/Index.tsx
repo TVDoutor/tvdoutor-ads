@@ -1,13 +1,14 @@
-import { Monitor, MapPin, FileText, TrendingUp, Users, Plus, Eye } from "lucide-react";
+import { Monitor, MapPin, FileText, TrendingUp, Users, Calculator, Search } from "lucide-react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { StatsCard } from "@/components/StatsCard";
 import { RecentProposals } from "@/components/RecentProposals";
 import { EmailStatsCard } from "@/components/EmailStatsCard";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { AudienceCalculator } from "@/components/landing/AudienceCalculator";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { useEffect } from "react";
 import { useDashboardStats } from "../hooks/useDashboardStats";
 import heroBanner from "@/assets/hero-banner.jpg";
 import dashboardPreview from "@/assets/dashboard-preview.jpg";
@@ -110,7 +111,7 @@ const Index = () => {
   return (
     <DashboardLayout>
       <div className="p-6 space-y-6">
-        {/* Hero Section */}
+        {/* Hero Section with V2.0 Features */}
         <div className="relative rounded-2xl overflow-hidden bg-gradient-hero p-8 text-white">
           <div className="absolute inset-0">
             <img 
@@ -121,34 +122,59 @@ const Index = () => {
             <div className="absolute inset-0 bg-gradient-to-r from-primary/80 to-secondary/80" />
           </div>
           
-          <div className="relative z-10 max-w-2xl">
-            <h1 className="text-3xl md:text-4xl font-bold mb-4">
-              Bem-vindo ao TV Doutor ADS
-            </h1>
-            <p className="text-lg text-white/90 mb-6">
-              Plataforma completa para gestão de inventário DOOH (Digital Out-of-Home). 
-              Crie propostas, gerencie campanhas e monitore resultados.
-            </p>
-            <div className="flex flex-wrap gap-3">
-              <Button 
-                variant="accent" 
-                size="lg" 
-                className="gap-2 hover:scale-105 transition-transform"
-                onClick={handleCreateProposal}
-              >
-                <Plus className="h-5 w-5" />
-                Nova Proposta
-              </Button>
-              <Button 
-                variant="soft" 
-                size="lg" 
-                className="gap-2 hover:scale-105 transition-transform"
-                onClick={handleViewInventory}
-              >
-                <Eye className="h-5 w-5" />
-                Ver Inventário
-              </Button>
+          <div className="relative z-10">
+            <div className="max-w-2xl mb-8">
+              <h1 className="text-3xl md:text-4xl font-bold mb-4">
+                Plataforma DOOH Self-Service
+              </h1>
+              <p className="text-lg text-white/90 mb-6">
+                Descubra, simule e contrate mídia digital out-of-home de forma inteligente. 
+                Segmente por especialidade médica e localize oportunidades próximas aos seus clientes.
+              </p>
             </div>
+
+            {/* V2.0 Interactive Tools */}
+            <Tabs defaultValue="calculator" className="w-full">
+              <TabsList className="bg-white/10 backdrop-blur-sm">
+                <TabsTrigger value="calculator" className="data-[state=active]:bg-white/20">
+                  <Calculator className="w-4 h-4 mr-2" />
+                  Calculadora de Alcance
+                </TabsTrigger>
+                <TabsTrigger value="search" className="data-[state=active]:bg-white/20">
+                  <Search className="w-4 h-4 mr-2" />
+                  Busca Geoespacial
+                </TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="calculator" className="mt-6">
+                <div className="bg-white/5 backdrop-blur-sm rounded-lg p-6">
+                  <AudienceCalculator />
+                </div>
+              </TabsContent>
+              
+              <TabsContent value="search" className="mt-6">
+                <div className="bg-white/5 backdrop-blur-sm rounded-lg p-6">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Search className="w-5 h-5 text-primary" />
+                        Busca Geoespacial de Telas
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-muted-foreground mb-4">
+                        Em breve: Encontre telas digitais próximas ao seu endereço de interesse 
+                        com cotação dinâmica em tempo real.
+                      </p>
+                      <Button onClick={() => navigate("/mapa-interativo")} className="w-full">
+                        <MapPin className="w-4 h-4 mr-2" />
+                        Explorar Mapa Interativo
+                      </Button>
+                    </CardContent>
+                  </Card>
+                </div>
+              </TabsContent>
+            </Tabs>
           </div>
         </div>
 

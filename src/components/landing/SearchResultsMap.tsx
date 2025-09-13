@@ -1,9 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { MapPin, AlertCircle } from 'lucide-react';
+import { AlertCircle } from 'lucide-react';
 import { type ScreenSearchResult } from '@/lib/search-service';
-import { supabase } from '@/integrations/supabase/client';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 
@@ -27,8 +26,10 @@ export function SearchResultsMap({ screens, centerLat, centerLng, radiusKm, load
 
   // Callback para quando o container for montado
   const handleContainerRef = (node: HTMLDivElement | null) => {
-    if (node) {
+    if (mapContainer.current !== node) {
       mapContainer.current = node;
+    }
+    if (node) {
       console.log('🎯 Container do mapa montado no DOM');
       // Tentar inicializar o mapa se o token já estiver disponível
       if (mapboxToken && !map.current) {
@@ -128,7 +129,7 @@ export function SearchResultsMap({ screens, centerLat, centerLng, radiusKm, load
 
     } catch (error) {
       console.error('💥 Erro ao criar mapa:', error);
-      setMapError('Erro ao inicializar o mapa: ' + error.message);
+      setMapError('Erro ao inicializar o mapa: ' + (error as Error).message);
     }
   };
 
@@ -212,7 +213,7 @@ export function SearchResultsMap({ screens, centerLat, centerLng, radiusKm, load
       const marker = new mapboxgl.Marker(el)
         .setLngLat([screen.lng, screen.lat])
         .setPopup(popup)
-        .addTo(map.current);
+        .addTo(map.current!);
 
       markers.current.push(marker);
     });

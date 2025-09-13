@@ -7,7 +7,7 @@ import { RefreshCw, MapPin, TrendingUp } from 'lucide-react';
 // Exemplo de como usar o hook useHeatmapData
 export const HeatmapExample: React.FC = () => {
   const { heatmapData, loading, error, refetch } = useHeatmapData();
-  const mapContainer = useRef<HTMLDivElement>(null);
+  
 
   // Estatísticas dos dados
   const totalPoints = heatmapData.length;

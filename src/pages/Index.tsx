@@ -1,8 +1,10 @@
+import { useState } from "react";
 import { Monitor, MapPin, FileText, TrendingUp, Users, Calculator, Search } from "lucide-react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { StatsCard } from "@/components/StatsCard";
 import { RecentProposals } from "@/components/RecentProposals";
 import { EmailStatsCard } from "@/components/EmailStatsCard";
+import { GeospatialSearch } from "@/components/GeospatialSearch";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -10,6 +12,7 @@ import { AudienceCalculator } from "@/components/landing/AudienceCalculator";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useDashboardStats } from "../hooks/useDashboardStats";
+import { type ScreenSearchResult } from "@/lib/search-service";
 import heroBanner from "@/assets/hero-banner.jpg";
 import dashboardPreview from "@/assets/dashboard-preview.jpg";
 
@@ -19,6 +22,11 @@ const Index = () => {
   const navigate = useNavigate();
   const { isAdmin } = useAuth();
   const { stats, loading, error } = useDashboardStats();
+  
+  // Estado para busca geoespacial
+  const [searchResults, setSearchResults] = useState<ScreenSearchResult[]>([]);
+  const [searchCenter, setSearchCenter] = useState<{ lat: number; lng: number } | null>(null);
+  const [searchRadius, setSearchRadius] = useState<number>(5);
   
 
   
@@ -103,6 +111,30 @@ const Index = () => {
     }
   };
 
+  // Funções para busca geoespacial
+  const handleSearchResults = (screens: ScreenSearchResult[], center: { lat: number; lng: number }, radius: number) => {
+    setSearchResults(screens);
+    setSearchCenter(center);
+    setSearchRadius(radius);
+    console.log('🔍 Resultados da busca geoespacial:', { screens: screens.length, center, radius });
+  };
+
+  const handleNavigateToMap = () => {
+    // Navegar para o mapa com os resultados da busca
+    if (searchCenter && searchResults.length > 0) {
+      // Aqui você pode passar os parâmetros de busca para o mapa
+      navigate("/mapa-interativo", { 
+        state: { 
+          searchResults, 
+          center: searchCenter, 
+          radius: searchRadius 
+        } 
+      });
+    } else {
+      navigate("/mapa-interativo");
+    }
+  };
+
   // Mostrar erro se houver
   if (error) {
     console.error('❌ Erro na dashboard:', error);
@@ -162,14 +194,14 @@ const Index = () => {
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <p className="text-muted-foreground mb-4">
-                        Em breve: Encontre telas digitais próximas ao seu endereço de interesse 
+                      <p className="text-muted-foreground mb-6">
+                        Encontre telas digitais próximas ao seu endereço de interesse 
                         com cotação dinâmica em tempo real.
                       </p>
-                      <Button onClick={() => navigate("/mapa-interativo")} className="w-full">
-                        <MapPin className="w-4 h-4 mr-2" />
-                        Explorar Mapa Interativo
-                      </Button>
+                      <GeospatialSearch 
+                        onResults={handleSearchResults}
+                        onNavigateToMap={handleNavigateToMap}
+                      />
                     </CardContent>
                   </Card>
                 </div>

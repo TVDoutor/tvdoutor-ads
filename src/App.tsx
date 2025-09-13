@@ -8,6 +8,7 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { startEmailProcessing } from "@/lib/email-service";
 import Index from "./pages/Index";
 import LandingPage from "./pages/LandingPage";
+import SearchResults from "./pages/SearchResults";
 import NewProposal from "./pages/NewProposal";
 import Propostas from "./pages/Propostas";
 import ProposalDetails from "./pages/ProposalDetails";
@@ -27,6 +28,7 @@ import Agencias from "./pages/Agencias";
 import AgenciasProjetos from "./pages/AgenciasProjetos";
 import ProjectManagement from "./pages/ProjectManagement";
 import PessoasProjeto from "./pages/PessoasProjeto";
+import HeatmapPage from "./pages/HeatmapPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -55,6 +57,9 @@ const App = () => {
           <Routes>
             {/* Rota pública da landing page */}
             <Route path="/" element={<LandingPage />} />
+            
+            {/* Rota pública de resultados de busca */}
+            <Route path="/resultados" element={<SearchResults />} />
             
             {/* Rota pública de login */}
             <Route path="/login" element={<Login />} />
@@ -90,6 +95,12 @@ const App = () => {
             <Route path="/mapa-interativo" element={
               <ProtectedRoute>
                 <InteractiveMap />
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/heatmap" element={
+              <ProtectedRoute>
+                <HeatmapPage />
               </ProtectedRoute>
             } />
             

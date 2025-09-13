@@ -191,6 +191,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
     const initializeAuth = async () => {
       try {
+        console.log('🔍 [DEBUG] Inicializando autenticação...');
         // Obter sessão inicial
         const { data: { session }, error } = await supabase.auth.getSession();
         
@@ -203,6 +204,12 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         }
 
         if (mounted) {
+          console.log('🔍 [DEBUG] Sessão obtida:', { 
+            hasSession: !!session, 
+            hasUser: !!session?.user,
+            userId: session?.user?.id 
+          });
+          
           setSession(session);
           setUser(session?.user ?? null);
           
@@ -221,6 +228,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             }
           }
           
+          console.log('🔍 [DEBUG] Auth initialization completed, setting loading to false');
           setLoading(false);
         }
       } catch (error) {

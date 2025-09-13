@@ -26,7 +26,7 @@ export default defineConfig(({ mode }) => {
     },
     // Explicitly define environment variables
     define: {
-      'process.env': env
+      'process.env': JSON.stringify(env)
     }
   };
 });

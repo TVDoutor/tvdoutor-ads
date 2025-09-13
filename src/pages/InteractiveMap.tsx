@@ -54,6 +54,19 @@ export default function InteractiveMap() {
   const map = useRef<mapboxgl.Map | null>(null);
   const markers = useRef<mapboxgl.Marker[]>([]);
 
+  // Callback para quando o container for montado
+  const handleContainerRef = (node: HTMLDivElement | null) => {
+    if (node) {
+      mapContainer.current = node;
+      console.log('🎯 Container do mapa montado no DOM');
+      // Tentar inicializar o mapa se o token já estiver disponível
+      if (mapboxToken && !map.current) {
+        console.log('🔄 Container montado, tentando inicializar mapa');
+        setTimeout(() => initializeMap(), 100); // Pequeno delay para garantir que o DOM está pronto
+      }
+    }
+  };
+
   // Available filter options - usar DEFAULT_CLASSES em vez de hardcoded
   const cities = Array.from(new Set(screens.map(s => s.city).filter(city => city && city.trim() !== ''))).sort();
   const existingClasses = Array.from(new Set(screens.map(s => s.class).filter(cls => cls && cls.trim() !== ''))).sort();
@@ -107,7 +120,14 @@ export default function InteractiveMap() {
 
   useEffect(() => {
     if (mapboxToken && !map.current && mapContainer.current) {
+      console.log('🔄 Iniciando mapa com token disponível');
       initializeMap();
+    } else {
+      console.log('⏳ Aguardando condições para inicializar mapa:', {
+        hasToken: !!mapboxToken,
+        hasMap: !!map.current,
+        hasContainer: !!mapContainer.current
+      });
     }
   }, [mapboxToken]);
 
@@ -121,27 +141,21 @@ export default function InteractiveMap() {
     try {
       console.log('🗺️ Buscando token do Mapbox...');
       
-      const { data, error } = await supabase.functions.invoke('mapbox-token');
+      // Usar token diretamente do arquivo .env (igual à landing page)
+      const token = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN;
       
-      if (error) {
-        console.error('❌ Erro ao buscar token do Mapbox:', error);
-        setMapError('Erro ao configurar mapa. Verifique as configurações.');
-        return;
-      }
-
-      if (data?.error) {
-        console.error('❌ Erro na resposta do token:', data.error);
-        setMapError(data.message || 'Token do Mapbox não configurado');
-        return;
-      }
-
-      if (data?.token) {
-        console.log('✅ Token do Mapbox obtido com sucesso');
-        setMapboxToken(data.token);
+      if (!token) {
+        console.warn('⚠️ Token do Mapbox não configurado, usando fallback');
+        // Usar um token público temporário para demonstração
+        const fallbackToken = 'pk.eyJ1IjoidHZkb3V0b3JhZHMiLCJhIjoiY21ldTk2YzVjMDRpaTJsbXdoN3Rhd3NhNiJ9.XCRdHGYU-V1nyGOlepho4Q';
+        setMapboxToken(fallbackToken);
         setMapError(null);
-      } else {
-        setMapError('Token do Mapbox não encontrado na resposta');
+        return;
       }
+
+      console.log('✅ Token do Mapbox obtido com sucesso');
+      setMapboxToken(token);
+      setMapError(null);
     } catch (error) {
       console.error('💥 Erro ao buscar token do Mapbox:', error);
       setMapError('Erro de conexão ao buscar token do mapa');
@@ -149,26 +163,60 @@ export default function InteractiveMap() {
   };
 
   const initializeMap = () => {
-    if (!mapboxToken || !mapContainer.current || map.current) return;
+    if (!mapboxToken || !mapContainer.current || map.current) {
+      console.log('🚫 Não foi possível inicializar o mapa:', {
+        hasToken: !!mapboxToken,
+        hasContainer: !!mapContainer.current,
+        hasMap: !!map.current
+      });
+      return;
+    }
 
     console.log('🗺️ Inicializando mapa Mapbox...');
+    console.log('📍 Container do mapa:', mapContainer.current);
     
-    mapboxgl.accessToken = mapboxToken;
-    
-    map.current = new mapboxgl.Map({
-      container: mapContainer.current,
-      style: 'mapbox://styles/mapbox/light-v11',
-      center: [-46.6333, -23.5505], // São Paulo como centro padrão
-      zoom: 10
-    });
+    try {
+      mapboxgl.accessToken = mapboxToken;
+      
+      map.current = new mapboxgl.Map({
+        container: mapContainer.current,
+        style: 'mapbox://styles/mapbox/light-v11',
+        center: [-46.6333, -23.5505], // São Paulo como centro padrão
+        zoom: 10
+      });
 
-    map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
-    map.current.addControl(new mapboxgl.FullscreenControl(), 'top-right');
+      console.log('🗺️ Mapa criado:', map.current);
+      console.log('📐 Dimensões do container:', {
+        width: mapContainer.current.offsetWidth,
+        height: mapContainer.current.offsetHeight,
+        clientWidth: mapContainer.current.clientWidth,
+        clientHeight: mapContainer.current.clientHeight
+      });
 
-    map.current.on('load', () => {
-      console.log('✅ Mapa carregado com sucesso');
-      updateMapMarkers();
-    });
+      map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
+      map.current.addControl(new mapboxgl.FullscreenControl(), 'top-right');
+
+      map.current.on('load', () => {
+        console.log('✅ Mapa carregado com sucesso');
+        // Forçar resize do mapa para garantir renderização
+        setTimeout(() => {
+          if (map.current) {
+            map.current.resize();
+            console.log('🔄 Mapa redimensionado');
+          }
+        }, 100);
+        updateMapMarkers();
+      });
+
+      map.current.on('error', (e) => {
+        console.error('💥 Erro no mapa:', e);
+        setMapError('Erro ao carregar o mapa: ' + e.error?.message);
+      });
+
+    } catch (error) {
+      console.error('💥 Erro ao criar mapa:', error);
+      setMapError('Erro ao inicializar o mapa: ' + error.message);
+    }
   };
 
   const updateMapMarkers = () => {
@@ -612,9 +660,13 @@ export default function InteractiveMap() {
                   </div>
                 ) : (
                   <div 
-                    ref={mapContainer} 
+                    ref={handleContainerRef} 
                     className="w-full h-full rounded-lg"
-                    style={{ minHeight: '400px' }}
+                    style={{ 
+                      minHeight: '400px',
+                      height: '500px',
+                      width: '100%'
+                    }}
                   />
                 )}
               </CardContent>

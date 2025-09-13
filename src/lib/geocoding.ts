@@ -28,14 +28,26 @@ interface GoogleGeocodingResponse {
 export async function geocodeAddress(address: string): Promise<GoogleGeocodingResult> {
   const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
   
+  console.log('🔑 Chave da API carregada:', apiKey ? 'SIM' : 'NÃO');
+  console.log('🔑 Primeiros 10 caracteres da chave:', apiKey ? apiKey.substring(0, 10) + '...' : 'N/A');
+  
   if (!apiKey) {
+    console.warn('⚠️ Google Maps API Key não configurada. Configure VITE_GOOGLE_MAPS_API_KEY no .env para usar geocoding completo.');
+    console.info('📖 Veja o arquivo CONFIGURACAO_API_GOOGLE.md para instruções detalhadas.');
     throw new Error('Google Maps API Key não configurada. Configure VITE_GOOGLE_MAPS_API_KEY no .env');
   }
 
-  const encodedAddress = encodeURIComponent(address);
-  const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodedAddress}&key=${apiKey}`;
+  // Adicionar "Brasil" ao final do endereço se não estiver presente
+  const normalizedAddress = address.toLowerCase().includes('brasil') || 
+                           address.toLowerCase().includes('brazil') ? 
+                           address : `${address}, Brasil`;
+
+  const encodedAddress = encodeURIComponent(normalizedAddress);
+  const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodedAddress}&key=${apiKey}&region=br&language=pt-BR`;
 
   try {
+    console.log('🌍 Geocodificando endereço:', normalizedAddress);
+    
     const response = await fetch(url);
     
     if (!response.ok) {
@@ -43,6 +55,10 @@ export async function geocodeAddress(address: string): Promise<GoogleGeocodingRe
     }
 
     const data: GoogleGeocodingResponse = await response.json();
+
+    if (data.status === 'ZERO_RESULTS') {
+      throw new Error('Nenhum resultado encontrado para o endereço fornecido. Verifique se o endereço está correto.');
+    }
 
     if (data.status !== 'OK') {
       throw new Error(`Erro na geocodificação: ${data.status}`);
@@ -54,6 +70,8 @@ export async function geocodeAddress(address: string): Promise<GoogleGeocodingRe
 
     const result = data.results[0];
     
+    console.log('✅ Endereço geocodificado com sucesso:', result.formatted_address);
+    
     return {
       lat: result.geometry.location.lat,
       lng: result.geometry.location.lng,
@@ -61,7 +79,7 @@ export async function geocodeAddress(address: string): Promise<GoogleGeocodingRe
       google_formatted_address: result.formatted_address
     };
   } catch (error) {
-    console.error('Erro na geocodificação:', error);
+    console.error('💥 Erro na geocodificação:', error);
     throw new Error(`Falha na geocodificação: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
   }
 }

@@ -18,6 +18,12 @@ const LandingPage = () => {
   const [searchResults, setSearchResults] = useState<ScreenSearchResult[]>([]);
   const [searchLocation, setSearchLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [searchRadius, setSearchRadius] = useState<number>(5);
+  const [focusScreen, setFocusScreen] = useState<ScreenSearchResult | null>(null);
+
+  // Função para focar em uma tela específica
+  const handleFocusOnScreen = (screen: ScreenSearchResult) => {
+    setFocusScreen(screen);
+  };
 
   // Mostrar loading apenas se necessário, mas não bloquear a landing page
   if (loading) {
@@ -40,6 +46,8 @@ const LandingPage = () => {
                   onSearchResults={setSearchResults}
                   onLocationChange={setSearchLocation}
                   onRadiusChange={setSearchRadius}
+                  onFocusOnScreen={handleFocusOnScreen}
+                  searchResults={searchResults}
                 />
               </div>
               
@@ -50,6 +58,7 @@ const LandingPage = () => {
                   centerLat={searchLocation?.lat || -23.550520}
                   centerLng={searchLocation?.lng || -46.633308}
                   radiusKm={searchRadius}
+                  focusScreen={focusScreen}
                 />
               </div>
             </div>

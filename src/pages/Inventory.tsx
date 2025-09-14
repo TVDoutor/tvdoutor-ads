@@ -95,14 +95,34 @@ const Inventory = () => {
       setError(null);
 
       // Buscar dados principais das telas
-      const { data: screensData, error: screensError } = await supabase
+      // Tentar buscar com a coluna class primeiro, se falhar, buscar sem ela
+      let { data: screensData, error: screensError } = await supabase
         .from('screens')
         .select(`
           id, code, name, display_name, city, state, address_raw, class, active, 
           venue_type_parent, venue_type_child, venue_type_grandchildren, specialty,
           lat, lng, venue_id
-        `)
-        .order('created_at', { ascending: false });
+        `);
+
+      // Se a coluna class não existir, buscar novamente sem ela
+      if (screensError && screensError.code === '42703' && screensError.message.includes('column screens.class does not exist')) {
+        console.log('⚠️ Coluna class não existe, buscando sem ela...');
+        const { data: screensWithoutClass, error: errorWithoutClass } = await supabase
+          .from('screens')
+          .select(`
+            id, code, name, display_name, city, state, address_raw, active, 
+            venue_type_parent, venue_type_child, venue_type_grandchildren, specialty,
+            lat, lng, venue_id
+          `);
+        
+        screensData = screensWithoutClass;
+        screensError = errorWithoutClass;
+      }
+
+      // Aplicar ordenação se não houve erro
+      if (!screensError && screensData) {
+        screensData = screensData.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+      }
 
       if (screensError) {
         throw screensError;

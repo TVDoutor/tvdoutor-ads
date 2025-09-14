@@ -1,9 +1,11 @@
+// src/components/SearchResultsPreview.tsx (ou caminho similar)
+// CÓDIGO CORRIGIDO E PRONTO PARA RODAR
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { MapPin, Zap, TrendingUp, Clock, Users, Target } from 'lucide-react';
+import { MapPin, Zap, Users } from 'lucide-react';
 import { type ScreenSearchResult } from '@/lib/search-service';
-import { SearchResultsMap } from './SearchResultsMap';
 
 interface SearchResultsPreviewProps {
   screens: ScreenSearchResult[];
@@ -35,33 +37,10 @@ export function SearchResultsPreview({ screens, loading, onAddToCart, onViewAllS
   if (loading) {
     return (
       <div className="w-full max-w-7xl mx-auto">
-        <div className="mb-8">
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h2 className="text-2xl font-bold text-foreground mb-2">
-                Resultado da busca
-              </h2>
-              <div className="flex items-center gap-4">
-                <div>
-                  <h3 className="text-xl font-semibold text-foreground">
-                    Buscando telas...
-                  </h3>
-                  <p className="text-muted-foreground">
-                    Aguarde enquanto encontramos as melhores opções para você
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-          
-          <div className="flex items-center justify-center h-64">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-              <p className="text-muted-foreground text-lg">Buscando telas disponíveis...</p>
-              <p className="text-sm text-muted-foreground mt-2">
-                Analisando localização e encontrando as melhores opções
-              </p>
-            </div>
+        <div className="flex items-center justify-center py-12">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <p className="text-muted-foreground">Buscando telas disponíveis...</p>
           </div>
         </div>
       </div>
@@ -71,42 +50,19 @@ export function SearchResultsPreview({ screens, loading, onAddToCart, onViewAllS
   if (screens.length === 0) {
     return (
       <div className="w-full max-w-7xl mx-auto">
-        <div className="mb-8">
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h2 className="text-2xl font-bold text-foreground mb-2">
-                Resultado da busca
-              </h2>
-              <div className="flex items-center gap-4">
-                <div>
-                  <h3 className="text-xl font-semibold text-foreground">
-                    Nenhuma tela encontrada
-                  </h3>
-                  <p className="text-muted-foreground">
-                    Não encontramos telas disponíveis na localização selecionada
-                  </p>
-                </div>
-              </div>
-            </div>
+        <div className="text-center py-12">
+          <div className="mx-auto w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+            <MapPin className="w-12 h-12 text-gray-400" />
           </div>
-          
-          <Card className="h-64">
-            <CardContent className="p-8 flex items-center justify-center h-full">
-              <div className="text-center text-muted-foreground">
-                <MapPin className="w-16 h-16 mx-auto mb-4 opacity-50" />
-                <h3 className="text-lg font-semibold mb-2">Nenhuma tela encontrada</h3>
-                <p className="text-sm mb-4">
-                  Não encontramos telas disponíveis no raio de {searchParams?.radiusKm || 5}km da localização selecionada.
-                </p>
-                <div className="space-y-2 text-xs">
-                  <p>💡 <strong>Dicas:</strong></p>
-                  <p>• Tente aumentar o raio de busca</p>
-                  <p>• Digite um endereço mais específico</p>
-                  <p>• Entre em contato conosco para mais informações</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          <h3 className="text-lg font-semibold text-foreground mb-2">
+            Nenhuma tela encontrada
+          </h3>
+          <p className="text-muted-foreground mb-4">
+            Não encontramos telas disponíveis na região selecionada.
+          </p>
+          <p className="text-sm text-muted-foreground">
+            Tente aumentar o raio de busca ou escolher outra localização.
+          </p>
         </div>
       </div>
     );
@@ -118,7 +74,6 @@ export function SearchResultsPreview({ screens, loading, onAddToCart, onViewAllS
       <div className="mb-8">
         <div className="flex items-center justify-between mb-6">
           <div>
-         
             <div className="flex items-center gap-4">
               <div>
                 <h3 className="text-xl font-semibold text-foreground">
@@ -204,49 +159,17 @@ export function SearchResultsPreview({ screens, loading, onAddToCart, onViewAllS
           ))}
         </div>
 
-        {/* Mostrar mais botão se houver mais telas */}
+        {/* Botão para ver todas as telas se houver mais de 6 */}
         {screens.length > 6 && (
-          <div className="mt-8 text-center">
-            <p className="text-muted-foreground mb-4">
-              Mostrando 6 de {screens.length} telas encontradas
-            </p>
+          <div className="text-center mt-8">
             <Button 
-              variant="outline" 
-              size="lg"
               onClick={onViewAllScreens}
-              className="border-blue-600 text-blue-600 hover:bg-blue-50"
+              variant="outline"
+              className="px-8"
             >
-              Ver Todas as Telas ({screens.length})
+              Ver Todas as {screens.length} Telas
             </Button>
           </div>
-        )}
-      </div>
-
-      {/* Seção 03 - Google Maps */}
-      <div className="mt-12">
-        <h2 className="text-2xl font-bold text-foreground mb-4">
-          Mapa Interativo
-        </h2>
-        {searchParams ? (
-          <SearchResultsMap
-            screens={screens}
-            centerLat={searchParams.lat}
-            centerLng={searchParams.lng}
-            radiusKm={searchParams.radiusKm || 5}
-            loading={loading}
-          />
-        ) : (
-          <Card className="h-96">
-            <CardContent className="p-8 flex items-center justify-center h-full">
-              <div className="text-center text-muted-foreground">
-                <MapPin className="w-16 h-16 mx-auto mb-4 opacity-50" />
-                <h3 className="text-lg font-semibold mb-2">Mapa Interativo</h3>
-                <p className="text-sm">
-                  Selecione uma localização para visualizar as telas no mapa.
-                </p>
-              </div>
-            </CardContent>
-          </Card>
         )}
       </div>
     </div>

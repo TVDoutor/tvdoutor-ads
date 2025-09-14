@@ -71,7 +71,10 @@ export function GeospatialSearch({ onResults, onNavigateToMap }: GeospatialSearc
 
       // Notificar componente pai
       if (onResults) {
+        console.log('🔍 GeospatialSearch chamando onResults com:', { screens: screens.length, center: { lat: geocoded.lat, lng: geocoded.lng }, radius: parseInt(radius) });
         onResults(screens, { lat: geocoded.lat, lng: geocoded.lng }, parseInt(radius));
+      } else {
+        console.log('⚠️ GeospatialSearch: onResults não está definido');
       }
 
     } catch (err) {
@@ -202,8 +205,11 @@ export function GeospatialSearch({ onResults, onNavigateToMap }: GeospatialSearc
                   variant="outline" 
                   size="sm" 
                   onClick={() => {
-                    // Aqui você pode implementar uma ação para ver todas as telas
-                    console.log('Ver todas as telas:', results);
+                    // Scroll para a seção de resultados no dashboard
+                    const resultsSection = document.querySelector('[data-search-results]');
+                    if (resultsSection) {
+                      resultsSection.scrollIntoView({ behavior: 'smooth' });
+                    }
                   }}
                   className="flex-1"
                 >

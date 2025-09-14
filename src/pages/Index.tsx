@@ -113,11 +113,16 @@ const Index = () => {
 
   // Funções para busca geoespacial
   const handleSearchResults = (screens: ScreenSearchResult[], center: { lat: number; lng: number }, radius: number) => {
+    console.log('🔍 Dashboard recebeu resultados:', { screens: screens.length, center, radius });
+    console.log('🔍 Primeira tela:', screens[0]);
     setSearchResults(screens);
     setSearchCenter(center);
     setSearchRadius(radius);
-    console.log('🔍 Resultados da busca geoespacial:', { screens: screens.length, center, radius });
+    console.log('🔍 Estado atualizado - searchResults.length:', screens.length);
   };
+
+  // Debug: log do estado atual
+  console.log('🔍 Dashboard render - searchResults.length:', searchResults.length);
 
   const handleNavigateToMap = () => {
     // Navegar para o mapa com os resultados da busca
@@ -280,12 +285,120 @@ const Index = () => {
                   <p className="text-sm text-muted-foreground">Visualização geográfica</p>
                 </div>
               </Button>
+              
+              <Button 
+                variant="outline" 
+                className="w-full justify-start gap-3 h-12 hover:bg-primary/5 transition-colors"
+                onClick={handleNavigateToMap}
+                disabled={searchResults.length === 0}
+              >
+                <Search className="h-5 w-5 text-primary" />
+                <div className="text-left">
+                  <p className="font-medium">Ver Resultado da Busca</p>
+                  <p className="text-sm text-muted-foreground">
+                    {searchResults.length > 0 
+                      ? `${searchResults.length} telas encontradas` 
+                      : 'Faça uma busca primeiro'
+                    }
+                  </p>
+                </div>
+              </Button>
             </CardContent>
           </Card>
 
           {/* Recent Proposals */}
           <RecentProposals limit={4} />
         </div>
+
+        {/* Search Results Section */}
+        {searchResults.length > 0 && (
+          <Card data-search-results>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Search className="h-5 w-5 text-primary" />
+                Resultados da Busca Geoespacial
+              </CardTitle>
+              <p className="text-muted-foreground">
+                {searchResults.length} {searchResults.length === 1 ? 'tela encontrada' : 'telas encontradas'} 
+                {searchCenter && ` em ${searchRadius}km de raio`}
+              </p>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {searchResults.map((screen) => (
+                  <div key={screen.id} className="p-4 border rounded-lg hover:shadow-md transition-shadow">
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex-1">
+                        <h4 className="font-semibold text-sm line-clamp-2">{screen.display_name}</h4>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {screen.city}, {screen.state}
+                        </p>
+                        {screen.distance > 0 && (
+                          <p className="text-xs text-blue-600 mt-1">
+                            📍 {screen.distance}km de distância
+                          </p>
+                        )}
+                      </div>
+                      <div className="ml-2">
+                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                          Classe {screen.class}
+                        </span>
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Alcance:</span>
+                        <span className="font-medium">{screen.reach.toLocaleString()} pessoas/semana</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Preço:</span>
+                        <span className="font-medium text-green-600">R$ {screen.price.toFixed(2)}/semana</span>
+                      </div>
+                    </div>
+                    
+                    <div className="mt-3 pt-3 border-t">
+                      <Button 
+                        size="sm" 
+                        className="w-full"
+                        onClick={() => navigate("/mapa-interativo", { 
+                          state: { 
+                            searchResults: [screen], 
+                            center: searchCenter, 
+                            radius: searchRadius 
+                          } 
+                        })}
+                      >
+                        <MapPin className="w-4 h-4 mr-2" />
+                        Ver no Mapa
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              
+              <div className="mt-6 flex gap-3 justify-center">
+                <Button 
+                  variant="outline"
+                  onClick={handleNavigateToMap}
+                >
+                  <MapPin className="w-4 h-4 mr-2" />
+                  Ver Todas no Mapa
+                </Button>
+                <Button 
+                  variant="outline"
+                  onClick={() => {
+                    setSearchResults([]);
+                    setSearchCenter(null);
+                    setSearchRadius(5);
+                  }}
+                >
+                  Limpar Resultados
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Admin Email Stats */}
         {isAdminUser() && (

@@ -34,10 +34,23 @@ export const ProposalSummaryStep = ({ data }: ProposalSummaryStepProps) => {
     }
 
     try {
-      const { data: screens, error } = await supabase
+      // Tentar buscar com a coluna class primeiro, se falhar, buscar sem ela
+      let { data: screens, error } = await supabase
         .from('screens')
         .select('id, name, city, state, class')
         .in('id', data.selectedScreens);
+
+      // Se a coluna class não existir, buscar novamente sem ela
+      if (error && error.code === '42703' && error.message.includes('column screens.class does not exist')) {
+        console.log('⚠️ Coluna class não existe, buscando sem ela...');
+        const { data: screensWithoutClass, error: errorWithoutClass } = await supabase
+          .from('screens')
+          .select('id, name, city, state')
+          .in('id', data.selectedScreens);
+        
+        screens = screensWithoutClass?.map(screen => ({ ...screen, class: 'ND' })) || null;
+        error = errorWithoutClass;
+      }
 
       if (error) throw error;
       setSelectedScreens(screens || []);

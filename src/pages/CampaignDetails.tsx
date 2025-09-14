@@ -175,10 +175,23 @@ export default function CampaignDetails() {
     try {
       console.log('🔍 Buscando telas disponíveis...');
       
-      const { data, error } = await supabase
+      // Tentar buscar com a coluna class primeiro, se falhar, buscar sem ela
+      let { data, error } = await supabase
         .from('screens')
         .select('id, name, city, state, class, active, lat, lng')
         .order('name');
+
+      // Se a coluna class não existir, buscar novamente sem ela
+      if (error && error.code === '42703' && error.message.includes('column screens.class does not exist')) {
+        console.log('⚠️ Coluna class não existe, buscando sem ela...');
+        const { data: screensWithoutClass, error: errorWithoutClass } = await supabase
+          .from('screens')
+          .select('id, name, city, state, active, lat, lng')
+          .order('name');
+        
+        data = screensWithoutClass?.map(screen => ({ ...screen, class: 'ND' })) || null;
+        error = errorWithoutClass;
+      }
 
       if (error) {
         console.error('❌ Erro ao buscar telas disponíveis:', error);

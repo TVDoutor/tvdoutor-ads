@@ -75,15 +75,36 @@ const VenueDetails = () => {
       const venueName = id.split('-')[0];
       
       // Buscar todas as telas que pertencem a este venue
-      const { data: screensData, error } = await supabase
+      // Tentar buscar com a coluna class primeiro, se falhar, buscar sem ela
+      let { data: screensData, error } = await supabase
         .from('screens')
         .select(`
           id, code, name, display_name, city, state, class, active,
           venue_type_parent, venue_type_child, venue_type_grandchildren,
           lat, lng, specialty, address_raw
-        `)
-        .ilike('display_name', `%${venueName}%`)
-        .order('name');
+        `);
+
+      // Se a coluna class não existir, buscar novamente sem ela
+      if (error && error.code === '42703' && error.message.includes('column screens.class does not exist')) {
+        console.log('⚠️ Coluna class não existe, buscando sem ela...');
+        const { data: screensWithoutClass, error: errorWithoutClass } = await supabase
+          .from('screens')
+          .select(`
+            id, code, name, display_name, city, state, active,
+            venue_type_parent, venue_type_child, venue_type_grandchildren,
+            lat, lng, specialty, address_raw
+          `);
+        
+        screensData = screensWithoutClass?.map(screen => ({ ...screen, class: 'ND' })) || null;
+        error = errorWithoutClass;
+      }
+
+      // Aplicar filtros se não houve erro
+      if (!error && screensData) {
+        screensData = screensData
+          .filter(screen => screen.display_name?.toLowerCase().includes(venueName.toLowerCase()))
+          .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+      }
 
       if (error) {
         console.error('❌ Erro ao buscar telas:', error);

@@ -1,35 +1,76 @@
+// src/components/SearchInterface.tsx (ou caminho similar)
+// CÓDIGO CORRIGIDO E PRONTO PARA RODAR
+
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, MapPin, Search, Target } from "lucide-react";
+import { MapPin, Search, Target } from "lucide-react";
+import { geocodeAddress } from "@/lib/geocoding";
+import { searchScreensNearLocation } from "@/lib/search-service";
+import { toast } from "sonner";
 
 interface SearchInterfaceProps {
   onSearchResults: (results: any[]) => void;
   onLocationChange: (location: { lat: number; lng: number }) => void;
   onRadiusChange: (radius: number) => void;
+  onFocusOnScreen?: (screen: any) => void;
+  searchResults?: any[];
 }
 
-export function SearchInterface({ onSearchResults, onLocationChange, onRadiusChange }: SearchInterfaceProps) {
-  const [location, setLocation] = useState("");
+export function SearchInterface({ onSearchResults, onLocationChange, onRadiusChange, onFocusOnScreen, searchResults = [] }: SearchInterfaceProps) {
+  const [location, setLocation] = useState("Av. Paulista, São Paulo");
   const [radius, setRadius] = useState(5);
-  const [duration, setDuration] = useState("2 semanas");
+  // const [duration, setDuration] = useState("2 semanas"); // Removido - não usado
   const [loading, setLoading] = useState(false);
 
-  const handleSearch = () => {
+  const handleSearch = async () => {
+    if (!location.trim()) {
+      toast.error("Por favor, digite um endereço para buscar");
+      return;
+    }
+
     setLoading(true);
-    // Simular busca
-    setTimeout(() => {
-      onLocationChange({ lat: -23.550520, lng: -46.633308 });
+    
+    try {
+      // Geocodificar o endereço
+      console.log('🔍 Iniciando busca para:', location);
+      const geocodeResult = await geocodeAddress(location);
+      
+      console.log('📍 Coordenadas obtidas:', geocodeResult);
+      
+      // Buscar telas próximas
+      const searchResults = await searchScreensNearLocation({
+        lat: geocodeResult.lat,
+        lng: geocodeResult.lng,
+        startDate: new Date().toISOString(),
+        durationWeeks: "2",
+        addressName: location,
+        formattedAddress: geocodeResult.google_formatted_address,
+        placeId: geocodeResult.google_place_id,
+        radiusKm: radius
+      });
+
+      console.log('✅ Busca concluída:', searchResults.length, 'telas encontradas');
+      
+      // Atualizar o estado dos componentes pai
+      onLocationChange({ lat: geocodeResult.lat, lng: geocodeResult.lng });
       onRadiusChange(radius);
-      onSearchResults([
-        { id: 1, display_name: "Tela A", city: "São Paulo", state: "SP", distance: 2.5, class: "A", reach: 5000, price: 500 },
-        { id: 2, display_name: "Tela B", city: "São Paulo", state: "SP", distance: 3.2, class: "B", reach: 3000, price: 300 }
-      ]);
+      onSearchResults(searchResults);
+      
+      toast.success(`${searchResults.length} telas encontradas em um raio de ${radius}km`);
+      
+    } catch (error) {
+      console.error('❌ Erro na busca:', error);
+      toast.error(error instanceof Error ? error.message : 'Erro ao buscar telas');
+      
+      // Em caso de erro, limpar os resultados
+      onSearchResults([]);
+    } finally {
       setLoading(false);
-    }, 1000);
+    }
   };
 
   return (
@@ -99,13 +140,38 @@ export function SearchInterface({ onSearchResults, onLocationChange, onRadiusCha
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
             <span>Resultado da busca</span>
-            <Badge variant="secondary">20 telas</Badge>
+            <Badge variant="secondary">{searchResults.length} telas</Badge>
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-muted-foreground">
-            Digite um endereço e clique em "Buscar" para ver as telas disponíveis na região.
-          </p>
+          {searchResults.length > 0 ? (
+            <div className="space-y-2">
+              <p className="text-sm text-muted-foreground">
+                {searchResults.length} telas encontradas em um raio de {radius}km
+              </p>
+              <div className="max-h-64 overflow-y-auto space-y-2">
+                {searchResults.map((screen) => (
+                  <div key={screen.id} className="p-2 border rounded-lg text-sm">
+                    <div 
+                      className="font-medium cursor-pointer hover:text-blue-600 hover:underline transition-colors"
+                      onClick={() => onFocusOnScreen?.(screen)}
+                      title="Clique para focar no mapa"
+                    >
+                      {screen.display_name}
+                    </div>
+                    <div className="text-muted-foreground">
+                      {screen.city}, {screen.state} • {screen.distance}km • Classe {screen.clase}
+                      {/* // <-- CORRIGIDO (era screen.class) */}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              Digite um endereço e clique em "Buscar" para ver as telas disponíveis na região.
+            </p>
+          )}
         </CardContent>
       </Card>
     </div>

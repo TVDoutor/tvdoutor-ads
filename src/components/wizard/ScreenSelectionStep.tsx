@@ -38,14 +38,29 @@ export const ScreenSelectionStep = ({ data, onUpdate }: ScreenSelectionStepProps
   const fetchScreens = async () => {
     try {
       setLoading(true);
-      const { data: screensData, error } = await supabase
+      // Tentar buscar com a coluna class primeiro, se falhar, buscar sem ela
+      let { data: screensData, error } = await supabase
         .from('screens')
         .select('id, name, city, state, active, venue_id, class, lat, lng')
         .eq('active', true)
         .not('lat', 'is', null)
         .not('lng', 'is', null)
-        .order('city')
-        .order('name');
+        .order('city');
+
+      // Se a coluna class não existir, buscar novamente sem ela
+      if (error && error.code === '42703' && error.message.includes('column screens.class does not exist')) {
+        console.log('⚠️ Coluna class não existe, buscando sem ela...');
+        const { data: screensWithoutClass, error: errorWithoutClass } = await supabase
+          .from('screens')
+          .select('id, name, city, state, active, venue_id, lat, lng')
+          .eq('active', true)
+          .not('lat', 'is', null)
+          .not('lng', 'is', null)
+          .order('city');
+        
+        screensData = screensWithoutClass?.map(screen => ({ ...screen, class: 'ND' })) || null;
+        error = errorWithoutClass;
+      }
 
       if (error) throw error;
 

@@ -135,3 +135,5 @@ COMMENT ON POLICY "email_logs_insert_authenticated" ON public.email_logs IS 'Per
 COMMENT ON POLICY "email_logs_update_authenticated" ON public.email_logs IS 'Permite que usuários autenticados atualizem logs de email';
 
 COMMIT;
+
+

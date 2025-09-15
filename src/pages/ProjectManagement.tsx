@@ -1084,8 +1084,13 @@ const ProjectManagement = () => {
             </div>
             <div className="flex items-center gap-2">
               <button 
-                onClick={() => setShowDetalhes(projeto)}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setShowDetalhes(projeto);
+                }}
                 className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded"
+                type="button"
               >
                 <Eye className="w-4 h-4" />
               </button>
@@ -1238,8 +1243,18 @@ const ProjectManagement = () => {
 
         {/* Modal de Detalhes */}
         {showDetalhes && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+          <div 
+            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) {
+                setShowDetalhes(null);
+              }
+            }}
+          >
+            <div 
+              className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
               <div className="p-6 border-b border-gray-200 sticky top-0 bg-white z-10">
                 <div className="flex items-start justify-between">
                   <div>
@@ -1248,7 +1263,14 @@ const ProjectManagement = () => {
                     </h2>
                     <p className="text-sm text-gray-600">Detalhes do projeto</p>
                   </div>
-                  <button onClick={() => setShowDetalhes(null)}>
+                  <button 
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setShowDetalhes(null);
+                    }}
+                    type="button"
+                  >
                     <X className="w-6 h-6 text-gray-500 hover:text-gray-800" />
                   </button>
                 </div>
@@ -1275,11 +1297,11 @@ const ProjectManagement = () => {
                     <div className="flex items-center gap-4 text-sm text-gray-600">
                         <div className='flex items-center gap-2'>
                            <Calendar className='w-4 h-4 text-green-600'/>
-                           <span>Início: {new Date(showDetalhes.data_inicio).toLocaleDateString()}</span>
+                           <span>Início: {showDetalhes.data_inicio ? new Date(showDetalhes.data_inicio).toLocaleDateString() : 'Não definida'}</span>
                         </div>
                          <div className='flex items-center gap-2'>
                            <Flag className='w-4 h-4 text-red-600'/>
-                           <span>Fim: {new Date(showDetalhes.data_fim).toLocaleDateString()}</span>
+                           <span>Fim: {showDetalhes.data_fim ? new Date(showDetalhes.data_fim).toLocaleDateString() : 'Não definida'}</span>
                         </div>
                     </div>
                 </div>
@@ -1289,14 +1311,23 @@ const ProjectManagement = () => {
                     <div className="bg-gray-50 p-4 rounded-lg">
                         <div className="flex justify-between items-center mb-1">
                             <span className="text-sm text-gray-600">
-                                R$ {showDetalhes.valor_gasto.toLocaleString()} gastos de R$ {showDetalhes.orcamento_projeto.toLocaleString()}
+                                R$ {(showDetalhes.valor_gasto || 0).toLocaleString()} gastos de R$ {(showDetalhes.orcamento_projeto || 0).toLocaleString()}
                             </span>
                             <span className="text-sm font-semibold">
-                                {((showDetalhes.valor_gasto / showDetalhes.orcamento_projeto) * 100).toFixed(1)}%
+                                {showDetalhes.orcamento_projeto && showDetalhes.orcamento_projeto > 0 
+                                    ? (((showDetalhes.valor_gasto || 0) / showDetalhes.orcamento_projeto) * 100).toFixed(1)
+                                    : 0}%
                             </span>
                         </div>
                         <div className="w-full bg-gray-200 rounded-full h-2.5">
-                            <div className="bg-blue-600 h-2.5 rounded-full" style={{ width: `${(showDetalhes.valor_gasto / showDetalhes.orcamento_projeto) * 100}%` }}></div>
+                            <div 
+                                className="bg-blue-600 h-2.5 rounded-full" 
+                                style={{ 
+                                    width: `${showDetalhes.orcamento_projeto && showDetalhes.orcamento_projeto > 0 
+                                        ? ((showDetalhes.valor_gasto || 0) / showDetalhes.orcamento_projeto) * 100 
+                                        : 0}%` 
+                                }}
+                            ></div>
                         </div>
                     </div>
                 </div>
@@ -1324,11 +1355,11 @@ const ProjectManagement = () => {
                             {dados.equipes.filter(e => e.projeto_id === showDetalhes.id).map(membro => (
                                 <div key={membro.id} className="flex items-center gap-3 p-2 bg-gray-50 rounded-md">
                                     <div className="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center text-sm font-bold text-gray-600">
-                                        {membro.nome_pessoa.charAt(0)}
+                                        {(membro.nome_pessoa || 'U').charAt(0).toUpperCase()}
                                     </div>
                                     <div>
-                                        <p className="font-medium text-gray-800">{membro.nome_pessoa}</p>
-                                        <p className="text-sm text-gray-500 capitalize">{membro.papel}</p>
+                                        <p className="font-medium text-gray-800">{membro.nome_pessoa || 'Nome não disponível'}</p>
+                                        <p className="text-sm text-gray-500 capitalize">{membro.papel || 'Papel não definido'}</p>
                                     </div>
                                 </div>
                             ))}

@@ -246,3 +246,5 @@ Se você encontrar problemas durante a migração:
 2. Confirme se os parâmetros estão sendo passados corretamente
 3. Verifique os logs da Edge Function no Supabase
 4. Teste com os exemplos fornecidos neste documento
+
+

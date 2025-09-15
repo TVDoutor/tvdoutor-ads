@@ -6,18 +6,37 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Plus, Edit } from "lucide-react";
+import { Plus, Edit, Flag, CheckCircle, Clock, AlertCircle, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { validateBackendProjeto, sanitizeBackendProjeto } from "@/utils/validations/backend-projeto-validations";
 import type { ProjetoWithDetails, Deal } from "@/types/agencia";
 import { PessoaProjetoSelector } from '@/components/PessoaProjetoSelector';
 
+// Tipo para Marco
+interface Marco {
+  id: string;
+  projeto_id: string;
+  nome_marco: string;
+  descricao?: string;
+  data_prevista?: string;
+  data_conclusao?: string;
+  status: string;
+  responsavel_id?: string;
+  ordem?: number;
+  created_at?: string;
+  created_by?: string;
+}
+
 export default function AgenciasProjetos() {
   const [projetos, setProjetos] = useState<ProjetoWithDetails[]>([]);
   const [deals, setDeals] = useState<Deal[]>([]);
+  const [marcos, setMarcos] = useState<Marco[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<ProjetoWithDetails | null>(null);
+  const [milestoneModalOpen, setMilestoneModalOpen] = useState(false);
+  const [editingMilestone, setEditingMilestone] = useState<Marco | null>(null);
+  const [selectedProjectId, setSelectedProjectId] = useState<string>('');
 
   const [formData, setFormData] = useState({
     nome_projeto: '',
@@ -33,9 +52,18 @@ export default function AgenciasProjetos() {
     tipo_projeto: 'campanha' as const
   });
 
+  const [milestoneFormData, setMilestoneFormData] = useState({
+    nome_marco: '',
+    descricao: '',
+    data_prevista: '',
+    ordem: 1,
+    status: 'pendente' as const
+  });
+
   useEffect(() => {
     loadProjetos();
     loadDeals();
+    loadMarcos();
   }, []);
 
   const loadProjetos = async () => {
@@ -81,6 +109,21 @@ export default function AgenciasProjetos() {
     } catch (error) {
       console.error('Erro ao carregar deals:', error);
       toast.error('Erro ao carregar deals');
+    }
+  };
+
+  const loadMarcos = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('agencia_projeto_marcos')
+        .select('*')
+        .order('ordem', { ascending: true });
+
+      if (error) throw error;
+      setMarcos(data || []);
+    } catch (error) {
+      console.error('Erro ao carregar marcos:', error);
+      toast.error('Erro ao carregar marcos');
     }
   };
 
@@ -172,6 +215,96 @@ export default function AgenciasProjetos() {
       tipo_projeto: 'campanha'
     });
     setEditingProject(null);
+  };
+
+  const resetMilestoneForm = () => {
+    setMilestoneFormData({
+      nome_marco: '',
+      descricao: '',
+      data_prevista: '',
+      ordem: 1,
+      status: 'pendente'
+    });
+    setEditingMilestone(null);
+    setSelectedProjectId('');
+  };
+
+  const openMilestoneModal = (projectId: string, milestone?: Marco) => {
+    setSelectedProjectId(projectId);
+    if (milestone) {
+      setEditingMilestone(milestone);
+      setMilestoneFormData({
+        nome_marco: milestone.nome_marco,
+        descricao: milestone.descricao || '',
+        data_prevista: milestone.data_prevista || '',
+        ordem: milestone.ordem || 1,
+        status: milestone.status as 'pendente' | 'em_andamento' | 'concluido'
+      });
+    } else {
+      resetMilestoneForm();
+    }
+    setMilestoneModalOpen(true);
+  };
+
+  const handleMilestoneSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const dataToSave = {
+        ...milestoneFormData,
+        projeto_id: selectedProjectId,
+        ordem: parseInt(milestoneFormData.ordem.toString())
+      };
+
+      if (editingMilestone) {
+        const { error } = await supabase
+          .from('agencia_projeto_marcos')
+          .update(dataToSave)
+          .eq('id', editingMilestone.id);
+
+        if (error) throw error;
+        toast.success('Marco atualizado com sucesso!');
+      } else {
+        const { error } = await supabase
+          .from('agencia_projeto_marcos')
+          .insert([dataToSave]);
+
+        if (error) throw error;
+        toast.success('Marco criado com sucesso!');
+      }
+
+      setMilestoneModalOpen(false);
+      resetMilestoneForm();
+      loadMarcos();
+    } catch (error: any) {
+      console.error('Erro ao salvar marco:', error);
+      toast.error(`Erro ao salvar marco: ${error.message}`);
+    }
+  };
+
+  const getMarcosByProject = (projectId: string) => {
+    return marcos.filter(marco => marco.projeto_id === projectId);
+  };
+
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'concluido':
+        return <CheckCircle className="w-4 h-4 text-green-600" />;
+      case 'em_andamento':
+        return <Clock className="w-4 h-4 text-yellow-600" />;
+      default:
+        return <AlertCircle className="w-4 h-4 text-gray-600" />;
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'concluido':
+        return 'bg-green-100 text-green-800';
+      case 'em_andamento':
+        return 'bg-yellow-100 text-yellow-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
   };
 
   const openEditModal = (projeto: ProjetoWithDetails) => {
@@ -300,10 +433,63 @@ export default function AgenciasProjetos() {
                 <CardDescription>{projeto.descricao}</CardDescription>
               </CardHeader>
               <CardContent>
+                {/* Marcos do Projeto */}
+                <div className="mb-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                      <Flag className="w-4 h-4" />
+                      Marcos do Projeto ({getMarcosByProject(projeto.id).length})
+                    </h4>
+                    <Button 
+                      size="sm" 
+                      variant="outline" 
+                      onClick={() => openMilestoneModal(projeto.id)}
+                      className="text-xs"
+                    >
+                      <Plus className="h-3 w-3 mr-1" />
+                      Novo Marco
+                    </Button>
+                  </div>
+                  
+                  {getMarcosByProject(projeto.id).length > 0 ? (
+                    <div className="space-y-2">
+                      {getMarcosByProject(projeto.id).map((marco) => (
+                        <div key={marco.id} className="flex items-center gap-3 p-2 bg-gray-50 rounded-lg">
+                          <div className="flex items-center gap-2">
+                            {getStatusIcon(marco.status)}
+                            <span className="text-sm font-medium">{marco.nome_marco}</span>
+                          </div>
+                          <span className={`px-2 py-1 rounded-full text-xs ${getStatusColor(marco.status)}`}>
+                            {marco.status}
+                          </span>
+                          {marco.data_prevista && (
+                            <span className="text-xs text-gray-500">
+                              Prazo: {new Date(marco.data_prevista).toLocaleDateString()}
+                            </span>
+                          )}
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => openMilestoneModal(projeto.id, marco)}
+                            className="ml-auto h-6 w-6 p-0"
+                          >
+                            <Edit className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-4 text-gray-500 text-sm">
+                      Nenhum marco criado ainda
+                    </div>
+                  )}
+                </div>
+
+                {/* Botões de Ação */}
                 <div className="flex justify-end space-x-2">
                   <Button size="sm" variant="outline" onClick={() => openEditModal(projeto)}>
                     <Edit className="h-4 w-4 mr-1" />
-                    Editar
+                    Editar Projeto
                   </Button>
                 </div>
               </CardContent>
@@ -311,6 +497,87 @@ export default function AgenciasProjetos() {
           ))}
         </div>
       )}
+
+      {/* Modal para Criar/Editar Marco */}
+      <Dialog open={milestoneModalOpen} onOpenChange={setMilestoneModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {editingMilestone ? 'Editar Marco' : 'Novo Marco'}
+            </DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleMilestoneSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="nome_marco">Nome do Marco</Label>
+              <Input
+                id="nome_marco"
+                value={milestoneFormData.nome_marco}
+                onChange={(e) => setMilestoneFormData(prev => ({ ...prev, nome_marco: e.target.value }))}
+                required
+                placeholder="Ex: Kick-off, Aprovação, Entrega"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="descricao_marco">Descrição</Label>
+              <Textarea
+                id="descricao_marco"
+                value={milestoneFormData.descricao}
+                onChange={(e) => setMilestoneFormData(prev => ({ ...prev, descricao: e.target.value }))}
+                placeholder="Descrição detalhada do marco"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="data_prevista">Data Prevista</Label>
+                <Input
+                  id="data_prevista"
+                  type="date"
+                  value={milestoneFormData.data_prevista}
+                  onChange={(e) => setMilestoneFormData(prev => ({ ...prev, data_prevista: e.target.value }))}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="ordem">Ordem</Label>
+                <Input
+                  id="ordem"
+                  type="number"
+                  min="1"
+                  value={milestoneFormData.ordem}
+                  onChange={(e) => setMilestoneFormData(prev => ({ ...prev, ordem: parseInt(e.target.value) || 1 }))}
+                />
+              </div>
+            </div>
+
+            {editingMilestone && (
+              <div className="space-y-2">
+                <Label htmlFor="status">Status</Label>
+                <select
+                  id="status"
+                  value={milestoneFormData.status}
+                  onChange={(e) => setMilestoneFormData(prev => ({ ...prev, status: e.target.value as 'pendente' | 'em_andamento' | 'concluido' }))}
+                  className="w-full p-2 border rounded"
+                >
+                  <option value="pendente">Pendente</option>
+                  <option value="em_andamento">Em Andamento</option>
+                  <option value="concluido">Concluído</option>
+                </select>
+              </div>
+            )}
+
+            <div className="flex justify-end space-x-2">
+              <Button type="button" variant="outline" onClick={() => setMilestoneModalOpen(false)}>
+                Cancelar
+              </Button>
+              <Button type="submit">
+                {editingMilestone ? 'Atualizar Marco' : 'Criar Marco'}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

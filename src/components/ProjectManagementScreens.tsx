@@ -97,6 +97,8 @@ const marcoService = {
         return data;
     },
     atualizar: async (id: string, updates: Partial<Marco>): Promise<any> => {
+        console.log('Atualizando marco:', { id, updates });
+        
         const { data, error } = await supabase
             .from('agencia_projeto_marcos')
             .update(updates)
@@ -104,6 +106,20 @@ const marcoService = {
         
         if (error) {
             console.error('Erro ao atualizar marco:', error);
+            throw error;
+        }
+        
+        console.log('Marco atualizado com sucesso:', data);
+        return data;
+    },
+    excluir: async (id: string): Promise<any> => {
+        const { data, error } = await supabase
+            .from('agencia_projeto_marcos')
+            .delete()
+            .eq('id', id);
+        
+        if (error) {
+            console.error('Erro ao excluir marco:', error);
             throw error;
         }
         
@@ -445,6 +461,8 @@ export const TelaMarcos = ({ dados, carregarDados }: ProjectManagementScreensPro
   const [loadingTemplates, setLoadingTemplates] = useState(false);
   const [customMarcoName, setCustomMarcoName] = useState('');
   const [showCustomInput, setShowCustomInput] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [marcoToDelete, setMarcoToDelete] = useState<Marco | null>(null);
 
   // Função para carregar templates de marcos
   const carregarTemplatesMarcos = async () => {
@@ -513,6 +531,32 @@ export const TelaMarcos = ({ dados, carregarDados }: ProjectManagementScreensPro
     }
   }, [showModal]);
 
+  // Função para confirmar exclusão de marco
+  const confirmarExclusao = (marco: Marco) => {
+    setMarcoToDelete(marco);
+    setShowDeleteConfirm(true);
+  };
+
+  // Função para executar a exclusão
+  const executarExclusao = async () => {
+    if (!marcoToDelete) return;
+
+    try {
+      await marcoService.excluir(marcoToDelete.id);
+      setShowDeleteConfirm(false);
+      setMarcoToDelete(null);
+      await carregarDados();
+    } catch (error) {
+      console.error('Erro ao excluir marco:', error);
+    }
+  };
+
+  // Função para cancelar exclusão
+  const cancelarExclusao = () => {
+    setShowDeleteConfirm(false);
+    setMarcoToDelete(null);
+  };
+
   const MarcoCard = ({ projeto }: { projeto: Projeto }) => {
     const agencia = dados.agencias.find(a => a.id === projeto.agencia_id);
     const marcosProjeto = dados.marcos.filter(m => m.projeto_id === projeto.id).sort((a, b) => (a.ordem || 0) - (b.ordem || 0));
@@ -548,7 +592,7 @@ export const TelaMarcos = ({ dados, carregarDados }: ProjectManagementScreensPro
                 {index + 1}
               </div>
               <div className="flex-1">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 mb-1">
                   <h4 className="font-medium text-gray-900">{marco.nome_marco}</h4>
                   <span className={`px-2 py-1 rounded-full text-xs ${
                     marco.status === 'concluido' ? 'bg-green-100 text-green-800' :
@@ -674,8 +718,11 @@ export const TelaMarcos = ({ dados, carregarDados }: ProjectManagementScreensPro
                   descricao: formData.get('descricao') as string,
                   data_prevista: formData.get('data_prevista') as string,
                   ordem: parseInt(formData.get('ordem') as string) || 1,
-                  status: 'pendente' as const
+                  status: (formData.get('status') as string) || 'pendente'
                 };
+
+                console.log('Dados do marco a serem salvos:', dadosMarco);
+                console.log('Status capturado do formulário:', formData.get('status'));
 
                 try {
                   if (marcoSelecionado) {
@@ -803,28 +850,87 @@ export const TelaMarcos = ({ dados, carregarDados }: ProjectManagementScreensPro
                     </select>
                   </div>
                 )}
-                <div className="flex justify-end gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowModal(false); 
-                      setMarcoSelecionado(null); 
-                      setProjetoSelecionado('');
-                      setShowCustomInput(false);
-                      setCustomMarcoName('');
-                    }}
-                    className="px-4 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-                  >
-                    {marcoSelecionado ? 'Atualizar' : 'Criar'}
-                  </button>
+                <div className="flex justify-between">
+                  {marcoSelecionado && (
+                    <button
+                      type="button"
+                      onClick={() => confirmarExclusao(marcoSelecionado)}
+                      className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
+                    >
+                      Excluir
+                    </button>
+                  )}
+                  <div className="flex gap-2 ml-auto">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowModal(false); 
+                        setMarcoSelecionado(null); 
+                        setProjetoSelecionado('');
+                        setShowCustomInput(false);
+                        setCustomMarcoName('');
+                      }}
+                      className="px-4 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                    >
+                      {marcoSelecionado ? 'Atualizar' : 'Criar'}
+                    </button>
+                  </div>
                 </div>
               </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de confirmação de exclusão */}
+      {showDeleteConfirm && marcoToDelete && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-md w-full">
+            <div className="p-6 border-b">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-semibold text-red-600">Confirmar Exclusão</h2>
+                <button onClick={cancelarExclusao}>
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+            </div>
+            <div className="p-6">
+              <div className="mb-4">
+                <p className="text-gray-700 mb-2">
+                  Tem certeza que deseja excluir o marco:
+                </p>
+                <div className="bg-gray-50 p-3 rounded-md">
+                  <p className="font-semibold text-gray-900">{marcoToDelete.nome_marco}</p>
+                  {marcoToDelete.descricao && (
+                    <p className="text-sm text-gray-600 mt-1">{marcoToDelete.descricao}</p>
+                  )}
+                </div>
+                <p className="text-sm text-red-600 mt-2">
+                  Esta ação não pode ser desfeita.
+                </p>
+              </div>
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={cancelarExclusao}
+                  className="px-4 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50"
+                >
+                  Não
+                </button>
+                <button
+                  type="button"
+                  onClick={executarExclusao}
+                  className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
+                >
+                  Sim, Excluir
+                </button>
+              </div>
             </div>
           </div>
         </div>

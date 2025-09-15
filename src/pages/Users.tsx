@@ -178,7 +178,7 @@ const Users = () => {
           .eq('user_id', authData.user.id)
           .single();
 
-        console.log('Verificação pós-trigger:', { profile, role });
+        // Log removido para evitar exposição de dados sensíveis
 
         // 4. Se trigger não criou perfil, criar manualmente
         if (!profile) {
@@ -296,7 +296,7 @@ const Users = () => {
         .eq('id', editingUser.id)
         .select();
 
-      console.log('Resultado update profile:', { profileData, profileError });
+      // Log removido para evitar exposição de dados sensíveis
 
       if (profileError) {
         console.error('Profile update error:', profileError);

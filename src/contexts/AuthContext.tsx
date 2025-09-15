@@ -75,8 +75,12 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         .eq('id', userId)
         .single();
 
+      // Fallback: buscar role diretamente da tabela profiles
       const rolesPromise = supabase
-        .rpc('get_user_role', { _user_id: userId });
+        .from('profiles')
+        .select('role, super_admin')
+        .eq('id', userId)
+        .single();
 
       // Timeout de 10 segundos para as consultas (aumentado)
       const timeoutPromise = new Promise((_, reject) => {
@@ -105,8 +109,13 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         // Mesmo se o perfil falhar, tente obter o role
         let fallbackRole: UserRole = 'User';
         if (roleData && !rolesError) {
-          fallbackRole = mapDatabaseRoleToUserRole(roleData);
-          logDebug('Role obtido via RPC', { roleData, mappedRole: fallbackRole });
+          // Verificar se é super admin primeiro
+          if (roleData.super_admin === true) {
+            fallbackRole = 'Admin';
+          } else {
+            fallbackRole = mapDatabaseRoleToUserRole(roleData.role || 'user');
+          }
+          logDebug('Role obtido via fallback', { roleData, mappedRole: fallbackRole });
         }
         
         // Tentar obter informações básicas do usuário autenticado
@@ -141,8 +150,13 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         userRole = 'Admin';
         logDebug('Usuário identificado como super_admin via campo booleano');
       } else if (roleData && !rolesError) {
-        userRole = mapDatabaseRoleToUserRole(roleData);
-        logDebug('Role mapeado via RPC', { roleData, frontendRole: userRole });
+        // Verificar se é super admin no roleData também
+        if (roleData.super_admin === true) {
+          userRole = 'Admin';
+        } else {
+          userRole = mapDatabaseRoleToUserRole(roleData.role || 'user');
+        }
+        logDebug('Role mapeado via fallback', { roleData, frontendRole: userRole });
       }
       
       // Fallback especial para hildebrando
@@ -191,7 +205,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
     const initializeAuth = async () => {
       try {
-        console.log('🔍 [DEBUG] Inicializando autenticação...');
+        logDebug('Inicializando autenticação...');
         // Obter sessão inicial
         const { data: { session }, error } = await supabase.auth.getSession();
         
@@ -204,7 +218,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         }
 
         if (mounted) {
-          console.log('🔍 [DEBUG] Sessão obtida:', { 
+          logDebug('Sessão obtida', { 
             hasSession: !!session, 
             hasUser: !!session?.user,
             userId: session?.user?.id 
@@ -228,7 +242,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             }
           }
           
-          console.log('🔍 [DEBUG] Auth initialization completed, setting loading to false');
+          logDebug('Auth initialization completed, setting loading to false');
           setLoading(false);
         }
       } catch (error) {
@@ -267,7 +281,23 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
           setTimeout(async () => {
             try {
-              await supabase.rpc('ensure_profile');
+              // Fallback: criar perfil diretamente se não existir
+              const { data: { user } } = await supabase.auth.getUser();
+              if (user) {
+                const { error } = await supabase
+                  .from('profiles')
+                  .upsert({
+                    id: user.id,
+                    email: user.email,
+                    full_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'Usuário',
+                    display_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'Usuário',
+                    role: 'user'
+                  });
+                
+                if (error) {
+                  logError('Error ensuring profile', error);
+                }
+              }
             } catch (error) {
               logError('Error ensuring profile', error);
             }
@@ -364,7 +394,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             });
 
           if (profileError) {
-            console.error('Profile creation error:', profileError);
+            logError('Profile creation error', profileError);
           }
 
           // Then create the user role
@@ -376,11 +406,11 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             });
 
           if (roleError) {
-            console.error('Role creation error:', roleError);
+            logError('Role creation error', roleError);
           }
 
         } catch (profileCreationError) {
-          console.error('Error creating user profile:', profileCreationError);
+          logError('Error creating user profile', profileCreationError);
           toast({
             title: "Erro no cadastro",
             description: "Database error saving new user",
@@ -452,7 +482,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
       return { error };
     } catch (error) {
-      console.error('Reset password error:', error);
+      logError('Reset password error', error);
       return { error: error as AuthError };
     }
   };
@@ -519,7 +549,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 // Adicionar logs no contexto de autenticação
 
 const checkUserProfile = async (user: any) => {
-  console.log('🔍 [DEBUG] Verificando perfil do usuário:', user?.id);
+  logDebug('Verificando perfil do usuário', { userId: user?.id });
   
   try {
     const { data: profile, error } = await supabase
@@ -528,12 +558,12 @@ const checkUserProfile = async (user: any) => {
       .eq('id', user.id)
       .single();
     
-    console.log('🔍 [DEBUG] Resultado busca perfil:', { profile, error });
+    logDebug('Resultado busca perfil', { hasProfile: !!profile, hasError: !!error });
     
     if (error) {
-      console.error('❌ [DEBUG] Erro ao buscar perfil:', error);
+      logError('Erro ao buscar perfil', error);
       if (error.code === 'PGRST116') {
-        console.log('🔍 [DEBUG] Perfil não encontrado, criando novo perfil');
+        logDebug('Perfil não encontrado, criando novo perfil');
         // Criar perfil se não existir
         const { data: newProfile, error: createError } = await supabase
           .from('profiles')
@@ -545,7 +575,7 @@ const checkUserProfile = async (user: any) => {
           .select()
           .single();
         
-        console.log('🔍 [DEBUG] Resultado criação perfil:', { newProfile, createError });
+        logDebug('Resultado criação perfil', { hasNewProfile: !!newProfile, hasCreateError: !!createError });
         return newProfile;
       }
       throw error;
@@ -553,7 +583,7 @@ const checkUserProfile = async (user: any) => {
     
     return profile;
   } catch (error) {
-    console.error('💥 [DEBUG] Erro inesperado ao verificar perfil:', error);
+    logError('Erro inesperado ao verificar perfil', error);
     throw error;
   }
 };

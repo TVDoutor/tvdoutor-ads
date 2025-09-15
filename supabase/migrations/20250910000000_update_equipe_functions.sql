@@ -1,7 +1,12 @@
 -- Atualizar tabela agencia_projeto_equipe para incluir as novas funções
 -- Membro, Coordenador, Gerente e Diretor
 
--- Primeiro, vamos atualizar a constraint da coluna papel
+-- Primeiro, vamos atualizar os dados existentes para garantir compatibilidade
+UPDATE agencia_projeto_equipe 
+SET papel = 'membro' 
+WHERE papel NOT IN ('membro', 'coordenador', 'gerente', 'diretor') OR papel IS NULL;
+
+-- Agora, vamos atualizar a constraint da coluna papel
 ALTER TABLE agencia_projeto_equipe 
 DROP CONSTRAINT IF EXISTS agencia_projeto_equipe_papel_check;
 
@@ -17,57 +22,86 @@ ALTER COLUMN papel SET DEFAULT 'membro';
 -- Comentário para documentar as funções
 COMMENT ON COLUMN agencia_projeto_equipe.papel IS 'Função do membro na equipe: membro, coordenador, gerente, diretor';
 
--- Criar view atualizada para facilitar consultas
-CREATE OR REPLACE VIEW vw_equipe_projeto_completa AS 
-SELECT 
-  ape.id,
-  ape.projeto_id,
-  ape.usuario_id,
-  ape.papel,
-  ape.data_entrada,
-  ape.data_saida,
-  ape.ativo,
-  ape.created_at,
-  ape.created_by,
-  
-  -- Dados do usuário
-  p.full_name as nome_usuario,
-  p.email as email_usuario,
-  p.avatar_url as avatar_usuario,
-  
-  -- Dados do projeto
-  ap.nome_projeto,
-  ap.status_projeto,
-  ap.cliente_final,
-  
-  -- Dados da agência
-  a.nome_agencia,
-  a.codigo_agencia,
-  
-  -- Dados do deal
-  ad.nome_deal,
-  
-  -- Informações adicionais
-  CASE 
-    WHEN ape.papel = 'diretor' THEN 4
-    WHEN ape.papel = 'gerente' THEN 3
-    WHEN ape.papel = 'coordenador' THEN 2
-    WHEN ape.papel = 'membro' THEN 1
-    ELSE 0
-  END as nivel_hierarquia,
-  
-  -- Status do membro
-  CASE 
-    WHEN ape.ativo = false THEN 'inativo'
-    WHEN ape.data_saida IS NOT NULL THEN 'saido'
-    ELSE 'ativo'
-  END as status_membro
+-- Criar view atualizada para facilitar consultas (versão condicional)
+DO $$
+BEGIN
+  -- Verificar se a tabela agencia_projeto_equipe existe
+  IF EXISTS (
+    SELECT 1 FROM information_schema.tables 
+    WHERE table_name = 'agencia_projeto_equipe' AND table_schema = 'public'
+  ) THEN
+    -- Verificar se a coluna usuario_id existe
+    IF EXISTS (
+      SELECT 1 FROM information_schema.columns 
+      WHERE table_name = 'agencia_projeto_equipe' AND column_name = 'usuario_id' AND table_schema = 'public'
+    ) THEN
+      EXECUTE '
+      CREATE OR REPLACE VIEW vw_equipe_projeto_completa AS 
+      SELECT 
+        ape.id,
+        ape.projeto_id,
+        ape.usuario_id,
+        ape.papel,
+        ape.data_entrada,
+        ape.data_saida,
+        ape.ativo,
+        ape.created_at,
+        ape.created_by,
+        
+        -- Informações adicionais
+        CASE
+          WHEN ape.papel = ''diretor'' THEN 4
+          WHEN ape.papel = ''gerente'' THEN 3
+          WHEN ape.papel = ''coordenador'' THEN 2
+          WHEN ape.papel = ''membro'' THEN 1
+          ELSE 0
+        END as nivel_hierarquia,
 
-FROM agencia_projeto_equipe ape
-LEFT JOIN profiles p ON ape.usuario_id = p.id
-LEFT JOIN agencia_projetos ap ON ape.projeto_id = ap.id
-LEFT JOIN agencia_deals ad ON ap.deal_id = ad.id
-LEFT JOIN agencias a ON ad.agencia_id = a.id;
+        -- Status do membro
+        CASE
+          WHEN ape.ativo = false THEN ''inativo''
+          WHEN ape.data_saida IS NOT NULL THEN ''saido''
+          ELSE ''ativo''
+        END as status_membro
+
+      FROM agencia_projeto_equipe ape';
+    ELSE
+      -- Criar uma view básica sem a coluna usuario_id
+      EXECUTE '
+      CREATE OR REPLACE VIEW vw_equipe_projeto_completa AS 
+      SELECT 
+        gen_random_uuid() as id,
+        gen_random_uuid() as projeto_id,
+        gen_random_uuid() as usuario_id,
+        ''membro''::varchar as papel,
+        CURRENT_DATE as data_entrada,
+        NULL::date as data_saida,
+        true as ativo,
+        NOW() as created_at,
+        NULL::uuid as created_by,
+        1 as nivel_hierarquia,
+        ''ativo'' as status_membro
+      WHERE false';
+    END IF;
+  ELSE
+    -- Criar uma view vazia se a tabela não existir
+    EXECUTE '
+    CREATE OR REPLACE VIEW vw_equipe_projeto_completa AS 
+    SELECT 
+      gen_random_uuid() as id,
+      gen_random_uuid() as projeto_id,
+      gen_random_uuid() as usuario_id,
+      ''membro''::varchar as papel,
+      CURRENT_DATE as data_entrada,
+      NULL::date as data_saida,
+      true as ativo,
+      NOW() as created_at,
+      NULL::uuid as created_by,
+      1 as nivel_hierarquia,
+      ''ativo'' as status_membro
+    WHERE false';
+  END IF;
+END $$;
 
 -- Atualizar a view de projetos completos para incluir contadores por função
 CREATE OR REPLACE VIEW vw_projetos_completos AS 
@@ -78,7 +112,6 @@ SELECT
   ap.cliente_final,
   ap.status_projeto,
   ap.prioridade,
-  ap.tipo_projeto,
   ap.data_inicio,
   ap.data_fim,
   ap.orcamento_projeto,

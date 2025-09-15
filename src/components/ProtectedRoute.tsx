@@ -4,6 +4,7 @@ import { useAuth, UserRole } from '@/contexts/AuthContext';
 import { Card, CardContent } from '@/components/ui/card';
 import { LoadingScreen } from '@/components/LoadingScreen';
 import { AlertTriangle, Lock } from 'lucide-react';
+import { logDebug } from '@/utils/secureLogger';
 
 interface ProtectedRouteProps {
   children: ReactNode;
@@ -19,8 +20,8 @@ export const ProtectedRoute = ({
   const { user, profile, loading } = useAuth();
   const location = useLocation();
 
-  // Debug logs para investigar o problema
-  console.log('ProtectedRoute Debug:', {
+  // Debug logs para investigar o problema - usando secureLogger
+  logDebug('ProtectedRoute Debug', {
     path: location.pathname,
     user: user ? 'Present' : 'Null',
     userId: user?.id,

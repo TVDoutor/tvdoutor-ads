@@ -441,6 +441,77 @@ export const TelaMarcos = ({ dados, carregarDados }: ProjectManagementScreensPro
   const [showModal, setShowModal] = useState(false);
   const [projetoSelecionado, setProjetoSelecionado] = useState<string>('');
   const [marcoSelecionado, setMarcoSelecionado] = useState<Marco | null>(null);
+  const [marcoTemplates, setMarcoTemplates] = useState<string[]>([]);
+  const [loadingTemplates, setLoadingTemplates] = useState(false);
+  const [customMarcoName, setCustomMarcoName] = useState('');
+  const [showCustomInput, setShowCustomInput] = useState(false);
+
+  // Função para carregar templates de marcos
+  const carregarTemplatesMarcos = async () => {
+    setLoadingTemplates(true);
+    try {
+      console.log('Carregando templates de marcos...');
+      
+      // Templates padrão comuns para projetos de agência
+      const templatesComuns = [
+        'Briefing Inicial',
+        'Aprovação do Conceito',
+        'Desenvolvimento',
+        'Revisão Cliente',
+        'Ajustes Finais',
+        'Entrega Final',
+        'Kickoff do Projeto',
+        'Pesquisa e Análise',
+        'Criação de Wireframes',
+        'Design Visual',
+        'Desenvolvimento Frontend',
+        'Desenvolvimento Backend',
+        'Testes de Qualidade',
+        'Deploy e Lançamento',
+        'Treinamento Cliente',
+        'Suporte Pós-Lançamento'
+      ];
+      
+      // Tentar buscar marcos existentes da tabela (se as permissões permitirem)
+      try {
+        const { data, error } = await supabase
+          .from('agencia_projeto_marcos')
+          .select('nome_marco')
+          .not('nome_marco', 'is', null)
+          .order('nome_marco');
+          
+        if (!error && data && data.length > 0) {
+          // Combinar templates padrão com marcos existentes
+          const marcosExistentes = data.map(item => item.nome_marco).filter(Boolean);
+          const todosTemplates = [...new Set([...templatesComuns, ...marcosExistentes])];
+          setMarcoTemplates(todosTemplates.sort());
+          console.log('Templates carregados (padrão + existentes):', todosTemplates);
+        } else {
+          // Usar apenas templates padrão se houver erro de permissão
+          setMarcoTemplates(templatesComuns);
+          console.log('Usando templates padrão:', templatesComuns);
+        }
+      } catch (dbError) {
+        // Fallback para templates padrão em caso de erro de permissão
+        console.log('Erro de permissão, usando templates padrão:', dbError);
+        setMarcoTemplates(templatesComuns);
+      }
+      
+    } catch (error) {
+      console.error('Erro ao carregar templates de marcos:', error);
+      // Fallback final para templates básicos
+      setMarcoTemplates(['Início', 'Desenvolvimento', 'Revisão', 'Entrega']);
+    } finally {
+      setLoadingTemplates(false);
+    }
+  };
+
+  // Carregar templates quando o modal abrir
+  useEffect(() => {
+    if (showModal && marcoTemplates.length === 0) {
+      carregarTemplatesMarcos();
+    }
+  }, [showModal]);
 
   const MarcoCard = ({ projeto }: { projeto: Projeto }) => {
     const agencia = dados.agencias.find(a => a.id === projeto.agencia_id);
@@ -589,22 +660,21 @@ export const TelaMarcos = ({ dados, carregarDados }: ProjectManagementScreensPro
             <div className="p-6">
               <form onSubmit={async (e) => {
                 e.preventDefault();
-                const formData = new FormData(e.currentTarget as HTMLFormElement);
-                const projetoId = projetoSelecionado || marcoSelecionado?.projeto_id;
+                const formData = new FormData(e.currentTarget);
                 
-                if (!projetoId) {
-                  console.error('Projeto não selecionado');
-                  return;
+                // Determinar o nome do marco correto
+                let nomeMarco = formData.get('nome_marco') as string;
+                if (showCustomInput) {
+                  nomeMarco = customMarcoName;
                 }
                 
                 const dadosMarco = {
-                  projeto_id: projetoId,
-                  nome_marco: formData.get('nome_marco') as string,
+                  projeto_id: projetoSelecionado,
+                  nome_marco: nomeMarco,
                   descricao: formData.get('descricao') as string,
                   data_prevista: formData.get('data_prevista') as string,
-                  status: formData.get('status') as string,
                   ordem: parseInt(formData.get('ordem') as string) || 1,
-                  responsavel_id: (formData.get('responsavel_id') as string) || null
+                  status: 'pendente' as const
                 };
 
                 try {
@@ -616,6 +686,8 @@ export const TelaMarcos = ({ dados, carregarDados }: ProjectManagementScreensPro
                   setShowModal(false);
                   setMarcoSelecionado(null);
                   setProjetoSelecionado('');
+                  setShowCustomInput(false);
+                  setCustomMarcoName('');
                   await carregarDados();
                 } catch (error) {
                   console.error('Erro ao salvar marco:', error);
@@ -625,13 +697,57 @@ export const TelaMarcos = ({ dados, carregarDados }: ProjectManagementScreensPro
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Nome do Marco
                   </label>
-                  <input
+                  <select
                     name="nome_marco"
-                    type="text"
                     defaultValue={marcoSelecionado?.nome_marco || ''}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    required
-                  />
+                    required={!showCustomInput}
+                    disabled={loadingTemplates}
+                    onChange={(e) => {
+                      if (e.target.value === 'custom') {
+                        setShowCustomInput(true);
+                      } else {
+                        setShowCustomInput(false);
+                        setCustomMarcoName('');
+                      }
+                    }}
+                  >
+                    <option value="">
+                      {loadingTemplates ? 'Carregando templates...' : 'Selecione um marco'}
+                    </option>
+                    {marcoTemplates.length > 0 ? (
+                      marcoTemplates.map((template, index) => (
+                        <option key={`template-${index}`} value={template}>
+                          {template}
+                        </option>
+                      ))
+                    ) : (
+                      !loadingTemplates && (
+                        <option disabled>Nenhum template encontrado</option>
+                      )
+                    )}
+                    <option value="custom">Outro (digite personalizado)</option>
+                  </select>
+                  
+                  {showCustomInput && (
+                    <div className="mt-2">
+                      <input
+                        type="text"
+                        placeholder="Digite o nome do marco"
+                        value={customMarcoName}
+                        onChange={(e) => setCustomMarcoName(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        required={showCustomInput}
+                        name="nome_marco_custom"
+                      />
+                    </div>
+                  )}
+                  
+                  {!loadingTemplates && marcoTemplates.length === 0 && (
+                    <p className="text-sm text-gray-500 mt-1">
+                      Nenhum template encontrado. Use a opção "Outro" para criar um marco personalizado.
+                    </p>
+                  )}
                 </div>
                  <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -670,25 +786,33 @@ export const TelaMarcos = ({ dados, carregarDados }: ProjectManagementScreensPro
                     />
                   </div>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Status
-                  </label>
-                  <select
-                    name="status"
-                    defaultValue={marcoSelecionado?.status || 'pendente'}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    required
-                  >
-                    <option value="pendente">Pendente</option>
-                    <option value="em_andamento">Em Andamento</option>
-                    <option value="concluido">Concluído</option>
-                  </select>
-                </div>
+                {marcoSelecionado && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Status
+                    </label>
+                    <select
+                      name="status"
+                      defaultValue={marcoSelecionado?.status || 'pendente'}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      required
+                    >
+                      <option value="pendente">Pendente</option>
+                      <option value="em_andamento">Em Andamento</option>
+                      <option value="concluido">Concluído</option>
+                    </select>
+                  </div>
+                )}
                 <div className="flex justify-end gap-2">
                   <button
                     type="button"
-                    onClick={() => {setShowModal(false); setMarcoSelecionado(null); setProjetoSelecionado('');}}
+                    onClick={() => {
+                      setShowModal(false); 
+                      setMarcoSelecionado(null); 
+                      setProjetoSelecionado('');
+                      setShowCustomInput(false);
+                      setCustomMarcoName('');
+                    }}
                     className="px-4 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50"
                   >
                     Cancelar
@@ -700,7 +824,6 @@ export const TelaMarcos = ({ dados, carregarDados }: ProjectManagementScreensPro
                     {marcoSelecionado ? 'Atualizar' : 'Criar'}
                   </button>
                 </div>
-
               </form>
             </div>
           </div>

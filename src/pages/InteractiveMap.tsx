@@ -11,6 +11,27 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
+import { searchScreensNearLocation } from '@/lib/search-service';
+import { geocodeAddress } from '@/lib/geocoding';
+
+// Estilos CSS para garantir que o popup fique acima dos marcadores
+const popupStyles = `
+  .mapboxgl-popup {
+    z-index: 10000 !important;
+  }
+  .mapboxgl-popup-content {
+    z-index: 10000 !important;
+  }
+  .custom-popup {
+    z-index: 10000 !important;
+  }
+  .custom-marker {
+    z-index: 10 !important;
+  }
+  .mapboxgl-popup-tip {
+    z-index: 10000 !important;
+  }
+`;
 
 // Constante global para classes padrão - ÚNICA DEFINIÇÃO
 const DEFAULT_CLASSES = ['A', 'AB', 'ABC', 'B', 'BC', 'C', 'CD', 'D', 'E', 'ND'] as const;
@@ -26,6 +47,7 @@ interface SimpleScreen {
   lng: number;
   active: boolean;
   class: string;
+  address_raw?: string;
 }
 
 interface MapFilters {
@@ -140,28 +162,18 @@ export default function InteractiveMap() {
     status: 'all',
     class: 'all'
   });
+  const [searchAddress, setSearchAddress] = useState('');
+  const [searchRadius, setSearchRadius] = useState(2); // Raio padrão de 2KM
   const [loading, setLoading] = useState(true);
   const [mapboxToken, setMapboxToken] = useState<string | null>(null);
   const [mapError, setMapError] = useState<string | null>(null);
   const [invalidScreensCount, setInvalidScreensCount] = useState(0);
   const [availableClasses, setAvailableClasses] = useState<string[]>([]);
   
-  const mapContainer = useRef<HTMLDivElement>(null);
+  const mapContainer = useRef<HTMLDivElement | null>(null);
   const map = useRef<mapboxgl.Map | null>(null);
   const markers = useRef<mapboxgl.Marker[]>([]);
 
-  // Callback para quando o container for montado
-  const handleContainerRef = (node: HTMLDivElement | null) => {
-    if (node) {
-      mapContainer.current = node;
-      console.log('🎯 Container do mapa montado no DOM');
-      // Tentar inicializar o mapa se o token já estiver disponível
-      if (mapboxToken && !map.current) {
-        console.log('🔄 Container montado, tentando inicializar mapa');
-        setTimeout(() => initializeMap(), 100); // Pequeno delay para garantir que o DOM está pronto
-      }
-    }
-  };
 
   // Available filter options - usar DEFAULT_CLASSES em vez de hardcoded
   const cities = Array.from(new Set(screens.map(s => s.city).filter(city => city && city.trim() !== ''))).sort();
@@ -222,6 +234,152 @@ export default function InteractiveMap() {
     applyFilters();
   }, [screens, searchTerm, filters]);
 
+  // Buscar token do Mapbox quando o componente montar
+  useEffect(() => {
+    fetchMapboxToken();
+  }, []);
+
+  // Injetar estilos CSS para z-index dos popups
+  useEffect(() => {
+    const styleElement = document.createElement('style');
+    styleElement.textContent = popupStyles;
+    document.head.appendChild(styleElement);
+    
+    return () => {
+      document.head.removeChild(styleElement);
+    };
+  }, []);
+
+  // Monitorar quando o container do mapa estiver disponível
+  useEffect(() => {
+    if (mapContainer.current && mapboxToken && !map.current) {
+      console.log('🎯 Container do mapa disponível, tentando inicializar...');
+      
+      // Garantir que o container tenha dimensões adequadas
+      const container = mapContainer.current;
+      container.style.minHeight = '800px';
+      container.style.height = '800px';
+      container.style.width = '100%';
+      container.style.display = 'block';
+      container.style.visibility = 'visible';
+      
+      setTimeout(() => initializeMap(), 100);
+    }
+  }, [mapContainer.current, mapboxToken]);
+
+  // Forçar exibição do mapa após carregamento completo
+  useEffect(() => {
+    if (map.current && mapContainer.current) {
+      const forceDisplay = () => {
+        const container = map.current?.getContainer();
+        if (container && (container.offsetWidth === 0 || container.offsetHeight === 0)) {
+          console.log('🔄 Forçando exibição inicial do mapa...');
+          forceMapDisplay();
+        }
+      };
+      
+      // Tentar forçar exibição após um delay
+      setTimeout(forceDisplay, 500);
+      setTimeout(forceDisplay, 1000);
+      setTimeout(forceDisplay, 2000);
+    }
+  }, [map.current, mapContainer.current]);
+
+  // Forçar exibição do mapa continuamente (solução mais agressiva)
+  useEffect(() => {
+    if (!map.current || !mapContainer.current) return;
+
+    const continuousForceDisplay = () => {
+      if (map.current && mapContainer.current) {
+        const container = map.current.getContainer();
+        const parentContainer = mapContainer.current;
+        
+        // Sempre forçar dimensões
+        if (parentContainer) {
+          parentContainer.style.minHeight = '800px';
+          parentContainer.style.height = '800px';
+          parentContainer.style.width = '100%';
+          parentContainer.style.display = 'block';
+          parentContainer.style.visibility = 'visible';
+          parentContainer.style.position = 'relative';
+        }
+        
+        if (container) {
+          container.style.minHeight = '800px';
+          container.style.height = '800px';
+          container.style.width = '100%';
+          container.style.display = 'block';
+          container.style.visibility = 'visible';
+          container.style.position = 'relative';
+        }
+        
+        // Forçar resize e repaint
+        map.current.resize();
+        map.current.triggerRepaint();
+      }
+    };
+
+    // Executar imediatamente
+    continuousForceDisplay();
+    
+    // Executar a cada 500ms
+    const interval = setInterval(continuousForceDisplay, 500);
+    
+    return () => clearInterval(interval);
+  }, [map.current, mapContainer.current]);
+
+  // Monitorar mudanças no container do mapa para detectar perda de dimensões
+  useEffect(() => {
+    if (!map.current || !mapContainer.current) return;
+
+    const forceMapDisplay = () => {
+      if (!map.current) return;
+      
+      const container = map.current.getContainer();
+      const parentContainer = mapContainer.current;
+      
+      // Sempre forçar dimensões, independente do estado atual
+      if (parentContainer) {
+        parentContainer.style.minHeight = '800px';
+        parentContainer.style.height = '800px';
+        parentContainer.style.width = '100%';
+        parentContainer.style.display = 'block';
+        parentContainer.style.visibility = 'visible';
+        parentContainer.style.position = 'relative';
+      }
+      
+      container.style.minHeight = '800px';
+      container.style.height = '800px';
+      container.style.width = '100%';
+      container.style.display = 'block';
+      container.style.visibility = 'visible';
+      container.style.position = 'relative';
+      
+      // Forçar resize e repaint
+      map.current.resize();
+      map.current.triggerRepaint();
+    };
+
+    const checkContainerDimensions = () => {
+      const container = map.current?.getContainer();
+      if (container && (container.offsetWidth === 0 || container.offsetHeight === 0)) {
+        console.log('⚠️ Container do mapa perdeu dimensões, corrigindo automaticamente...');
+        forceMapDisplay();
+      }
+    };
+
+    // Forçar exibição imediatamente
+    forceMapDisplay();
+    
+    // Verificar dimensões periodicamente e sempre forçar exibição
+    const interval = setInterval(() => {
+      checkContainerDimensions();
+      forceMapDisplay(); // Sempre forçar, mesmo se não detectar problema
+    }, 1000);
+    
+    return () => clearInterval(interval);
+  }, [map.current, mapContainer.current]);
+
   useEffect(() => {
     if (mapboxToken && !map.current && mapContainer.current) {
       console.log('🔄 Iniciando mapa com token disponível');
@@ -246,6 +404,48 @@ export default function InteractiveMap() {
       updateMapMarkersWithScreens(screensToProcess);
     }
   }, [map.current, filteredScreens]);
+
+  // useEffect para garantir que o mapa seja exibido após busca por endereço
+  useEffect(() => {
+    if (screens.length > 0 && map.current) {
+      console.log('🔄 Telas atualizadas, verificando exibição do mapa...', {
+        screensCount: screens.length,
+        hasMap: !!map.current,
+        isLoaded: map.current?.loaded(),
+        containerVisible: map.current?.getContainer().offsetWidth > 0,
+        containerHeight: map.current?.getContainer().offsetHeight
+      });
+      
+      // Forçar resize do mapa para garantir que seja exibido
+      setTimeout(() => {
+        if (map.current) {
+          const container = map.current.getContainer();
+          
+          // Verificar se o container perdeu suas dimensões
+          if (container.offsetWidth === 0 || container.offsetHeight === 0) {
+            console.log('⚠️ Container do mapa perdeu dimensões, corrigindo...');
+            
+            // Forçar dimensões mínimas
+            container.style.minHeight = '800px';
+            container.style.height = '800px';
+            container.style.width = '100%';
+            
+            // Aguardar um frame antes de redimensionar
+            requestAnimationFrame(() => {
+              if (map.current) {
+                map.current.resize();
+                map.current.triggerRepaint();
+                console.log('🔄 Mapa redimensionado e repintado após correção de dimensões');
+              }
+            });
+          } else {
+            map.current.resize();
+            console.log('🔄 Mapa redimensionado após atualização de telas');
+          }
+        }
+      }, 100);
+    }
+  }, [screens]);
 
   useEffect(() => {
     console.log('🔄 useEffect filteredScreens disparado:', { 
@@ -273,11 +473,20 @@ export default function InteractiveMap() {
     try {
       console.log('🗺️ Buscando token do Mapbox...');
       
-      // Usar token diretamente do arquivo .env (igual à landing page)
-      const token = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN;
+      // Buscar token via função Supabase
+      const { data, error } = await supabase.functions.invoke('mapbox-token');
       
-      if (!token) {
-        console.warn('⚠️ Token do Mapbox não configurado, usando fallback');
+      if (error) {
+        console.warn('⚠️ Erro ao buscar token do Mapbox via Supabase:', error);
+        // Usar um token público temporário para demonstração
+        const fallbackToken = 'pk.eyJ1IjoidHZkb3V0b3JhZHMiLCJhIjoiY21ldTk2YzVjMDRpaTJsbXdoN3Rhd3NhNiJ9.XCRdHGYU-V1nyGOlepho4Q';
+        setMapboxToken(fallbackToken);
+        setMapError(null);
+        return;
+      }
+
+      if (!data?.token) {
+        console.warn('⚠️ Token do Mapbox não retornado pela função');
         // Usar um token público temporário para demonstração
         const fallbackToken = 'pk.eyJ1IjoidHZkb3V0b3JhZHMiLCJhIjoiY21ldTk2YzVjMDRpaTJsbXdoN3Rhd3NhNiJ9.XCRdHGYU-V1nyGOlepho4Q';
         setMapboxToken(fallbackToken);
@@ -286,11 +495,14 @@ export default function InteractiveMap() {
       }
 
       console.log('✅ Token do Mapbox obtido com sucesso');
-      setMapboxToken(token);
+      setMapboxToken(data.token);
       setMapError(null);
     } catch (error) {
       console.error('💥 Erro ao buscar token do Mapbox:', error);
-      setMapError('Erro de conexão ao buscar token do mapa');
+      // Usar um token público temporário para demonstração
+      const fallbackToken = 'pk.eyJ1IjoidHZkb3V0b3JhZHMiLCJhIjoiY21ldTk2YzVjMDRpaTJsbXdoN3Rhd3NhNiJ9.XCRdHGYU-V1nyGOlepho4Q';
+      setMapboxToken(fallbackToken);
+      setMapError(null);
     }
   };
 
@@ -304,8 +516,32 @@ export default function InteractiveMap() {
       return;
     }
 
+    // Verificar e forçar dimensões do container
+    const container = mapContainer.current;
+    if (container.offsetWidth === 0 || container.offsetHeight === 0) {
+      console.warn('⚠️ Container do mapa não tem dimensões válidas, forçando dimensões...');
+      
+      // Forçar dimensões mínimas
+      container.style.minHeight = '800px';
+      container.style.height = '800px';
+      container.style.width = '100%';
+      container.style.display = 'block';
+      container.style.visibility = 'visible';
+      
+      // Aguardar um pouco e tentar novamente
+      setTimeout(() => initializeMap(), 200);
+      return;
+    }
+
     console.log('🗺️ Inicializando mapa Mapbox...');
     console.log('📍 Container do mapa:', mapContainer.current);
+    console.log('🔑 Token do Mapbox:', mapboxToken ? 'Configurado' : 'Não configurado');
+    console.log('📐 Dimensões do container:', {
+      width: mapContainer.current.offsetWidth,
+      height: mapContainer.current.offsetHeight,
+      clientWidth: mapContainer.current.clientWidth,
+      clientHeight: mapContainer.current.clientHeight
+    });
     
     try {
       mapboxgl.accessToken = mapboxToken;
@@ -314,7 +550,10 @@ export default function InteractiveMap() {
         container: mapContainer.current,
         style: 'mapbox://styles/mapbox/light-v11',
         center: [-46.6333, -23.5505], // São Paulo como centro padrão
-        zoom: 10
+        zoom: 3, // Zoom ainda menor para visão global do Brasil
+        pitch: 0,
+        bearing: 0,
+        antialias: true
       });
 
       console.log('🗺️ Mapa criado:', map.current);
@@ -330,22 +569,80 @@ export default function InteractiveMap() {
 
       map.current.on('load', () => {
         console.log('✅ Mapa carregado com sucesso');
-        // Forçar resize do mapa para garantir renderização
+        setMapError(null);
+        
+        // Sistema de forçar exibição mais agressivo
+        const forceMapVisibility = () => {
+          if (!map.current) return;
+          
+          const container = map.current.getContainer();
+          const parentContainer = mapContainer.current;
+          
+          // Forçar dimensões em ambos os containers
+          if (parentContainer) {
+            parentContainer.style.minHeight = '800px';
+            parentContainer.style.height = '800px';
+            parentContainer.style.width = '100%';
+            parentContainer.style.display = 'block';
+            parentContainer.style.visibility = 'visible';
+            parentContainer.style.position = 'relative';
+          }
+          
+          container.style.minHeight = '800px';
+          container.style.height = '800px';
+          container.style.width = '100%';
+          container.style.display = 'block';
+          container.style.visibility = 'visible';
+          container.style.position = 'relative';
+          
+          // Forçar resize e repaint
+          map.current.resize();
+          map.current.triggerRepaint();
+          
+          console.log('🔄 Mapa forçado a ser visível');
+        };
+        
+        // Executar imediatamente
+        forceMapVisibility();
+        
+        // Executar novamente após delays
+        setTimeout(forceMapVisibility, 100);
+        setTimeout(forceMapVisibility, 500);
+        setTimeout(forceMapVisibility, 1000);
+        setTimeout(forceMapVisibility, 2000);
+        
+        // Verificar se o mapa está realmente renderizado
         setTimeout(() => {
           if (map.current) {
-            map.current.resize();
-            console.log('🔄 Mapa redimensionado');
+            console.log('🔍 Verificando renderização do mapa...', {
+              isLoaded: map.current.loaded(),
+              isStyleLoaded: map.current.isStyleLoaded(),
+              container: map.current.getContainer(),
+              containerVisible: map.current.getContainer().offsetWidth > 0
+            });
           }
         }, 100);
         
-        // Forçar atualização dos marcadores após o mapa carregar
+        // Animação suave para mostrar todo o Brasil
+        setTimeout(() => {
+          if (map.current) {
+            map.current.flyTo({
+              center: [-46.6333, -23.5505], // Centro do Brasil
+              zoom: 3,
+              duration: 2000, // 2 segundos de animação suave
+              essential: true
+            });
+          }
+        }, 200);
+        
+        // Forçar atualização dos marcadores após a animação
         setTimeout(() => {
           if (filteredScreens.length > 0) {
             console.log('🔄 Forçando atualização de marcadores após carregamento do mapa...');
             const screensToProcess = [...filteredScreens];
             updateMapMarkersWithScreens(screensToProcess);
           }
-        }, 200);
+        }, 2500); // Aguardar a animação terminar
       });
 
       map.current.on('error', (e) => {
@@ -353,9 +650,33 @@ export default function InteractiveMap() {
         setMapError('Erro ao carregar o mapa: ' + e.error?.message);
       });
 
+      // Evento para quando o estilo do mapa é carregado
+      map.current.on('styledata', () => {
+        console.log('🎨 Estilo do mapa carregado');
+        if (map.current) {
+          map.current.resize();
+          map.current.triggerRepaint();
+        }
+      });
+
+      // Evento para quando o mapa está totalmente pronto
+      map.current.on('idle', () => {
+        console.log('🔄 Mapa em estado idle - totalmente carregado');
+        if (map.current) {
+          console.log('🗺️ Estado final do mapa:', {
+            isLoaded: map.current.loaded(),
+            isStyleLoaded: map.current.isStyleLoaded(),
+            container: map.current.getContainer(),
+            containerVisible: map.current.getContainer().offsetWidth > 0,
+            containerHeight: map.current.getContainer().offsetHeight
+          });
+        }
+      });
+
     } catch (error) {
       console.error('💥 Erro ao criar mapa:', error);
-      setMapError('Erro ao inicializar o mapa: ' + error.message);
+      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+      setMapError('Erro ao inicializar o mapa: ' + errorMessage);
     }
   };
 
@@ -410,7 +731,7 @@ export default function InteractiveMap() {
       
       // Usar o mesmo estilo da landing page
       el.innerHTML = `
-        <div style="width: 28px; height: 28px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 6px rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; background: #06b6d4; cursor: pointer; transition: transform 0.2s ease, box-shadow 0.2s ease; transform-origin: center center;">
+        <div style="width: 28px; height: 28px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 6px rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; background: #06b6d4; cursor: pointer; transition: transform 0.2s ease, box-shadow 0.2s ease; transform-origin: center center; z-index: 10;">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="white">
             <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
           </svg>
@@ -436,44 +757,97 @@ export default function InteractiveMap() {
         el.style.zIndex = '1';
       });
 
-      // Criar popup (mesmo estilo da landing page)
+      // Criar popup (formato da landing page sem botão de anunciar)
       const popup = new mapboxgl.Popup({
         offset: 25,
         closeButton: true,
-        closeOnClick: false
+        closeOnClick: false,
+        className: 'custom-popup',
+        maxWidth: '400px'
       }).setHTML(`
-        <div style="padding: 12px; min-width: 280px; max-width: 320px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
-          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
-            <div style="width: 32px; height: 32px; border-radius: 50%; background: #06b6d4; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="white">
+        <div style="padding: 16px; min-width: 320px; max-width: 380px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: white; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.15);">
+          <!-- Header com ícone e título -->
+          <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid #e5e7eb;">
+            <div style="width: 40px; height: 40px; border-radius: 50%; background: #06b6d4; display: flex; align-items: center; justify-content: center; flex-shrink: 0; box-shadow: 0 2px 8px rgba(6, 182, 212, 0.3);">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="white">
                 <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
               </svg>
             </div>
             <div style="flex: 1; min-width: 0;">
-              <h4 style="font-weight: 600; color: #111827; font-size: 16px; margin: 0 0 2px 0; line-height: 1.3; word-wrap: break-word;">${screen.display_name}</h4>
-              <p style="font-size: 12px; color: #0891b2; font-weight: 500; margin: 0; line-height: 1.4;">Código: ${screen.name}</p>
+              <h3 style="font-weight: 700; color: #111827; font-size: 18px; margin: 0 0 4px 0; line-height: 1.3; word-wrap: break-word;">${screen.display_name || 'Nome não informado'}</h3>
+              <p style="font-size: 13px; color: #0891b2; font-weight: 600; margin: 0; line-height: 1.4;">Código: ${screen.name || 'N/A'}</p>
             </div>
           </div>
-          <div style="border-top: 1px solid #e5e7eb; padding-top: 12px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-              <span style="font-size: 13px; color: #6b7280; font-weight: 500;">Localização</span>
-              <span style="font-size: 13px; color: #111827; font-weight: 600;">${screen.city}, ${screen.state}</span>
+
+          <!-- Card de Localização -->
+          <div style="background: #f8fafc; border-radius: 8px; padding: 12px; margin-bottom: 12px; border-left: 4px solid #06b6d4;">
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="#ef4444">
+                <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+              </svg>
+              <h4 style="font-weight: 600; color: #374151; font-size: 14px; margin: 0;">Localização</h4>
             </div>
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-              <span style="font-size: 13px; color: #6b7280; font-weight: 500;">Classe</span>
-              <span style="font-size: 13px; color: #111827; font-weight: 600;">${screen.class}</span>
+            <div style="space-y: 4px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                <span style="font-size: 12px; color: #6b7280; font-weight: 500;">Endereço</span>
+                <span style="font-size: 12px; color: #111827; font-weight: 500;">${screen.address_raw || 'Endereço não informado'}</span>
+              </div>
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                <span style="font-size: 12px; color: #6b7280; font-weight: 500;">Cidade</span>
+                <span style="font-size: 12px; color: #111827; font-weight: 600;">${screen.city || 'N/A'}, ${screen.state || 'N/A'}</span>
+              </div>
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span style="font-size: 12px; color: #6b7280; font-weight: 500;">Coordenadas</span>
+                <span style="font-size: 11px; color: #6b7280; font-family: monospace;">${lat.toFixed(6)}, ${lng.toFixed(6)}</span>
+              </div>
             </div>
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-              <span style="font-size: 13px; color: #6b7280; font-weight: 500;">Status</span>
-              <span style="font-size: 12px; padding: 2px 8px; border-radius: 12px; font-weight: 500; ${screen.active ? 'background: #dcfce7; color: #166534;' : 'background: #f3f4f6; color: #374151;'}">${screen.active ? 'Ativo' : 'Inativo'}</span>
+          </div>
+
+          <!-- Card de Classificação -->
+          <div style="background: #fef3c7; border-radius: 8px; padding: 12px; margin-bottom: 12px; border-left: 4px solid #f59e0b;">
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="#f59e0b">
+                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+              </svg>
+              <h4 style="font-weight: 600; color: #374151; font-size: 14px; margin: 0;">Classificação</h4>
             </div>
             <div style="display: flex; justify-content: space-between; align-items: center;">
-              <span style="font-size: 13px; color: #6b7280; font-weight: 500;">Coordenadas</span>
-              <span style="font-size: 12px; color: #6b7280; font-family: monospace;">${lat.toFixed(6)}, ${lng.toFixed(6)}</span>
+              <span style="font-size: 12px; color: #6b7280; font-weight: 500;">Classe</span>
+              <span style="font-size: 12px; padding: 2px 8px; border-radius: 12px; font-weight: 600; background: #fbbf24; color: #92400e;">${screen.class || 'ND'}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px;">
+              <span style="font-size: 12px; color: #6b7280; font-weight: 500;">Status</span>
+              <span style="font-size: 12px; padding: 2px 8px; border-radius: 12px; font-weight: 600; ${screen.active ? 'background: #dcfce7; color: #166534;' : 'background: #f3f4f6; color: #374151;'}">${screen.active ? 'Ativo' : 'Inativo'}</span>
+            </div>
+          </div>
+
+          <!-- Card de Performance (dados simulados para demonstração) -->
+          <div style="background: #f0f9ff; border-radius: 8px; padding: 12px; border-left: 4px solid #0ea5e9;">
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="#0ea5e9">
+                <path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/>
+              </svg>
+              <h4 style="font-weight: 600; color: #374151; font-size: 14px; margin: 0;">Performance</h4>
+            </div>
+            <div style="space-y: 4px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                <span style="font-size: 12px; color: #6b7280; font-weight: 500;">Alcance</span>
+                <span style="font-size: 12px; color: #111827; font-weight: 600;">${Math.floor(Math.random() * 2000) + 500} pessoas/semana</span>
+              </div>
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                <span style="font-size: 12px; color: #6b7280; font-weight: 500;">Investimento</span>
+                <span style="font-size: 12px; color: #111827; font-weight: 600;">R$ ${(Math.random() * 200 + 50).toFixed(2)}/semana</span>
+              </div>
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span style="font-size: 12px; color: #6b7280; font-weight: 500;">CPM</span>
+                <span style="font-size: 12px; color: #111827; font-weight: 600;">R$ ${(Math.random() * 50 + 25).toFixed(2)}</span>
+              </div>
             </div>
           </div>
         </div>
       `);
+
+      console.log('📋 Popup criado para:', screen.display_name);
 
       // Criar marcador usando coordenadas validadas
       const marker = new mapboxgl.Marker(el)
@@ -481,11 +855,50 @@ export default function InteractiveMap() {
         .setPopup(popup)
         .addTo(map.current!);
 
-      // Adicionar evento de clique
-      el.addEventListener('click', () => {
+      // Adicionar evento de clique direto no marcador para abrir popup
+      marker.on('click', () => {
+        console.log('🎯 Clique no marcador via Mapbox:', screen.display_name);
+        
+        // Fechar todos os outros popups antes de abrir o novo
+        markers.current.forEach(otherMarker => {
+          if (otherMarker !== marker && otherMarker.getPopup()?.isOpen()) {
+            otherMarker.getPopup()?.remove();
+          }
+        });
+        
         setSelectedScreen(screen);
         marker.togglePopup();
       });
+
+      // Adicionar evento de clique no marcador
+      marker.getElement().addEventListener('click', (e) => {
+        e.stopPropagation();
+        console.log('🖱️ Clique no marcador:', screen.display_name);
+        
+        // Fechar todos os outros popups antes de abrir o novo
+        markers.current.forEach(otherMarker => {
+          if (otherMarker !== marker && otherMarker.getPopup()?.isOpen()) {
+            otherMarker.getPopup()?.remove();
+          }
+        });
+        
+        setSelectedScreen(screen);
+        marker.togglePopup();
+      });
+
+      // Adicionar evento de abertura do popup para garantir que apenas um esteja aberto
+      const markerPopup = marker.getPopup();
+      if (markerPopup) {
+        markerPopup.on('open', () => {
+          console.log('📋 Popup aberto para:', screen.display_name);
+          // Fechar todos os outros popups quando este abrir
+          markers.current.forEach(otherMarker => {
+            if (otherMarker !== marker && otherMarker.getPopup()?.isOpen()) {
+              otherMarker.getPopup()?.remove();
+            }
+          });
+        });
+      }
 
       markers.current.push(marker);
     });
@@ -514,9 +927,6 @@ export default function InteractiveMap() {
   };
 
   // Função original para compatibilidade
-  const updateMapMarkers = () => {
-    updateMapMarkersWithScreens(filteredScreens);
-  };
 
   const fetchScreens = async () => {
     setLoading(true);
@@ -565,7 +975,11 @@ export default function InteractiveMap() {
           .not('lat', 'is', null)
           .not('lng', 'is', null);
         
-        data = screensWithoutClass;
+        // Adicionar propriedade class padrão aos dados
+        data = screensWithoutClass?.map(screen => ({
+          ...screen,
+          class: 'ND'
+        })) || null;
         error = errorWithoutClass;
       }
 
@@ -676,6 +1090,15 @@ export default function InteractiveMap() {
   }, [screens, searchTerm, filters]);
 
   const handleScreenSelect = (screen: SimpleScreen) => {
+    console.log('🎯 Tela selecionada:', screen.display_name);
+    
+    // Fechar todos os popups abertos antes de abrir o novo
+    markers.current.forEach(marker => {
+      if (marker.getPopup()?.isOpen()) {
+        marker.getPopup()?.remove();
+      }
+    });
+    
     setSelectedScreen(screen);
     
     // Fazer zoom no mapa para mostrar apenas este ponto
@@ -695,15 +1118,18 @@ export default function InteractiveMap() {
           essential: true
         });
         
-        // Abrir o popup do marcador correspondente
-        const marker = markers.current.find(m => {
-          const markerElement = m.getElement();
-          return markerElement && markerElement.dataset.screenId === screen.id;
-        });
-        
-        if (marker) {
-          marker.togglePopup();
-        }
+        // Abrir o popup do marcador correspondente após o zoom
+        setTimeout(() => {
+          const marker = markers.current.find(m => {
+            const markerElement = m.getElement();
+            return markerElement && markerElement.dataset.screenId === screen.id;
+          });
+          
+          if (marker) {
+            console.log('🎯 Abrindo popup do marcador:', screen.display_name);
+            marker.togglePopup();
+          }
+        }, 1000); // Aguardar o zoom terminar
       } else {
         console.warn('⚠️ Coordenadas inválidas para zoom:', { lat: screen.lat, lng: screen.lng });
       }
@@ -712,8 +1138,216 @@ export default function InteractiveMap() {
 
   const clearFilters = () => {
     setSearchTerm('');
+    setSearchAddress('');
+    setSearchRadius(2);
     setFilters({ city: 'all', status: 'all', class: 'all' });
     setSelectedScreen(null);
+    
+    // Fechar todos os popups abertos
+    markers.current.forEach(marker => {
+      if (marker.getPopup()?.isOpen()) {
+        marker.getPopup()?.remove();
+      }
+    });
+  };
+
+  const closeAllPopups = () => {
+    markers.current.forEach(marker => {
+      if (marker.getPopup()?.isOpen()) {
+        marker.getPopup()?.remove();
+      }
+    });
+  };
+
+  const forceMapDisplay = () => {
+    if (map.current) {
+      console.log('🔄 Forçando exibição do mapa...');
+      
+      const container = map.current.getContainer();
+      const parentContainer = mapContainer.current;
+      
+      console.log('📐 Dimensões atuais do container:', {
+        offsetWidth: container.offsetWidth,
+        offsetHeight: container.offsetHeight,
+        clientWidth: container.clientWidth,
+        clientHeight: container.clientHeight
+      });
+      
+      // Forçar dimensões em ambos os containers
+      if (parentContainer) {
+        parentContainer.style.minHeight = '800px';
+        parentContainer.style.height = '800px';
+        parentContainer.style.width = '100%';
+        parentContainer.style.display = 'block';
+        parentContainer.style.visibility = 'visible';
+      }
+      
+      container.style.minHeight = '800px';
+      container.style.height = '800px';
+      container.style.width = '100%';
+      container.style.display = 'block';
+      container.style.visibility = 'visible';
+      
+      // Múltiplas tentativas de correção
+      const attemptForceDisplay = (attempt: number) => {
+        if (attempt > 3) return; // Máximo 3 tentativas
+        
+        setTimeout(() => {
+          if (map.current) {
+            map.current.resize();
+            map.current.triggerRepaint();
+            
+            // Verificar se funcionou
+            const currentContainer = map.current.getContainer();
+            if (currentContainer.offsetWidth > 0 && currentContainer.offsetHeight > 0) {
+              console.log('🔄 Mapa forçado a exibir com sucesso');
+              
+              // Forçar atualização dos marcadores
+              if (filteredScreens.length > 0) {
+                setTimeout(() => {
+                  updateMapMarkersWithScreens(filteredScreens);
+                }, 200);
+              }
+            } else {
+              console.log(`🔄 Tentativa ${attempt} de forçar exibição falhou, tentando novamente...`);
+              attemptForceDisplay(attempt + 1);
+            }
+          }
+        }, 200 * attempt); // Delay progressivo
+      };
+      
+      attemptForceDisplay(1);
+    } else {
+      console.warn('⚠️ Mapa não está disponível para forçar exibição');
+    }
+  };
+
+  const handleAddressSearch = async () => {
+    if (!searchAddress.trim()) {
+      toast.error('Por favor, digite um endereço para buscar');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      console.log('🔍 Iniciando busca por endereço:', searchAddress);
+      
+      // Geocodificar o endereço
+      const coordinates = await geocodeAddress(searchAddress);
+      if (!coordinates) {
+        toast.error('Endereço não encontrado. Tente um endereço mais específico.');
+        return;
+      }
+
+      console.log('📍 Coordenadas encontradas:', coordinates);
+
+      // Buscar telas próximas ao endereço
+      const searchParams = {
+        lat: coordinates.lat,
+        lng: coordinates.lng,
+        startDate: new Date().toISOString().split('T')[0],
+        durationWeeks: '1',
+        addressName: searchAddress,
+        formattedAddress: coordinates.google_formatted_address || searchAddress,
+        placeId: coordinates.google_place_id || '',
+        radiusKm: searchRadius
+      };
+      
+      console.log('🔍 Parâmetros de busca:', searchParams);
+      const nearbyScreens = await searchScreensNearLocation(searchParams);
+
+      console.log('🎯 Telas encontradas:', nearbyScreens.length);
+
+      if (nearbyScreens.length === 0) {
+        toast.info(`Nenhuma tela encontrada em um raio de ${searchRadius}km do endereço informado.`);
+        return;
+      }
+
+      // Converter ScreenSearchResult para SimpleScreen
+      const convertedScreens: SimpleScreen[] = nearbyScreens.map(screen => ({
+        id: screen.id,
+        name: screen.name,
+        display_name: screen.display_name,
+        city: screen.city,
+        state: screen.state,
+        lat: screen.lat,
+        lng: screen.lng,
+        active: screen.active,
+        class: screen.class,
+        address_raw: screen.address_raw
+      }));
+
+      // Atualizar as telas com os resultados da busca
+      setScreens(convertedScreens);
+      
+      // Centralizar o mapa no endereço buscado
+      if (map.current) {
+        console.log('🗺️ Centralizando mapa no endereço buscado...');
+        
+        // Primeiro, garantir que o mapa esteja visível
+        const container = map.current.getContainer();
+        if (container.offsetWidth === 0 || container.offsetHeight === 0) {
+          console.log('🔄 Container do mapa sem dimensões, forçando resize...');
+          map.current.resize();
+        }
+        
+        map.current.flyTo({
+          center: [coordinates.lng, coordinates.lat],
+          zoom: 12,
+          duration: 1000
+        });
+        
+        // Forçar atualização dos marcadores após o flyTo
+        setTimeout(() => {
+          console.log('🔄 Forçando atualização de marcadores após busca...');
+          const container = map.current?.getContainer();
+          console.log('🗺️ Estado do mapa:', {
+            hasMap: !!map.current,
+            isLoaded: map.current?.loaded(),
+            container: container,
+            containerVisible: container ? container.offsetWidth > 0 : false,
+            containerHeight: container ? container.offsetHeight : 0
+          });
+          
+          // Forçar exibição do mapa com múltiplas tentativas
+          if (map.current) {
+            // Verificar se o container ainda tem dimensões
+            const container = map.current.getContainer();
+            if (container.offsetWidth === 0 || container.offsetHeight === 0) {
+              console.log('⚠️ Container ainda sem dimensões, tentando corrigir...');
+              
+              // Forçar dimensões mínimas
+              container.style.minHeight = '800px';
+              container.style.height = '800px';
+              container.style.width = '100%';
+              
+              // Aguardar um frame e tentar novamente
+              requestAnimationFrame(() => {
+                if (map.current) {
+                  map.current.resize();
+                  map.current.triggerRepaint();
+                }
+              });
+            } else {
+              map.current.resize();
+              map.current.triggerRepaint();
+            }
+          }
+          
+          updateMapMarkersWithScreens(convertedScreens);
+        }, 1200);
+      } else {
+        console.warn('⚠️ Mapa não está disponível para centralização');
+      }
+
+      toast.success(`${nearbyScreens.length} telas encontradas em um raio de ${searchRadius}km!`);
+
+    } catch (error) {
+      console.error('❌ Erro na busca por endereço:', error);
+      toast.error('Erro ao buscar endereço. Tente novamente.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Remover a função handleDebug e o botão de debug
@@ -801,7 +1435,7 @@ export default function InteractiveMap() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium">Buscar</label>
                 <div className="relative">
@@ -810,6 +1444,19 @@ export default function InteractiveMap() {
                     placeholder="Código, nome, cidade..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Endereço</label>
+                <div className="relative">
+                  <MapPin className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Rua, Av, Bairro, CEP..."
+                    value={searchAddress}
+                    onChange={(e) => setSearchAddress(e.target.value)}
                     className="pl-10"
                   />
                 </div>
@@ -868,6 +1515,23 @@ export default function InteractiveMap() {
                   </p>
                 )}
               </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Raio (KM)</label>
+                <Select value={searchRadius.toString()} onValueChange={(value) => setSearchRadius(Number(value))}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="2 KM" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1">1 KM</SelectItem>
+                    <SelectItem value="2">2 KM</SelectItem>
+                    <SelectItem value="5">5 KM</SelectItem>
+                    <SelectItem value="10">10 KM</SelectItem>
+                    <SelectItem value="20">20 KM</SelectItem>
+                    <SelectItem value="50">50 KM</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             <div className="flex items-center justify-between mt-4">
@@ -875,8 +1539,22 @@ export default function InteractiveMap() {
                 {filteredScreens.length} de {screens.length} telas
               </p>
               <div className="flex gap-2">
+                <Button 
+                  variant="default" 
+                  size="sm" 
+                  onClick={handleAddressSearch}
+                  disabled={!searchAddress.trim()}
+                >
+                  🔍 Buscar por Endereço
+                </Button>
                 <Button variant="outline" size="sm" onClick={fetchScreens}>
                   🔄 Recarregar
+                </Button>
+                <Button variant="outline" size="sm" onClick={closeAllPopups}>
+                  ❌ Fechar Popups
+                </Button>
+                <Button variant="outline" size="sm" onClick={forceMapDisplay}>
+                  🗺️ Forçar Mapa
                 </Button>
                 <Button variant="outline" onClick={clearFilters}>
                   Limpar filtros
@@ -890,7 +1568,7 @@ export default function InteractiveMap() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Map Area */}
           <div className="lg:col-span-2">
-            <Card className="h-[600px]">
+            <Card className="h-[900px]">
               <CardHeader className="pb-3">
                 <CardTitle className="flex items-center gap-2">
                   <MapPin className="w-5 h-5" />
@@ -928,12 +1606,17 @@ export default function InteractiveMap() {
                   </div>
                 ) : (
                   <div 
-                    ref={handleContainerRef} 
+                    ref={mapContainer} 
                     className="w-full h-full rounded-lg"
                     style={{ 
-                      minHeight: '400px',
-                      height: '500px',
-                      width: '100%'
+                      minHeight: '800px',
+                      height: '800px',
+                      width: '100%',
+                      display: 'block',
+                      visibility: 'visible',
+                      position: 'relative',
+                      overflow: 'hidden',
+                      backgroundColor: '#f0f0f0'
                     }}
                   />
                 )}
@@ -950,7 +1633,7 @@ export default function InteractiveMap() {
                   Clique em uma tela para ver detalhes
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-3 max-h-[500px] overflow-y-auto">
+              <CardContent className="space-y-3 max-h-[800px] overflow-y-auto">
                 {filteredScreens.map(screen => (
                   <div
                     key={screen.id}
@@ -990,45 +1673,6 @@ export default function InteractiveMap() {
               </CardContent>
             </Card>
 
-            {selectedScreen && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Detalhes da Tela</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div>
-                    <label className="text-sm font-medium text-muted-foreground">Código</label>
-                    <p className="font-medium">{selectedScreen.name}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-muted-foreground">Nome</label>
-                    <p className="font-medium">{selectedScreen.display_name}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-muted-foreground">Localização</label>
-                    <p>{selectedScreen.city}, {selectedScreen.state}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-muted-foreground">Coordenadas</label>
-                    <p className="text-sm">
-                      {selectedScreen.lat.toFixed(6)}, {selectedScreen.lng.toFixed(6)}
-                    </p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-muted-foreground">Status</label>
-                    <div className="mt-1">
-                      <Badge variant={selectedScreen.active ? 'default' : 'secondary'}>
-                        {selectedScreen.active ? 'Ativo' : 'Inativo'}
-                      </Badge>
-                    </div>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-muted-foreground">Classe</label>
-                    <p>{selectedScreen.class}</p>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
           </div>
         </div>
       </div>

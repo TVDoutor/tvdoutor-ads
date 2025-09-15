@@ -27,19 +27,31 @@ class EmailService {
   private processingEmails = new Set<number>();
 
   /**
-   * Busca emails pendentes para processamento
+   * Busca emails pendentes para processamento via Edge Function
    */
   async getPendingEmails(limit = 10): Promise<EmailLog[]> {
     try {
-      const { data, error } = await supabase.rpc('get_pending_emails', {
-        p_limit: limit
+      logDebug('Buscando emails pendentes via Edge Function');
+      
+      const { data, error } = await supabase.functions.invoke('process-pending-emails', {
+        method: 'GET'
       });
 
-      if (error) throw error;
-      return data || [];
+      if (error) {
+        logError('Erro na Edge Function de emails pendentes', error);
+        return [];
+      }
+
+      if (data?.success && data?.data) {
+        logDebug('Emails pendentes carregados via Edge Function', { count: data.data.length });
+        return data.data.slice(0, limit);
+      }
+
+      logDebug('Nenhum email pendente encontrado');
+      return [];
     } catch (error) {
-      logError('Erro ao buscar emails pendentes', error);
-      throw error;
+      logError('Erro ao buscar emails pendentes via Edge Function', error);
+      return []; // Graceful fallback
     }
   }
 
@@ -64,16 +76,16 @@ class EmailService {
       try {
         success = await this.sendEmailWithResend(emailLog);
       } catch (resendError) {
-        console.warn('⚠️ Falha no Resend, usando simulação como fallback:', resendError);
+        logWarn('Falha no Resend, usando simulação como fallback');
         success = await this.simulateEmailSend(emailLog);
       }
 
       if (success) {
         // Atualizar status para 'sent'
-        await supabase.rpc('update_email_status', {
-          p_log_id: emailLog.log_id,
-          p_status: 'sent'
-        });
+        await supabase
+          .from('email_logs')
+          .update({ status: 'sent' })
+          .eq('log_id', emailLog.log_id);
         
         logInfo(`Email enviado com sucesso`, { logId: emailLog.log_id, hasRecipient: !!emailLog.recipient_email });
         return true;
@@ -85,11 +97,13 @@ class EmailService {
       
       // Atualizar status para 'failed' em caso de erro
       try {
-        await supabase.rpc('update_email_status', {
-          p_log_id: emailLog.log_id,
-          p_status: 'failed',
-          p_error_message: error instanceof Error ? error.message : 'Erro desconhecido'
-        });
+        await supabase
+          .from('email_logs')
+          .update({ 
+            status: 'failed',
+            error_message: error instanceof Error ? error.message : 'Erro desconhecido'
+          })
+          .eq('log_id', emailLog.log_id);
       } catch (updateError) {
         logError('Erro ao atualizar status do email', updateError);
       }
@@ -127,7 +141,7 @@ class EmailService {
       });
 
       if (error) {
-        console.error('❌ Erro na Edge Function:', error);
+        logError('Erro na Edge Function', error);
         return false;
       }
 
@@ -135,7 +149,7 @@ class EmailService {
         logInfo(`Email enviado com sucesso via Resend`, { hasRecipient: !!emailLog.recipient_email });
         return true;
       } else {
-        console.error('❌ Edge Function retornou erro:', data?.error);
+        logError('Edge Function retornou erro', { hasError: !!data?.error });
         return false;
       }
 
@@ -270,78 +284,66 @@ class EmailService {
   }
 
   /**
-   * Processa todos os emails pendentes
+   * Processa todos os emails pendentes via Edge Function
    */
   async processAllPendingEmails(): Promise<{ processed: number; successful: number; failed: number }> {
     try {
-      const pendingEmails = await this.getPendingEmails(50); // Processar até 50 por vez
+      logInfo('Iniciando processamento de emails via Edge Function');
       
-      if (pendingEmails.length === 0) {
-        logDebug('Nenhum email pendente para processar');
+      const { data, error } = await supabase.functions.invoke('process-pending-emails', {
+        method: 'POST',
+        body: { action: 'process' }
+      });
+
+      if (error) {
+        logError('Erro na Edge Function de processamento', error);
         return { processed: 0, successful: 0, failed: 0 };
       }
 
-      logInfo(`Processando emails pendentes`, { count: pendingEmails.length });
+      if (data?.success) {
+        const result = {
+          processed: data.processed || 0,
+          successful: data.successful || 0,
+          failed: data.failed || 0
+        };
 
-      const results = await Promise.allSettled(
-        pendingEmails.map(email => this.processEmail(email))
-      );
+        logInfo('Processamento de emails concluído via Edge Function', result);
+        return result;
+      }
 
-      const successful = results.filter(r => r.status === 'fulfilled' && r.value).length;
-      const failed = results.length - successful;
-
-      console.log(`Processamento concluído: ${successful} sucessos, ${failed} falhas`);
-
-      return {
-        processed: pendingEmails.length,
-        successful,
-        failed
-      };
+      logDebug('Nenhum email pendente para processar');
+      return { processed: 0, successful: 0, failed: 0 };
     } catch (error) {
-      logError('Erro ao processar emails pendentes', error);
-      throw error;
+      logError('Erro ao processar emails pendentes via Edge Function', error);
+      return { processed: 0, successful: 0, failed: 0 }; // Graceful fallback
     }
   }
 
   /**
-   * Busca estatísticas de emails
+   * Busca estatísticas de emails via Edge Function
    */
   async getEmailStats(): Promise<{ data: EmailStats[] | null; error: any }> {
-    console.log('🔍 [DEBUG] Iniciando busca de estatísticas de email');
-    
     try {
-      // Log de verificação de tabela
-      console.log('🔍 [DEBUG] Verificando se tabela email_stats existe');
+      logDebug('Buscando estatísticas de email via Edge Function');
       
-      const { data: tableCheck } = await supabase
-        .rpc('check_table_exists', { table_name: 'email_stats' })
-        .single();
-      
-      console.log('🔍 [DEBUG] Resultado verificação tabela:', tableCheck);
-      
-      if (!tableCheck?.exists) {
-        console.warn('⚠️ [DEBUG] Tabela email_stats não existe, retornando dados vazios');
+      const { data, error } = await supabase.functions.invoke('email-stats');
+
+      if (error) {
+        logError('Erro na Edge Function de estatísticas', error);
         return { data: [], error: null };
       }
-    
-    console.log('🔍 [DEBUG] Executando query na tabela email_stats');
-    const { data, error } = await supabase
-      .from('email_stats')
-      .select('*');
-    
-    console.log('🔍 [DEBUG] Resultado da query:', { data, error });
-    
-    if (error) {
-      console.error('❌ [DEBUG] Erro na query email_stats:', error);
-      logError('Erro ao buscar estatísticas de email', error);
-      return { data: [], error: null }; // Graceful fallback
-    }
-    
-    console.log('✅ [DEBUG] Estatísticas carregadas com sucesso:', data?.length || 0, 'registros');
-    return { data: data || [], error: null };
+
+      if (data?.success && data?.data) {
+        logDebug('Estatísticas carregadas via Edge Function', { 
+          count: data.data.length 
+        });
+        return { data: data.data, error: null };
+      }
+
+      logDebug('Nenhuma estatística encontrada');
+      return { data: [], error: null };
     } catch (error) {
-      console.error('💥 [DEBUG] Erro inesperado em getEmailStats:', error);
-      logError('Falha ao buscar estatísticas de email', error);
+      logError('Falha ao buscar estatísticas de email via Edge Function', error);
       return { data: [], error: null }; // Graceful fallback
     }
   }
@@ -379,15 +381,22 @@ class EmailService {
       const emailLogs = [];
 
       // Log para cliente
-      const clientLogId = await supabase.rpc('create_email_log', {
-        p_proposal_id: proposalId,
-        p_email_type: emailType,
-        p_recipient_email: proposal.customer_email,
-        p_recipient_type: 'client',
-        p_subject: emailType === 'proposal_created' 
-          ? `Nova Proposta Comercial - Proposta #${proposalId}`
-          : `Proposta #${proposalId} - Atualização de Status`
-      });
+      const { data: clientLogData } = await supabase
+        .from('email_logs')
+        .insert({
+          proposal_id: proposalId,
+          email_type: emailType,
+          recipient_email: proposal.customer_email,
+          recipient_type: 'client',
+          subject: emailType === 'proposal_created' 
+            ? `Nova Proposta Comercial - Proposta #${proposalId}`
+            : `Proposta #${proposalId} - Atualização de Status`,
+          status: 'pending'
+        })
+        .select('log_id')
+        .single();
+      
+      const clientLogId = { data: clientLogData?.log_id };
 
       if (clientLogId.data) {
         emailLogs.push({
@@ -407,13 +416,20 @@ class EmailService {
 
       // Log para usuário (se email diferente)
       if (userEmail && userEmail !== proposal.customer_email) {
-        const userLogId = await supabase.rpc('create_email_log', {
-          p_proposal_id: proposalId,
-          p_email_type: emailType,
-          p_recipient_email: userEmail,
-          p_recipient_type: 'user',
-          p_subject: `Proposta #${proposalId} - ${emailType === 'proposal_created' ? 'Criada' : 'Status Alterado'}`
-        });
+        const { data: userLogData } = await supabase
+          .from('email_logs')
+          .insert({
+            proposal_id: proposalId,
+            email_type: emailType,
+            recipient_email: userEmail,
+            recipient_type: 'user',
+            subject: `Proposta #${proposalId} - ${emailType === 'proposal_created' ? 'Criada' : 'Status Alterado'}`,
+            status: 'pending'
+          })
+          .select('log_id')
+          .single();
+        
+        const userLogId = { data: userLogData?.log_id };
 
         if (userLogId.data) {
           emailLogs.push({
@@ -440,7 +456,7 @@ class EmailService {
 
       return successful > 0;
     } catch (error) {
-      console.error('Erro ao enviar notificação da proposta:', error);
+      logError('Erro ao enviar notificação da proposta', error);
       throw error;
     }
   }
@@ -455,7 +471,7 @@ class EmailService {
       try {
         await this.processAllPendingEmails();
       } catch (error) {
-        console.error('Erro no processamento automático:', error);
+        logError('Erro no processamento automático', error);
       }
     };
 

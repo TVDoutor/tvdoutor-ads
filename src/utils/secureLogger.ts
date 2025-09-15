@@ -19,6 +19,13 @@ class SecureLogger {
       level: this.isProduction ? 'error' : 'debug',
       enableInProduction: false
     };
+    
+    // Em produção, desabilitar completamente os logs de debug e info
+    if (this.isProduction) {
+      console.log = () => {};
+      console.debug = () => {};
+      console.info = () => {};
+    }
   }
 
   /**
@@ -52,6 +59,12 @@ class SecureLogger {
           sanitized[key] = `${value.substring(0, 8)}...${value.substring(value.length - 4)}`;
         } else if (lowerKey.includes('phone') || lowerKey.includes('cpf') || lowerKey.includes('cnpj')) {
           sanitized[key] = '[MASKED]';
+        } else if (lowerKey.includes('name') || lowerKey.includes('nome') || lowerKey === 'profile') {
+          // Mascarar nomes completos
+          sanitized[key] = typeof value === 'string' ? this.maskName(value) : '[MASKED]';
+        } else if (lowerKey === 'userid' || lowerKey === 'user_id') {
+          // Mascarar user IDs
+          sanitized[key] = typeof value === 'string' ? this.maskUserId(value) : '[MASKED]';
         } else {
           sanitized[key] = this.sanitizeData(value);
         }
@@ -74,6 +87,48 @@ class SecureLogger {
       : '***';
     
     return `${maskedUsername}@${domain}`;
+  }
+
+  private maskName(name: string): string {
+    if (!name || typeof name !== 'string') return '[MASKED]';
+    
+    // Se contém parênteses (como "Hildebrando Cardoso (Admin)"), mascarar apenas o nome
+    const match = name.match(/^(.+?)\s*\((.+)\)$/);
+    if (match) {
+      const [, fullName, role] = match;
+      const maskedName = this.maskFullName(fullName.trim());
+      return `${maskedName} (${role})`;
+    }
+    
+    return this.maskFullName(name);
+  }
+
+  private maskFullName(fullName: string): string {
+    if (!fullName || typeof fullName !== 'string') return '[MASKED]';
+    
+    const parts = fullName.trim().split(' ');
+    if (parts.length === 1) {
+      // Nome único - mostrar apenas primeira letra
+      return `${parts[0][0]}***`;
+    } else if (parts.length === 2) {
+      // Nome e sobrenome - mostrar primeira letra de cada
+      return `${parts[0][0]}*** ${parts[1][0]}***`;
+    } else {
+      // Múltiplos nomes - mostrar primeira letra do primeiro e último
+      return `${parts[0][0]}*** ${parts[parts.length - 1][0]}***`;
+    }
+  }
+
+  private maskUserId(userId: string): string {
+    if (!userId || typeof userId !== 'string') return '[MASKED]';
+    
+    // Para UUIDs, mostrar apenas os primeiros 8 e últimos 4 caracteres
+    if (userId.length > 20) {
+      return `${userId.substring(0, 8)}...${userId.substring(userId.length - 4)}`;
+    }
+    
+    // Para IDs menores, mostrar apenas os primeiros 4 caracteres
+    return `${userId.substring(0, 4)}***`;
   }
 
   private shouldLog(level: LogLevel): boolean {

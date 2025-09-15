@@ -944,17 +944,39 @@ const ProjectManagement = () => {
       e.preventDefault();
       
       try {
+        console.log('🚀 Iniciando criação/atualização do projeto...');
+        console.log('📋 Dados do formulário:', formData);
+        
         if (projetoSelecionado) {
+          console.log('✏️ Atualizando projeto existente:', projetoSelecionado.id);
           await projetoService.atualizar(supabase, projetoSelecionado.id, formData);
         } else {
-          await projetoService.criar(supabase, formData);
+          console.log('🆕 Criando novo projeto...');
+          await projectManagementService.criarProjetoRobusto(supabase, formData);
         }
         
+        console.log('✅ Projeto salvo com sucesso!');
         setShowModal(false);
         resetForm();
         carregarDados();
       } catch (error) {
-        console.error('Erro ao salvar projeto:', error);
+        console.error('❌ Erro ao salvar projeto:', error);
+        
+        // Mostrar erro mais específico para o usuário
+        let errorMessage = 'Erro ao salvar projeto';
+        if (error instanceof Error) {
+          if (error.message.includes('permission denied')) {
+            errorMessage = 'Sem permissão para criar projetos. Verifique suas credenciais.';
+          } else if (error.message.includes('duplicate key')) {
+            errorMessage = 'Já existe um projeto com esses dados.';
+          } else if (error.message.includes('foreign key')) {
+            errorMessage = 'Dados inválidos. Verifique a agência e deal selecionados.';
+          } else {
+            errorMessage = `Erro: ${error.message}`;
+          }
+        }
+        
+        toast.error(errorMessage);
       }
     };
 

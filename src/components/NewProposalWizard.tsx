@@ -18,12 +18,14 @@ export interface ProposalData {
   
   // Telas selecionadas
   selectedScreens: number[];
+  selectedSpecialties: string[]; // Mantido como array para compatibilidade, mas usado como filtro único
+  selectedCities: string[];
   
   // Configurações
   start_date?: string;
   end_date?: string;
   insertions_per_hour: number;
-  film_seconds: number;
+  film_seconds: number[];
   cpm_mode: 'manual' | 'blended';
   cpm_value?: number;
   discount_pct: number;
@@ -50,8 +52,10 @@ export const NewProposalWizard = ({ onComplete, onCancel }: NewProposalWizardPro
     customer_email: '',
     proposal_type: 'avulsa',
     selectedScreens: [],
+    selectedSpecialties: [],
+    selectedCities: [],
     insertions_per_hour: 6,
-    film_seconds: 15,
+    film_seconds: [15],
     cpm_mode: 'blended',
     discount_pct: 0,
     discount_fixed: 0,
@@ -85,7 +89,7 @@ export const NewProposalWizard = ({ onComplete, onCancel }: NewProposalWizardPro
       case 1: // Screens step
         return proposalData.selectedScreens.length > 0;
       case 2: // Config step
-        return proposalData.start_date && proposalData.end_date;
+        return proposalData.start_date && proposalData.end_date && proposalData.film_seconds.length > 0;
       case 3: // Summary step
         return true;
       default:

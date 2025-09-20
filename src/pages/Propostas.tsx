@@ -22,6 +22,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface Proposal {
   id: number;
@@ -50,6 +51,7 @@ interface ProposalStats {
 
 const Propostas = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [filteredProposals, setFilteredProposals] = useState<Proposal[]>([]);
   const [loading, setLoading] = useState(true);
@@ -67,7 +69,7 @@ const Propostas = () => {
 
   useEffect(() => {
     fetchProposals();
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     applyFilters();
@@ -76,6 +78,14 @@ const Propostas = () => {
   const fetchProposals = async () => {
     try {
       setLoading(true);
+      
+      if (!user) {
+        console.warn('Usuário não autenticado');
+        setProposals([]);
+        calculateStats([]);
+        return;
+      }
+
       const { data, error } = await supabase
         .from('proposals')
         .select(`
@@ -93,6 +103,7 @@ const Propostas = () => {
           gross_calendar,
           created_by
         `)
+        .eq('created_by', user.id)
         .order('status_updated_at', { ascending: false });
 
       if (error) throw error;

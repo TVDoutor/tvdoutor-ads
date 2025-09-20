@@ -20,8 +20,33 @@ import { addScreenAsAdmin, deleteScreenAsAdmin } from "@/lib/admin-operations";
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
 
-// Valid class options from database enum
+// Classes sociais permitidas conforme definido no banco de dados
 const ALLOWED_CLASSES = ['A', 'AB', 'ABC', 'B', 'BC', 'C', 'CD', 'D', 'E', 'ND'] as const;
+
+// Tipo para os dados retornados pela VIEW vw_screens_inventory
+type InventoryRow = {
+  id: number;
+  code: string | null;
+  display_name: string | null;
+  name: string | null;
+  city: string | null;
+  state: string | null;
+  address: string | null;
+  active: boolean | null;
+  class: 'A'|'AB'|'ABC'|'B'|'BC'|'C'|'CD'|'D'|'E'|'ND' | null;
+  venue_type_parent: string | null;
+  venue_type_child: string | null;
+  venue_type_grandchildren: string | null;
+  specialties: string[] | null;
+  rates: {
+    standard_rate_month?: number | null;
+    selling_rate_month?: number | null;
+    spots_per_hour?: number | null;
+    spot_duration_secs?: number | null;
+  } | null;
+  venue_name: string | null;
+  audience_monthly: number | null;
+};
 
 interface Screen {
   id: number;
@@ -61,7 +86,7 @@ const Inventory = () => {
   const [filteredScreens, setFilteredScreens] = useState<Screen[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [typeFilter, setTypeFilter] = useState<string>("all");
+  const [typeFilter] = useState<string>("all");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
@@ -82,6 +107,7 @@ const Inventory = () => {
   const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
+    console.log('🚀 Componente Inventory carregado, iniciando busca de dados...');
     fetchScreens();
   }, []);
 
@@ -94,90 +120,75 @@ const Inventory = () => {
       setLoading(true);
       setError(null);
 
-      // Buscar dados principais das telas
-      // Tentar buscar com a coluna class primeiro, se falhar, buscar sem ela
-      let { data: screensData, error: screensError } = await supabase
-        .from('screens')
-        .select(`
-          id, code, name, display_name, city, state, address_raw, class, active, 
-          venue_type_parent, venue_type_child, venue_type_grandchildren, specialty,
-          lat, lng, venue_id
-        `);
+      console.log('🔍 Iniciando busca de dados das telas via VIEW...');
+      
+      const { data, error } = await supabase
+        .from('vw_screens_inventory')
+        .select(
+          `id, code, display_name, name, city, state, address,
+           active, class, venue_type_parent, venue_type_child, venue_type_grandchildren,
+           specialties, rates, venue_name, audience_monthly`
+        )
+        .order('id', { ascending: false })
+        .limit(100);
 
-      // Se a coluna class não existir, buscar novamente sem ela
-      if (screensError && screensError.code === '42703' && screensError.message.includes('column screens.class does not exist')) {
-        console.log('⚠️ Coluna class não existe, buscando sem ela...');
-        const { data: screensWithoutClass, error: errorWithoutClass } = await supabase
-          .from('screens')
-          .select(`
-            id, code, name, display_name, city, state, address_raw, active, 
-            venue_type_parent, venue_type_child, venue_type_grandchildren, specialty,
-            lat, lng, venue_id
-          `);
+      console.log('📊 Dados da VIEW recebidos:', { data, error });
+      
+      if (error) {
+        console.error('❌ Erro na busca da VIEW:', error);
+        throw error;
+      } else {
+        console.log('✅ Busca da VIEW funcionou, dados:', data?.length, 'registros');
+      }
+
+      // Mapear para o tipo Screen
+      console.log('🔄 Mapeando dados da VIEW para Screen...');
+      const enriched = (data ?? []).map((r: InventoryRow, index: number): Screen => {
+        console.log(`📱 Processando tela ${index + 1}:`, r);
         
-        screensData = screensWithoutClass;
-        screensError = errorWithoutClass;
-      }
+        return {
+          id: r.id,
+          code: r.code ?? '',
+          name: r.name ?? '',
+          display_name: r.display_name ?? '',
+          city: r.city ?? '',
+          state: r.state ?? '',
+          address_raw: r.address ?? '',           // <- endereço pronto vindo da view
+          class: (r.class ?? 'ND') as Screen['class'],
+          active: r.active ?? true,
 
-      // Aplicar ordenação se não houve erro
-      if (!screensError && screensData) {
-        screensData = screensData.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
-      }
+          venue_type_parent: r.venue_type_parent ?? '',
+          venue_type_child: r.venue_type_child ?? '',
+          venue_type_grandchildren: r.venue_type_grandchildren ?? '',
 
-      if (screensError) {
-        throw screensError;
-      }
+          specialty: r.specialties ?? [],
 
-      // Buscar dados complementares para cada tela
-      const enrichedScreens = await Promise.all(
-        (screensData || []).map(async (screen) => {
-          const enrichedScreen: Screen = { ...screen };
+          // sua UI espera "screen_rates"
+          screen_rates: r.rates
+            ? {
+                standard_rate_month: r.rates.standard_rate_month ?? undefined,
+                selling_rate_month: r.rates.selling_rate_month ?? undefined,
+                spots_per_hour: r.rates.spots_per_hour ?? undefined,
+                spot_duration_secs: r.rates.spot_duration_secs ?? undefined,
+              }
+            : undefined,
 
-          // Buscar dados de rates
-          if (screen.id) {
-            const { data: ratesData } = await supabase
-              .from('screen_rates')
-              .select('standard_rate_month, selling_rate_month, spots_per_hour, spot_duration_secs')
-              .eq('screen_id', screen.id)
-              .single();
+          // sua UI espera "venue_info"
+          venue_info: {
+            name: r.venue_name ?? undefined,
+            address: r.address ?? undefined,
+            audience_monthly: r.audience_monthly ?? undefined,
+          },
 
-            if (ratesData) {
-              enrichedScreen.screen_rates = ratesData;
-            }
-          }
+          // campos opcionais que seu tipo Screen já tem
+          lat: undefined,
+          lng: undefined,
+          venue_id: undefined,
+        };
+      });
 
-          // Buscar dados do venue
-          if (screen.venue_id) {
-            const { data: venueData } = await supabase
-              .from('venues')
-              .select('name')
-              .eq('id', screen.venue_id)
-              .single();
-
-            if (venueData) {
-              enrichedScreen.venue_info = {
-                name: venueData.name || '',
-                address: '',
-              };
-
-              // Buscar dados de audiência (comentado até verificar estrutura da tabela)
-              // const { data: audienceData } = await supabase
-              //   .from('venue_audience_monthly')
-              //   .select('audience_monthly')
-              //   .eq('venue_id', screen.venue_id)
-              //   .single();
-
-              // if (audienceData) {
-              //   enrichedScreen.venue_info.audience_monthly = audienceData.audience_monthly;
-              // }
-            }
-          }
-
-          return enrichedScreen;
-        })
-      );
-
-      setScreens(enrichedScreens);
+      console.log('✅ Dados enriquecidos:', enriched);
+      setScreens(enriched);
     } catch (err: unknown) {
       console.error('Error fetching screens:', err);
       const errorMessage = err instanceof Error ? err.message : 'Erro desconhecido';
@@ -248,10 +259,7 @@ const Inventory = () => {
     );
   };
 
-  const getUniqueClasses = () => {
-    const classes = screens.map(screen => screen.class).filter(Boolean);
-    return [...new Set(classes)];
-  };
+  // Removido: getUniqueClasses - coluna 'class' não existe no banco
 
   const handleViewScreen = (screen: Screen) => {
     setSelectedScreen(screen);
@@ -317,7 +325,8 @@ const Inventory = () => {
       // Use the selected class directly (no sanitization needed)
       const selectedClass = editingScreen.class;
       
-      const updateData = {
+      // Primeiro tentar atualizar com a classe
+      let updateData = {
         code: editingScreen.code || null,
         name: editingScreen.code || null,
         display_name: editingScreen.display_name || null,
@@ -336,14 +345,34 @@ const Inventory = () => {
       
       console.log('📝 Update data:', updateData);
       
-      const { error } = await supabase
+      let { error } = await supabase
         .from('screens')
         .update(updateData)
         .eq('id', editingScreen.id);
 
-      if (error) {
+      // Se a coluna class não existir, tentar novamente sem ela
+      if (error && error.code === 'PGRST204' && error.message.includes("Could not find the 'class' column")) {
+        console.log('⚠️ Coluna class não existe, atualizando sem ela...');
+        
+        // Remover a classe do updateData
+        const { class: _, ...updateDataWithoutClass } = updateData;
+        
+        const { error: errorWithoutClass } = await supabase
+          .from('screens')
+          .update(updateDataWithoutClass)
+          .eq('id', editingScreen.id);
+        
+        if (errorWithoutClass) {
+          console.error('🚫 Database update error (without class):', errorWithoutClass);
+          throw errorWithoutClass;
+        }
+        
+        console.log('✅ Tela atualizada sem a coluna class');
+      } else if (error) {
         console.error('🚫 Database update error:', error);
         throw error;
+      } else {
+        console.log('✅ Tela atualizada com sucesso (incluindo classe)');
       }
 
       const updatedScreen = { ...editingScreen, specialty: specialties, class: selectedClass };
@@ -400,7 +429,8 @@ const Inventory = () => {
       // Use the selected class directly
       const selectedClass = newScreen.class || 'ND';
       
-      const insertData = {
+      // Primeiro tentar inserir com a classe
+      let insertData = {
         code: newScreen.code || null,
         name: newScreen.code || null,
         display_name: newScreen.display_name || null,
@@ -423,15 +453,33 @@ const Inventory = () => {
         data = await addScreenAsAdmin(insertData);
       } catch (adminError) {
         console.log('Admin function failed, trying direct insert:', adminError);
-        // Fallback to direct insert
-        const { data: directData, error } = await supabase
-          .from('screens')
-          .insert(insertData)
-          .select()
-          .single();
+        
+        // Se o erro for relacionado à coluna class, tentar sem ela
+        if (adminError && (adminError as any).code === 'PGRST204' && (adminError as any).message?.includes("Could not find the 'class' column")) {
+          console.log('⚠️ Coluna class não existe, inserindo sem ela...');
+          
+          // Remover a classe do insertData
+          const { class: _, ...insertDataWithoutClass } = insertData;
+          
+          const { data: directData, error } = await supabase
+            .from('screens')
+            .insert(insertDataWithoutClass)
+            .select()
+            .single();
 
-        if (error) throw error;
-        data = directData;
+          if (error) throw error;
+          data = { ...directData, class: selectedClass }; // Adicionar a classe no frontend
+        } else {
+          // Fallback to direct insert
+          const { data: directData, error } = await supabase
+            .from('screens')
+            .insert(insertData)
+            .select()
+            .single();
+
+          if (error) throw error;
+          data = directData;
+        }
       }
 
       setScreens([data, ...screens]);
@@ -538,7 +586,7 @@ const Inventory = () => {
   const validateScreenData = (data: any[]): any[] => {
     const validatedData: any[] = [];
     const errors: string[] = [];
-    const allowedClasses = ['A', 'AB', 'ABC', 'B', 'BC', 'C', 'CD', 'D', 'E', 'ND'];
+    // Removido: allowedClasses - coluna 'class' não existe no banco
 
     data.forEach((row, index) => {
       const rowNumber = index + 2; // +2 porque começamos na linha 2 (linha 1 é cabeçalho)
@@ -554,11 +602,7 @@ const Inventory = () => {
         return;
       }
 
-      // Validar classe se fornecida
-      if (row['Classe'] && !allowedClasses.includes(row['Classe'])) {
-        errors.push(`Linha ${rowNumber}: Classe deve ser uma das opções: ${allowedClasses.join(', ')}`);
-        return;
-      }
+      // Removido: Validação da classe - coluna não existe no banco
 
       // Validar coordenadas se fornecidas
       if (row['Latitude'] && (isNaN(Number(row['Latitude'])) || Number(row['Latitude']) < -90 || Number(row['Latitude']) > 90)) {
@@ -591,7 +635,7 @@ const Inventory = () => {
         city: row['Cidade'] ? row['Cidade'].toString().trim() : null,
         state: row['Estado'] ? row['Estado'].toString().trim() : null,
         zip_code: row['CEP'] ? row['CEP'].toString().trim() : null,
-        class: row['Classe'] ? row['Classe'].toString().trim() : 'ND',
+        // Removido: class: row['Classe'] ? row['Classe'].toString().trim() : 'ND', - coluna não existe no banco
         specialty: row['Especialidade'] ? row['Especialidade'].toString().trim() : null,
         active: active,
         lat: row['Latitude'] ? Number(row['Latitude']) : null,
@@ -818,7 +862,7 @@ const Inventory = () => {
         'Cidade': screen.city || '',
         'Estado': screen.state || '',
         'CEP': screen.zip_code || '',
-        'Classe': screen.class || '',
+        // Removido: 'Classe': screen.class || '', - coluna não existe no banco
         'Especialidade': screen.specialty || '',
         'Ativo': screen.active ? 'Sim' : 'Não',
         'Latitude': screen.lat || '',
@@ -844,7 +888,7 @@ const Inventory = () => {
         { wch: 15 }, // Cidade
         { wch: 10 }, // Estado
         { wch: 12 }, // CEP
-        { wch: 8 },  // Classe
+        // Removido: { wch: 8 },  // Classe - coluna não existe no banco
         { wch: 15 }, // Especialidade
         { wch: 8 },  // Ativo
         { wch: 12 }, // Latitude
@@ -1040,17 +1084,7 @@ const Inventory = () => {
                   </SelectContent>
                 </Select>
 
-                <Select value={typeFilter} onValueChange={setTypeFilter}>
-                  <SelectTrigger className="w-32">
-                    <SelectValue placeholder="Classe" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todas</SelectItem>
-                    {getUniqueClasses().map(cls => (
-                      <SelectItem key={cls} value={cls}>{cls}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {/* Removido: Filtro por classe - coluna 'class' não existe no banco */}
 
                 <Button variant="outline" className="gap-2">
                   <Filter className="h-4 w-4" />
@@ -1088,6 +1122,7 @@ const Inventory = () => {
                       <TableCell><Skeleton className="h-4 w-40" /></TableCell>
                       <TableCell><Skeleton className="h-4 w-16" /></TableCell>
                       <TableCell><Skeleton className="h-4 w-12" /></TableCell>
+                      <TableCell><Skeleton className="h-4 w-12" /></TableCell>
                       <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                       <TableCell><Skeleton className="h-4 w-20" /></TableCell>
                     </TableRow>
@@ -1106,7 +1141,9 @@ const Inventory = () => {
                       <TableCell>{getLocation(screen)}</TableCell>
                       <TableCell>{getStatusBadge(screen.active)}</TableCell>
                       <TableCell>
-                        <Badge variant="outline">{screen.class || "N/A"}</Badge>
+                        <Badge variant="outline" className="font-mono">
+                          {screen.class || 'ND'}
+                        </Badge>
                       </TableCell>
                       <TableCell>
                         {screen.screen_rates ? (
@@ -1135,14 +1172,14 @@ const Inventory = () => {
                       <TableCell>
                         {screen.specialty && screen.specialty.length > 0 ? (
                           <div className="flex flex-wrap gap-1">
-                            {screen.specialty.slice(0, 2).map((spec, index) => (
+                            {screen.specialty.slice(0, 5).map((spec, index) => (
                               <Badge key={index} variant="secondary" className="text-xs">
                                 {spec}
                               </Badge>
                             ))}
-                            {screen.specialty.length > 2 && (
+                            {screen.specialty.length > 5 && (
                               <Badge variant="outline" className="text-xs">
-                                +{screen.specialty.length - 2}
+                                +{screen.specialty.length - 5}
                               </Badge>
                             )}
                           </div>
@@ -1250,10 +1287,7 @@ const Inventory = () => {
                     <Label className="text-sm font-medium text-muted-foreground">Status</Label>
                     <div>{getStatusBadge(selectedScreen.active)}</div>
                   </div>
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium text-muted-foreground">Classe</Label>
-                    <Badge variant="outline">{selectedScreen.class || "N/A"}</Badge>
-                  </div>
+                  {/* Removido: Campo da classe - coluna não existe no banco */}
                 </div>
                 
                 <div className="space-y-4">
@@ -1289,12 +1323,24 @@ const Inventory = () => {
                   </div>
                   
                   <div className="space-y-2">
-                    <Label className="text-sm font-medium text-muted-foreground">Especialidades</Label>
+                    <Label className="text-sm font-medium text-muted-foreground">
+                      Especialidades ({selectedScreen.specialty?.length || 0} total)
+                    </Label>
                     {selectedScreen.specialty && selectedScreen.specialty.length > 0 ? (
-                      <div className="flex flex-wrap gap-2">
-                        {selectedScreen.specialty.map((spec, index) => (
-                          <Badge key={index} variant="secondary">{spec}</Badge>
-                        ))}
+                      <div className="space-y-2">
+                        <div className="flex flex-wrap gap-2">
+                          {selectedScreen.specialty.slice(0, 5).map((spec, index) => (
+                            <Badge key={index} variant="secondary" className="text-sm">{spec}</Badge>
+                          ))}
+                        </div>
+                        {selectedScreen.specialty.length > 5 && (
+                          <div className="flex flex-wrap gap-2">
+                            <p className="text-xs text-muted-foreground">Outras especialidades:</p>
+                            {selectedScreen.specialty.slice(5).map((spec, index) => (
+                              <Badge key={index + 5} variant="outline" className="text-xs">{spec}</Badge>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     ) : (
                       <p className="text-sm text-muted-foreground">Nenhuma especialidade cadastrada</p>
@@ -1343,6 +1389,11 @@ const Inventory = () => {
                       onChange={(e) => updateEditingScreen('display_name', e.target.value)}
                       placeholder="Nome de exibição"
                     />
+                    {editingScreen.display_name && (
+                      <p className="text-xs text-muted-foreground">
+                        Nome atual: {editingScreen.display_name}
+                      </p>
+                    )}
                   </div>
                 </div>
                 
@@ -1379,22 +1430,20 @@ const Inventory = () => {
                 </div>
                 
                 <div className="space-y-2">
-                  <Label htmlFor="class">Classe</Label>
-                  <Select value={editingScreen.class || ''} onValueChange={(value) => updateEditingScreen('class', value)}>
+                  <Label htmlFor="class">Classe Social</Label>
+                  <Select
+                    value={editingScreen.class || 'ND'}
+                    onValueChange={(value) => updateEditingScreen('class', value)}
+                  >
                     <SelectTrigger>
-                      <SelectValue placeholder="Selecione a classe" />
+                      <SelectValue placeholder="Selecione a classe social" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="A">A</SelectItem>
-                      <SelectItem value="AB">AB</SelectItem>
-                      <SelectItem value="ABC">ABC</SelectItem>
-                      <SelectItem value="B">B</SelectItem>
-                      <SelectItem value="BC">BC</SelectItem>
-                      <SelectItem value="C">C</SelectItem>
-                      <SelectItem value="CD">CD</SelectItem>
-                      <SelectItem value="D">D</SelectItem>
-                      <SelectItem value="E">E</SelectItem>
-                      <SelectItem value="ND">ND</SelectItem>
+                      {ALLOWED_CLASSES.map((classType) => (
+                        <SelectItem key={classType} value={classType}>
+                          {classType}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -1439,8 +1488,20 @@ const Inventory = () => {
                     rows={2}
                   />
                   {specialtyText && (
-                    <div className="text-xs text-muted-foreground">
-                      Especialidades: {specialtyText.split(',').map(s => s.trim()).filter(Boolean).join(' • ')}
+                    <div className="space-y-2">
+                      <p className="text-xs text-muted-foreground">
+                        Prévia das especialidades ({specialtyText.split(',').map(s => s.trim()).filter(Boolean).length} total):
+                      </p>
+                      <div className="flex flex-wrap gap-1">
+                        {specialtyText.split(',').map(s => s.trim()).filter(Boolean).slice(0, 5).map((spec, index) => (
+                          <Badge key={index} variant="secondary" className="text-xs">{spec}</Badge>
+                        ))}
+                        {specialtyText.split(',').map(s => s.trim()).filter(Boolean).length > 5 && (
+                          <Badge variant="outline" className="text-xs">
+                            +{specialtyText.split(',').map(s => s.trim()).filter(Boolean).length - 5}
+                          </Badge>
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -1537,26 +1598,25 @@ const Inventory = () => {
                     placeholder="Estado"
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="new-class">Classe</Label>
-                  <Select value={newScreen.class || ''} onValueChange={(value) => updateNewScreen('class', value)}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione a classe" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="A">A</SelectItem>
-                      <SelectItem value="AB">AB</SelectItem>
-                      <SelectItem value="ABC">ABC</SelectItem>
-                      <SelectItem value="B">B</SelectItem>
-                      <SelectItem value="BC">BC</SelectItem>
-                      <SelectItem value="C">C</SelectItem>
-                      <SelectItem value="CD">CD</SelectItem>
-                      <SelectItem value="D">D</SelectItem>
-                      <SelectItem value="E">E</SelectItem>
-                      <SelectItem value="ND">ND</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="new-class">Classe Social</Label>
+                <Select
+                  value={newScreen.class || 'ND'}
+                  onValueChange={(value) => updateNewScreen('class', value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione a classe social" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ALLOWED_CLASSES.map((classType) => (
+                      <SelectItem key={classType} value={classType}>
+                        {classType}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               
               <div className="space-y-2">

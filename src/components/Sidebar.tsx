@@ -38,11 +38,7 @@ const menuItems = [
   {
     label: "Propostas",
     icon: FileText,
-    href: "/propostas",
-    subItems: [
-      { label: "Todas as Propostas", href: "/propostas" },
-      { label: "Nova Proposta", href: "/nova-proposta" }
-    ]
+    href: "/propostas"
   },
   {
     label: "Mapa",

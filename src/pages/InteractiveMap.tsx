@@ -48,6 +48,10 @@ interface SimpleScreen {
   active: boolean;
   class: string;
   address_raw?: string;
+  venue_type_parent?: string;
+  venue_type_child?: string;
+  venue_type_grandchildren?: string;
+  specialty?: string[];
 }
 
 interface MapFilters {
@@ -70,7 +74,12 @@ function getTestScreens(): SimpleScreen[] {
       lat: -23.550520,
       lng: -46.633308,
       active: true,
-      class: 'A'
+      class: 'A',
+      address_raw: 'Av. Brigadeiro Luiz Antonio, 2232 - São Paulo, SP',
+      venue_type_parent: 'Shopping',
+      venue_type_child: 'Hall Principal',
+      venue_type_grandchildren: 'Recepção',
+      specialty: ['Shopping', 'Varejo']
     },
     {
       id: 'test-2',
@@ -81,7 +90,12 @@ function getTestScreens(): SimpleScreen[] {
       lat: -23.550520,
       lng: -46.633308,
       active: true,
-      class: 'A'
+      class: 'A',
+      address_raw: 'R. Dona Adma Jafet, 91 - São Paulo, SP',
+      venue_type_parent: 'Hospital',
+      venue_type_child: 'Recepção',
+      venue_type_grandchildren: 'Hall Principal',
+      specialty: ['Saúde', 'Hospital']
     },
     {
       id: 'test-3',
@@ -92,7 +106,12 @@ function getTestScreens(): SimpleScreen[] {
       lat: -23.5615,
       lng: -46.6565,
       active: true,
-      class: 'B'
+      class: 'B',
+      address_raw: 'Av. Paulista, 1000 - São Paulo, SP',
+      venue_type_parent: 'Farmácia',
+      venue_type_child: 'Loja',
+      venue_type_grandchildren: 'Recepção',
+      specialty: ['Farmácia', 'Saúde']
     },
     {
       id: 'test-4',
@@ -103,7 +122,12 @@ function getTestScreens(): SimpleScreen[] {
       lat: -23.550520,
       lng: -46.633308,
       active: true,
-      class: 'AB'
+      class: 'AB',
+      address_raw: 'R. Napoleão de Barros, 715 - São Paulo, SP',
+      venue_type_parent: 'Clínica',
+      venue_type_child: 'Hall Principal',
+      venue_type_grandchildren: 'Recepção',
+      specialty: ['Clínica Médica', 'Saúde']
     },
     {
       id: 'test-5',
@@ -346,6 +370,7 @@ export default function InteractiveMap() {
         parentContainer.style.display = 'block';
         parentContainer.style.visibility = 'visible';
         parentContainer.style.position = 'relative';
+        parentContainer.style.overflow = 'hidden';
       }
       
       container.style.minHeight = '800px';
@@ -354,16 +379,27 @@ export default function InteractiveMap() {
       container.style.display = 'block';
       container.style.visibility = 'visible';
       container.style.position = 'relative';
+      container.style.overflow = 'hidden';
       
-      // Forçar resize e repaint
-      map.current.resize();
-      map.current.triggerRepaint();
+      // Forçar resize e repaint com delay para garantir que o DOM foi atualizado
+      setTimeout(() => {
+        if (map.current) {
+          map.current.resize();
+          map.current.triggerRepaint();
+        }
+      }, 100);
     };
 
     const checkContainerDimensions = () => {
       const container = map.current?.getContainer();
       if (container && (container.offsetWidth === 0 || container.offsetHeight === 0)) {
         console.log('⚠️ Container do mapa perdeu dimensões, corrigindo automaticamente...');
+        console.log('📐 Dimensões atuais:', {
+          offsetWidth: container.offsetWidth,
+          offsetHeight: container.offsetHeight,
+          clientWidth: container.clientWidth,
+          clientHeight: container.clientHeight
+        });
         forceMapDisplay();
       }
     };
@@ -375,7 +411,7 @@ export default function InteractiveMap() {
     const interval = setInterval(() => {
       checkContainerDimensions();
       forceMapDisplay(); // Sempre forçar, mesmo se não detectar problema
-    }, 1000);
+    }, 2000); // Reduzir frequência para 2 segundos
     
     return () => clearInterval(interval);
   }, [map.current, mapContainer.current]);
@@ -392,6 +428,88 @@ export default function InteractiveMap() {
       });
     }
   }, [mapboxToken]);
+
+  // Monitorar mudanças no layout e forçar redimensionamento do mapa
+  useEffect(() => {
+    if (!map.current) return;
+
+    const handleResize = () => {
+      if (map.current) {
+        console.log('🔄 Window resize detectado, redimensionando mapa...');
+        setTimeout(() => {
+          if (map.current) {
+            map.current.resize();
+            map.current.triggerRepaint();
+          }
+        }, 100);
+      }
+    };
+
+    // Adicionar listener para resize
+    window.addEventListener('resize', handleResize);
+    
+    // Forçar redimensionamento inicial
+    setTimeout(handleResize, 500);
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+    };
+  }, [map.current]);
+
+  // Solução específica para o problema de dimensões zero
+  useEffect(() => {
+    if (!map.current || !mapContainer.current) return;
+
+    const fixMapDimensions = () => {
+      const container = map.current?.getContainer();
+      const parentContainer = mapContainer.current;
+      
+      if (container && (container.offsetWidth === 0 || container.offsetHeight === 0)) {
+        console.log('🔧 Corrigindo dimensões do mapa...');
+        
+        // Forçar dimensões no container pai
+        if (parentContainer) {
+          parentContainer.style.cssText = `
+            min-height: 800px !important;
+            height: 800px !important;
+            width: 100% !important;
+            display: block !important;
+            visibility: visible !important;
+            position: relative !important;
+            overflow: hidden !important;
+          `;
+        }
+        
+        // Forçar dimensões no container do mapa
+        container.style.cssText = `
+          min-height: 800px !important;
+          height: 800px !important;
+          width: 100% !important;
+          display: block !important;
+          visibility: visible !important;
+          position: relative !important;
+          overflow: hidden !important;
+        `;
+        
+        // Forçar redimensionamento do mapa
+        setTimeout(() => {
+          if (map.current) {
+            map.current.resize();
+            map.current.triggerRepaint();
+            console.log('✅ Dimensões do mapa corrigidas');
+          }
+        }, 200);
+      }
+    };
+
+    // Executar imediatamente
+    fixMapDimensions();
+    
+    // Executar periodicamente
+    const interval = setInterval(fixMapDimensions, 3000);
+    
+    return () => clearInterval(interval);
+  }, [map.current, mapContainer.current]);
 
   // useEffect adicional para atualizar marcadores quando o mapa for inicializado
   useEffect(() => {
@@ -821,6 +939,55 @@ export default function InteractiveMap() {
             </div>
           </div>
 
+          <!-- Card de Informações do Venue -->
+          ${screen.venue_type_parent || screen.venue_type_child || screen.venue_type_grandchildren ? `
+          <div style="background: #f0fdf4; border-radius: 8px; padding: 12px; margin-bottom: 12px; border-left: 4px solid #22c55e;">
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="#22c55e">
+                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+              </svg>
+              <h4 style="font-weight: 600; color: #374151; font-size: 14px; margin: 0;">Informações do Venue</h4>
+            </div>
+            <div style="space-y: 4px;">
+              ${screen.venue_type_parent ? `
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                <span style="font-size: 12px; color: #6b7280; font-weight: 500;">Tipo Principal</span>
+                <span style="font-size: 12px; color: #111827; font-weight: 600;">${screen.venue_type_parent}</span>
+              </div>
+              ` : ''}
+              ${screen.venue_type_child ? `
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                <span style="font-size: 12px; color: #6b7280; font-weight: 500;">Subtipo</span>
+                <span style="font-size: 12px; color: #111827; font-weight: 600;">${screen.venue_type_child}</span>
+              </div>
+              ` : ''}
+              ${screen.venue_type_grandchildren ? `
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span style="font-size: 12px; color: #6b7280; font-weight: 500;">Categoria</span>
+                <span style="font-size: 12px; color: #111827; font-weight: 600;">${screen.venue_type_grandchildren}</span>
+              </div>
+              ` : ''}
+            </div>
+          </div>
+          ` : ''}
+
+          <!-- Card de Especialidades -->
+          ${screen.specialty && screen.specialty.length > 0 ? `
+          <div style="background: #fef3c7; border-radius: 8px; padding: 12px; margin-bottom: 12px; border-left: 4px solid #f59e0b;">
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="#f59e0b">
+                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+              </svg>
+              <h4 style="font-weight: 600; color: #374151; font-size: 14px; margin: 0;">Especialidades</h4>
+            </div>
+            <div style="display: flex; flex-wrap: gap: 4px;">
+              ${screen.specialty.map(spec => `
+                <span style="font-size: 11px; padding: 2px 6px; border-radius: 8px; font-weight: 500; background: #fbbf24; color: #92400e;">${spec}</span>
+              `).join('')}
+            </div>
+          </div>
+          ` : ''}
+
           <!-- Card de Performance (dados simulados para demonstração) -->
           <div style="background: #f0f9ff; border-radius: 8px; padding: 12px; border-left: 4px solid #0ea5e9;">
             <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
@@ -962,7 +1129,7 @@ export default function InteractiveMap() {
       // Tentar buscar com a coluna class primeiro, se falhar, buscar sem ela
       let { data, error } = await supabase
         .from('screens')
-        .select('id, name, display_name, city, state, lat, lng, active, class')
+        .select('id, name, display_name, city, state, lat, lng, active, class, address_raw, venue_type_parent, venue_type_child, venue_type_grandchildren, specialty')
         .not('lat', 'is', null)
         .not('lng', 'is', null);
 
@@ -971,7 +1138,7 @@ export default function InteractiveMap() {
         console.log('⚠️ Coluna class não existe, buscando sem ela...');
         const { data: screensWithoutClass, error: errorWithoutClass } = await supabase
           .from('screens')
-          .select('id, name, display_name, city, state, lat, lng, active')
+          .select('id, name, display_name, city, state, lat, lng, active, address_raw, venue_type_parent, venue_type_child, venue_type_grandchildren, specialty')
           .not('lat', 'is', null)
           .not('lng', 'is', null);
         
@@ -1010,7 +1177,12 @@ export default function InteractiveMap() {
         lat: Number(screen.lat) || 0,
         lng: Number(screen.lng) || 0,
         active: Boolean(screen.active),
-        class: (screen as any).class || 'ND'
+        class: (screen as any).class || 'ND',
+        address_raw: (screen as any).address_raw || undefined,
+        venue_type_parent: (screen as any).venue_type_parent || undefined,
+        venue_type_child: (screen as any).venue_type_child || undefined,
+        venue_type_grandchildren: (screen as any).venue_type_grandchildren || undefined,
+        specialty: (screen as any).specialty || undefined
       }));
 
       console.log('✅ Telas processadas:', mappedScreens.length);

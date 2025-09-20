@@ -60,7 +60,7 @@ const LandingHeader = () => {
 
           {/* CTA Button */}
           <div className="hidden md:flex items-center gap-4">
-            <Button variant="ghost" asChild>
+            <Button variant="default" asChild>
               <Link to="/login">Fazer Login</Link>
             </Button>
           </div>
@@ -109,7 +109,7 @@ const LandingHeader = () => {
                 Casos de Sucesso
               </a>
               <div className="flex flex-col gap-2 pt-4 border-t border-border">
-                <Button variant="ghost" className="justify-start" asChild>
+                <Button variant="default" className="justify-start" asChild>
                   <Link to="/login" onClick={() => setIsMenuOpen(false)}>Fazer Login</Link>
                 </Button>
               </div>

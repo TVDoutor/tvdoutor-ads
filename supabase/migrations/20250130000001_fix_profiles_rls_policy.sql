@@ -21,32 +21,42 @@ CREATE POLICY "Users can update own profile" ON public.profiles
   FOR UPDATE USING (auth.uid() = id)
   WITH CHECK (auth.uid() = id);
 
--- Política para admins visualizarem todos os perfis
-CREATE POLICY "Admins can view all profiles" ON public.profiles
-  FOR SELECT USING (
-    EXISTS (
-      SELECT 1 FROM public.user_roles 
-      WHERE user_id = auth.uid() 
-      AND role IN ('admin', 'super_admin')
-    )
-  );
+-- Política para admins visualizarem todos os perfis (apenas se user_roles existir)
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'user_roles' AND table_schema = 'public') THEN
+        CREATE POLICY "Admins can view all profiles" ON public.profiles
+          FOR SELECT USING (
+            EXISTS (
+              SELECT 1 FROM public.user_roles
+              WHERE user_id = auth.uid()
+              AND role IN ('admin', 'super_admin')
+            )
+          );
+    END IF;
+END $$;
 
--- Política para admins atualizarem todos os perfis
-CREATE POLICY "Admins can update all profiles" ON public.profiles
-  FOR UPDATE USING (
-    EXISTS (
-      SELECT 1 FROM public.user_roles 
-      WHERE user_id = auth.uid() 
-      AND role IN ('admin', 'super_admin')
-    )
-  )
-  WITH CHECK (
-    EXISTS (
-      SELECT 1 FROM public.user_roles 
-      WHERE user_id = auth.uid() 
-      AND role IN ('admin', 'super_admin')
-    )
-  );
+-- Política para admins atualizarem todos os perfis (apenas se user_roles existir)
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'user_roles' AND table_schema = 'public') THEN
+        CREATE POLICY "Admins can update all profiles" ON public.profiles
+          FOR UPDATE USING (
+            EXISTS (
+              SELECT 1 FROM public.user_roles
+              WHERE user_id = auth.uid()
+              AND role IN ('admin', 'super_admin')
+            )
+          )
+          WITH CHECK (
+            EXISTS (
+              SELECT 1 FROM public.user_roles
+              WHERE user_id = auth.uid()
+              AND role IN ('admin', 'super_admin')
+            )
+          );
+    END IF;
+END $$;
 
 -- Política CRÍTICA: Permitir inserção de perfis para usuários autenticados
 -- Esta política resolve o erro de violação de RLS

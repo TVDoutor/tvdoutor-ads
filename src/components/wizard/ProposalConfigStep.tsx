@@ -4,7 +4,9 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, Clock, DollarSign, Play, Target } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Button } from "@/components/ui/button";
+import { Calendar, Clock, DollarSign, Play, Target, X, Plus } from "lucide-react";
 import type { ProposalData } from "../NewProposalWizard";
 
 interface ProposalConfigStepProps {
@@ -17,6 +19,8 @@ const FILM_DURATIONS = [
   { value: 30, label: '30 segundos' },
   { value: 45, label: '45 segundos' },
   { value: 60, label: '60 segundos' },
+  { value: 90, label: '90 segundos' },
+  { value: 120, label: '120 segundos' },
 ];
 
 const INSERTION_OPTIONS = Array.from({ length: 12 }, (_, i) => ({
@@ -28,22 +32,26 @@ export const ProposalConfigStep = ({ data, onUpdate }: ProposalConfigStepProps) 
   const [customFilmDuration, setCustomFilmDuration] = useState<string>('');
   const [isCustomDuration, setIsCustomDuration] = useState(false);
 
-  const handleFilmDurationChange = (value: string) => {
-    if (value === 'custom') {
-      setIsCustomDuration(true);
+  const handleFilmDurationToggle = (duration: number) => {
+    const currentDurations = data.film_seconds;
+    const newDurations = currentDurations.includes(duration)
+      ? currentDurations.filter(d => d !== duration)
+      : [...currentDurations, duration];
+    
+    onUpdate({ film_seconds: newDurations });
+  };
+
+  const handleAddCustomDuration = () => {
+    const seconds = parseInt(customFilmDuration);
+    if (!isNaN(seconds) && seconds > 0 && !data.film_seconds.includes(seconds)) {
+      onUpdate({ film_seconds: [...data.film_seconds, seconds] });
       setCustomFilmDuration('');
-    } else {
-      setIsCustomDuration(false);
-      onUpdate({ film_seconds: parseInt(value) });
     }
   };
 
-  const handleCustomDurationChange = (value: string) => {
-    setCustomFilmDuration(value);
-    const seconds = parseInt(value);
-    if (!isNaN(seconds) && seconds > 0) {
-      onUpdate({ film_seconds: seconds });
-    }
+  const handleRemoveDuration = (duration: number) => {
+    const newDurations = data.film_seconds.filter(d => d !== duration);
+    onUpdate({ film_seconds: newDurations });
   };
 
   const calculateMonthlyInsertions = () => {
@@ -69,7 +77,7 @@ export const ProposalConfigStep = ({ data, onUpdate }: ProposalConfigStepProps) 
   const isConfigValid = () => {
     return data.start_date && 
            data.end_date && 
-           data.film_seconds > 0 &&
+           data.film_seconds.length > 0 &&
            data.insertions_per_hour > 0 &&
            (data.cpm_mode === 'blended' || (data.cpm_mode === 'manual' && data.cpm_value && data.cpm_value > 0));
   };
@@ -130,39 +138,70 @@ export const ProposalConfigStep = ({ data, onUpdate }: ProposalConfigStepProps) 
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label>Duração do Filme</Label>
-            <Select
-              value={isCustomDuration ? 'custom' : data.film_seconds.toString()}
-              onValueChange={handleFilmDurationChange}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {FILM_DURATIONS.map(duration => (
-                  <SelectItem key={duration.value} value={duration.value.toString()}>
-                    {duration.label}
-                  </SelectItem>
+            <Label>Durações do Filme</Label>
+            <p className="text-sm text-muted-foreground">
+              Selecione uma ou mais durações para o filme
+            </p>
+            
+            {/* Durações Selecionadas */}
+            {data.film_seconds.length > 0 && (
+              <div className="flex flex-wrap gap-2 mb-4">
+                {data.film_seconds.map(duration => (
+                  <Badge key={duration} variant="default" className="flex items-center gap-1">
+                    {duration}s
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-4 w-4 p-0 hover:bg-transparent"
+                      onClick={() => handleRemoveDuration(duration)}
+                    >
+                      <X className="w-3 h-3" />
+                    </Button>
+                  </Badge>
                 ))}
-                <SelectItem value="custom">Personalizado</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+              </div>
+            )}
 
-          {isCustomDuration && (
-            <div className="space-y-2">
-              <Label htmlFor="custom_duration">Duração Personalizada (segundos)</Label>
+            {/* Opções de Duração */}
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+              {FILM_DURATIONS.map(duration => (
+                <div key={duration.value} className="flex items-center space-x-2">
+                  <Checkbox
+                    id={`duration-${duration.value}`}
+                    checked={data.film_seconds.includes(duration.value)}
+                    onCheckedChange={() => handleFilmDurationToggle(duration.value)}
+                  />
+                  <label
+                    htmlFor={`duration-${duration.value}`}
+                    className="text-sm cursor-pointer"
+                  >
+                    {duration.label}
+                  </label>
+                </div>
+              ))}
+            </div>
+
+            {/* Duração Personalizada */}
+            <div className="flex items-center gap-2 pt-2">
               <Input
-                id="custom_duration"
                 type="number"
                 min="1"
                 max="300"
-                placeholder="Ex: 90"
+                placeholder="Duração personalizada (segundos)"
                 value={customFilmDuration}
-                onChange={(e) => handleCustomDurationChange(e.target.value)}
+                onChange={(e) => setCustomFilmDuration(e.target.value)}
+                className="flex-1"
               />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleAddCustomDuration}
+                disabled={!customFilmDuration || isNaN(parseInt(customFilmDuration)) || data.film_seconds.includes(parseInt(customFilmDuration))}
+              >
+                <Plus className="w-4 h-4" />
+              </Button>
             </div>
-          )}
+          </div>
         </CardContent>
       </Card>
 

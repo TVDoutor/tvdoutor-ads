@@ -190,127 +190,140 @@ export const ProposalSummaryStep = ({ data }: ProposalSummaryStepProps) => {
         </CardContent>
       </Card>
 
-      {/* Configurações da Campanha */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Calendar className="w-5 h-5 text-accent" />
-            Configurações da Campanha
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="space-y-1">
-              <p className="text-sm font-medium text-muted-foreground">Período</p>
-              <p className="font-semibold">
-                {data.start_date && data.end_date ? (
-                  <>
-                    {new Date(data.start_date).toLocaleDateString('pt-BR')} - {new Date(data.end_date).toLocaleDateString('pt-BR')}
-                    <span className="block text-sm text-muted-foreground">
-                      {calculateDuration()} dias
-                    </span>
-                  </>
-                ) : 'Não definido'}
-              </p>
-            </div>
-
-            <div className="space-y-1">
-              <p className="text-sm font-medium text-muted-foreground">Filme</p>
-              <p className="font-semibold">{data.film_seconds} segundos</p>
-            </div>
-
-            <div className="space-y-1">
-              <p className="text-sm font-medium text-muted-foreground">Inserções/Hora</p>
-              <p className="font-semibold">{data.insertions_per_hour}x</p>
-            </div>
-
-            <div className="space-y-1">
-              <p className="text-sm font-medium text-muted-foreground">Fórmula de Impactos</p>
-              <Badge variant="outline">Fórmula {data.impact_formula}</Badge>
-            </div>
+      {/* Seções por Duração de Filme */}
+      {data.film_seconds.map((filmDuration, index) => (
+        <div key={filmDuration} className="space-y-4">
+          {/* Título da Seção para esta duração */}
+          <div className="flex items-center gap-2 p-3 bg-primary/5 rounded-lg border border-primary/20">
+            <Calendar className="w-5 h-5 text-primary" />
+            <h3 className="text-lg font-semibold text-primary">
+              Configurações para Filme de {filmDuration} segundos
+            </h3>
           </div>
-        </CardContent>
-      </Card>
 
-      {/* Configurações de Preço */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <DollarSign className="w-5 h-5 text-green-600" />
-            Configurações de Preço
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="space-y-1">
-              <p className="text-sm font-medium text-muted-foreground">Modo CPM</p>
-              <Badge variant={data.cpm_mode === 'manual' ? 'default' : 'secondary'}>
-                {data.cpm_mode === 'manual' ? 'Manual' : 'Blended'}
-              </Badge>
-              {data.cpm_mode === 'manual' && data.cpm_value && (
-                <p className="text-sm text-muted-foreground">
-                  {formatCurrency(data.cpm_value)}
-                </p>
-              )}
-            </div>
+          {/* Configurações da Campanha */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Calendar className="w-5 h-5 text-accent" />
+                Configurações da Campanha
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-muted-foreground">Período</p>
+                  <p className="font-semibold">
+                    {data.start_date && data.end_date ? (
+                      <>
+                        {new Date(data.start_date).toLocaleDateString('pt-BR')} - {new Date(data.end_date).toLocaleDateString('pt-BR')}
+                        <span className="block text-sm text-muted-foreground">
+                          {calculateDuration()} dias
+                        </span>
+                      </>
+                    ) : 'Não definido'}
+                  </p>
+                </div>
 
-            <div className="space-y-1">
-              <p className="text-sm font-medium text-muted-foreground">Desconto %</p>
-              <p className="font-semibold">{data.discount_pct}%</p>
-            </div>
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-muted-foreground">Filme</p>
+                  <p className="font-semibold">{filmDuration} segundos</p>
+                </div>
 
-            <div className="space-y-1">
-              <p className="text-sm font-medium text-muted-foreground">Desconto Fixo</p>
-              <p className="font-semibold">{formatCurrency(data.discount_fixed)}</p>
-            </div>
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-muted-foreground">Inserções/Hora</p>
+                  <p className="font-semibold">{data.insertions_per_hour}x</p>
+                </div>
 
-            <div className="space-y-1">
-              <p className="text-sm font-medium text-muted-foreground">Valor Estimado</p>
-              <p className="font-bold text-green-600 text-lg">{formatCurrency(estimatedValue())}</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-muted-foreground">Fórmula de Impactos</p>
+                  <Badge variant="outline">Fórmula {data.impact_formula}</Badge>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
-      {/* Métricas Estimadas */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Target className="w-5 h-5 text-purple-600" />
-            Métricas Estimadas
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="text-center p-4 bg-primary/5 rounded-lg">
-              <Clock className="w-8 h-8 text-primary mx-auto mb-2" />
-              <p className="text-2xl font-bold text-primary">
-                {calculateTotalInsertions().toLocaleString()}
-              </p>
-              <p className="text-sm text-muted-foreground">Inserções Totais</p>
-            </div>
+          {/* Configurações de Preço */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <DollarSign className="w-5 h-5 text-green-600" />
+                Configurações de Preço
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-muted-foreground">Modo CPM</p>
+                  <Badge variant={data.cpm_mode === 'manual' ? 'default' : 'secondary'}>
+                    {data.cpm_mode === 'manual' ? 'Manual' : 'Blended'}
+                  </Badge>
+                  {data.cpm_mode === 'manual' && data.cpm_value && (
+                    <p className="text-sm text-muted-foreground">
+                      {formatCurrency(data.cpm_value)}
+                    </p>
+                  )}
+                </div>
 
-            <div className="text-center p-4 bg-secondary/5 rounded-lg">
-              <Users className="w-8 h-8 text-secondary mx-auto mb-2" />
-              <p className="text-2xl font-bold text-secondary">
-                {calculateEstimatedImpacts().toLocaleString()}
-              </p>
-              <p className="text-sm text-muted-foreground">Impactos Estimados</p>
-            </div>
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-muted-foreground">Desconto %</p>
+                  <p className="font-semibold">{data.discount_pct}%</p>
+                </div>
 
-            <div className="text-center p-4 bg-green-50 rounded-lg">
-              <DollarSign className="w-8 h-8 text-green-600 mx-auto mb-2" />
-              <p className="text-2xl font-bold text-green-600">
-                {((calculateEstimatedImpacts() / 1000) * (data.cpm_value || 25)).toLocaleString('pt-BR', {
-                  style: 'currency',
-                  currency: 'BRL'
-                })}
-              </p>
-              <p className="text-sm text-muted-foreground">Valor Bruto Estimado</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-muted-foreground">Desconto Fixo</p>
+                  <p className="font-semibold">{formatCurrency(data.discount_fixed)}</p>
+                </div>
+
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-muted-foreground">Valor Estimado</p>
+                  <p className="font-bold text-green-600 text-lg">{formatCurrency(estimatedValue())}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Métricas Estimadas */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Target className="w-5 h-5 text-purple-600" />
+                Métricas Estimadas
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="text-center p-4 bg-primary/5 rounded-lg">
+                  <Clock className="w-8 h-8 text-primary mx-auto mb-2" />
+                  <p className="text-2xl font-bold text-primary">
+                    {calculateTotalInsertions().toLocaleString()}
+                  </p>
+                  <p className="text-sm text-muted-foreground">Inserções Totais</p>
+                </div>
+
+                <div className="text-center p-4 bg-secondary/5 rounded-lg">
+                  <Users className="w-8 h-8 text-secondary mx-auto mb-2" />
+                  <p className="text-2xl font-bold text-secondary">
+                    {calculateEstimatedImpacts().toLocaleString()}
+                  </p>
+                  <p className="text-sm text-muted-foreground">Impactos Estimados</p>
+                </div>
+
+                <div className="text-center p-4 bg-green-50 rounded-lg">
+                  <DollarSign className="w-8 h-8 text-green-600 mx-auto mb-2" />
+                  <p className="text-2xl font-bold text-green-600">
+                    {((calculateEstimatedImpacts() / 1000) * (data.cpm_value || 25)).toLocaleString('pt-BR', {
+                      style: 'currency',
+                      currency: 'BRL'
+                    })}
+                  </p>
+                  <p className="text-sm text-muted-foreground">Valor Bruto Estimado</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      ))}
 
       <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
         <p className="text-green-700 text-sm">

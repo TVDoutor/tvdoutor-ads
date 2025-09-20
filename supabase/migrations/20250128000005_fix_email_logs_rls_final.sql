@@ -76,10 +76,24 @@ WITH CHECK (true);
 
 -- 6. Garantir permissões básicas
 GRANT ALL ON public.email_logs TO authenticated;
-GRANT USAGE ON SEQUENCE public.email_logs_id_seq TO authenticated;
+-- Dar permissão na sequência apenas se ela existir
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.sequences WHERE sequence_name = 'email_logs_id_seq' AND sequence_schema = 'public') THEN
+        GRANT USAGE ON SEQUENCE public.email_logs_id_seq TO authenticated;
+    END IF;
+END $$;
 
 -- 7. Recriar a view email_stats com políticas adequadas
-DROP VIEW IF EXISTS public.email_stats CASCADE;
+-- Verificar se é uma view ou tabela e remover adequadamente
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.views WHERE table_name = 'email_stats' AND table_schema = 'public') THEN
+        DROP VIEW public.email_stats CASCADE;
+    ELSIF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'email_stats' AND table_schema = 'public') THEN
+        DROP TABLE public.email_stats CASCADE;
+    END IF;
+END $$;
 
 CREATE VIEW public.email_stats AS
 SELECT 
@@ -94,39 +108,7 @@ GROUP BY email_type, status;
 -- Permitir acesso à view para usuários autenticados
 GRANT SELECT ON public.email_stats TO authenticated;
 
--- 8. Recriar função para buscar emails pendentes com SECURITY DEFINER
-CREATE OR REPLACE FUNCTION public.get_pending_emails(p_limit INTEGER DEFAULT 10)
-RETURNS TABLE (
-    log_id BIGINT,
-    proposal_id BIGINT,
-    email_type VARCHAR(50),
-    recipient_email VARCHAR(255),
-    recipient_type VARCHAR(50),
-    subject TEXT,
-    customer_name VARCHAR(255),
-    proposal_type VARCHAR(50),
-    created_at TIMESTAMP WITH TIME ZONE
-)
-LANGUAGE sql
-SECURITY DEFINER
-SET search_path = public
-AS $$
-    SELECT 
-        el.id as log_id,
-        el.proposal_id,
-        el.email_type,
-        el.recipient_email,
-        el.recipient_type,
-        el.subject,
-        COALESCE(el.customer_name, p.customer_name) as customer_name,
-        COALESCE(el.proposal_type, p.proposal_type) as proposal_type,
-        el.created_at
-    FROM public.email_logs el
-    LEFT JOIN public.proposals p ON p.id = el.proposal_id
-    WHERE el.status = 'pending'
-    ORDER BY el.created_at ASC
-    LIMIT p_limit;
-$$;
+-- 8. Função para buscar emails pendentes será criada em migração posterior
 
 -- 9. Comentários para documentação
 COMMENT ON TABLE public.email_logs IS 'Log de todos os emails enviados relacionados a propostas - políticas RLS corrigidas';
@@ -135,5 +117,10 @@ COMMENT ON POLICY "email_logs_insert_authenticated" ON public.email_logs IS 'Per
 COMMENT ON POLICY "email_logs_update_authenticated" ON public.email_logs IS 'Permite que usuários autenticados atualizem logs de email';
 
 COMMIT;
+
+
+
+
+
 
 

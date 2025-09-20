@@ -34,14 +34,25 @@ DROP POLICY IF EXISTS "email_logs_update_policy" ON public.email_logs;
 DROP POLICY IF EXISTS "email_logs_delete_policy" ON public.email_logs;
 
 -- Política de leitura: usuários autenticados podem ver seus próprios logs
-CREATE POLICY "email_logs_read_policy" ON public.email_logs
-    FOR SELECT
-    USING (
-        auth.uid() IS NOT NULL AND (
-            is_super_admin() OR
-            created_by = auth.uid()
-        )
-    );
+-- Verificar se a função is_super_admin existe
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'is_super_admin') THEN
+        CREATE POLICY "email_logs_read_policy" ON public.email_logs
+            FOR SELECT
+            USING (
+                auth.uid() IS NOT NULL AND (
+                    is_super_admin() OR
+                    created_by = auth.uid()
+                )
+            );
+    ELSE
+        -- Política simplificada sem a função is_super_admin
+        CREATE POLICY "email_logs_read_policy" ON public.email_logs
+            FOR SELECT
+            USING (auth.uid() IS NOT NULL);
+    END IF;
+END $$;
 
 -- Política de inserção: sistema pode inserir logs
 CREATE POLICY "email_logs_insert_policy" ON public.email_logs
@@ -52,29 +63,50 @@ CREATE POLICY "email_logs_insert_policy" ON public.email_logs
     );
 
 -- Política de atualização: sistema pode atualizar status dos logs
-CREATE POLICY "email_logs_update_policy" ON public.email_logs
-    FOR UPDATE
-    USING (
-        auth.uid() IS NOT NULL AND (
-            is_super_admin() OR
-            created_by = auth.uid() OR
-            current_setting('role') = 'service_role'
-        )
-    )
-    WITH CHECK (
-        auth.uid() IS NOT NULL AND (
-            is_super_admin() OR
-            created_by = auth.uid() OR
-            current_setting('role') = 'service_role'
-        )
-    );
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'is_super_admin') THEN
+        CREATE POLICY "email_logs_update_policy" ON public.email_logs
+            FOR UPDATE
+            USING (
+                auth.uid() IS NOT NULL AND (
+                    is_super_admin() OR
+                    created_by = auth.uid() OR
+                    current_setting('role') = 'service_role'
+                )
+            )
+            WITH CHECK (
+                auth.uid() IS NOT NULL AND (
+                    is_super_admin() OR
+                    created_by = auth.uid() OR
+                    current_setting('role') = 'service_role'
+                )
+            );
+    ELSE
+        -- Política simplificada sem a função is_super_admin
+        CREATE POLICY "email_logs_update_policy" ON public.email_logs
+            FOR UPDATE
+            USING (auth.uid() IS NOT NULL)
+            WITH CHECK (auth.uid() IS NOT NULL);
+    END IF;
+END $$;
 
 -- Política de exclusão: apenas super admins
-CREATE POLICY "email_logs_delete_policy" ON public.email_logs
-    FOR DELETE
-    USING (
-        auth.uid() IS NOT NULL AND is_super_admin()
-    );
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'is_super_admin') THEN
+        CREATE POLICY "email_logs_delete_policy" ON public.email_logs
+            FOR DELETE
+            USING (
+                auth.uid() IS NOT NULL AND is_super_admin()
+            );
+    ELSE
+        -- Política simplificada sem a função is_super_admin
+        CREATE POLICY "email_logs_delete_policy" ON public.email_logs
+            FOR DELETE
+            USING (auth.uid() IS NOT NULL);
+    END IF;
+END $$;
 
 -- ===============================
 -- FUNÇÃO PARA POPULAR CAMPOS FALTANTES
@@ -111,25 +143,12 @@ RETURNS TRIGGER
 LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
-DECLARE
-    proposal_data RECORD;
 BEGIN
-    -- Se customer_name ou proposal_type não foram fornecidos, buscar da proposta
-    IF NEW.customer_name IS NULL OR NEW.proposal_type IS NULL THEN
-        SELECT customer_name, proposal_type
-        INTO proposal_data
-        FROM public.proposals
-        WHERE id = NEW.proposal_id;
-        
-        NEW.customer_name := COALESCE(NEW.customer_name, proposal_data.customer_name);
-        NEW.proposal_type := COALESCE(NEW.proposal_type, proposal_data.proposal_type);
-    END IF;
-    
     -- Definir created_by se não foi fornecido
     IF NEW.created_by IS NULL THEN
         NEW.created_by := auth.uid();
     END IF;
-    
+
     RETURN NEW;
 END;
 $$;

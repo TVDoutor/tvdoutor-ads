@@ -1,24 +1,34 @@
 -- Corrigir políticas RLS para tabelas de email
 -- Esta migração corrige os problemas de permissão 403 Forbidden
 
--- 1. Corrigir políticas para email_logs
-DROP POLICY IF EXISTS "Users can view their own email logs" ON public.email_logs;
-DROP POLICY IF EXISTS "Users can insert email logs" ON public.email_logs;
-DROP POLICY IF EXISTS "Users can update their own email logs" ON public.email_logs;
+-- 1. Corrigir políticas para email_logs (apenas se a tabela existir)
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'email_logs' AND table_schema = 'public') THEN
+    DROP POLICY IF EXISTS "Users can view their own email logs" ON public.email_logs;
+    DROP POLICY IF EXISTS "Users can insert email logs" ON public.email_logs;
+    DROP POLICY IF EXISTS "Users can update their own email logs" ON public.email_logs;
+  END IF;
+END $$;
 
--- Políticas mais permissivas para email_logs
-CREATE POLICY "Authenticated users can view email logs" ON public.email_logs
-  FOR SELECT TO authenticated
-  USING (true);
+-- Políticas mais permissivas para email_logs (apenas se a tabela existir)
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'email_logs' AND table_schema = 'public') THEN
+    CREATE POLICY "Authenticated users can view email logs" ON public.email_logs
+      FOR SELECT TO authenticated
+      USING (true);
 
-CREATE POLICY "Authenticated users can insert email logs" ON public.email_logs
-  FOR INSERT TO authenticated
-  WITH CHECK (true);
+    CREATE POLICY "Authenticated users can insert email logs" ON public.email_logs
+      FOR INSERT TO authenticated
+      WITH CHECK (true);
 
-CREATE POLICY "Authenticated users can update email logs" ON public.email_logs
-  FOR UPDATE TO authenticated
-  USING (true)
-  WITH CHECK (true);
+    CREATE POLICY "Authenticated users can update email logs" ON public.email_logs
+      FOR UPDATE TO authenticated
+      USING (true)
+      WITH CHECK (true);
+  END IF;
+END $$;
 
 -- 2. Corrigir políticas para email_stats (se for uma view)
 -- Primeiro, verificar se é uma view ou tabela
@@ -86,7 +96,7 @@ GRANT ALL ON public.email_logs TO authenticated;
 
 -- 7. Comentários para documentação
 COMMENT ON TABLE public.email_logs IS 'Logs de emails enviados pelo sistema';
-COMMENT ON COLUMN public.email_logs.id IS 'ID único do log de email';
+COMMENT ON COLUMN public.email_logs.log_id IS 'ID único do log de email';
 COMMENT ON COLUMN public.email_logs.proposal_id IS 'ID da proposta relacionada';
 COMMENT ON COLUMN public.email_logs.email_type IS 'Tipo do email (proposal_created, status_changed, etc.)';
 COMMENT ON COLUMN public.email_logs.recipient_email IS 'Email do destinatário';

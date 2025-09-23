@@ -118,16 +118,21 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
 BEGIN
-    -- Atualizar registros que não têm customer_name ou proposal_type
-    UPDATE public.email_logs el
-    SET 
-        customer_name = COALESCE(el.customer_name, p.customer_name),
-        proposal_type = COALESCE(el.proposal_type, p.proposal_type)
-    FROM public.proposals p
-    WHERE el.proposal_id = p.id
-      AND (el.customer_name IS NULL OR el.proposal_type IS NULL);
-      
-    RAISE NOTICE 'Campos faltantes populados com sucesso';
+    -- Verificar se a tabela proposals existe antes de tentar usá-la
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'proposals' AND table_schema = 'public') THEN
+        -- Atualizar registros que não têm customer_name ou proposal_type
+        UPDATE public.email_logs el
+        SET 
+            customer_name = COALESCE(el.customer_name, p.customer_name),
+            proposal_type = COALESCE(el.proposal_type, p.proposal_type)
+        FROM public.proposals p
+        WHERE el.proposal_id = p.id
+          AND (el.customer_name IS NULL OR el.proposal_type IS NULL);
+          
+        RAISE NOTICE 'Campos faltantes populados com sucesso';
+    ELSE
+        RAISE NOTICE 'Tabela proposals não existe, pulando população de campos';
+    END IF;
 END;
 $$;
 
@@ -165,7 +170,17 @@ CREATE TRIGGER trigger_set_email_log_fields
 -- ===============================
 
 COMMENT ON TABLE public.email_logs IS 'Logs de emails enviados pelo sistema';
-COMMENT ON COLUMN public.email_logs.customer_name IS 'Nome do cliente (copiado da proposta)';
-COMMENT ON COLUMN public.email_logs.proposal_type IS 'Tipo da proposta (avulsa/projeto)';
+
+-- Comentários condicionais para colunas que podem existir
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'email_logs' AND column_name = 'customer_name') THEN
+        COMMENT ON COLUMN public.email_logs.customer_name IS 'Nome do cliente (copiado da proposta)';
+    END IF;
+    
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'email_logs' AND column_name = 'proposal_type') THEN
+        COMMENT ON COLUMN public.email_logs.proposal_type IS 'Tipo da proposta (avulsa/projeto)';
+    END IF;
+END $$;
 COMMENT ON FUNCTION populate_email_logs_missing_fields() IS 'Popula campos faltantes nos logs de email';
 COMMENT ON FUNCTION set_email_log_fields() IS 'Trigger para definir campos automaticamente nos logs de email';

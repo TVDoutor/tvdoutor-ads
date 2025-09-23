@@ -23,29 +23,45 @@ import { saveAs } from 'file-saver';
 // Classes sociais permitidas conforme definido no banco de dados
 const ALLOWED_CLASSES = ['A', 'AB', 'ABC', 'B', 'BC', 'C', 'CD', 'D', 'E', 'ND'] as const;
 
-// Tipo para os dados retornados pela VIEW vw_screens_inventory
+
+// Tipo para os dados retornados pela VIEW v_screens_enriched
 type InventoryRow = {
   id: number;
   code: string | null;
-  display_name: string | null;
   name: string | null;
+  display_name: string | null;
   city: string | null;
   state: string | null;
+  cep: string | null;
   address: string | null;
-  active: boolean | null;
+  lat: number | null;
+  lng: number | null;
+  geom: any | null;
+  screen_active: boolean | null;
   class: 'A'|'AB'|'ABC'|'B'|'BC'|'C'|'CD'|'D'|'E'|'ND' | null;
-  venue_type_parent: string | null;
-  venue_type_child: string | null;
-  venue_type_grandchildren: string | null;
-  specialties: string[] | null;
-  rates: {
-    standard_rate_month?: number | null;
-    selling_rate_month?: number | null;
-    spots_per_hour?: number | null;
-    spot_duration_secs?: number | null;
-  } | null;
+  specialty: string[] | null;
+  board_format: string | null;
+  category: string | null;
+  rede: string | null;  // Campo fixo: TV Doutor, LG, Amil
+  standard_rate_month: number | null;
+  selling_rate_month: number | null;
+  spots_per_hour: number | null;
+  spot_duration_secs: number | null;
+  
+  // Dados do venue
   venue_name: string | null;
-  audience_monthly: number | null;
+  venue_address: string | null;
+  venue_country: string | null;
+  venue_state: string | null;
+  venue_district: string | null;
+  
+  // Dados do staging para compatibilidade
+  staging_nome_ponto: string | null;
+  staging_audiencia: number | null;
+  staging_especialidades: string | null;
+  staging_tipo_venue: string | null;
+  staging_subtipo: string | null;
+  staging_categoria: string | null;
 };
 
 interface Screen {
@@ -55,7 +71,7 @@ interface Screen {
   display_name: string;
   city: string;
   state: string;
-  address_raw: string;
+  address: string;
   class: typeof ALLOWED_CLASSES[number];
   active: boolean;
   venue_type_parent: string;
@@ -123,14 +139,16 @@ const Inventory = () => {
       console.log('🔍 Iniciando busca de dados das telas via VIEW...');
       
       const { data, error } = await supabase
-        .from('vw_screens_inventory')
-        .select(
-          `id, code, display_name, name, city, state, address,
-           active, class, venue_type_parent, venue_type_child, venue_type_grandchildren,
-           specialties, rates, venue_name, audience_monthly`
-        )
-        .order('id', { ascending: false })
-        .limit(100);
+        .from('v_screens_enriched')
+        .select(`
+          id, code, name, display_name, city, state, cep, address, lat, lng, geom,
+          screen_active, class, specialty, board_format, category, rede,
+          standard_rate_month, selling_rate_month, spots_per_hour, spot_duration_secs,
+          venue_name, venue_address, venue_country, venue_state, venue_district,
+          staging_nome_ponto, staging_audiencia, staging_especialidades,
+          staging_tipo_venue, staging_subtipo, staging_categoria
+        `)
+        .order('code', { ascending: true });
 
       console.log('📊 Dados da VIEW recebidos:', { data, error });
       
@@ -150,44 +168,47 @@ const Inventory = () => {
           id: r.id,
           code: r.code ?? '',
           name: r.name ?? '',
-          display_name: r.display_name ?? '',
+          display_name: r.display_name ?? r.staging_nome_ponto ?? r.name ?? '',
           city: r.city ?? '',
           state: r.state ?? '',
-          address_raw: r.address ?? '',           // <- endereço pronto vindo da view
+          address: r.address ?? '',
           class: (r.class ?? 'ND') as Screen['class'],
-          active: r.active ?? true,
+          active: r.screen_active ?? true,
 
-          venue_type_parent: r.venue_type_parent ?? '',
-          venue_type_child: r.venue_type_child ?? '',
-          venue_type_grandchildren: r.venue_type_grandchildren ?? '',
+          venue_type_parent: r.staging_tipo_venue ?? '',
+          venue_type_child: r.staging_subtipo ?? '',
+          venue_type_grandchildren: r.rede ?? r.staging_categoria ?? r.category ?? '',
 
-          specialty: r.specialties ?? [],
+          specialty: r.specialty ?? (r.staging_especialidades ? r.staging_especialidades.split(',').map(s => s.trim()).filter(Boolean) : []),
 
           // sua UI espera "screen_rates"
-          screen_rates: r.rates
-            ? {
-                standard_rate_month: r.rates.standard_rate_month ?? undefined,
-                selling_rate_month: r.rates.selling_rate_month ?? undefined,
-                spots_per_hour: r.rates.spots_per_hour ?? undefined,
-                spot_duration_secs: r.rates.spot_duration_secs ?? undefined,
-              }
-            : undefined,
+          screen_rates: {
+            standard_rate_month: r.standard_rate_month ?? undefined,
+            selling_rate_month: r.selling_rate_month ?? undefined,
+            spots_per_hour: r.spots_per_hour ?? undefined,
+            spot_duration_secs: r.spot_duration_secs ?? undefined,
+          },
 
           // sua UI espera "venue_info"
           venue_info: {
-            name: r.venue_name ?? undefined,
-            address: r.address ?? undefined,
-            audience_monthly: r.audience_monthly ?? undefined,
+            name: r.venue_name ?? r.staging_nome_ponto ?? r.name ?? undefined,
+            address: r.venue_address ?? r.address ?? undefined,
+            audience_monthly: r.staging_audiencia ?? undefined,
           },
 
           // campos opcionais que seu tipo Screen já tem
-          lat: undefined,
-          lng: undefined,
-          venue_id: undefined,
+          lat: r.lat ?? undefined,
+          lng: r.lng ?? undefined,
+          venue_id: undefined, // Não temos venue_id na view atual
         };
       });
 
       console.log('✅ Dados enriquecidos:', enriched);
+      console.log('🔍 Primeira tela com classe:', enriched[0] ? {
+        id: enriched[0].id,
+        code: enriched[0].code,
+        class: enriched[0].class
+      } : 'Nenhuma tela');
       setScreens(enriched);
     } catch (err: unknown) {
       console.error('Error fetching screens:', err);
@@ -219,7 +240,7 @@ const Inventory = () => {
        filtered = filtered.filter(screen => {
          const screenCode = screen.code || '';
          const displayName = screen.display_name || '';
-         const location = `${screen.address_raw || ''} ${screen.city || ''} ${screen.state || ''}`.toLowerCase();
+         const location = `${screen.address || ''} ${screen.city || ''} ${screen.state || ''}`.toLowerCase();
          
          return screenCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 displayName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -247,7 +268,7 @@ const Inventory = () => {
   };
 
   const getLocation = (screen: Screen) => {
-    const parts = [screen.address_raw, screen.city, screen.state].filter(Boolean);
+    const parts = [screen.address, screen.city, screen.state].filter(Boolean);
     return parts.length > 0 ? parts.join(', ') : 'Localização não informada';
   };
 
@@ -332,7 +353,7 @@ const Inventory = () => {
         display_name: editingScreen.display_name || null,
         city: editingScreen.city || null,
         state: editingScreen.state || null,
-        address_raw: editingScreen.address_raw || null,
+        address_raw: editingScreen.address || null,
         class: selectedClass,
         active: editingScreen.active ?? true,
         venue_type_parent: editingScreen.venue_type_parent || null,
@@ -436,7 +457,7 @@ const Inventory = () => {
         display_name: newScreen.display_name || null,
         city: newScreen.city || null,
         state: newScreen.state || null,
-        address_raw: newScreen.address_raw || null,
+        address_raw: newScreen.address || null,
         class: selectedClass,
         active: newScreen.active ?? true,
         venue_type_parent: newScreen.venue_type_parent || null,
@@ -1134,7 +1155,7 @@ const Inventory = () => {
                          <div>
                            <p className="font-medium font-mono">{screen.code || `ID: ${screen.id}`}</p>
                            <p className="text-sm text-muted-foreground">
-                             {screen.display_name || 'Sem nome de exibição'}
+                             {screen.display_name || screen.venue_info?.name || 'Sem nome de exibição'}
                            </p>
                          </div>
                        </TableCell>
@@ -1401,8 +1422,8 @@ const Inventory = () => {
                   <Label htmlFor="address">Endereço</Label>
                   <Textarea
                     id="address"
-                    value={editingScreen.address_raw || ''}
-                    onChange={(e) => updateEditingScreen('address_raw', e.target.value)}
+                    value={editingScreen.address || ''}
+                    onChange={(e) => updateEditingScreen('address', e.target.value)}
                     placeholder="Endereço completo"
                     rows={2}
                   />
@@ -1572,8 +1593,8 @@ const Inventory = () => {
                 <Label htmlFor="new-address">Endereço</Label>
                 <Textarea
                   id="new-address"
-                  value={newScreen.address_raw || ''}
-                  onChange={(e) => updateNewScreen('address_raw', e.target.value)}
+                  value={newScreen.address || ''}
+                  onChange={(e) => updateNewScreen('address', e.target.value)}
                   placeholder="Endereço completo"
                   rows={2}
                 />

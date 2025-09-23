@@ -329,7 +329,7 @@ const Index = () => {
                   <div key={screen.id} className="p-4 border rounded-lg hover:shadow-md transition-shadow">
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex-1">
-                        <h4 className="font-semibold text-sm line-clamp-2">{screen.display_name}</h4>
+                        <h4 className="font-semibold text-sm line-clamp-2">{screen.code} {screen.name}</h4>
                         <p className="text-xs text-muted-foreground mt-1">
                           {screen.city}, {screen.state}
                         </p>

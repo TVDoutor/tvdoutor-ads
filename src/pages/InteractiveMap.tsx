@@ -39,6 +39,7 @@ const DEFAULT_CLASSES = ['A', 'AB', 'ABC', 'B', 'BC', 'C', 'CD', 'D', 'E', 'ND']
 // Simplified types to avoid type instantiation issues
 interface SimpleScreen {
   id: string;
+  code: string;
   name: string;
   display_name: string;
   city: string;
@@ -47,7 +48,7 @@ interface SimpleScreen {
   lng: number;
   active: boolean;
   class: string;
-  address_raw?: string;
+  address?: string;
   venue_type_parent?: string;
   venue_type_child?: string;
   venue_type_grandchildren?: string;
@@ -58,122 +59,6 @@ interface MapFilters {
   city: string;
   status: string;
   class: string;
-}
-
-// Função para gerar dados de teste quando não há dados no banco
-function getTestScreens(): SimpleScreen[] {
-  console.log('🧪 Usando dados de teste para o mapa interativo');
-  
-  return [
-    {
-      id: 'test-1',
-      name: 'SP001',
-      display_name: 'Shopping Iguatemi - Hall Principal',
-      city: 'São Paulo',
-      state: 'SP',
-      lat: -23.550520,
-      lng: -46.633308,
-      active: true,
-      class: 'A',
-      address_raw: 'Av. Brigadeiro Luiz Antonio, 2232 - São Paulo, SP',
-      venue_type_parent: 'Shopping',
-      venue_type_child: 'Hall Principal',
-      venue_type_grandchildren: 'Recepção',
-      specialty: ['Shopping', 'Varejo']
-    },
-    {
-      id: 'test-2',
-      name: 'SP002',
-      display_name: 'Hospital Sírio-Libanês - Recepção',
-      city: 'São Paulo',
-      state: 'SP',
-      lat: -23.550520,
-      lng: -46.633308,
-      active: true,
-      class: 'A',
-      address_raw: 'R. Dona Adma Jafet, 91 - São Paulo, SP',
-      venue_type_parent: 'Hospital',
-      venue_type_child: 'Recepção',
-      venue_type_grandchildren: 'Hall Principal',
-      specialty: ['Saúde', 'Hospital']
-    },
-    {
-      id: 'test-3',
-      name: 'SP003',
-      display_name: 'Farmácia Pague Menos - Paulista',
-      city: 'São Paulo',
-      state: 'SP',
-      lat: -23.5615,
-      lng: -46.6565,
-      active: true,
-      class: 'B',
-      address_raw: 'Av. Paulista, 1000 - São Paulo, SP',
-      venue_type_parent: 'Farmácia',
-      venue_type_child: 'Loja',
-      venue_type_grandchildren: 'Recepção',
-      specialty: ['Farmácia', 'Saúde']
-    },
-    {
-      id: 'test-4',
-      name: 'SP004',
-      display_name: 'Clínica São Paulo - Hall Principal',
-      city: 'São Paulo',
-      state: 'SP',
-      lat: -23.550520,
-      lng: -46.633308,
-      active: true,
-      class: 'AB',
-      address_raw: 'R. Napoleão de Barros, 715 - São Paulo, SP',
-      venue_type_parent: 'Clínica',
-      venue_type_child: 'Hall Principal',
-      venue_type_grandchildren: 'Recepção',
-      specialty: ['Clínica Médica', 'Saúde']
-    },
-    {
-      id: 'test-5',
-      name: 'SP005',
-      display_name: 'Shopping Morumbi - Praça Central',
-      city: 'São Paulo',
-      state: 'SP',
-      lat: -23.550520,
-      lng: -46.633308,
-      active: true,
-      class: 'A'
-    },
-    {
-      id: 'test-6',
-      name: 'RJ001',
-      display_name: 'Shopping Leblon - Hall Principal',
-      city: 'Rio de Janeiro',
-      state: 'RJ',
-      lat: -22.970722,
-      lng: -43.182365,
-      active: true,
-      class: 'A'
-    },
-    {
-      id: 'test-7',
-      name: 'RJ002',
-      display_name: 'Hospital Copa D\'Or - Recepção',
-      city: 'Rio de Janeiro',
-      state: 'RJ',
-      lat: -22.970722,
-      lng: -43.182365,
-      active: true,
-      class: 'A'
-    },
-    {
-      id: 'test-8',
-      name: 'BH001',
-      display_name: 'Shopping Del Rey - Hall Principal',
-      city: 'Belo Horizonte',
-      state: 'MG',
-      lat: -19.9167,
-      lng: -43.9345,
-      active: true,
-      class: 'A'
-    }
-  ];
 }
 
 export default function InteractiveMap() {
@@ -208,20 +93,13 @@ export default function InteractiveMap() {
   // Função corrigida para buscar classes - ÚNICA DEFINIÇÃO
   const fetchAvailableClasses = async () => {
     try {
-      console.log('🔍 Buscando classes disponíveis...');
+      console.log('🔍 Buscando classes disponíveis via v_screens_enriched...');
       
-      // Tentar buscar com a coluna class primeiro, se falhar, usar classes padrão
-      let { data, error } = await supabase
-        .from('screens')
+      // Usar a view v_screens_enriched que já existe e tem todos os dados
+      const { data, error } = await supabase
+        .from('v_screens_enriched')
         .select('class')
         .not('class', 'is', null);
-      
-      // Se a coluna class não existir, usar classes padrão
-      if (error && error.code === '42703' && error.message.includes('column screens.class does not exist')) {
-        console.log('⚠️ Coluna class não existe, usando classes padrão...');
-        data = null;
-        error = null;
-      }
       
       console.log('📊 Resposta do Supabase:', { data, error });
       
@@ -838,6 +716,20 @@ export default function InteractiveMap() {
       }
 
       console.log(`📍 Criando marcador ${index + 1}/${screens.length} para ${screen.display_name}`);
+      console.log('🔍 Dados da tela no marcador:', { 
+        id: screen.id, 
+        code: screen.code, 
+        name: screen.name, 
+        display_name: screen.display_name 
+      });
+      console.log('🔍 Verificação de campos vazios:', {
+        codeEmpty: !screen.code || screen.code.trim() === '',
+        nameEmpty: !screen.name || screen.name.trim() === '',
+        displayNameEmpty: !screen.display_name || screen.display_name.trim() === '',
+        codeValue: `"${screen.code}"`,
+        nameValue: `"${screen.name}"`,
+        displayNameValue: `"${screen.display_name}"`
+      });
       console.log(`📊 Coordenadas originais: lat=${screen.lat} (${typeof screen.lat}), lng=${screen.lng} (${typeof screen.lng})`);
       console.log(`🔢 Coordenadas convertidas: lat=${lat}, lng=${lng}`);
       console.log(`🗺️ Coordenadas para Mapbox: [${lng}, ${lat}]`);
@@ -892,8 +784,9 @@ export default function InteractiveMap() {
               </svg>
             </div>
             <div style="flex: 1; min-width: 0;">
-              <h3 style="font-weight: 700; color: #111827; font-size: 18px; margin: 0 0 4px 0; line-height: 1.3; word-wrap: break-word;">${screen.display_name || 'Nome não informado'}</h3>
-              <p style="font-size: 13px; color: #0891b2; font-weight: 600; margin: 0; line-height: 1.4;">Código: ${screen.name || 'N/A'}</p>
+              <h3 style="font-weight: 700; color: #111827; font-size: 18px; margin: 0 0 4px 0; line-height: 1.3; word-wrap: break-word;">${(screen.code || 'Código não informado')} ${(screen.name || screen.display_name || 'Nome não informado')}</h3>
+              <script>console.log('🔍 Popup screen data:', { code: '${screen.code}', name: '${screen.name}', display_name: '${screen.display_name}' });</script>
+              <p style="font-size: 13px; color: #0891b2; font-weight: 600; margin: 0; line-height: 1.4;">Código: ${screen.code || 'N/A'}</p>
             </div>
           </div>
 
@@ -908,7 +801,7 @@ export default function InteractiveMap() {
             <div style="space-y: 4px;">
               <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
                 <span style="font-size: 12px; color: #6b7280; font-weight: 500;">Endereço</span>
-                <span style="font-size: 12px; color: #111827; font-weight: 500;">${screen.address_raw || 'Endereço não informado'}</span>
+                <span style="font-size: 12px; color: #111827; font-weight: 500;">${screen.address || 'Endereço não informado'}</span>
               </div>
               <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
                 <span style="font-size: 12px; color: #6b7280; font-weight: 500;">Cidade</span>
@@ -935,7 +828,7 @@ export default function InteractiveMap() {
             </div>
             <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px;">
               <span style="font-size: 12px; color: #6b7280; font-weight: 500;">Status</span>
-              <span style="font-size: 12px; padding: 2px 8px; border-radius: 12px; font-weight: 600; ${screen.active ? 'background: #dcfce7; color: #166534;' : 'background: #f3f4f6; color: #374151;'}">${screen.active ? 'Ativo' : 'Inativo'}</span>
+              <span style="font-size: 12px; padding: 2px 8px; border-radius: 12px; font-weight: 600; ${screen.screen_active ? 'background: #dcfce7; color: #166534;' : 'background: #f3f4f6; color: #374151;'}">${screen.screen_active ? 'Ativo' : 'Inativo'}</span>
             </div>
           </div>
 
@@ -1098,60 +991,22 @@ export default function InteractiveMap() {
   const fetchScreens = async () => {
     setLoading(true);
     try {
-      console.log('🔍 Iniciando busca por telas...');
+      console.log('🔍 Iniciando busca por telas via v_screens_enriched...');
       
-      // Primeiro, vamos verificar a conexão com o Supabase
-      const { error: testError } = await supabase
-        .from('screens')
-        .select('count')
-        .limit(1);
-      
-      if (testError) {
-        console.error('❌ Erro de conexão com Supabase:', testError);
-        throw new Error(`Erro de conexão: ${testError.message}`);
-      }
-      
-      console.log('✅ Conexão com Supabase OK');
-
-      // Primeiro buscar todas as telas para contar inválidas
-      const { data: allScreens, error: allError } = await supabase
-        .from('screens')
-        .select('id, lat, lng');
-
-      if (allError) {
-        console.error('❌ Erro ao buscar contagem de telas:', allError);
-      } else {
-        const invalidCount = allScreens?.filter(s => !s.lat || !s.lng).length || 0;
-        setInvalidScreensCount(invalidCount);
-      }
-
-      // Agora buscar as telas válidas
-      // Tentar buscar com a coluna class primeiro, se falhar, buscar sem ela
-      let { data, error } = await supabase
-        .from('screens')
-        .select('id, name, display_name, city, state, lat, lng, active, class, address_raw, venue_type_parent, venue_type_child, venue_type_grandchildren, specialty')
-        .not('lat', 'is', null)
-        .not('lng', 'is', null);
-
-      // Se a coluna class não existir, buscar novamente sem ela
-      if (error && error.code === '42703' && error.message.includes('column screens.class does not exist')) {
-        console.log('⚠️ Coluna class não existe, buscando sem ela...');
-        const { data: screensWithoutClass, error: errorWithoutClass } = await supabase
-          .from('screens')
-          .select('id, name, display_name, city, state, lat, lng, active, address_raw, venue_type_parent, venue_type_child, venue_type_grandchildren, specialty')
-          .not('lat', 'is', null)
-          .not('lng', 'is', null);
-        
-        // Adicionar propriedade class padrão aos dados
-        data = screensWithoutClass?.map(screen => ({
-          ...screen,
-          class: 'ND'
-        })) || null;
-        error = errorWithoutClass;
-      }
+      // Usar a view v_screens_enriched que já existe e tem todos os dados
+      const { data, error } = await supabase
+        .from('v_screens_enriched')
+        .select(`
+          id, code, name, display_name, city, state, cep, address, lat, lng, geom,
+          screen_active, class, specialty, board_format, category, rede,
+          standard_rate_month, selling_rate_month, spots_per_hour, spot_duration_secs,
+          venue_name, venue_address, venue_country, venue_state, venue_district,
+          staging_nome_ponto, staging_audiencia, staging_especialidades,
+          staging_tipo_venue, staging_subtipo, staging_categoria
+        `);
 
       if (error) {
-        console.error('❌ Erro na query screens:', error);
+        console.error('❌ Erro na query v_screens_enriched:', error);
         throw new Error(`Erro na consulta: ${error.message}`);
       }
 
@@ -1159,33 +1014,52 @@ export default function InteractiveMap() {
         total: data?.length || 0, 
         sample: data?.slice(0, 3) 
       });
+      
+      // Log detalhado da primeira tela para debug
+      if (data && data.length > 0) {
+        const firstScreen = data[0];
+        console.log('🔍 Primeira tela do banco (antes do mapeamento):', {
+          id: firstScreen.id,
+          code: firstScreen.code,
+          name: firstScreen.name,
+          class: firstScreen.class,
+          address: firstScreen.address,
+          codeType: typeof firstScreen.code,
+          nameType: typeof firstScreen.name,
+          classType: typeof firstScreen.class
+        });
+      }
 
       if (!data || data.length === 0) {
-        console.warn('⚠️ Nenhuma tela encontrada na base de dados - usando dados de teste');
-        // Usar dados de teste para desenvolvimento
-        const testScreens = getTestScreens();
-        setScreens(testScreens);
+        console.warn('⚠️ Nenhuma tela encontrada na base de dados');
+        setScreens([]);
         return;
       }
 
+      // Contar telas sem coordenadas válidas
+      const invalidCount = data?.filter(s => !s.lat || !s.lng).length || 0;
+      setInvalidScreensCount(invalidCount);
+
       const mappedScreens: SimpleScreen[] = data.map(screen => ({
         id: String(screen.id),
-        name: screen.name || 'Código não informado',
-        display_name: screen.display_name || 'Nome não informado',
+        code: screen.code || 'Código não informado',
+        name: screen.name || 'Nome não informado',
+        display_name: screen.staging_nome_ponto || screen.name || 'Nome não informado',
         city: screen.city || 'Cidade não informada',
         state: screen.state || 'Estado não informado',
         lat: Number(screen.lat) || 0,
         lng: Number(screen.lng) || 0,
-        active: Boolean(screen.active),
-        class: (screen as any).class || 'ND',
-        address_raw: (screen as any).address_raw || undefined,
-        venue_type_parent: (screen as any).venue_type_parent || undefined,
-        venue_type_child: (screen as any).venue_type_child || undefined,
-        venue_type_grandchildren: (screen as any).venue_type_grandchildren || undefined,
-        specialty: (screen as any).specialty || undefined
+        active: Boolean(screen.screen_active),
+        class: screen.class || 'ND',
+        address: screen.address || undefined,
+        venue_type_parent: screen.staging_tipo_venue || screen.venue_type_parent || undefined,
+        venue_type_child: screen.staging_subtipo || screen.venue_type_child || undefined,
+        venue_type_grandchildren: screen.staging_categoria || screen.venue_type_grandchildren || undefined,
+        specialty: screen.staging_especialidades ? screen.staging_especialidades.split(',').map((s: string) => s.trim()).filter(Boolean) : undefined
       }));
 
       console.log('✅ Telas processadas:', mappedScreens.length);
+      console.log('🔍 Primeira tela mapeada:', mappedScreens[0]);
       setScreens(mappedScreens);
       
       if (mappedScreens.length > 0) {
@@ -1229,12 +1103,37 @@ export default function InteractiveMap() {
 
     // Text search
     if (searchTerm.trim()) {
-      filtered = filtered.filter(screen =>
-        screen.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        screen.display_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        screen.city.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        screen.state.toLowerCase().includes(searchTerm.toLowerCase())
-      );
+      console.log('🔍 Buscando por termo:', searchTerm);
+      console.log('🔍 Total de telas antes da busca:', filtered.length);
+      
+      filtered = filtered.filter(screen => {
+        const codeMatch = screen.code.toLowerCase().includes(searchTerm.toLowerCase());
+        const nameMatch = screen.name.toLowerCase().includes(searchTerm.toLowerCase());
+        const displayNameMatch = screen.display_name.toLowerCase().includes(searchTerm.toLowerCase());
+        const cityMatch = screen.city.toLowerCase().includes(searchTerm.toLowerCase());
+        const stateMatch = screen.state.toLowerCase().includes(searchTerm.toLowerCase());
+        
+        const matches = codeMatch || nameMatch || displayNameMatch || cityMatch || stateMatch;
+        
+        if (matches) {
+          console.log('✅ Tela encontrada:', {
+            code: screen.code,
+            name: screen.name,
+            display_name: screen.display_name,
+            city: screen.city,
+            state: screen.state,
+            codeMatch,
+            nameMatch,
+            displayNameMatch,
+            cityMatch,
+            stateMatch
+          });
+        }
+        
+        return matches;
+      });
+      
+      console.log('🔍 Total de telas após busca:', filtered.length);
     }
 
     // City filter
@@ -1403,6 +1302,11 @@ export default function InteractiveMap() {
     try {
       setLoading(true);
       console.log('🔍 Iniciando busca por endereço:', searchAddress);
+      console.log('🔍 Raio de busca configurado:', searchRadius, 'km');
+      
+      // Verificar se a chave da API está configurada
+      const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+      console.log('🔑 Google Maps API Key configurada:', apiKey ? 'SIM' : 'NÃO');
       
       // Geocodificar o endereço
       const coordinates = await geocodeAddress(searchAddress);
@@ -1412,6 +1316,7 @@ export default function InteractiveMap() {
       }
 
       console.log('📍 Coordenadas encontradas:', coordinates);
+      console.log('📍 Endereço formatado:', coordinates.google_formatted_address);
 
       // Buscar telas próximas ao endereço
       const searchParams = {
@@ -1438,6 +1343,7 @@ export default function InteractiveMap() {
       // Converter ScreenSearchResult para SimpleScreen
       const convertedScreens: SimpleScreen[] = nearbyScreens.map(screen => ({
         id: screen.id,
+        code: screen.code,
         name: screen.name,
         display_name: screen.display_name,
         city: screen.city,
@@ -1824,9 +1730,9 @@ export default function InteractiveMap() {
                           <ZapOff className="w-4 h-4 text-muted-foreground" />
                         )}
                         <div>
-                          <p className="font-medium text-sm">{screen.display_name}</p>
+                          <p className="font-medium text-sm">{screen.code} {screen.name}</p>
                           <p className="text-xs text-muted-foreground">
-                            {screen.name} • {screen.city}, {screen.state}
+                            {screen.city}, {screen.state}
                           </p>
                         </div>
                       </div>

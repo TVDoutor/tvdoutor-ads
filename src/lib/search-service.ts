@@ -16,6 +16,7 @@ export interface SearchParams {
 
 export interface ScreenSearchResult {
   id: string;
+  code: string;
   name: string;
   display_name: string;
   city: string;
@@ -60,6 +61,12 @@ function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
 export async function searchScreensNearLocation(params: SearchParams): Promise<ScreenSearchResult[]> {
   try {
     console.log('🔍 Iniciando busca de telas próximas:', params);
+    console.log('🔍 Parâmetros recebidos:', {
+      lat: params.lat,
+      lng: params.lng,
+      radiusKm: params.radiusKm,
+      addressName: params.addressName
+    });
 
     // Buscar todas as telas ativas com coordenadas válidas
     // Tentar buscar com a coluna class primeiro, se falhar, buscar sem ela
@@ -67,6 +74,7 @@ export async function searchScreensNearLocation(params: SearchParams): Promise<S
       .from('screens')
       .select(`
         id,
+        code,
         name,
         display_name,
         city,
@@ -89,6 +97,7 @@ export async function searchScreensNearLocation(params: SearchParams): Promise<S
         .from('screens')
         .select(`
           id,
+          code,
           name,
           display_name,
           city,
@@ -113,15 +122,30 @@ export async function searchScreensNearLocation(params: SearchParams): Promise<S
     }
 
     if (!screens || screens.length === 0) {
-      console.log('⚠️ Nenhuma tela encontrada no banco de dados - usando dados de teste');
-      // Retornar dados de teste para desenvolvimento
-      return getTestScreens(params);
+      console.log('⚠️ Nenhuma tela encontrada no banco de dados');
+      return [];
     }
 
+    // Verificar se os dados têm os campos necessários
+    const firstScreen = screens[0];
+    console.log('🔍 Verificação dos dados do banco:', {
+      hasCode: !!firstScreen.code,
+      hasName: !!firstScreen.name,
+      hasDisplayName: !!firstScreen.display_name,
+      code: firstScreen.code,
+      name: firstScreen.name,
+      display_name: firstScreen.display_name
+    });
+
     console.log(`📊 ${screens.length} telas encontradas no banco de dados`);
+    console.log('🔍 Primeira tela do banco:', screens[0]);
 
     // Calcular distâncias e filtrar telas próximas (raio padrão 5km, ou customizado)
     const maxDistance = params.radiusKm || 5; // Raio padrão de 5km
+    console.log(`🔍 Filtrando telas em um raio de ${maxDistance}km do ponto:`, {
+      lat: params.lat,
+      lng: params.lng
+    });
     const nearbyScreens = screens
       .map(screen => {
         const distance = calculateDistance(
@@ -131,9 +155,10 @@ export async function searchScreensNearLocation(params: SearchParams): Promise<S
           screen.lng
         );
         
-        return {
+        const mappedScreen = {
           id: String(screen.id),
-          name: screen.name || 'Código não informado',
+          code: screen.code || 'Código não informado',
+          name: screen.name || screen.display_name || 'Nome não informado',
           display_name: screen.display_name || 'Nome não informado',
           city: screen.city || 'Cidade não informada',
           state: screen.state || 'Estado não informado',
@@ -147,8 +172,31 @@ export async function searchScreensNearLocation(params: SearchParams): Promise<S
           address_raw: screen.address_raw || 'Endereço não informado',
           venue_name: undefined // Não buscando venues por enquanto
         };
+        
+        console.log('🔍 Tela mapeada:', { 
+          original: { 
+            id: screen.id,
+            code: screen.code, 
+            name: screen.name, 
+            display_name: screen.display_name 
+          },
+          mapped: { 
+            id: mappedScreen.id,
+            code: mappedScreen.code, 
+            name: mappedScreen.name,
+            display_name: mappedScreen.display_name
+          }
+        });
+        
+        return mappedScreen;
       })
-      .filter(screen => screen.distance <= maxDistance)
+      .filter(screen => {
+        const withinRadius = screen.distance <= maxDistance;
+        if (screens.indexOf(screens.find(s => s.id === screen.id)!) < 5) {
+          console.log(`📍 Tela ${screen.code}: distância ${screen.distance}km, dentro do raio: ${withinRadius}`);
+        }
+        return withinRadius;
+      })
       .sort((a, b) => a.distance - b.distance) // Ordenar por distância
       .slice(0, 20); // Limitar a 20 resultados
 
@@ -174,6 +222,7 @@ export async function searchScreensByCity(city: string): Promise<ScreenSearchRes
       .from('screens')
       .select(`
         id,
+        code,
         name,
         display_name,
         city,
@@ -198,6 +247,7 @@ export async function searchScreensByCity(city: string): Promise<ScreenSearchRes
         .from('screens')
         .select(`
           id,
+          code,
           name,
           display_name,
           city,
@@ -226,7 +276,8 @@ export async function searchScreensByCity(city: string): Promise<ScreenSearchRes
 
     return screens.map(screen => ({
       id: String(screen.id),
-      name: screen.name || 'Código não informado',
+      code: screen.code || 'Código não informado',
+      name: screen.name || screen.display_name || 'Nome não informado',
       display_name: screen.display_name || 'Nome não informado',
       city: screen.city || 'Cidade não informada',
       state: screen.state || 'Estado não informado',
@@ -263,116 +314,4 @@ function calculatePrice(classType: string, durationWeeks: string): number {
 function calculateReach(classType: string): number {
   const reachMap: Record<string, number> = { 'A': 2000, 'AB': 1800, 'B': 1500, 'C': 1200, 'D': 1000, 'ND': 800 };
   return reachMap[classType] || reachMap['ND'];
-}
-
-/**
- * Retorna dados de teste para desenvolvimento quando não há dados no banco
- */
-function getTestScreens(params: SearchParams): ScreenSearchResult[] {
-  console.log('🧪 Usando dados de teste para desenvolvimento');
-  
-  const testScreens = [
-    {
-      id: 'test-1',
-      name: 'SP001',
-      display_name: 'Shopping Iguatemi - Hall Principal',
-      city: 'São Paulo',
-      state: 'SP',
-      lat: -23.550520,
-      lng: -46.633308,
-      active: true,
-      class: 'A',
-      price: calculatePrice('A', params.durationWeeks),
-      reach: calculateReach('A'),
-      distance: 0.5,
-      address_raw: 'Av. Brigadeiro Luiz Antonio, 2232 - São Paulo, SP',
-      venue_name: 'Shopping Iguatemi'
-    },
-    {
-      id: 'test-2',
-      name: 'SP002',
-      display_name: 'Hospital Sírio-Libanês - Recepção',
-      city: 'São Paulo',
-      state: 'SP',
-      lat: -23.550520,
-      lng: -46.633308,
-      active: true,
-      class: 'A',
-      price: calculatePrice('A', params.durationWeeks),
-      reach: calculateReach('A'),
-      distance: 1.2,
-      address_raw: 'R. Dona Adma Jafet, 91 - São Paulo, SP',
-      venue_name: 'Hospital Sírio-Libanês'
-    },
-    {
-      id: 'test-3',
-      name: 'SP003',
-      display_name: 'Farmácia Pague Menos - Paulista',
-      city: 'São Paulo',
-      state: 'SP',
-      lat: -23.5615,
-      lng: -46.6565,
-      active: true,
-      class: 'B',
-      price: calculatePrice('B', params.durationWeeks),
-      reach: calculateReach('B'),
-      distance: 2.1,
-      address_raw: 'Av. Paulista, 1000 - São Paulo, SP',
-      venue_name: 'Farmácia Pague Menos'
-    },
-    {
-      id: 'test-4',
-      name: 'SP004',
-      display_name: 'Clínica São Paulo - Hall Principal',
-      city: 'São Paulo',
-      state: 'SP',
-      lat: -23.550520,
-      lng: -46.633308,
-      active: true,
-      class: 'AB',
-      price: calculatePrice('AB', params.durationWeeks),
-      reach: calculateReach('AB'),
-      distance: 0.8,
-      address_raw: 'R. Napoleão de Barros, 715 - São Paulo, SP',
-      venue_name: 'Clínica São Paulo'
-    },
-    {
-      id: 'test-5',
-      name: 'SP005',
-      display_name: 'Shopping Morumbi - Praça Central',
-      city: 'São Paulo',
-      state: 'SP',
-      lat: -23.550520,
-      lng: -46.633308,
-      active: true,
-      class: 'A',
-      price: calculatePrice('A', params.durationWeeks),
-      reach: calculateReach('A'),
-      distance: 3.5,
-      address_raw: 'Av. Roque Petroni Jr, 1089 - São Paulo, SP',
-      venue_name: 'Shopping Morumbi'
-    }
-  ];
-
-  // Calcular distâncias reais baseadas na localização de busca
-  const maxDistance = params.radiusKm || 5;
-  const nearbyScreens = testScreens
-    .map(screen => {
-      const distance = calculateDistance(
-        params.lat,
-        params.lng,
-        screen.lat,
-        screen.lng
-      );
-      
-      return {
-        ...screen,
-        distance: Math.round(distance * 10) / 10
-      };
-    })
-    .filter(screen => screen.distance <= maxDistance)
-    .sort((a, b) => a.distance - b.distance);
-
-  console.log(`🧪 ${nearbyScreens.length} telas de teste encontradas próximas (${maxDistance}km de raio)`);
-  return nearbyScreens;
 }

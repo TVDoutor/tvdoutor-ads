@@ -17,6 +17,33 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
+// normaliza status (se algum dia vier "Ativa", "1", boolean etc.)
+const isActive = (v: unknown) => {
+  const s = String(v ?? '').toLowerCase().trim();
+  return s === 'active' || s === 'ativa' || s === 'ativada' || s === '1' || s === 'true';
+};
+
+// converte qualquer coisa em array normalizado de strings
+const toStringArray = (val: any): string[] => {
+  if (!val) return [];
+  if (Array.isArray(val)) return val.map(String).map(s => s.trim()).filter(Boolean);
+  if (typeof val === 'string') {
+    // tenta JSON primeiro
+    try {
+      const parsed = JSON.parse(val);
+      return toStringArray(parsed);
+    } catch {
+      // separa por vírgula, ponto-e-vírgula ou barra vertical
+      return val
+        .replace(/^[\[\{\("\s]+|[\]\}\)"\s]+$/g, '')
+        .split(/[,;|]/g)
+        .map(s => s.trim())
+        .filter(Boolean);
+    }
+  }
+  return [String(val).trim()].filter(Boolean);
+};
+
 interface VenueDetail {
   id: string;
   name: string;
@@ -71,79 +98,66 @@ const VenueDetails = () => {
         throw new Error('ID do ponto não fornecido');
       }
 
-      // Extrair o nome do venue do ID (formato: "nome-cidade-estado")
-      const venueName = id.split('-')[0];
-      
-      // Buscar todas as telas que pertencem a este venue
-      // Tentar buscar com a coluna class primeiro, se falhar, buscar sem ela
-      let { data: screensData, error } = await supabase
-        .from('screens')
+      const venueKey = (id ?? '').toString(); // SEM encodeURIComponent
+      const { data: screensData, error } = await supabase
+        .from('v_screens_enriched')
         .select(`
-          id, code, name, display_name, city, state, class, active,
-          venue_type_parent, venue_type_child, venue_type_grandchildren,
-          lat, lng, specialty, address_raw
-        `);
-
-      // Se a coluna class não existir, buscar novamente sem ela
-      if (error && error.code === '42703' && error.message.includes('column screens.class does not exist')) {
-        console.log('⚠️ Coluna class não existe, buscando sem ela...');
-        const { data: screensWithoutClass, error: errorWithoutClass } = await supabase
-          .from('screens')
-          .select(`
-            id, code, name, display_name, city, state, active,
-            venue_type_parent, venue_type_child, venue_type_grandchildren,
-            lat, lng, specialty, address_raw
-          `);
-        
-        screensData = screensWithoutClass?.map(screen => ({ ...screen, class: 'ND' })) || null;
-        error = errorWithoutClass;
-      }
-
-      // Aplicar filtros se não houve erro
-      if (!error && screensData) {
-        screensData = screensData
-          .filter(screen => screen.display_name?.toLowerCase().includes(venueName.toLowerCase()))
-          .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-      }
+          id, code, name, display_name,
+          city, state,
+          lat, lng,
+          screen_active,
+          class,
+          specialties,
+          venue_name,
+          venue_type_parent,
+          venue_type_child,
+          venue_type_grandchildren,
+          address_raw,
+          venue_key
+        `)
+        .eq('venue_key', venueKey);
 
       if (error) {
         console.error('❌ Erro ao buscar telas:', error);
         throw error;
       }
 
-      if (!screensData || screensData.length === 0) {
-        throw new Error('Ponto de venda não encontrado');
-      }
+      if (!screensData?.length) throw new Error('Ponto de venda não encontrado');
 
-      console.log('✅ Telas encontradas:', screensData.length);
+      const first = screensData[0];
+      const venueScreens = screensData;
 
-      // Construir objeto do venue
-      const firstScreen = screensData[0];
+      console.log('✅ Telas encontradas para o venue:', venueScreens.length);
+
       const venueDetail: VenueDetail = {
-        id: id,
-        name: firstScreen.display_name || 'Ponto sem nome',
-        venue_type_parent: firstScreen.venue_type_parent || 'Não informado',
-        venue_type_child: firstScreen.venue_type_child || '',
-        city: firstScreen.city || 'Cidade não informada',
-        state: firstScreen.state || 'Estado não informado',
-        screens: screensData.map(screen => ({
-          id: screen.id,
-          code: screen.code || screen.name || `ID-${screen.id}`,
-          name: screen.name || `ID-${screen.id}`,
-          display_name: screen.display_name || 'Sem nome',
-          class: screen.class || 'ND',
-          active: Boolean(screen.active),
-          lat: screen.lat,
-          lng: screen.lng,
-          venue_type_parent: screen.venue_type_parent || 'Não informado',
-          venue_type_child: screen.venue_type_child || '',
-          venue_type_grandchildren: screen.venue_type_grandchildren || '',
-          specialty: screen.specialty || [],
-          address_raw: screen.address_raw || ''
-        })),
-        screenCount: screensData.length,
-        activeScreens: screensData.filter(s => s.active).length,
-        coordinates: screensData.some(s => s.lat && s.lng)
+        id: id!,
+        name: first.venue_name || first.display_name || 'Ponto sem nome',
+        venue_type_parent: first.venue_type_parent || 'Não informado',
+        venue_type_child: first.venue_type_child || '',
+        city: first.city || 'Cidade não informada',
+        state: first.state || 'Estado não informado',
+        screens: venueScreens.map((screen) => {
+          const specialties = toStringArray(screen.specialties);
+
+          return {
+            id: screen.id,
+            code: screen.code || `ID-${screen.id}`,
+            name: screen.name || screen.display_name || `ID-${screen.id}`,
+            display_name: screen.display_name || screen.venue_name || 'Sem nome',
+            class: screen.class || 'ND',
+            active: isActive(screen.screen_active), // <<< normalizado
+            lat: screen.lat,
+            lng: screen.lng,
+            venue_type_parent: screen.venue_type_parent || 'Não informado',
+            venue_type_child: screen.venue_type_child || '',
+            venue_type_grandchildren: screen.venue_type_grandchildren || '',
+            specialty: specialties,  // <<< array normalizado
+            address_raw: screen.address_raw || ''
+          };
+        }),
+        screenCount: venueScreens.length,
+        activeScreens: venueScreens.filter(s => isActive(s.screen_active)).length, // <<< garante consistência
+        coordinates: venueScreens.some(s => s.lat && s.lng)
       };
 
       setVenue(venueDetail);

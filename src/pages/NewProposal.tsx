@@ -10,6 +10,13 @@ const NewProposal = () => {
 
   const handleComplete = async (data: ProposalData) => {
     try {
+      console.log('🔍 Dados da proposta antes de inserir:', {
+        customer_name: data.customer_name,
+        selectedScreens: data.selectedScreens,
+        film_seconds: data.film_seconds,
+        insertions_per_hour: data.insertions_per_hour
+      });
+      
       // Create proposal in database
       const { data: proposalData, error } = await supabase
         .from('proposals')
@@ -20,7 +27,7 @@ const NewProposal = () => {
           start_date: data.start_date,
           end_date: data.end_date,
           insertions_per_hour: data.insertions_per_hour,
-          film_seconds: data.film_seconds,
+          film_seconds: JSON.stringify(data.film_seconds), // Converter array para JSON string
           cpm_mode: data.cpm_mode,
           cpm_value: data.cpm_value,
           discount_pct: data.discount_pct,
@@ -29,7 +36,7 @@ const NewProposal = () => {
           status: 'rascunho', // Status inicial
           filters: {},
           quote: {},
-          screens: data.selectedScreens
+          screens: JSON.stringify(data.selectedScreens) // Converter array para JSON string
         })
         .select('id')
         .single();

@@ -285,31 +285,55 @@ CREATE POLICY "Only admins can modify venues"
     USING (is_admin())
     WITH CHECK (is_admin());
 
--- 9. Fix proposals policies - remove duplicate policies
-DROP POLICY IF EXISTS "proposals_admin_delete" ON public.proposals;
-DROP POLICY IF EXISTS "proposals_owner_insert" ON public.proposals;
-DROP POLICY IF EXISTS "proposals_owner_read" ON public.proposals;
-DROP POLICY IF EXISTS "proposals_owner_update" ON public.proposals;
+-- 9. Fix proposals policies - remove duplicate policies (apenas se a tabela existir)
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'proposals' AND table_schema = 'public') THEN
+        DROP POLICY IF EXISTS "proposals_admin_delete" ON public.proposals;
+        DROP POLICY IF EXISTS "proposals_owner_insert" ON public.proposals;
+        DROP POLICY IF EXISTS "proposals_owner_read" ON public.proposals;
+        DROP POLICY IF EXISTS "proposals_owner_update" ON public.proposals;
+    END IF;
+END $$;
 
 -- Keep the existing good policies that use functions
 -- proposals.insert.owner, proposals.read.owner_or_admin, proposals.update.owner_or_admin are good
 
-CREATE POLICY "Only admins can delete proposals"
-    ON public.proposals
-    FOR DELETE
-    TO authenticated
-    USING (is_admin());
+-- Criar política apenas se a tabela existir
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'proposals' AND table_schema = 'public') THEN
+        CREATE POLICY "Only admins can delete proposals"
+            ON public.proposals
+            FOR DELETE
+            TO authenticated
+            USING (is_admin());
+    END IF;
+END $$;
 
--- 10. Fix availability and bookings policies - remove duplicate policies
-DROP POLICY IF EXISTS "availability_admin_delete" ON public.screen_availability;
-DROP POLICY IF EXISTS "availability_insert" ON public.screen_availability;
-DROP POLICY IF EXISTS "availability_read" ON public.screen_availability;
-DROP POLICY IF EXISTS "availability_update" ON public.screen_availability;
-
-DROP POLICY IF EXISTS "bookings_admin_delete" ON public.screen_bookings;
-DROP POLICY IF EXISTS "bookings_insert" ON public.screen_bookings;
-DROP POLICY IF EXISTS "bookings_read" ON public.screen_bookings;
-DROP POLICY IF EXISTS "bookings_update" ON public.screen_bookings;
+-- 10. Fix availability and bookings policies - remove duplicate policies (apenas se a tabela existir)
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'screen_availability' AND table_schema = 'public') THEN
+        DROP POLICY IF EXISTS "availability_admin_delete" ON public.screen_availability;
+        DROP POLICY IF EXISTS "availability_insert" ON public.screen_availability;
+        DROP POLICY IF EXISTS "availability_read" ON public.screen_availability;
+    END IF;
+END $$;
+-- Continuar com as outras políticas condicionalmente
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'screen_availability' AND table_schema = 'public') THEN
+        DROP POLICY IF EXISTS "availability_update" ON public.screen_availability;
+    END IF;
+    
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'screen_bookings' AND table_schema = 'public') THEN
+        DROP POLICY IF EXISTS "bookings_admin_delete" ON public.screen_bookings;
+        DROP POLICY IF EXISTS "bookings_insert" ON public.screen_bookings;
+        DROP POLICY IF EXISTS "bookings_read" ON public.screen_bookings;
+        DROP POLICY IF EXISTS "bookings_update" ON public.screen_bookings;
+    END IF;
+END $$;
 
 -- Keep the existing user-specific policies for availability and bookings as they're properly scoped
 
@@ -320,6 +344,14 @@ DROP POLICY IF EXISTS "bookings_update" ON public.screen_bookings;
 -- ON CONFLICT (user_id, role) DO NOTHING;
 
 -- 12. Add function to safely get user role for frontend
+-- Verificar se a função já existe e dropar se necessário
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'get_user_role') THEN
+        DROP FUNCTION IF EXISTS public.get_user_role(uuid);
+    END IF;
+END $$;
+
 CREATE OR REPLACE FUNCTION public.get_user_role(_user_id UUID DEFAULT auth.uid())
 RETURNS app_role
 LANGUAGE SQL
@@ -327,10 +359,10 @@ STABLE
 SECURITY DEFINER
 SET search_path = public
 AS $$
-  SELECT role 
-  FROM public.user_roles 
-  WHERE user_id = _user_id 
-  ORDER BY CASE 
+  SELECT role
+  FROM public.user_roles
+  WHERE user_id = _user_id
+  ORDER BY CASE
     WHEN role = 'super_admin' THEN 1
     WHEN role = 'admin' THEN 2
     WHEN role = 'user' THEN 3

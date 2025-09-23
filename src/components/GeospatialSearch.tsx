@@ -61,8 +61,8 @@ export function GeospatialSearch({ onResults, onNavigateToMap }: GeospatialSearc
         startDate: new Date().toISOString().split('T')[0],
         durationWeeks: '2',
         addressName: address,
-        formattedAddress: geocoded.formatted_address,
-        placeId: geocoded.place_id,
+        formattedAddress: geocoded.google_formatted_address,
+        placeId: geocoded.google_place_id,
         radiusKm: parseInt(radius)
       });
 
@@ -170,7 +170,7 @@ export function GeospatialSearch({ onResults, onNavigateToMap }: GeospatialSearc
                       </span>
                     </div>
                     <div>
-                      <p className="font-medium text-sm">{screen.display_name}</p>
+                      <p className="font-medium text-sm">{screen.code} {screen.name}</p>
                       <p className="text-xs text-muted-foreground">
                         {screen.city}, {screen.state} • {screen.distance}km
                       </p>

@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { type ScreenSearchResult } from '@/lib/search-service';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface MapViewProps {
   screens: ScreenSearchResult[];
@@ -16,11 +17,17 @@ export function MapView({ screens, centerLat, centerLng, radiusKm, loading = fal
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   // Função para lidar com o clique em "Adicionar ao Carrinho"
   const handleAddToCart = () => {
-    // Redirecionar para a tela de login
-    navigate('/login');
+    if (user) {
+      // Se usuário estiver logado, redirecionar para propostas
+      navigate('/propostas');
+    } else {
+      // Se não estiver logado, redirecionar para login
+      navigate('/login');
+    }
   };
 
   // Função para focar em um ponto específico no mapa
@@ -144,8 +151,8 @@ export function MapView({ screens, centerLat, centerLng, radiusKm, loading = fal
                     </svg>
                   </div>
                   <div style="flex: 1; min-width: 0;">
-                    <h4 style="font-weight: 600; color: #111827; font-size: 16px; margin: 0 0 2px 0; line-height: 1.3; word-wrap: break-word;">${screen.display_name}</h4>
-                    <p style="font-size: 12px; color: #0891b2; font-weight: 500; margin: 0; line-height: 1.4;">Código: ${screen.name}</p>
+                    <h4 style="font-weight: 600; color: #111827; font-size: 16px; margin: 0 0 2px 0; line-height: 1.3; word-wrap: break-word;">${screen.code} ${screen.name}</h4>
+                    <p style="font-size: 12px; color: #0891b2; font-weight: 500; margin: 0; line-height: 1.4;">Código: ${screen.code}</p>
                   </div>
                 </div>
                 
@@ -189,7 +196,7 @@ export function MapView({ screens, centerLat, centerLng, radiusKm, loading = fal
                 
                 <div style="margin-top: 12px; padding-top: 10px; border-top: 1px solid #e5e7eb;">
                   <button onclick="window.handleAddToCart && window.handleAddToCart()" style="width: 100%; background: #06b6d4; color: white; font-weight: 500; padding: 8px 12px; border-radius: 6px; border: none; cursor: pointer; font-size: 12px; transition: background-color 0.2s;" onmouseover="this.style.background='#0891b2'" onmouseout="this.style.background='#06b6d4'">
-                    Quero anunciar aqui
+                    ${user ? 'Criar Proposta' : 'Quero anunciar aqui'}
                   </button>
                 </div>
               </div>

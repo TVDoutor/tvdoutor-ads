@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { DashboardLayout } from "@/components/DashboardLayout";
+import { isActive } from '@/utils/status';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -63,55 +64,41 @@ const Venues = () => {
       setLoading(true);
       setError(null);
 
-      console.log('🔍 Buscando pontos de venda do inventário...');
+      console.log('🔍 Buscando pontos de venda via v_screens_enriched...');
 
-      // Buscar todas as telas do inventário
-      // Tentar buscar com a coluna class primeiro, se falhar, buscar sem ela
-      let { data: screensData, error } = await supabase
-        .from('screens')
+      // Buscar dados da view v_screens_enriched que já existe
+      const { data, error } = await supabase
+        .from('v_screens_enriched')
         .select(`
-          id, code, name, display_name, city, state, class, active, 
-          venue_type_parent, venue_type_child, venue_type_grandchildren,
-          lat, lng
+          id, code, name, display_name, city, state, cep, address, lat, lng, geom,
+          screen_active, class, specialty, board_format, category, rede,
+          standard_rate_month, selling_rate_month, spots_per_hour, spot_duration_secs,
+          venue_name, venue_address, venue_country, venue_state, venue_district,
+          staging_nome_ponto, staging_audiencia, staging_especialidades,
+          staging_tipo_venue, staging_subtipo, staging_categoria
         `)
-        .order('display_name');
-
-      // Se a coluna class não existir, buscar novamente sem ela
-      if (error && error.code === '42703' && error.message.includes('column screens.class does not exist')) {
-        console.log('⚠️ Coluna class não existe, buscando sem ela...');
-        const { data: screensWithoutClass, error: errorWithoutClass } = await supabase
-          .from('screens')
-          .select(`
-            id, code, name, display_name, city, state, active, 
-            venue_type_parent, venue_type_child, venue_type_grandchildren,
-            lat, lng
-          `)
-          .order('display_name');
-        
-        screensData = screensWithoutClass?.map(screen => ({ ...screen, class: 'ND' })) || null;
-        error = errorWithoutClass;
-      }
+        .order('name', { ascending: true });
 
       if (error) {
-        console.error('❌ Erro ao buscar telas:', error);
+        console.error('❌ Erro ao buscar dados:', error);
         throw error;
       }
 
-      console.log('✅ Telas encontradas:', screensData?.length || 0);
+      console.log('✅ Dados recebidos:', data?.length || 0);
 
-      // Agrupar telas por ponto de venda (usando display_name como identificador do venue)
+      // Agrupar telas por venue
       const venuesMap = new Map<string, VenueWithScreens>();
 
-      screensData?.forEach(screen => {
-        const venueName = screen.display_name || 'Ponto sem nome';
+      data?.forEach(screen => {
+        const venueName = screen.staging_nome_ponto || screen.name || 'Ponto sem nome';
         const venueKey = `${venueName}-${screen.city}-${screen.state}`;
 
         if (!venuesMap.has(venueKey)) {
           venuesMap.set(venueKey, {
             id: venueKey,
             name: venueName,
-            venue_type_parent: screen.venue_type_parent || 'Não informado',
-            venue_type_child: screen.venue_type_child || '',
+            venue_type_parent: screen.staging_tipo_venue || screen.venue_type_parent || 'Não informado',
+            venue_type_child: screen.staging_subtipo || screen.venue_type_child || '',
             city: screen.city || 'Cidade não informada',
             state: screen.state || 'Estado não informado',
             screens: [],
@@ -124,18 +111,17 @@ const Venues = () => {
         const venue = venuesMap.get(venueKey)!;
         venue.screens.push({
           id: screen.id,
-          code: screen.code || screen.name || `ID-${screen.id}`,
+          code: screen.code || `ID-${screen.id}`,
           name: screen.name || `ID-${screen.id}`,
-          display_name: screen.display_name || 'Sem nome',
+          display_name: screen.staging_nome_ponto || screen.name || 'Sem nome',
           class: screen.class || 'ND',
-          active: Boolean(screen.active),
+          active: Boolean(screen.screen_active),
           lat: screen.lat,
           lng: screen.lng
         });
 
         venue.screenCount++;
-        // ✅ Manter apenas esta lógica:
-        if (screen.active) {
+        if (isActive(screen.screen_active)) {
           venue.activeScreens++;
         }
         if (screen.lat && screen.lng) {
@@ -147,25 +133,20 @@ const Venues = () => {
         .sort((a, b) => a.name.localeCompare(b.name));
 
       console.log('✅ Pontos de venda agrupados:', venuesArray.length);
+      console.log('🔍 Primeiro venue com classes:', venuesArray[0] ? {
+        name: venuesArray[0].name,
+        screens: venuesArray[0].screens.map(s => ({ code: s.code, class: s.class }))
+      } : 'Nenhum venue');
       setVenues(venuesArray);
-
+      setFilteredVenues(venuesArray);
     } catch (err: any) {
       console.error('💥 Erro ao buscar pontos de venda:', err);
       setError(err.message);
-      
-      if (err.message?.includes('JWT') || err.message?.includes('auth')) {
-        toast({
-          title: "Erro de Autenticação",
-          description: "Você precisa estar logado para ver os pontos de venda.",
-          variant: "destructive",
-        });
-      } else {
-        toast({
-          title: "Erro",
-          description: "Não foi possível carregar os pontos de venda.",
-          variant: "destructive",
-        });
-      }
+      toast({
+        title: "Erro",
+        description: "Não foi possível carregar os pontos de venda.",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }

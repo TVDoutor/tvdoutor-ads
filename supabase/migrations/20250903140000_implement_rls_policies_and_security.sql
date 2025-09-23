@@ -14,201 +14,221 @@ as $$
   );
 $$;
 
--- 2) Policies – public.agencias
--- Se o RLS estiver desativado, ative:
-alter table public.agencias enable row level security;
+-- 2) Policies – public.agencias - apenas se tabela existir
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'agencias' AND table_schema = 'public') THEN
+        -- Se o RLS estiver desativado, ative:
+        ALTER TABLE public.agencias ENABLE ROW LEVEL SECURITY;
 
--- SELECT: qualquer usuário autenticado
-drop policy if exists "agencias_select_auth" on public.agencias;
-create policy "agencias_select_auth"
-on public.agencias
-for select
-to authenticated
-using (true);
+        -- SELECT: qualquer usuário autenticado
+        DROP POLICY IF EXISTS "agencias_select_auth" ON public.agencias;
+        CREATE POLICY "agencias_select_auth"
+        ON public.agencias
+        FOR SELECT
+        TO authenticated
+        USING (true);
 
--- INSERT: qualquer usuário autenticado
-drop policy if exists "agencias_insert_auth" on public.agencias;
-create policy "agencias_insert_auth"
-on public.agencias
-for insert
-to authenticated
-with check (true);
+        -- INSERT: qualquer usuário autenticado
+        DROP POLICY IF EXISTS "agencias_insert_auth" ON public.agencias;
+        CREATE POLICY "agencias_insert_auth"
+        ON public.agencias
+        FOR INSERT
+        TO authenticated
+        WITH CHECK (true);
 
--- UPDATE: apenas super admin
-drop policy if exists "agencias_update_admin" on public.agencias;
-create policy "agencias_update_admin"
-on public.agencias
-for update
-to authenticated
-using (public.is_super_admin())
-with check (public.is_super_admin());
+        -- UPDATE: apenas super admin
+        DROP POLICY IF EXISTS "agencias_update_admin" ON public.agencias;
+        CREATE POLICY "agencias_update_admin"
+        ON public.agencias
+        FOR UPDATE
+        TO authenticated
+        USING (public.is_super_admin())
+        WITH CHECK (public.is_super_admin());
 
--- DELETE: apenas super admin
-drop policy if exists "agencias_delete_admin" on public.agencias;
-create policy "agencias_delete_admin"
-on public.agencias
-for delete
-to authenticated
-using (public.is_super_admin());
+        -- DELETE: apenas super admin
+        DROP POLICY IF EXISTS "agencias_delete_admin" ON public.agencias;
+        CREATE POLICY "agencias_delete_admin"
+        ON public.agencias
+        FOR DELETE
+        TO authenticated
+        USING (public.is_super_admin());
+    END IF;
+END $$;
 
--- 3) Policies – public.agencia_deals
-alter table public.agencia_deals enable row level security;
+-- 3) Policies – public.agencia_deals - apenas se tabela existir
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'agencia_deals' AND table_schema = 'public') THEN
+        ALTER TABLE public.agencia_deals ENABLE ROW LEVEL SECURITY;
 
-drop policy if exists "agencia_deals_select_auth" on public.agencia_deals;
-create policy "agencia_deals_select_auth"
-on public.agencia_deals
-for select
-to authenticated
-using (true);
+        DROP POLICY IF EXISTS "agencia_deals_select_auth" ON public.agencia_deals;
+        CREATE POLICY "agencia_deals_select_auth"
+        ON public.agencia_deals
+        FOR SELECT
+        TO authenticated
+        USING (true);
 
-drop policy if exists "agencia_deals_insert_auth" on public.agencia_deals;
-create policy "agencia_deals_insert_auth"
-on public.agencia_deals
-for insert
-to authenticated
-with check (true);
+        DROP POLICY IF EXISTS "agencia_deals_insert_auth" ON public.agencia_deals;
+        CREATE POLICY "agencia_deals_insert_auth"
+        ON public.agencia_deals
+        FOR INSERT
+        TO authenticated
+        WITH CHECK (true);
 
-drop policy if exists "agencia_deals_update_admin" on public.agencia_deals;
-create policy "agencia_deals_update_admin"
-on public.agencia_deals
-for update
-to authenticated
-using (public.is_super_admin())
-with check (public.is_super_admin());
+        DROP POLICY IF EXISTS "agencia_deals_update_admin" ON public.agencia_deals;
+        CREATE POLICY "agencia_deals_update_admin"
+        ON public.agencia_deals
+        FOR UPDATE
+        TO authenticated
+        USING (public.is_super_admin())
+        WITH CHECK (public.is_super_admin());
 
-drop policy if exists "agencia_deals_delete_admin" on public.agencia_deals;
-create policy "agencia_deals_delete_admin"
-on public.agencia_deals
-for delete
-to authenticated
-using (public.is_super_admin());
+        DROP POLICY IF EXISTS "agencia_deals_delete_admin" ON public.agencia_deals;
+        CREATE POLICY "agencia_deals_delete_admin"
+        ON public.agencia_deals
+        FOR DELETE
+        TO authenticated
+        USING (public.is_super_admin());
+    END IF;
+END $$;
 
--- 4) Policies – public.agencia_projetos
-alter table public.agencia_projetos enable row level security;
+-- 4) Policies – public.agencia_projetos - apenas se tabela existir
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'agencia_projetos' AND table_schema = 'public') THEN
+        ALTER TABLE public.agencia_projetos ENABLE ROW LEVEL SECURITY;
 
-drop policy if exists "agencia_projetos_select_auth" on public.agencia_projetos;
-create policy "agencia_projetos_select_auth"
-on public.agencia_projetos
-for select
-to authenticated
-using (true);
+        DROP POLICY IF EXISTS "agencia_projetos_select_auth" ON public.agencia_projetos;
+        CREATE POLICY "agencia_projetos_select_auth"
+        ON public.agencia_projetos
+        FOR SELECT
+        TO authenticated
+        USING (true);
 
-drop policy if exists "agencia_projetos_insert_auth" on public.agencia_projetos;
-create policy "agencia_projetos_insert_auth"
-on public.agencia_projetos
-for insert
-to authenticated
-with check (true);
+        DROP POLICY IF EXISTS "agencia_projetos_insert_auth" ON public.agencia_projetos;
+        CREATE POLICY "agencia_projetos_insert_auth"
+        ON public.agencia_projetos
+        FOR INSERT
+        TO authenticated
+        WITH CHECK (true);
 
-drop policy if exists "agencia_projetos_update_admin" on public.agencia_projetos;
-create policy "agencia_projetos_update_admin"
-on public.agencia_projetos
-for update
-to authenticated
-using (public.is_super_admin())
-with check (public.is_super_admin());
+        DROP POLICY IF EXISTS "agencia_projetos_update_admin" ON public.agencia_projetos;
+        CREATE POLICY "agencia_projetos_update_admin"
+        ON public.agencia_projetos
+        FOR UPDATE
+        TO authenticated
+        USING (public.is_super_admin())
+        WITH CHECK (public.is_super_admin());
 
-drop policy if exists "agencia_projetos_delete_admin" on public.agencia_projetos;
-create policy "agencia_projetos_delete_admin"
-on public.agencia_projetos
-for delete
-to authenticated
-using (public.is_super_admin());
+        DROP POLICY IF EXISTS "agencia_projetos_delete_admin" ON public.agencia_projetos;
+        CREATE POLICY "agencia_projetos_delete_admin"
+        ON public.agencia_projetos
+        FOR DELETE
+        TO authenticated
+        USING (public.is_super_admin());
+    END IF;
+END $$;
 
--- 5) Proposals: adicionar projeto_id + policies
--- Coluna e FK
-alter table public.proposals
-  add column if not exists projeto_id uuid;
+-- 5) Proposals: adicionar projeto_id + policies - apenas se tabela existir
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'proposals' AND table_schema = 'public') THEN
+        -- Coluna e FK
+        ALTER TABLE public.proposals
+          ADD COLUMN IF NOT EXISTS projeto_id uuid;
 
-do $$
-begin
-  if not exists (
-    select 1
-    from pg_constraint
-    where conname = 'proposals_projeto_id_fkey'
-  ) then
-    alter table public.proposals
-      add constraint proposals_projeto_id_fkey
-      foreign key (projeto_id)
-      references public.agencia_projetos(id);
-  end if;
-end $$;
+        -- Adicionar FK se não existir
+        IF NOT EXISTS (
+          SELECT 1
+          FROM pg_constraint
+          WHERE conname = 'proposals_projeto_id_fkey'
+        ) THEN
+            ALTER TABLE public.proposals
+              ADD CONSTRAINT proposals_projeto_id_fkey
+              FOREIGN KEY (projeto_id)
+              REFERENCES public.agencia_projetos(id);
+        END IF;
 
--- Ativar RLS (se preciso)
-alter table public.proposals enable row level security;
+        -- Ativar RLS (se preciso)
+        ALTER TABLE public.proposals ENABLE ROW LEVEL SECURITY;
 
--- SELECT: autenticado
-drop policy if exists "proposals_select_auth" on public.proposals;
-create policy "proposals_select_auth"
-on public.proposals
-for select
-to authenticated
-using (true);
+        -- SELECT: autenticado
+        DROP POLICY IF EXISTS "proposals_select_auth" ON public.proposals;
+        CREATE POLICY "proposals_select_auth"
+        ON public.proposals
+        FOR SELECT
+        TO authenticated
+        USING (true);
 
--- INSERT: autenticado (usa created_by default auth.uid())
-drop policy if exists "proposals_insert_auth" on public.proposals;
-create policy "proposals_insert_auth"
-on public.proposals
-for insert
-to authenticated
-with check (true);
+        -- INSERT: autenticado (usa created_by default auth.uid())
+        DROP POLICY IF EXISTS "proposals_insert_auth" ON public.proposals;
+        CREATE POLICY "proposals_insert_auth"
+        ON public.proposals
+        FOR INSERT
+        TO authenticated
+        WITH CHECK (true);
 
--- UPDATE: autor ou super admin
-drop policy if exists "proposals_update_owner_or_admin" on public.proposals;
-create policy "proposals_update_owner_or_admin"
-on public.proposals
-for update
-to authenticated
-using (created_by = auth.uid() or public.is_super_admin())
-with check (created_by = auth.uid() or public.is_super_admin());
+        -- UPDATE: autor ou super admin
+        DROP POLICY IF EXISTS "proposals_update_owner_or_admin" ON public.proposals;
+        CREATE POLICY "proposals_update_owner_or_admin"
+        ON public.proposals
+        FOR UPDATE
+        TO authenticated
+        USING (created_by = auth.uid() OR public.is_super_admin())
+        WITH CHECK (created_by = auth.uid() OR public.is_super_admin());
 
--- DELETE: super admin
-drop policy if exists "proposals_delete_admin" on public.proposals;
-create policy "proposals_delete_admin"
-on public.proposals
-for delete
-to authenticated
-using (public.is_super_admin());
+        -- DELETE: super admin
+        DROP POLICY IF EXISTS "proposals_delete_admin" ON public.proposals;
+        CREATE POLICY "proposals_delete_admin"
+        ON public.proposals
+        FOR DELETE
+        TO authenticated
+        USING (public.is_super_admin());
+    END IF;
+END $$;
 
--- 6) (Opcional) Gerar codigo_agencia = A000 automático
--- Se quiser que o código seja gerado ao inserir (e recuse formato errado ao editar manualmente):
-create sequence if not exists agencias_codigo_seq start 1;
+-- 6) (Opcional) Gerar codigo_agencia = A000 automático - apenas se tabela existir
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'agencias' AND table_schema = 'public') THEN
+        -- Se quiser que o código seja gerado ao inserir (e recuse formato errado ao editar manualmente):
+        CREATE SEQUENCE IF NOT EXISTS agencias_codigo_seq START 1;
 
-create or replace function public.gen_codigo_agencia()
-returns trigger
-language plpgsql
-as $$
-declare
-  next_num int;
-begin
-  if new.codigo_agencia is null or new.codigo_agencia = '' then
-    next_num := nextval('agencias_codigo_seq');
-    new.codigo_agencia := 'A' || lpad(next_num::text, 3, '0');
-  else
-    if new.codigo_agencia !~ '^A[0-9]{3}$' then
-      raise exception 'codigo_agencia deve seguir o padrão A000 (ex.: A200)';
-    end if;
-  end if;
-  return new;
-end;
-$$;
+        CREATE OR REPLACE FUNCTION public.gen_codigo_agencia()
+        RETURNS TRIGGER
+        LANGUAGE plpgsql
+        AS $func$
+        DECLARE
+          next_num int;
+        BEGIN
+          IF NEW.codigo_agencia IS NULL OR NEW.codigo_agencia = '' THEN
+            next_num := nextval('agencias_codigo_seq');
+            NEW.codigo_agencia := 'A' || lpad(next_num::text, 3, '0');
+          ELSE
+            IF NEW.codigo_agencia !~ '^A[0-9]{3}$' THEN
+              RAISE EXCEPTION 'codigo_agencia deve seguir o padrão A000 (ex.: A200)';
+            END IF;
+          END IF;
+          RETURN NEW;
+        END;
+        $func$;
 
-drop trigger if exists trg_gen_codigo_agencia on public.agencias;
-create trigger trg_gen_codigo_agencia
-before insert on public.agencias
-for each row execute function public.gen_codigo_agencia();
+        DROP TRIGGER IF EXISTS trg_gen_codigo_agencia ON public.agencias;
+        CREATE TRIGGER trg_gen_codigo_agencia
+        BEFORE INSERT ON public.agencias
+        FOR EACH ROW EXECUTE FUNCTION public.gen_codigo_agencia();
 
--- checagem defensiva
-do $$
-begin
-  begin
-    alter table public.agencias
-      add constraint agencias_codigo_agencia_format_chk
-      check (codigo_agencia ~ '^A[0-9]{3}$');
-  exception when duplicate_object then
-    null;
-  end;
-end $$;
+        -- checagem defensiva
+        BEGIN
+            ALTER TABLE public.agencias
+              ADD CONSTRAINT agencias_codigo_agencia_format_chk
+              CHECK (codigo_agencia ~ '^A[0-9]{3}$');
+        EXCEPTION WHEN duplicate_object THEN
+            NULL;
+        END;
+    END IF;
+END $$;
 
 -- Comentários sobre a implementação:
 -- Esta migração implementa um sistema de segurança robusto com RLS (Row Level Security)

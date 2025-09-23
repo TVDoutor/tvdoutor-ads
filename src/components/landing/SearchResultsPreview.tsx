@@ -98,7 +98,7 @@ export function SearchResultsPreview({ screens, loading, onAddToCart, onViewAllS
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <CardTitle className="text-lg line-clamp-2 text-foreground">
-                      {screen.display_name}
+                      {screen.code} {screen.name}
                     </CardTitle>
                     <CardDescription className="flex items-center gap-2 mt-2">
                       <MapPin className="w-4 h-4 text-gray-500" />

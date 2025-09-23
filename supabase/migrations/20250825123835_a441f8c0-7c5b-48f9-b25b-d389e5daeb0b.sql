@@ -31,7 +31,14 @@ BEGIN
 END;
 $$;
 
--- Create RPC function to get user role
+-- Create RPC function to get user role (drop existing function first if it exists with different signature)
+DO $$
+BEGIN
+  -- Drop the existing function if it exists
+  DROP FUNCTION IF EXISTS public.get_user_role(uuid);
+  DROP FUNCTION IF EXISTS public.get_user_role(uuid, text);
+END $$;
+
 CREATE OR REPLACE FUNCTION public.get_user_role(_user_id uuid)
 RETURNS text
 LANGUAGE plpgsql

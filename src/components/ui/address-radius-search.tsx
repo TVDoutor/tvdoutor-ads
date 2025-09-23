@@ -54,8 +54,8 @@ export const AddressRadiusSearch = ({ onResults, disabled = false }: AddressRadi
         startDate: new Date().toISOString().split('T')[0],
         durationWeeks: '2',
         addressName: address,
-        formattedAddress: geocoded.formatted_address,
-        placeId: geocoded.place_id,
+        formattedAddress: geocoded.google_formatted_address,
+        placeId: geocoded.google_place_id,
         radiusKm: parseInt(radius)
       });
 
@@ -139,6 +139,8 @@ export const AddressRadiusSearch = ({ onResults, disabled = false }: AddressRadi
     </div>
   );
 };
+
+
 
 
 

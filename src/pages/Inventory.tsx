@@ -38,7 +38,7 @@ type InventoryRow = {
   lng: number | null;
   geom: any | null;
   screen_active: boolean | null;
-  class: 'A'|'AB'|'ABC'|'B'|'BC'|'C'|'CD'|'D'|'E'|'ND' | null;
+  class: string | null;
   specialty: string[] | null;
   board_format: string | null;
   category: string | null;
@@ -72,7 +72,7 @@ interface Screen {
   city: string;
   state: string;
   address: string;
-  class: typeof ALLOWED_CLASSES[number];
+  class: string;
   active: boolean;
   venue_type_parent: string;
   venue_type_child: string;
@@ -172,7 +172,7 @@ const Inventory = () => {
           city: r.city ?? '',
           state: r.state ?? '',
           address: r.address ?? '',
-          class: (r.class ?? 'ND') as Screen['class'],
+          class: r.class ?? 'ND',
           active: r.screen_active ?? true,
 
           venue_type_parent: r.staging_tipo_venue ?? '',
@@ -240,7 +240,7 @@ const Inventory = () => {
        filtered = filtered.filter(screen => {
          const screenCode = screen.code || '';
          const displayName = screen.display_name || '';
-         const location = `${screen.address || ''} ${screen.city || ''} ${screen.state || ''}`.toLowerCase();
+         const location = (screen.address || '').toLowerCase();
          
          return screenCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 displayName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -268,8 +268,8 @@ const Inventory = () => {
   };
 
   const getLocation = (screen: Screen) => {
-    const parts = [screen.address, screen.city, screen.state].filter(Boolean);
-    return parts.length > 0 ? parts.join(', ') : 'Localização não informada';
+    // O endereço já vem formatado da view como "[endereço], [cidade] – [UF]"
+    return screen.address || 'Localização não informada';
   };
 
   const getStatusBadge = (active: boolean) => {
@@ -1193,14 +1193,14 @@ const Inventory = () => {
                       <TableCell>
                         {screen.specialty && screen.specialty.length > 0 ? (
                           <div className="flex flex-wrap gap-1">
-                            {screen.specialty.slice(0, 5).map((spec, index) => (
-                              <Badge key={index} variant="secondary" className="text-xs">
+                            {screen.specialty.slice(0, 10).map((spec, index) => (
+                              <Badge key={index} variant="secondary" className="text-xs whitespace-nowrap">
                                 {spec}
                               </Badge>
                             ))}
-                            {screen.specialty.length > 5 && (
-                              <Badge variant="outline" className="text-xs">
-                                +{screen.specialty.length - 5}
+                            {screen.specialty.length > 10 && (
+                              <Badge variant="outline" className="text-xs whitespace-nowrap">
+                                +{screen.specialty.length - 10}
                               </Badge>
                             )}
                           </div>
@@ -1350,18 +1350,15 @@ const Inventory = () => {
                     {selectedScreen.specialty && selectedScreen.specialty.length > 0 ? (
                       <div className="space-y-2">
                         <div className="flex flex-wrap gap-2">
-                          {selectedScreen.specialty.slice(0, 5).map((spec, index) => (
-                            <Badge key={index} variant="secondary" className="text-sm">{spec}</Badge>
+                          {selectedScreen.specialty.slice(0, 10).map((spec, index) => (
+                            <Badge key={index} variant="secondary" className="text-sm whitespace-nowrap">{spec}</Badge>
                           ))}
+                          {selectedScreen.specialty.length > 10 && (
+                            <Badge variant="outline" className="text-xs whitespace-nowrap">
+                              +{selectedScreen.specialty.length - 10}
+                            </Badge>
+                          )}
                         </div>
-                        {selectedScreen.specialty.length > 5 && (
-                          <div className="flex flex-wrap gap-2">
-                            <p className="text-xs text-muted-foreground">Outras especialidades:</p>
-                            {selectedScreen.specialty.slice(5).map((spec, index) => (
-                              <Badge key={index + 5} variant="outline" className="text-xs">{spec}</Badge>
-                            ))}
-                          </div>
-                        )}
                       </div>
                     ) : (
                       <p className="text-sm text-muted-foreground">Nenhuma especialidade cadastrada</p>
@@ -1514,12 +1511,12 @@ const Inventory = () => {
                         Prévia das especialidades ({specialtyText.split(',').map(s => s.trim()).filter(Boolean).length} total):
                       </p>
                       <div className="flex flex-wrap gap-1">
-                        {specialtyText.split(',').map(s => s.trim()).filter(Boolean).slice(0, 5).map((spec, index) => (
-                          <Badge key={index} variant="secondary" className="text-xs">{spec}</Badge>
+                        {specialtyText.split(',').map(s => s.trim()).filter(Boolean).slice(0, 10).map((spec, index) => (
+                          <Badge key={index} variant="secondary" className="text-xs whitespace-nowrap">{spec}</Badge>
                         ))}
-                        {specialtyText.split(',').map(s => s.trim()).filter(Boolean).length > 5 && (
-                          <Badge variant="outline" className="text-xs">
-                            +{specialtyText.split(',').map(s => s.trim()).filter(Boolean).length - 5}
+                        {specialtyText.split(',').map(s => s.trim()).filter(Boolean).length > 10 && (
+                          <Badge variant="outline" className="text-xs whitespace-nowrap">
+                            +{specialtyText.split(',').map(s => s.trim()).filter(Boolean).length - 10}
                           </Badge>
                         )}
                       </div>

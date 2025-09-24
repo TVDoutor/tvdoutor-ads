@@ -98,7 +98,13 @@ const VenueDetails = () => {
         throw new Error('ID do ponto não fornecido');
       }
 
-      const venueKey = (id ?? '').toString(); // SEM encodeURIComponent
+      // O ID vem no formato `${venueName}-${city}-${state}` conforme a lista
+      const raw = (id ?? '').toString();
+      const parts = raw.split('-');
+      const state = parts.pop() || '';
+      const city = decodeURIComponent(parts.pop() || '');
+      const venueName = parts.join('-'); // pode conter '-'
+
       const { data: screensData, error } = await supabase
         .from('v_screens_enriched')
         .select(`
@@ -107,15 +113,16 @@ const VenueDetails = () => {
           lat, lng,
           screen_active,
           class,
-          specialties,
+          specialty, staging_especialidades,
           venue_name,
           venue_type_parent,
           venue_type_child,
           venue_type_grandchildren,
-          address_raw,
-          venue_key
+          address_raw
         `)
-        .eq('venue_key', venueKey);
+        .eq('city', city)
+        .eq('state', state)
+        .or(`staging_nome_ponto.ilike.%${venueName}%,name.ilike.%${venueName}%,display_name.ilike.%${venueName}%`);
 
       if (error) {
         console.error('❌ Erro ao buscar telas:', error);
@@ -137,7 +144,9 @@ const VenueDetails = () => {
         city: first.city || 'Cidade não informada',
         state: first.state || 'Estado não informado',
         screens: venueScreens.map((screen) => {
-          const specialties = toStringArray(screen.specialties);
+          const specialties = Array.isArray((screen as any).specialty)
+            ? ((screen as any).specialty as string[]).map(s => String(s).trim()).filter(Boolean)
+            : toStringArray((screen as any).staging_especialidades);
 
           return {
             id: screen.id,

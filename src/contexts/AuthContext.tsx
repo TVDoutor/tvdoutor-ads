@@ -3,6 +3,7 @@ import { User, Session, AuthError } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { logDebug, logWarn, logError, logAuthSuccess, logAuthError } from '@/utils/secureLogger';
+import { csrfProtection, createSecureSupabaseRequest } from '@/lib/csrf-protection';
 
 // Mapeamento de roles do banco para o frontend
 export type UserRole = 'User' | 'Manager' | 'Admin';
@@ -206,6 +207,9 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     const initializeAuth = async () => {
       try {
         logDebug('Inicializando autenticação...');
+        
+        // Inicializar proteção CSRF
+        await createSecureSupabaseRequest();
         // Obter sessão inicial
         const { data: { session }, error } = await supabase.auth.getSession();
         

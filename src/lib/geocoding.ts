@@ -1,4 +1,5 @@
 // Serviço para integração com Google Geocoding API
+import { ssrfProtection } from '@/lib/ssrf-protection';
 interface GoogleGeocodingResult {
   lat: number;
   lng: number;
@@ -48,7 +49,8 @@ export async function geocodeAddress(address: string): Promise<GoogleGeocodingRe
   try {
     console.log('🌍 Geocodificando endereço:', normalizedAddress);
     
-    const response = await fetch(url);
+    // Usar fetch seguro com proteção SSRF
+    const response = await ssrfProtection.secureFetch(url);
     
     if (!response.ok) {
       throw new Error(`Erro na requisição: ${response.status} ${response.statusText}`);

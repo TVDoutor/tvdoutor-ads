@@ -66,96 +66,134 @@ export const ScreenSelectionStep = ({ data, onUpdate }: ScreenSelectionStepProps
   const fetchScreens = async () => {
     try {
       setLoading(true);
-      // Buscar telas com specialty (array), address_raw e informações de classe
-      let { data: screensData, error } = await supabase
-        .from('screens')
+      // 1) Tentar buscar via view enriquecida para obter a classe pronta
+      console.log('🔍 Buscando telas via v_screens_enriched...');
+      let { data: enriched, error: enrichedError } = await supabase
+        .from('v_screens_enriched')
         .select(`
-          id, 
-          code, 
-          name, 
-          display_name, 
-          city, 
-          state, 
-          active, 
-          venue_id, 
-          lat, 
-          lng, 
-          specialty, 
-          address_raw
+          id,
+          code,
+          name,
+          display_name,
+          city,
+          state,
+          lat,
+          lng,
+          screen_active,
+          class,
+          specialty,
+          address
         `)
-        .eq('active', true)
         .not('lat', 'is', null)
         .not('lng', 'is', null)
         .order('display_name');
 
-      // Se a coluna specialty não existir, buscar sem ela e usar dados mock
-      if (error && error.code === '42703' && error.message.includes('column screens.specialty does not exist')) {
-        console.log('⚠️ Coluna specialty não existe, buscando sem ela...');
-        const { data: screensWithoutSpecialty, error: errorWithoutSpecialty } = await supabase
+      let screensData: any[] | null = null;
+
+      if (!enrichedError && enriched) {
+        // Mapear dados da view para nosso modelo
+        screensData = enriched.map((s: any) => ({
+          id: s.id,
+          code: s.code,
+          name: s.name,
+          display_name: s.display_name || s.name,
+          city: s.city,
+          state: s.state,
+          active: Boolean(s.screen_active),
+          lat: s.lat,
+          lng: s.lng,
+          class: s.class || 'ND',
+          class_name: s.class || 'ND',
+          specialty: Array.isArray(s.specialty)
+            ? s.specialty
+            : typeof s.specialty === 'string' && s.specialty.length > 0
+              ? s.specialty.split(',').map((x: string) => x.trim()).filter(Boolean)
+              : [],
+          address_raw: s.address || ''
+        }));
+      } else {
+        // 2) Fallback para a tabela screens mantendo o comportamento antigo
+        console.log('⚠️ v_screens_enriched indisponível. Usando tabela screens. Detalhe:', enrichedError?.message);
+        let { data: fromScreens, error } = await supabase
           .from('screens')
           .select(`
-            id, 
-            code, 
-            name, 
-            display_name, 
-            city, 
-            state, 
-            active, 
-            venue_id, 
-            lat, 
-            lng, 
-            address_raw
+            id,
+            code,
+            name,
+            display_name,
+            city,
+            state,
+            active,
+            venue_id,
+            lat,
+            lng,
+            specialty,
+            address_raw,
+            class
           `)
           .eq('active', true)
           .not('lat', 'is', null)
           .not('lng', 'is', null)
           .order('display_name');
-        
-        if (errorWithoutSpecialty) throw errorWithoutSpecialty;
-        
-        // Mapear dados mock para specialty baseado no nome da tela
-        screensData = screensWithoutSpecialty?.map(screen => {
-          let specialty = ['Oftalmo']; // Default como array
-          const name = screen.name.toLowerCase();
-          
-          if (name.includes('ótica') || name.includes('otica')) {
-            specialty = ['Ótica'];
-          } else if (name.includes('clínica') || name.includes('clinica') || name.includes('médica') || name.includes('medica')) {
-            specialty = ['Clinica Médica'];
-          } else if (name.includes('oftalmo') || name.includes('oftalmologia')) {
-            specialty = ['Oftalmo'];
-          }
-          
-          return { 
-            ...screen, 
-            class: 'ND', // Valor padrão
-            class_name: 'ND', // Valor padrão
-            specialty
-          };
-        }) || null;
-        error = null;
+
+        // Se a coluna specialty não existir, buscar sem ela
+        if (error && error.code === '42703' && error.message.includes('column screens.specialty does not exist')) {
+          console.log('⚠️ Coluna specialty não existe, buscando sem ela...');
+          const { data: screensWithoutSpecialty, error: errorWithoutSpecialty } = await supabase
+            .from('screens')
+            .select(`
+              id,
+              code,
+              name,
+              display_name,
+              city,
+              state,
+              active,
+              venue_id,
+              lat,
+              lng,
+              address_raw,
+              class
+            `)
+            .eq('active', true)
+            .not('lat', 'is', null)
+            .not('lng', 'is', null)
+            .order('display_name');
+
+          if (errorWithoutSpecialty) throw errorWithoutSpecialty;
+          fromScreens = screensWithoutSpecialty;
+          error = null as any;
+        }
+
+        if (error) throw error;
+
+        screensData = (fromScreens || []).map((screen: any) => ({
+          ...screen,
+          class: screen.class || 'ND',
+          class_name: screen.class || 'ND',
+          specialty: Array.isArray(screen.specialty)
+            ? screen.specialty
+            : typeof screen.specialty === 'string' && screen.specialty.length > 0
+              ? screen.specialty.split(',').map((x: string) => x.trim()).filter(Boolean)
+              : []
+        }));
       }
 
-      if (error) throw error;
+      // Garantir array
+      screensData = screensData || [];
 
-      // Processar dados das telas
-      const processedScreens = (screensData || []).map(screen => ({
-        ...screen,
-        class: 'ND', // Valor padrão
-        class_name: 'ND' // Valor padrão
-      }));
+      // Aplicar no estado
+      setScreens(screensData as any);
 
-      setScreens(processedScreens);
-      
-      // Debug: log dos dados recebidos
-      console.log('📊 Dados das telas recebidos:', screensData?.length || 0, 'telas');
-      console.log('📊 Primeira tela (exemplo):', screensData?.[0]);
-      
-      // Processar especialidades disponíveis (trabalhando com arrays)
+      // Debug
+      console.log('📊 Telas carregadas:', screensData.length);
+      console.log('📊 Exemplo:', screensData[0]);
+
+      // 3) Calcular especialidades disponíveis (arrays)
       const specialtyCounts: { [key: string]: number } = {};
-      (screensData || []).forEach(screen => {
+      (screensData || []).forEach((screen: any) => {
         if (screen.specialty && Array.isArray(screen.specialty)) {
-          screen.specialty.forEach(spec => {
+          screen.specialty.forEach((spec: string) => {
             const trimmedSpec = spec?.trim();
             if (trimmedSpec && trimmedSpec !== '') {
               specialtyCounts[trimmedSpec] = (specialtyCounts[trimmedSpec] || 0) + 1;
@@ -163,16 +201,15 @@ export const ScreenSelectionStep = ({ data, onUpdate }: ScreenSelectionStepProps
           });
         }
       });
-      
+
       const specialties = Object.entries(specialtyCounts)
         .map(([specialty, count]) => ({
           value: specialty,
           label: specialty.charAt(0).toUpperCase() + specialty.slice(1),
           count
         }))
-        .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label)); // Ordenar por count DESC, depois por nome
-      
-      console.log('📊 Especialidades processadas:', specialties);
+        .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
+
       setAvailableSpecialties(specialties);
     } catch (error: any) {
       console.error('Erro ao buscar telas:', error);

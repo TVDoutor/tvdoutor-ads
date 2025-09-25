@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { DashboardLayout } from "@/components/DashboardLayout";
 import { HeatmapComponent } from '@/components/HeatmapComponent';
 import { HeatmapFilters } from '@/components/HeatmapFilters';
 import { useHeatmapData, HeatmapFilters as HeatmapFiltersType } from '@/hooks/useHeatmapData';
@@ -25,7 +26,8 @@ export default function HeatmapPage() {
   };
 
   return (
-    <div className="container mx-auto py-8 space-y-6">
+    <DashboardLayout>
+      <div className="container mx-auto py-8 space-y-6">
       <div className="text-center">
         <h1 className="text-3xl font-bold mb-2">Mapa de Calor de Propostas</h1>
         <p className="text-gray-600">
@@ -163,6 +165,7 @@ export default function HeatmapPage() {
           </div>
         </CardContent>
       </Card>
-    </div>
+      </div>
+    </DashboardLayout>
   );
 }

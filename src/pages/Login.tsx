@@ -8,6 +8,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useAuth } from "@/contexts/AuthContext";
 import { ForgotPasswordModal } from "@/components/ForgotPasswordModal";
+import { usePasswordSecurity } from "@/lib/password-security";
+import { useRateLimit } from "@/lib/rate-limiting";
 import { 
   Tv, 
   Mail, 
@@ -25,7 +27,10 @@ const Login = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [showForgotPasswordModal, setShowForgotPasswordModal] = useState(false);
+  const [passwordValidation, setPasswordValidation] = useState({ isValid: false, feedback: [] });
   const { signIn, signUp, signInWithGoogle, user } = useAuth();
+  const { validatePassword, getStrengthTips } = usePasswordSecurity();
+  const { checkLimit, getPreset } = useRateLimit();
   const navigate = useNavigate();
   const location = useLocation();
 

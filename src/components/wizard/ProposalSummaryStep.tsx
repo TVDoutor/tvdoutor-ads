@@ -34,7 +34,24 @@ export const ProposalSummaryStep = ({ data }: ProposalSummaryStepProps) => {
     }
 
     try {
-      // Tentar buscar com a coluna class primeiro, se falhar, buscar sem ela
+      // 1) Tentar buscar via view enriquecida (classe pronta)
+      let { data: enriched, error: enrichedError } = await supabase
+        .from('v_screens_enriched')
+        .select('id, name, city, state, class')
+        .in('id', data.selectedScreens);
+
+      if (!enrichedError && enriched) {
+        setSelectedScreens(enriched.map((s: any) => ({
+          id: s.id,
+          name: s.name,
+          city: s.city,
+          state: s.state,
+          class: s.class || 'ND'
+        })));
+        return;
+      }
+
+      // 2) Fallback para tabela screens
       let { data: screens, error } = await supabase
         .from('screens')
         .select('id, name, city, state, class')
@@ -53,7 +70,13 @@ export const ProposalSummaryStep = ({ data }: ProposalSummaryStepProps) => {
       }
 
       if (error) throw error;
-      setSelectedScreens(screens || []);
+      setSelectedScreens((screens || []).map((s: any) => ({
+        id: s.id,
+        name: s.name,
+        city: s.city,
+        state: s.state,
+        class: s.class || 'ND'
+      })));
     } catch (error) {
       console.error('Erro ao buscar telas selecionadas:', error);
     } finally {

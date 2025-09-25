@@ -15,5 +15,17 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, 
     storage: localStorage,
     persistSession: true,
     autoRefreshToken: true,
+    detectSessionInUrl: true,
+    flowType: 'pkce' // Use PKCE flow for enhanced security
+  },
+  global: {
+    headers: {
+      'X-Client-Info': 'tvdoutor-ads-web'
+    }
+  },
+  realtime: {
+    params: {
+      eventsPerSecond: 10 // Rate limit realtime events
+    }
   }
 });

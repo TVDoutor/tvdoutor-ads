@@ -17,7 +17,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { addScreenAsAdmin, deleteScreenAsAdmin } from "@/lib/admin-operations";
-import * as XLSX from 'xlsx';
+import * as ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 
 // Classes sociais permitidas conforme definido no banco de dados
@@ -702,10 +702,23 @@ const Inventory = () => {
 
       // Ler arquivo Excel
       const data = await uploadFile.arrayBuffer();
-      const workbook = XLSX.read(data, { type: 'array' });
-      const sheetName = workbook.SheetNames[0];
-      const worksheet = workbook.Sheets[sheetName];
-      const jsonData = XLSX.utils.sheet_to_json(worksheet);
+      const workbook = new ExcelJS.Workbook();
+      await workbook.xlsx.load(data);
+      const worksheet = workbook.getWorksheet(1);
+      const jsonData: any[] = [];
+      
+      if (worksheet) {
+        worksheet.eachRow((row, rowNumber) => {
+          if (rowNumber === 1) return; // Skip header row
+          const rowData: any = {};
+          row.eachCell((cell, colNumber) => {
+            const headerCell = worksheet.getCell(1, colNumber);
+            const header = headerCell.text || headerCell.value?.toString() || `col${colNumber}`;
+            rowData[header] = cell.text || cell.value;
+          });
+          jsonData.push(rowData);
+        });
+      }
 
       if (!jsonData || jsonData.length === 0) {
         throw new Error('Planilha está vazia ou não contém dados válidos');
@@ -899,41 +912,29 @@ const Inventory = () => {
       }));
 
       // Criar planilha Excel
-      const ws = XLSX.utils.json_to_sheet(exportData);
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet("Inventário TV Doutor");
+      
+      // Adicionar cabeçalhos
+      const headers = Object.keys(exportData[0] || {});
+      worksheet.addRow(headers);
+      
+      // Adicionar dados
+      exportData.forEach(row => {
+        const values = headers.map(header => row[header]);
+        worksheet.addRow(values);
+      });
       
       // Configurar largura das colunas
-      const colWidths = [
-        { wch: 15 }, // Código
-        { wch: 25 }, // Nome de Exibição
-        { wch: 30 }, // Endereço
-        { wch: 15 }, // Cidade
-        { wch: 10 }, // Estado
-        { wch: 12 }, // CEP
-        // Removido: { wch: 8 },  // Classe - coluna não existe no banco
-        { wch: 15 }, // Especialidade
-        { wch: 8 },  // Ativo
-        { wch: 12 }, // Latitude
-        { wch: 12 }, // Longitude
-        { wch: 15 }, // Taxa Padrão
-        { wch: 15 }, // Taxa Venda
-        { wch: 12 }, // Spots por Hora
-        { wch: 15 }, // Duração Spot
-        { wch: 20 }, // Google Place ID
-        { wch: 25 }, // Google Maps URL
-        { wch: 12 }, // Criado em
-        { wch: 12 }  // Atualizado em
-      ];
-      ws['!cols'] = colWidths;
-
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "Inventário TV Doutor");
+      const colWidths = [15, 25, 30, 15, 10, 12, 15, 8, 12, 12, 15, 15, 12, 15, 20, 25, 12, 12];
+      worksheet.columns = headers.map((header, index) => ({
+        header,
+        key: header,
+        width: colWidths[index] || 15
+      }));
 
       // Gerar arquivo e fazer download
-      const excelBuffer = XLSX.write(wb, { 
-        bookType: 'xlsx', 
-        type: 'array',
-        compression: true
-      });
+      const excelBuffer = await workbook.xlsx.writeBuffer();
       
       const data = new Blob([excelBuffer], { 
         type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 

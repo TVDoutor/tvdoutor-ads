@@ -39,12 +39,12 @@ class PDFService {
             screens (
               id,
               name,
-              venue_id,
               city,
               state,
-              address,
               class,
+              venue_id,
               venues (
+                id,
                 name,
                 type
               )
@@ -95,12 +95,12 @@ class PDFService {
             screens (
               id,
               name,
-              venue_id,
               city,
               state,
-              address,
               class,
+              venue_id,
               venues (
+                id,
                 name,
                 type
               )
@@ -191,12 +191,12 @@ class PDFService {
             screens (
               id,
               name,
-              venue_id,
               city,
               state,
-              address,
               class,
+              venue_id,
               venues (
+                id,
                 name,
                 type
               )
@@ -214,7 +214,7 @@ class PDFService {
       console.log(`📄 Gerando HTML para proposta #${proposalId} - ${proposal.customer_name}`);
       console.log(`🔢 Telas selecionadas: ${proposal.proposal_screens?.length || 0}`);
 
-      // Gerar HTML da proposta
+      // Gerar HTML da proposta (modelo relacional)
       const htmlContent = this.generateProposalHTML(proposal);
       
       if (!htmlContent || htmlContent.trim().length === 0) {
@@ -373,7 +373,8 @@ class PDFService {
       }
     };
 
-    const screensHtml = proposal.proposal_screens?.map((ps: any) => `
+    const screensHtml = (
+      proposal.proposal_screens?.map((ps: any) => `
       <tr>
         <td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${ps.screens?.name || 'N/A'}</td>
         <td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${ps.screens?.venues?.name || 'N/A'}</td>
@@ -383,7 +384,8 @@ class PDFService {
           ${ps.custom_cpm ? formatCurrency(ps.custom_cpm) : 'Padrão'}
         </td>
       </tr>
-    `).join('') || '<tr><td colspan="5" style="padding: 20px; text-align: center; color: #6b7280;">Nenhuma tela selecionada</td></tr>';
+    `).join('')
+    ) || '<tr><td colspan="5" style="padding: 20px; text-align: center; color: #6b7280;">Nenhuma tela selecionada</td></tr>';
 
     return `
       <div style="max-width: 800px; margin: 0 auto; padding: 40px 20px; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">

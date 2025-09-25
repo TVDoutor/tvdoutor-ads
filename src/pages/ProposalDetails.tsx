@@ -53,9 +53,30 @@ const ProposalDetails = () => {
   const fetchProposal = async (proposalId: number) => {
     try {
       setLoading(true);
+      
       const { data, error } = await supabase
         .from('proposals')
-        .select('*')
+        .select(`
+          *,
+          proposal_screens (
+            id,
+            screen_id,
+            custom_cpm,
+            screens (
+              id,
+              name,
+              city,
+              state,
+              class,
+              venue_id,
+              venues (
+                id,
+                name,
+                type
+              )
+            )
+          )
+        `)
         .eq('id', proposalId)
         .single();
 
@@ -134,6 +155,40 @@ const ProposalDetails = () => {
       currency: 'BRL'
     }).format(value);
   };
+
+  // Calcular valores dinâmicos se não estiverem salvos
+  const calculateEstimatedValues = (proposal: any) => {
+    if (!proposal) return { grossValue: 0, netValue: 0, days: 0, impacts: 0 };
+
+    const screens = proposal.proposal_screens?.length || 0;
+    const startDate = proposal.start_date ? new Date(proposal.start_date) : null;
+    const endDate = proposal.end_date ? new Date(proposal.end_date) : null;
+    const days = startDate && endDate ? 
+      Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1 : 0;
+    
+    const insertionsPerHour = proposal.insertions_per_hour || 0;
+    const hoursPerDay = 10; // Assumindo 10 horas operacionais por dia
+    const totalInsertions = insertionsPerHour * hoursPerDay * days * screens;
+    
+    const avgAudiencePerScreen = 100; // Audiência média estimada
+    const impacts = totalInsertions * avgAudiencePerScreen;
+    
+    const cpm = proposal.cpm_value || 25; // CPM padrão
+    const grossValue = (impacts / 1000) * cpm;
+    
+    const discountPct = proposal.discount_pct || 0;
+    const discountFixed = proposal.discount_fixed || 0;
+    const netValue = grossValue - (grossValue * discountPct / 100) - discountFixed;
+
+    return {
+      grossValue: proposal.gross_calendar || grossValue,
+      netValue: proposal.net_calendar || netValue,
+      days: proposal.days_calendar || days,
+      impacts: proposal.impacts_calendar || impacts
+    };
+  };
+
+  const estimatedValues = proposal ? calculateEstimatedValues(proposal) : null;
 
   const formatDate = (dateString?: string) => {
     if (!dateString) return 'Não informado';
@@ -235,14 +290,14 @@ const ProposalDetails = () => {
               <div>
                 <label className="text-sm font-medium text-muted-foreground">Valor Bruto</label>
                 <p className="text-xl font-bold text-green-600">
-                  {formatCurrency(proposal.gross_calendar)}
+                  {formatCurrency(estimatedValues?.grossValue)}
                 </p>
               </div>
               
               <div>
                 <label className="text-sm font-medium text-muted-foreground">Valor Líquido</label>
                 <p className="text-2xl font-bold text-primary">
-                  {formatCurrency(proposal.net_calendar)}
+                  {formatCurrency(estimatedValues?.netValue)}
                 </p>
               </div>
               
@@ -325,7 +380,7 @@ const ProposalDetails = () => {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
                 <div>
                   <div className="text-2xl font-bold text-primary">
-                    {proposal.screens?.length || 0}
+                    {proposal.proposal_screens?.length || 0}
                   </div>
                   <div className="text-sm text-muted-foreground">Telas</div>
                 </div>

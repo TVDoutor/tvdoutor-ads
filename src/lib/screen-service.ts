@@ -206,3 +206,54 @@ export async function getScreenById(screenId: number): Promise<ScreenData | null
     throw error;
   }
 }
+
+export interface SearchScreensPayload {
+  city?: string;
+  class?: string;
+  lat: number;
+  lng: number;
+  radiusKm: number;
+  onlyActive?: boolean;
+}
+
+/**
+ * Busca telas próximas usando função RPC do Supabase
+ * @param payload - Parâmetros de busca incluindo localização e filtros
+ * @returns Promise com lista de telas encontradas
+ */
+export async function searchScreens(payload: SearchScreensPayload) {
+  try {
+    console.log('🔍 Buscando telas próximas...', payload);
+    
+    const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/rest/v1/rpc/find_screens_v3`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "apikey": import.meta.env.VITE_SUPABASE_ANON_KEY!,
+        "Authorization": `Bearer ${window.localStorage.getItem('sb_jwt') || import.meta.env.VITE_SUPABASE_ANON_KEY!}`
+      },
+      body: JSON.stringify({
+        city_in: payload.city ?? null,
+        class_in: payload.class ?? null,
+        lat_in: payload.lat,
+        lng_in: payload.lng,
+        radius_km_in: payload.radiusKm,
+        only_active: payload.onlyActive ?? true
+      })
+    });
+
+    if (!res.ok) {
+      const errorText = await res.text();
+      console.error('❌ Erro na busca de telas:', errorText);
+      throw new Error(`Falha na busca: ${errorText}`);
+    }
+
+    const data = await res.json();
+    console.log('✅ Telas encontradas:', data?.length || 0);
+    
+    return data;
+  } catch (error) {
+    console.error('💥 Erro ao buscar telas próximas:', error);
+    throw error;
+  }
+}

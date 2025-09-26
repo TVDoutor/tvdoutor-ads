@@ -6,7 +6,25 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { MapPin, Search, Filter, Zap, ZapOff, AlertCircle } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { 
+  MapPin, 
+  Search, 
+  Filter, 
+  Zap, 
+  ZapOff, 
+  AlertCircle, 
+  Map,
+  List,
+  Grid,
+  RefreshCw,
+  Settings,
+  Eye,
+  Target,
+  Layers,
+  Maximize,
+  Minimize
+} from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import mapboxgl from 'mapbox-gl';
@@ -78,6 +96,13 @@ export default function InteractiveMap() {
   const [mapError, setMapError] = useState<string | null>(null);
   const [invalidScreensCount, setInvalidScreensCount] = useState(0);
   const [availableClasses, setAvailableClasses] = useState<string[]>([]);
+  const [viewMode, setViewMode] = useState<'map' | 'list' | 'grid'>('map');
+  const [isMapFullscreen, setIsMapFullscreen] = useState(false);
+  const [mapStats, setMapStats] = useState({
+    totalScreens: 0,
+    activeScreens: 0,
+    visibleScreens: 0
+  });
   
   const mapContainer = useRef<HTMLDivElement | null>(null);
   const map = useRef<mapboxgl.Map | null>(null);
@@ -1440,16 +1465,29 @@ export default function InteractiveMap() {
   //   }
   // };
   
+  // Atualizar estatísticas quando as telas mudarem
+  useEffect(() => {
+    const stats = {
+      totalScreens: screens.length,
+      activeScreens: screens.filter(s => s.active).length,
+      visibleScreens: filteredScreens.length
+    };
+    setMapStats(stats);
+  }, [screens, filteredScreens]);
+
   if (loading) {
     return (
       <DashboardLayout>
-        <div className="p-6">
-          <div className="flex items-center justify-center h-96">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-              <p className="text-muted-foreground">Carregando mapa...</p>
-            </div>
-          </div>
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50/30 flex items-center justify-center">
+          <Card className="w-full max-w-md">
+            <CardContent className="p-8 text-center">
+              <div className="animate-spin rounded-full h-16 w-16 border-4 border-primary border-t-transparent mx-auto mb-6"></div>
+              <h3 className="text-xl font-semibold mb-2">Carregando Mapa</h3>
+              <p className="text-muted-foreground">
+                Inicializando o mapa interativo e carregando dados das telas...
+              </p>
+            </CardContent>
+          </Card>
         </div>
       </DashboardLayout>
     );
@@ -1457,303 +1495,543 @@ export default function InteractiveMap() {
 
   return (
     <DashboardLayout>
-      <div className="p-6 space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">Mapa Interativo</h1>
-          <p className="text-muted-foreground">Visualize e gerencie todas as telas no mapa</p>
-          
-          {/* Debug Info */}
-          {process.env.NODE_ENV === 'development' && (
-            <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs text-yellow-800">
-              <strong>Debug:</strong> {screens.length} telas carregadas | 
-              Estado: {loading ? 'Carregando...' : 'Pronto'} |
-              Filtradas: {filteredScreens.length} |
-              Classes disponíveis: {classes.join(', ')}
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50/30">
+        {/* Header */}
+        <div className="bg-white border-b border-gray-200 shadow-sm">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-primary/10 rounded-lg">
+                  <Map className="h-6 w-6 text-primary" />
+                </div>
+                <div>
+                  <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Mapa Interativo</h1>
+                  <p className="text-sm text-gray-500 mt-1">
+                    Visualize e explore todas as telas de mídia exterior • {mapStats.totalScreens} telas cadastradas
+                  </p>
+                </div>
+              </div>
+              
+              {/* View Mode Toggle */}
+              <div className="flex items-center gap-2">
+                <div className="flex bg-gray-100 rounded-lg p-1">
+                  <Button
+                    variant={viewMode === 'map' ? 'default' : 'ghost'}
+                    size="sm"
+                    onClick={() => setViewMode('map')}
+                    className="gap-2"
+                  >
+                    <Map className="h-4 w-4" />
+                    Mapa
+                  </Button>
+                  <Button
+                    variant={viewMode === 'grid' ? 'default' : 'ghost'}
+                    size="sm"
+                    onClick={() => setViewMode('grid')}
+                    className="gap-2"
+                  >
+                    <Grid className="h-4 w-4" />
+                    Grade
+                  </Button>
+                  <Button
+                    variant={viewMode === 'list' ? 'default' : 'ghost'}
+                    size="sm"
+                    onClick={() => setViewMode('list')}
+                    className="gap-2"
+                  >
+                    <List className="h-4 w-4" />
+                    Lista
+                  </Button>
+                </div>
+              </div>
             </div>
-          )}
+          </div>
         </div>
 
-        {/* Invalid screens alert */}
-        {invalidScreensCount > 0 && (
-          <Alert className="border-yellow-200 bg-yellow-50">
-            <AlertCircle className="h-4 w-4 text-yellow-600" />
-            <AlertDescription className="text-yellow-800">
-              <strong>{invalidScreensCount} telas</strong> não possuem coordenadas válidas e não aparecem no mapa.
-              Verifique os dados de latitude e longitude.
-            </AlertDescription>
-          </Alert>
-        )}
-
-        {/* Mapbox token error */}
-        {mapError && (
-          <Alert className="border-red-200 bg-red-50">
-            <AlertCircle className="h-4 w-4 text-red-600" />
-            <AlertDescription className="text-red-800">
-              <strong>Erro no mapa:</strong> {mapError}
-              {mapError.includes('não configurado') && (
-                <div className="mt-2 text-sm">
-                  Para configurar o token do Mapbox:
-                  <ol className="list-decimal list-inside mt-1 space-y-1">
-                    <li>Acesse o painel do Supabase</li>
-                    <li>Vá em Edge Functions → Secrets</li>
-                    <li>Adicione MAPBOX_PUBLIC_TOKEN com seu token público</li>
-                  </ol>
-                </div>
-              )}
-            </AlertDescription>
-          </Alert>
-        )}
-
-        {/* Filters */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Filter className="w-5 h-5" />
-              Filtros
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Buscar</label>
-                <div className="relative">
-                  <Search className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Código, nome, cidade..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Endereço</label>
-                <div className="relative">
-                  <MapPin className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Rua, Av, Bairro, CEP..."
-                    value={searchAddress}
-                    onChange={(e) => setSearchAddress(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Cidade</label>
-                <Select value={filters.city} onValueChange={(value) => setFilters(prev => ({ ...prev, city: value }))}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Todas as cidades" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todas as cidades</SelectItem>
-                    {cities.map(city => (
-                      <SelectItem key={city} value={city}>{city}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Status</label>
-                <Select value={filters.status} onValueChange={(value) => setFilters(prev => ({ ...prev, status: value }))}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Todos os status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos os status</SelectItem>
-                    <SelectItem value="active">Ativo</SelectItem>
-                    <SelectItem value="inactive">Inativo</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Classe</label>
-                <Select value={filters.class} onValueChange={(value) => setFilters(prev => ({ ...prev, class: value }))}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Todas as classes" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todas as classes</SelectItem>
-                    {classes.map(cls => {
-                      const hasScreens = existingClasses.includes(cls);
-                      return (
-                        <SelectItem key={cls} value={cls}>
-                          {cls} {!hasScreens && '(sem telas)'}
-                        </SelectItem>
-                      );
-                    })}
-                  </SelectContent>
-                </Select>
-                {existingClasses.length < allPossibleClasses.length && (
-                  <p className="text-xs text-muted-foreground">
-                    💡 Algumas classes não possuem telas cadastradas no momento
-                  </p>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Raio (KM)</label>
-                <Select value={searchRadius.toString()} onValueChange={(value) => setSearchRadius(Number(value))}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="2 KM" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="1">1 KM</SelectItem>
-                    <SelectItem value="2">2 KM</SelectItem>
-                    <SelectItem value="5">5 KM</SelectItem>
-                    <SelectItem value="10">10 KM</SelectItem>
-                    <SelectItem value="20">20 KM</SelectItem>
-                    <SelectItem value="50">50 KM</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between mt-4">
-              <p className="text-sm text-muted-foreground">
-                {filteredScreens.length} de {screens.length} telas
-              </p>
-              <div className="flex gap-2">
-                <Button 
-                  variant="default" 
-                  size="sm" 
-                  onClick={handleAddressSearch}
-                  disabled={!searchAddress.trim()}
-                >
-                  🔍 Buscar por Endereço
-                </Button>
-                <Button variant="outline" size="sm" onClick={fetchScreens}>
-                  🔄 Recarregar
-                </Button>
-                <Button variant="outline" size="sm" onClick={closeAllPopups}>
-                  ❌ Fechar Popups
-                </Button>
-                <Button variant="outline" size="sm" onClick={forceMapDisplay}>
-                  🗺️ Forçar Mapa
-                </Button>
-                <Button variant="outline" onClick={clearFilters}>
-                  Limpar filtros
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Map and Details */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Map Area */}
-          <div className="lg:col-span-2">
-            <Card className="h-[900px]">
-              <CardHeader className="pb-3">
-                <CardTitle className="flex items-center gap-2">
-                  <MapPin className="w-5 h-5" />
-                  Mapa das Telas
-                  {filteredScreens.length > 0 && (
-                    <Badge variant="secondary" className="ml-2">
-                      {filteredScreens.length} marcadores
-                    </Badge>
-                  )}
-                </CardTitle>
-                <CardDescription>
-                  Clique nos marcadores para ver detalhes das telas
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="h-[calc(100%-120px)] p-0">
-                {mapError ? (
-                  <div className="w-full h-full bg-muted/20 rounded-lg flex items-center justify-center m-4">
-                    <div className="text-center p-6">
-                      <AlertCircle className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-                      <p className="text-lg font-medium text-muted-foreground">Mapa indisponível</p>
-                      <p className="text-sm text-muted-foreground mt-2 max-w-sm">
-                        {mapError}
-                      </p>
-                    </div>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+          {/* Stats Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
+            <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-blue-800">Total de Telas</p>
+                    <p className="text-2xl font-bold text-blue-900">{mapStats.totalScreens}</p>
                   </div>
-                ) : !mapboxToken ? (
-                  <div className="w-full h-full bg-muted/20 rounded-lg flex items-center justify-center m-4">
-                    <div className="text-center p-6">
-                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-                      <p className="text-lg font-medium text-muted-foreground">Carregando mapa...</p>
-                      <p className="text-sm text-muted-foreground mt-2">
-                        Configurando token de acesso
-                      </p>
-                    </div>
+                  <Target className="h-8 w-8 text-blue-600" />
+                </div>
+              </CardContent>
+            </Card>
+            
+            <Card className="bg-gradient-to-br from-green-50 to-green-100 border-green-200">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-green-800">Telas Ativas</p>
+                    <p className="text-2xl font-bold text-green-900">{mapStats.activeScreens}</p>
                   </div>
-                ) : (
-                  <div 
-                    ref={mapContainer} 
-                    className="w-full h-full rounded-lg"
-                    style={{ 
-                      minHeight: '800px',
-                      height: '800px',
-                      width: '100%',
-                      display: 'block',
-                      visibility: 'visible',
-                      position: 'relative',
-                      overflow: 'hidden',
-                      backgroundColor: '#f0f0f0'
-                    }}
-                  />
-                )}
+                  <Zap className="h-8 w-8 text-green-600" />
+                </div>
+              </CardContent>
+            </Card>
+            
+            <Card className="bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-purple-800">Visíveis</p>
+                    <p className="text-2xl font-bold text-purple-900">{mapStats.visibleScreens}</p>
+                  </div>
+                  <Eye className="h-8 w-8 text-purple-600" />
+                </div>
+              </CardContent>
+            </Card>
+            
+            <Card className="bg-gradient-to-br from-orange-50 to-orange-100 border-orange-200">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-orange-800">Cidades</p>
+                    <p className="text-2xl font-bold text-orange-900">{cities.length}</p>
+                  </div>
+                  <MapPin className="h-8 w-8 text-orange-600" />
+                </div>
+              </CardContent>
+            </Card>
+            
+            <Card className="bg-gradient-to-br from-gray-50 to-gray-100 border-gray-200">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-800">Classes</p>
+                    <p className="text-2xl font-bold text-gray-900">{existingClasses.length}</p>
+                  </div>
+                  <Layers className="h-8 w-8 text-gray-600" />
+                </div>
               </CardContent>
             </Card>
           </div>
 
-          {/* Screen Details */}
-          <div className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Lista de Telas</CardTitle>
-                <CardDescription>
-                  Clique em uma tela para ver detalhes
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3 max-h-[800px] overflow-y-auto">
-                {filteredScreens.map(screen => (
-                  <div
-                    key={screen.id}
-                    className={`p-3 rounded-lg border cursor-pointer transition-colors ${
-                      selectedScreen?.id === screen.id 
-                        ? 'bg-primary/10 border-primary' 
-                        : 'hover:bg-muted/50'
-                    }`}
-                    onClick={() => handleScreenSelect(screen)}
+          {/* Alerts */}
+          {invalidScreensCount > 0 && (
+            <Alert className="border-yellow-200 bg-yellow-50">
+              <AlertCircle className="h-4 w-4 text-yellow-600" />
+              <AlertDescription className="text-yellow-800">
+                <strong>{invalidScreensCount} telas</strong> não possuem coordenadas válidas e não aparecem no mapa.
+                Verifique os dados de latitude e longitude.
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {mapError && (
+            <Alert className="border-red-200 bg-red-50">
+              <AlertCircle className="h-4 w-4 text-red-600" />
+              <AlertDescription className="text-red-800">
+                <strong>Erro no mapa:</strong> {mapError}
+                {mapError.includes('não configurado') && (
+                  <div className="mt-2 text-sm">
+                    Configure o token do Mapbox nas variáveis de ambiente do projeto.
+                  </div>
+                )}
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {/* Enhanced Filters */}
+          <Card className="bg-gradient-to-r from-gray-50/50 to-blue-50/50 border-l-4 border-l-primary">
+            <CardHeader className="pb-4">
+              <CardTitle className="flex items-center gap-2">
+                <Filter className="w-5 h-5 text-primary" />
+                Filtros Avançados
+              </CardTitle>
+              <CardDescription>
+                Use os filtros para encontrar telas específicas ou explore por localização
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* Primary Search */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700">Busca Geral</label>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <Input
+                      placeholder="Código, nome, cidade..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="pl-10 bg-white"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700">Busca por Endereço</label>
+                  <div className="relative">
+                    <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <Input
+                      placeholder="Rua, Av, Bairro, CEP..."
+                      value={searchAddress}
+                      onChange={(e) => setSearchAddress(e.target.value)}
+                      className="pl-10 bg-white"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Filter Grid */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700">Cidade</label>
+                  <Select value={filters.city} onValueChange={(value) => setFilters(prev => ({ ...prev, city: value }))}>
+                    <SelectTrigger className="bg-white">
+                      <SelectValue placeholder="Todas" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todas as cidades</SelectItem>
+                      {cities.map(city => (
+                        <SelectItem key={city} value={city}>{city}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700">Status</label>
+                  <Select value={filters.status} onValueChange={(value) => setFilters(prev => ({ ...prev, status: value }))}>
+                    <SelectTrigger className="bg-white">
+                      <SelectValue placeholder="Todos" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos os status</SelectItem>
+                      <SelectItem value="active">Ativo</SelectItem>
+                      <SelectItem value="inactive">Inativo</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700">Classe</label>
+                  <Select value={filters.class} onValueChange={(value) => setFilters(prev => ({ ...prev, class: value }))}>
+                    <SelectTrigger className="bg-white">
+                      <SelectValue placeholder="Todas" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todas as classes</SelectItem>
+                      {classes.map(cls => (
+                        <SelectItem key={cls} value={cls}>{cls}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700">Raio (KM)</label>
+                  <Select value={searchRadius.toString()} onValueChange={(value) => setSearchRadius(Number(value))}>
+                    <SelectTrigger className="bg-white">
+                      <SelectValue placeholder="2 KM" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1">1 KM</SelectItem>
+                      <SelectItem value="2">2 KM</SelectItem>
+                      <SelectItem value="5">5 KM</SelectItem>
+                      <SelectItem value="10">10 KM</SelectItem>
+                      <SelectItem value="20">20 KM</SelectItem>
+                      <SelectItem value="50">50 KM</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex flex-wrap gap-2 items-center justify-between">
+                <p className="text-sm text-gray-600">
+                  Mostrando <strong>{filteredScreens.length}</strong> de <strong>{screens.length}</strong> telas
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <Button 
+                    variant="default" 
+                    size="sm" 
+                    onClick={handleAddressSearch}
+                    disabled={!searchAddress.trim()}
+                    className="gap-2"
                   >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        {screen.active ? (
-                          <Zap className="w-4 h-4 text-green-600" />
-                        ) : (
-                          <ZapOff className="w-4 h-4 text-muted-foreground" />
-                        )}
-                        <div>
-                          <p className="font-medium text-sm">{screen.code} {screen.name}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {screen.city}, {screen.state}
-                          </p>
+                    <Search className="h-4 w-4" />
+                    Buscar Endereço
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={fetchScreens} className="gap-2">
+                    <RefreshCw className="h-4 w-4" />
+                    Recarregar
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={clearFilters}>
+                    Limpar filtros
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Content based on view mode */}
+          <Tabs value={viewMode} onValueChange={(value) => setViewMode(value as any)} className="space-y-6">
+            <TabsContent value="map">
+              <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
+                {/* Map */}
+                <div className="xl:col-span-3">
+                  <Card className={`${isMapFullscreen ? 'fixed inset-4 z-50' : 'h-[600px] lg:h-[800px]'} shadow-lg`}>
+                    <CardHeader className="pb-3">
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="flex items-center gap-2">
+                          <Map className="w-5 h-5 text-primary" />
+                          Mapa das Telas
+                          {filteredScreens.length > 0 && (
+                            <Badge variant="secondary" className="ml-2">
+                              {filteredScreens.length} marcadores
+                            </Badge>
+                          )}
+                        </CardTitle>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setIsMapFullscreen(!isMapFullscreen)}
+                            className="gap-2"
+                          >
+                            {isMapFullscreen ? (
+                              <>
+                                <Minimize className="h-4 w-4" />
+                                Sair do Fullscreen
+                              </>
+                            ) : (
+                              <>
+                                <Maximize className="h-4 w-4" />
+                                Fullscreen
+                              </>
+                            )}
+                          </Button>
+                          <Button variant="outline" size="sm" onClick={forceMapDisplay} className="gap-2">
+                            <Settings className="h-4 w-4" />
+                            Ajustar Mapa
+                          </Button>
                         </div>
                       </div>
-                      <Badge variant={screen.active ? 'default' : 'secondary'} className="text-xs">
-                        {screen.class}
-                      </Badge>
-                    </div>
-                  </div>
+                    </CardHeader>
+                    <CardContent className="h-[calc(100%-120px)] p-0">
+                      {mapError ? (
+                        <div className="w-full h-full bg-muted/20 rounded-lg flex items-center justify-center m-4">
+                          <div className="text-center p-6">
+                            <AlertCircle className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+                            <p className="text-lg font-medium text-muted-foreground">Mapa indisponível</p>
+                            <p className="text-sm text-muted-foreground mt-2 max-w-sm">{mapError}</p>
+                          </div>
+                        </div>
+                      ) : !mapboxToken ? (
+                        <div className="w-full h-full bg-muted/20 rounded-lg flex items-center justify-center m-4">
+                          <div className="text-center p-6">
+                            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+                            <p className="text-lg font-medium text-muted-foreground">Carregando mapa...</p>
+                          </div>
+                        </div>
+                      ) : (
+                        <div 
+                          ref={mapContainer} 
+                          className="w-full h-full rounded-lg"
+                          style={{ 
+                            minHeight: '500px',
+                            height: '100%',
+                            width: '100%',
+                            display: 'block',
+                            visibility: 'visible',
+                            position: 'relative',
+                            overflow: 'hidden',
+                            backgroundColor: '#f0f0f0'
+                          }}
+                        />
+                      )}
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Screen Details Sidebar */}
+                <div className="space-y-4">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-lg">Telas Próximas</CardTitle>
+                      <CardDescription>
+                        Clique em uma tela para destacar no mapa
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-3 max-h-[700px] overflow-y-auto">
+                      {filteredScreens.slice(0, 20).map(screen => (
+                        <div
+                          key={screen.id}
+                          className={`p-3 rounded-lg border cursor-pointer transition-all hover:shadow-md ${
+                            selectedScreen?.id === screen.id 
+                              ? 'bg-primary/10 border-primary shadow-md' 
+                              : 'hover:bg-gray-50'
+                          }`}
+                          onClick={() => handleScreenSelect(screen)}
+                        >
+                          <div className="flex items-start justify-between">
+                            <div className="flex items-center gap-2">
+                              {screen.active ? (
+                                <Zap className="w-4 h-4 text-green-600 flex-shrink-0" />
+                              ) : (
+                                <ZapOff className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                              )}
+                              <div className="min-w-0">
+                                <p className="font-medium text-sm truncate">{screen.code}</p>
+                                <p className="text-sm text-gray-600 truncate">{screen.name}</p>
+                                <p className="text-xs text-gray-500 truncate">
+                                  {screen.city}, {screen.state}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex flex-col items-end gap-1">
+                              <Badge 
+                                variant={screen.active ? 'default' : 'secondary'} 
+                                className="text-xs"
+                              >
+                                {screen.class}
+                              </Badge>
+                              {selectedScreen?.id === screen.id && (
+                                <Badge variant="outline" className="text-xs">
+                                  Selecionado
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+
+                      {filteredScreens.length === 0 && (
+                        <div className="text-center py-8">
+                          <Target className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                          <p className="text-gray-500 font-medium">Nenhuma tela encontrada</p>
+                          <p className="text-sm text-gray-400 mt-1">
+                            Ajuste os filtros ou busque por localização
+                          </p>
+                        </div>
+                      )}
+                      
+                      {filteredScreens.length > 20 && (
+                        <div className="text-center py-4 border-t">
+                          <p className="text-sm text-gray-500">
+                            E mais {filteredScreens.length - 20} telas...
+                          </p>
+                          <Button variant="outline" size="sm" className="mt-2">
+                            Ver todas na lista
+                          </Button>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="grid">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {filteredScreens.map(screen => (
+                  <ScreenCard key={screen.id} screen={screen} />
                 ))}
+              </div>
+            </TabsContent>
 
-                {filteredScreens.length === 0 && (
-                  <div className="text-center py-8">
-                    <p className="text-muted-foreground">Nenhuma tela encontrada</p>
+            <TabsContent value="list">
+              <Card>
+                <CardContent className="p-0">
+                  <div className="divide-y">
+                    {filteredScreens.map(screen => (
+                      <ScreenListItem key={screen.id} screen={screen} />
+                    ))}
                   </div>
-                )}
-              </CardContent>
-            </Card>
-
-          </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
         </div>
       </div>
     </DashboardLayout>
   );
+
+  // Componente de Card para tela
+  function ScreenCard({ screen }: { screen: SimpleScreen }) {
+    return (
+      <Card className="hover:shadow-lg transition-all duration-200 hover:-translate-y-1">
+        <CardHeader className="pb-3">
+          <div className="flex items-start justify-between">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                {screen.active ? (
+                  <Zap className="w-4 h-4 text-green-600" />
+                ) : (
+                  <ZapOff className="w-4 h-4 text-gray-400" />
+                )}
+                <Badge variant={screen.active ? 'default' : 'secondary'} className="text-xs">
+                  {screen.class}
+                </Badge>
+              </div>
+              <CardTitle className="text-sm font-medium">{screen.code}</CardTitle>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => handleScreenSelect(screen)}
+              className="h-8 w-8 p-0"
+            >
+              <Eye className="h-4 w-4" />
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="pt-0">
+          <div className="space-y-2">
+            <p className="text-sm text-gray-600 line-clamp-2">{screen.name}</p>
+            <div className="flex items-center gap-2 text-xs text-gray-500">
+              <MapPin className="h-3 w-3" />
+              <span>{screen.city}, {screen.state}</span>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Componente de Item da Lista
+  function ScreenListItem({ screen }: { screen: SimpleScreen }) {
+    return (
+      <div className="p-4 hover:bg-gray-50 transition-colors">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className={`p-2 rounded-lg ${screen.active ? 'bg-green-100' : 'bg-gray-100'}`}>
+              {screen.active ? (
+                <Zap className="w-5 h-5 text-green-600" />
+              ) : (
+                <ZapOff className="w-5 h-5 text-gray-400" />
+              )}
+            </div>
+            <div>
+              <h3 className="font-medium">{screen.code} - {screen.name}</h3>
+              <div className="flex items-center gap-4 text-sm text-gray-500 mt-1">
+                <span className="flex items-center gap-1">
+                  <MapPin className="h-3 w-3" />
+                  {screen.city}, {screen.state}
+                </span>
+                <Badge variant={screen.active ? 'default' : 'secondary'} className="text-xs">
+                  {screen.class}
+                </Badge>
+              </div>
+            </div>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handleScreenSelect(screen)}
+            className="gap-2"
+          >
+            <Eye className="h-4 w-4" />
+            Ver no Mapa
+          </Button>
+        </div>
+      </div>
+    );
+  }
 }

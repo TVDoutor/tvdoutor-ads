@@ -34,6 +34,8 @@ export const PDFDownloadButton = ({
     setError(null);
 
     try {
+      console.log(`🚀 Iniciando download do PDF para proposta ${proposalId}...`);
+      
       const filename = `proposta-${proposalId}-${customerName.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
       
       await pdfService.downloadProposalPDF(proposalId, filename);
@@ -43,13 +45,19 @@ export const PDFDownloadButton = ({
       });
       
     } catch (error: any) {
-      console.error('Erro ao baixar PDF:', error);
+      console.error('❌ Erro detalhado ao baixar PDF:', {
+        error: error.message,
+        stack: error.stack,
+        proposalId,
+        customerName
+      });
       
       const errorMessage = error.message || 'Erro desconhecido ao gerar PDF';
       setError(errorMessage);
       
       toast.error('Erro ao gerar PDF', {
-        description: errorMessage,
+        description: `${errorMessage}. Verifique o console para mais detalhes.`,
+        duration: 10000, // Mais tempo para ler o erro
         action: {
           label: 'Tentar novamente',
           onClick: () => handleDownload()

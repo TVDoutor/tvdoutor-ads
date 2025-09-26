@@ -9,13 +9,12 @@ import {
   Search, 
   MapPin, 
   Star, 
-  Stethoscope, 
-  X,
   Filter,
-  RefreshCw
+  RefreshCw,
+  X
 } from 'lucide-react';
-import { Checkbox } from '@/components/ui/checkbox';
 import { supabase } from '@/integrations/supabase/client';
+import { SpecialtySearch } from './SpecialtySearch';
 
 export interface ScreenFilters {
   nameOrCode: string;
@@ -43,7 +42,6 @@ export const ScreenFilters: React.FC<ScreenFiltersProps> = ({
   onClearFilters,
   loading = false
 }) => {
-  const [availableSpecialties, setAvailableSpecialties] = useState<string[]>([]);
   const [availableCities, setAvailableCities] = useState<string[]>([]);
   const [availableStates, setAvailableStates] = useState<string[]>([]);
 
@@ -54,22 +52,6 @@ export const ScreenFilters: React.FC<ScreenFiltersProps> = ({
 
   const loadFilterOptions = async () => {
     try {
-      // Buscar especialidades
-      const { data: specialtyData } = await supabase
-        .from('v_screens_enriched')
-        .select('specialty')
-        .not('specialty', 'is', null);
-
-      if (specialtyData) {
-        const specialties = new Set<string>();
-        specialtyData.forEach((item: any) => {
-          if (Array.isArray(item.specialty)) {
-            item.specialty.forEach((spec: string) => specialties.add(spec));
-          }
-        });
-        setAvailableSpecialties(Array.from(specialties).sort());
-      }
-
       // Buscar cidades
       const { data: cityData } = await supabase
         .from('v_screens_enriched')
@@ -107,19 +89,8 @@ export const ScreenFilters: React.FC<ScreenFiltersProps> = ({
     updateFilters({ selectedClasses: newClasses });
   };
 
-  const toggleSpecialty = (specialty: string) => {
-    const newSpecialties = filters.selectedSpecialties.includes(specialty)
-      ? filters.selectedSpecialties.filter(s => s !== specialty)
-      : [...filters.selectedSpecialties, specialty];
-    updateFilters({ selectedSpecialties: newSpecialties });
-  };
-
   const removeClass = (className: string) => {
     updateFilters({ selectedClasses: filters.selectedClasses.filter(c => c !== className) });
-  };
-
-  const removeSpecialty = (specialty: string) => {
-    updateFilters({ selectedSpecialties: filters.selectedSpecialties.filter(s => s !== specialty) });
   };
 
   const hasActiveFilters = () => {
@@ -237,44 +208,11 @@ export const ScreenFilters: React.FC<ScreenFiltersProps> = ({
 
         <Separator />
 
-        {/* Filtro por Especialidade */}
-        <div className="space-y-3">
-          <Label className="flex items-center gap-2">
-            <Stethoscope className="w-4 h-4" />
-            Especialidades Médicas
-          </Label>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 max-h-48 overflow-y-auto">
-            {availableSpecialties.map(specialty => (
-              <div key={specialty} className="flex items-center space-x-2">
-                <Checkbox
-                  id={`specialty-${specialty}`}
-                  checked={filters.selectedSpecialties.includes(specialty)}
-                  onCheckedChange={() => toggleSpecialty(specialty)}
-                />
-                <Label 
-                  htmlFor={`specialty-${specialty}`} 
-                  className="text-sm cursor-pointer"
-                >
-                  {specialty}
-                </Label>
-              </div>
-            ))}
-          </div>
-          {filters.selectedSpecialties.length > 0 && (
-            <div className="flex flex-wrap gap-1">
-              <span className="text-sm text-gray-600">Selecionadas:</span>
-              {filters.selectedSpecialties.map(specialty => (
-                <Badge key={specialty} variant="secondary" className="gap-1">
-                  {specialty}
-                  <X 
-                    className="w-3 h-3 cursor-pointer" 
-                    onClick={() => removeSpecialty(specialty)}
-                  />
-                </Badge>
-              ))}
-            </div>
-          )}
-        </div>
+        {/* Filtro por Especialidade - Novo componente */}
+        <SpecialtySearch
+          selectedSpecialties={filters.selectedSpecialties}
+          onSpecialtiesChange={(specialties) => updateFilters({ selectedSpecialties: specialties })}
+        />
 
         {/* Botões de Ação */}
         <div className="flex justify-between items-center pt-4">

@@ -1,0 +1,11 @@
+{
+  "imports": {
+    "@supabase/functions-js": "https://esm.sh/@supabase/functions-js@2",
+    "pdf-lib": "https://esm.sh/pdf-lib@1.17.1"
+  },
+  "compilerOptions": {
+    "allowJs": true,
+    "lib": ["deno.window"],
+    "strict": true
+  }
+}

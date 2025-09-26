@@ -7,13 +7,25 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { 
   Search, 
   MapPin, 
   Building2, 
   Eye,
   AlertCircle,
-  Package
+  Package,
+  Grid,
+  List,
+  Zap,
+  ZapOff,
+  Filter,
+  Target,
+  Users,
+  BarChart3,
+  Layers,
+  RefreshCw
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -48,6 +60,10 @@ const Venues = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards');
+  const [typeFilter, setTypeFilter] = useState('all');
+  const [cityFilter, setCityFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
 
 
 
@@ -57,7 +73,11 @@ const Venues = () => {
 
   useEffect(() => {
     filterVenues();
-  }, [searchTerm, venues]);
+  }, [searchTerm, venues, typeFilter, cityFilter, statusFilter]);
+
+  // Get unique values for filters
+  const availableCities = Array.from(new Set(venues.map(v => v.city).filter(Boolean))).sort();
+  const availableTypes = Array.from(new Set(venues.map(v => v.venue_type_parent).filter(Boolean))).sort();
 
   const fetchVenues = async () => {
     try {
@@ -153,22 +173,41 @@ const Venues = () => {
   };
 
   const filterVenues = () => {
-    if (!searchTerm) {
-      setFilteredVenues(venues);
-      return;
+    let filtered = venues;
+
+    // Text search
+    if (searchTerm.trim()) {
+      filtered = filtered.filter(venue =>
+        venue.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        venue.venue_type_parent?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        venue.city?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        venue.state?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        venue.screens.some(screen => 
+          screen.code?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          screen.display_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          screen.class?.toLowerCase().includes(searchTerm.toLowerCase())
+        )
+      );
     }
 
-    const filtered = venues.filter(venue =>
-      venue.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      venue.venue_type_parent?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      venue.city?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      venue.state?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      venue.screens.some(screen => 
-        screen.code?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        screen.display_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        screen.class?.toLowerCase().includes(searchTerm.toLowerCase())
-      )
-    );
+    // Type filter
+    if (typeFilter !== 'all') {
+      filtered = filtered.filter(venue => venue.venue_type_parent === typeFilter);
+    }
+
+    // City filter
+    if (cityFilter !== 'all') {
+      filtered = filtered.filter(venue => venue.city === cityFilter);
+    }
+
+    // Status filter
+    if (statusFilter !== 'all') {
+      if (statusFilter === 'active') {
+        filtered = filtered.filter(venue => venue.activeScreens > 0);
+      } else {
+        filtered = filtered.filter(venue => venue.activeScreens === 0);
+      }
+    }
 
     setFilteredVenues(filtered);
   };
@@ -220,177 +259,424 @@ const Venues = () => {
 
   return (
     <DashboardLayout>
-      <div className="p-6 space-y-6">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50/30">
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold flex items-center gap-2">
-              <Package className="h-6 w-6 text-primary" />
-              Pontos de Venda
-            </h1>
-            <p className="text-muted-foreground">
-              Gerencie e visualize todos os pontos de venda e suas telas
-            </p>
+        <div className="bg-white border-b border-gray-200 shadow-sm">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-primary/10 rounded-lg">
+                  <Building2 className="h-6 w-6 text-primary" />
+                </div>
+                <div>
+                  <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Pontos de Venda</h1>
+                  <p className="text-sm text-gray-500 mt-1">
+                    Gerencie locais e suas telas • {venues.length} pontos de venda
+                  </p>
+                </div>
+              </div>
+              
+              <div className="flex items-center gap-2">
+                <div className="flex bg-gray-100 rounded-lg p-1">
+                  <Button
+                    variant={viewMode === 'cards' ? 'default' : 'ghost'}
+                    size="sm"
+                    onClick={() => setViewMode('cards')}
+                    className="gap-2"
+                  >
+                    <Grid className="h-4 w-4" />
+                    Cards
+                  </Button>
+                  <Button
+                    variant={viewMode === 'table' ? 'default' : 'ghost'}
+                    size="sm"
+                    onClick={() => setViewMode('table')}
+                    className="gap-2"
+                  >
+                    <List className="h-4 w-4" />
+                    Tabela
+                  </Button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* Search and Filters */}
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-4">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Buscar por nome do ponto, tipo, cidade, código de tela..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <Building2 className="h-8 w-8 text-primary" />
-                <div>
-                  <p className="text-2xl font-bold">
-                    {loading ? "..." : venues.length}
-                  </p>
-                  <p className="text-sm text-muted-foreground">Total de Pontos</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <Package className="h-8 w-8 text-secondary" />
-                <div>
-                  <p className="text-2xl font-bold">
-                    {loading ? "..." : venues.reduce((acc, v) => acc + v.screenCount, 0)}
-                  </p>
-                  <p className="text-sm text-muted-foreground">Total de Telas</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <Eye className="h-8 w-8 text-accent" />
-                <div>
-                  <p className="text-2xl font-bold">
-                    {loading ? "..." : venues.reduce((acc, v) => acc + v.activeScreens, 0)}
-                  </p>
-                  <p className="text-sm text-muted-foreground">Telas Ativas</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Venues List */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {loading ? (
-            Array.from({ length: 6 }).map((_, index) => (
-              <Card key={index}>
-                <CardContent className="p-6">
-                  <Skeleton className="h-6 w-3/4 mb-2" />
-                  <Skeleton className="h-4 w-1/2 mb-4" />
-                  <Skeleton className="h-4 w-full mb-2" />
-                  <Skeleton className="h-4 w-2/3 mb-4" />
-                  <Skeleton className="h-10 w-full" />
-                </CardContent>
-              </Card>
-            ))
-          ) : (
-            filteredVenues.map((venue) => (
-              <Card key={venue.id} className="hover:shadow-md transition-shadow">
-                <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <CardTitle className="text-lg">{venue.name}</CardTitle>
-                      <p className="text-sm text-muted-foreground">
-                        {getVenueTypeDisplay(venue)}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <Badge variant={venue.activeScreens > 0 ? "default" : "secondary"}>
-                        {venue.activeScreens}/{venue.screenCount} ativas
-                      </Badge>
-                      {venue.coordinates && (
-                        <Badge variant="outline" className="text-xs mt-1">
-                          📍 Com coordenadas
-                        </Badge>
-                      )}
-                    </div>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+          {/* Enhanced Stats */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200 hover:shadow-lg transition-shadow">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-blue-800">Total de Pontos</p>
+                    <p className="text-3xl font-bold text-blue-900">
+                      {loading ? "..." : venues.length}
+                    </p>
+                    <p className="text-xs text-blue-700">Pontos de venda únicos</p>
                   </div>
-                </CardHeader>
+                  <div className="p-3 bg-blue-200 rounded-lg">
+                    <Building2 className="h-8 w-8 text-blue-700" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            
+            <Card className="bg-gradient-to-br from-green-50 to-green-100 border-green-200 hover:shadow-lg transition-shadow">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-green-800">Total de Telas</p>
+                    <p className="text-3xl font-bold text-green-900">
+                      {loading ? "..." : venues.reduce((acc, v) => acc + v.screenCount, 0)}
+                    </p>
+                    <p className="text-xs text-green-700">Todas as telas</p>
+                  </div>
+                  <div className="p-3 bg-green-200 rounded-lg">
+                    <Package className="h-8 w-8 text-green-700" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            
+            <Card className="bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200 hover:shadow-lg transition-shadow">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-purple-800">Telas Ativas</p>
+                    <p className="text-3xl font-bold text-purple-900">
+                      {loading ? "..." : venues.reduce((acc, v) => acc + v.activeScreens, 0)}
+                    </p>
+                    <p className="text-xs text-purple-700">Em funcionamento</p>
+                  </div>
+                  <div className="p-3 bg-purple-200 rounded-lg">
+                    <Zap className="h-8 w-8 text-purple-700" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            
+            <Card className="bg-gradient-to-br from-orange-50 to-orange-100 border-orange-200 hover:shadow-lg transition-shadow">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-orange-800">Cidades</p>
+                    <p className="text-3xl font-bold text-orange-900">
+                      {loading ? "..." : availableCities.length}
+                    </p>
+                    <p className="text-xs text-orange-700">Diferentes localidades</p>
+                  </div>
+                  <div className="p-3 bg-orange-200 rounded-lg">
+                    <MapPin className="h-8 w-8 text-orange-700" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Enhanced Filters */}
+          <Card className="bg-gradient-to-r from-gray-50/50 to-blue-50/50 border-l-4 border-l-primary">
+            <CardHeader className="pb-4">
+              <CardTitle className="flex items-center gap-2">
+                <Filter className="w-5 h-5 text-primary" />
+                Filtros e Busca
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700">Busca Geral</label>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Input
+                      placeholder="Nome do ponto, tipo, cidade, código de tela..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="pl-10 bg-white"
+                    />
+                  </div>
+                </div>
                 
-                <CardContent>
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2 text-sm">
-                      <MapPin className="h-4 w-4 text-muted-foreground" />
-                      <span>{getLocationDisplay(venue)}</span>
-                    </div>
-                    
-                    {getClassDisplay(venue.screens).length > 0 && (
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-sm text-muted-foreground">Classes:</span>
-                        {getClassDisplay(venue.screens).map((cls, index) => (
-                          <Badge key={index} variant="outline" className="text-xs">
-                            {cls}
-                          </Badge>
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-700">Tipo</label>
+                    <Select value={typeFilter} onValueChange={setTypeFilter}>
+                      <SelectTrigger className="bg-white">
+                        <SelectValue placeholder="Todos" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todos os tipos</SelectItem>
+                        {availableTypes.map(type => (
+                          <SelectItem key={type} value={type}>{type}</SelectItem>
                         ))}
-                      </div>
-                    )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-700">Cidade</label>
+                    <Select value={cityFilter} onValueChange={setCityFilter}>
+                      <SelectTrigger className="bg-white">
+                        <SelectValue placeholder="Todas" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todas as cidades</SelectItem>
+                        {availableCities.map(city => (
+                          <SelectItem key={city} value={city}>{city}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-700">Status</label>
+                    <Select value={statusFilter} onValueChange={setStatusFilter}>
+                      <SelectTrigger className="bg-white">
+                        <SelectValue placeholder="Todos" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todos</SelectItem>
+                        <SelectItem value="active">Com telas ativas</SelectItem>
+                        <SelectItem value="inactive">Sem telas ativas</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
 
-                    <div className="text-xs text-muted-foreground">
-                      <strong>{venue.screenCount}</strong> {venue.screenCount === 1 ? 'tela' : 'telas'} no inventário
+              <div className="flex items-center justify-between text-sm text-gray-600">
+                <span>
+                  Exibindo <strong>{filteredVenues.length}</strong> de <strong>{venues.length}</strong> pontos de venda
+                </span>
+                <Button variant="outline" size="sm" onClick={fetchVenues} className="gap-2">
+                  <RefreshCw className="w-4 h-4" />
+                  Recarregar
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Content */}
+          <Tabs value={viewMode} onValueChange={(value) => setViewMode(value as any)} className="space-y-6">
+            <TabsContent value="cards">
+              {loading ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                  {Array.from({ length: 8 }).map((_, index) => (
+                    <Card key={index} className="animate-pulse">
+                      <CardHeader className="space-y-2">
+                        <Skeleton className="h-6 w-3/4" />
+                        <Skeleton className="h-4 w-1/2" />
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        <Skeleton className="h-4 w-full" />
+                        <Skeleton className="h-4 w-2/3" />
+                        <Skeleton className="h-10 w-full" />
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              ) : filteredVenues.length === 0 ? (
+                <Card className="border-dashed">
+                  <CardContent className="p-12 text-center">
+                    <div className="mx-auto w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mb-6">
+                      <Building2 className="h-12 w-12 text-gray-400" />
                     </div>
-                    
-                    <Button 
-                      className="w-full" 
-                      variant="outline"
-                      onClick={() => handleViewDetails(venue.id)}
-                    >
-                      <Eye className="h-4 w-4 mr-2" />
-                      Ver Detalhes
-                    </Button>
+                    <h3 className="text-xl font-semibold mb-3">
+                      {searchTerm || typeFilter !== 'all' || cityFilter !== 'all' || statusFilter !== 'all' 
+                        ? "Nenhum ponto encontrado" 
+                        : "Nenhuma tela no inventário"
+                      }
+                    </h3>
+                    <p className="text-muted-foreground mb-6 max-w-sm mx-auto">
+                      {searchTerm || typeFilter !== 'all' || cityFilter !== 'all' || statusFilter !== 'all'
+                        ? "Tente ajustar os filtros ou termos de busca."
+                        : "Os pontos de venda são criados automaticamente a partir das telas do inventário."
+                      }
+                    </p>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                  {filteredVenues.map((venue) => (
+                    <ModernVenueCard 
+                      key={venue.id} 
+                      venue={venue} 
+                      onViewDetails={handleViewDetails}
+                      getLocationDisplay={getLocationDisplay}
+                      getClassDisplay={getClassDisplay}
+                      getVenueTypeDisplay={getVenueTypeDisplay}
+                    />
+                  ))}
+                </div>
+              )}
+            </TabsContent>
+
+            <TabsContent value="table">
+              <Card className="shadow-lg">
+                <CardContent className="p-0">
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead className="border-b bg-gray-50/50">
+                        <tr>
+                          <th className="text-left p-4 font-medium text-gray-900">Ponto de Venda</th>
+                          <th className="text-left p-4 font-medium text-gray-900">Tipo</th>
+                          <th className="text-left p-4 font-medium text-gray-900">Localização</th>
+                          <th className="text-left p-4 font-medium text-gray-900">Telas</th>
+                          <th className="text-left p-4 font-medium text-gray-900">Status</th>
+                          <th className="text-left p-4 font-medium text-gray-900">Ações</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y">
+                        {filteredVenues.map((venue) => (
+                          <tr key={venue.id} className="hover:bg-gray-50 transition-colors">
+                            <td className="p-4">
+                              <div>
+                                <div className="font-medium text-gray-900">{venue.name}</div>
+                                <div className="text-sm text-gray-500">ID: {venue.id}</div>
+                              </div>
+                            </td>
+                            <td className="p-4 text-sm text-gray-600">
+                              {getVenueTypeDisplay(venue)}
+                            </td>
+                            <td className="p-4">
+                              <div className="flex items-center gap-2 text-sm text-gray-600">
+                                <MapPin className="h-4 w-4" />
+                                {getLocationDisplay(venue)}
+                              </div>
+                            </td>
+                            <td className="p-4">
+                              <div className="flex items-center gap-2">
+                                <Badge variant={venue.activeScreens > 0 ? "default" : "secondary"} className="text-xs">
+                                  {venue.activeScreens}/{venue.screenCount}
+                                </Badge>
+                                <span className="text-sm text-gray-600">ativas</span>
+                              </div>
+                            </td>
+                            <td className="p-4">
+                              <div className="flex items-center gap-2">
+                                {venue.activeScreens > 0 ? (
+                                  <Zap className="h-4 w-4 text-green-600" />
+                                ) : (
+                                  <ZapOff className="h-4 w-4 text-gray-400" />
+                                )}
+                                <span className={`text-xs font-medium ${
+                                  venue.activeScreens > 0 ? 'text-green-700' : 'text-gray-500'
+                                }`}>
+                                  {venue.activeScreens > 0 ? 'Operacional' : 'Inativo'}
+                                </span>
+                              </div>
+                            </td>
+                            <td className="p-4">
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                onClick={() => handleViewDetails(venue.id)}
+                                className="gap-1"
+                              >
+                                <Eye className="h-3 w-3" />
+                                Ver
+                              </Button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
                 </CardContent>
               </Card>
-            ))
-          )}
+            </TabsContent>
+          </Tabs>
         </div>
-
-        {/* Empty State */}
-        {!loading && filteredVenues.length === 0 && (
-          <Card>
-            <CardContent className="p-12 text-center">
-              <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-lg font-semibold mb-2">
-                {searchTerm ? "Nenhum ponto encontrado" : "Nenhuma tela no inventário"}
-              </h3>
-              <p className="text-muted-foreground">
-                {searchTerm 
-                  ? "Tente ajustar os termos da busca."
-                  : "Os pontos de venda são agrupados automaticamente a partir das telas do inventário."
-                }
-              </p>
-            </CardContent>
-          </Card>
-        )}
       </div>
     </DashboardLayout>
   );
+
+  // Componente de Card Moderno para Venues
+  function ModernVenueCard({ 
+    venue, 
+    onViewDetails, 
+    getLocationDisplay, 
+    getClassDisplay, 
+    getVenueTypeDisplay 
+  }: {
+    venue: VenueWithScreens;
+    onViewDetails: (id: string) => void;
+    getLocationDisplay: (venue: VenueWithScreens) => string;
+    getClassDisplay: (screens: any[]) => string[];
+    getVenueTypeDisplay: (venue: VenueWithScreens) => string;
+  }) {
+    return (
+      <Card className="group hover:shadow-lg transition-all duration-300 hover:-translate-y-1 border-l-4 border-l-primary/20 hover:border-l-primary">
+        <CardHeader className="pb-3">
+          <div className="flex items-start justify-between">
+            <div className="space-y-1 flex-1">
+              <CardTitle className="text-lg leading-tight group-hover:text-primary transition-colors">
+                {venue.name}
+              </CardTitle>
+              <p className="text-sm text-muted-foreground">
+                {getVenueTypeDisplay(venue)}
+              </p>
+            </div>
+            <div className="text-right space-y-1">
+              <Badge variant={venue.activeScreens > 0 ? "default" : "secondary"} className="text-xs">
+                {venue.activeScreens}/{venue.screenCount} ativas
+              </Badge>
+              {venue.coordinates && (
+                <Badge variant="outline" className="text-xs block">
+                  📍 Geo
+                </Badge>
+              )}
+            </div>
+          </div>
+        </CardHeader>
+        
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <MapPin className="h-4 w-4" />
+              <span>{getLocationDisplay(venue)}</span>
+            </div>
+            
+            {getClassDisplay(venue.screens).length > 0 && (
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-sm text-muted-foreground">Classes:</span>
+                {getClassDisplay(venue.screens).map((cls, index) => (
+                  <Badge key={index} variant="outline" className="text-xs">
+                    {cls}
+                  </Badge>
+                ))}
+              </div>
+            )}
+
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <span>
+                <strong>{venue.screenCount}</strong> {venue.screenCount === 1 ? 'tela' : 'telas'}
+              </span>
+              <div className="flex items-center gap-1">
+                {venue.activeScreens > 0 ? (
+                  <Zap className="h-3 w-3 text-green-600" />
+                ) : (
+                  <ZapOff className="h-3 w-3 text-gray-400" />
+                )}
+                <span className={venue.activeScreens > 0 ? 'text-green-600' : 'text-gray-500'}>
+                  {venue.activeScreens > 0 ? 'Operacional' : 'Inativo'}
+                </span>
+              </div>
+            </div>
+          </div>
+          
+          <Button 
+            onClick={() => onViewDetails(venue.id)}
+            className="w-full gap-2 mt-4"
+            size="sm"
+          >
+            <Eye className="h-4 w-4" />
+            Ver Detalhes
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
 };
 
 export default Venues;

@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/DashboardLayout';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { 
   Plus, 
   Search, 
@@ -25,11 +27,13 @@ import {
   ArrowLeft,
   Bell,
   BarChart3,
-  Paperclip
+  Paperclip,
+  RefreshCw
 } from 'lucide-react';
 import { PessoaProjetoSelector } from '@/components/PessoaProjetoSelector';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { useAuth } from '@/contexts/AuthContext';
 import { 
   projectManagementService,
   agenciaService,
@@ -57,6 +61,7 @@ interface Notificacao {
 
 const ProjectManagement = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [telaAtiva, setTelaAtiva] = useState('agencias');
   const [dados, setDados] = useState({
     agencias: [] as Agencia[],
@@ -66,7 +71,8 @@ const ProjectManagement = () => {
     marcos: [] as Marco[],
     contatos: [] as Contato[],
     notificacoes: [] as Notificacao[],
-    pessoasProjeto: [] as PessoaProjeto[]
+    pessoasProjeto: [] as PessoaProjeto[],
+    profiles: [] as Array<{id: string, full_name: string}>
   });
   
   const [loading, setLoading] = useState(false);
@@ -75,6 +81,34 @@ const ProjectManagement = () => {
     status: '',
     busca: ''
   });
+
+
+  // Função para buscar nome do responsável
+  const getResponsavelNome = (responsavelId: string | null, projetoId?: string | null): string => {
+    if (!responsavelId) return 'Não definido';
+    
+    // Se temos um projetoId, buscar entre os membros da equipe
+    if (projetoId) {
+      const membrosEquipe = getMembrosEquipeProjeto(projetoId);
+      const membro = membrosEquipe.find(m => m.pessoa_id === responsavelId);
+      if (membro) {
+        return membro.nome_pessoa || 'Membro sem nome';
+      }
+    }
+    
+    // Fallback: buscar nos profiles (para compatibilidade)
+    const profile = dados.profiles.find(p => p.id === responsavelId);
+    return profile?.full_name || 'Usuário não encontrado';
+  };
+
+  // Função para obter membros da equipe do projeto atual
+  const getMembrosEquipeProjeto = (projetoId: string | null): EquipeCompleta[] => {
+    if (!projetoId) return [];
+    return dados.equipes.filter(membro => 
+      membro.projeto_id === projetoId && 
+      membro.ativo === true
+    );
+  };
 
   // Carregar dados do Supabase
   const carregarDados = async () => {
@@ -93,11 +127,13 @@ const ProjectManagement = () => {
       
       console.log('🏢 Agências encontradas:', dadosCarregados.agencias);
       console.log('💼 Deals encontrados:', dadosCarregados.deals);
+      console.log('👥 Profiles encontrados:', dadosCarregados.profiles);
       
       setDados({
         ...dadosCarregados,
         notificacoes: [], // Implementar notificações futuramente
-        pessoasProjeto: dadosCarregados.pessoasProjeto || []
+        pessoasProjeto: dadosCarregados.pessoasProjeto || [],
+        profiles: dadosCarregados.profiles || []
       });
 
     } catch (error) {
@@ -112,64 +148,88 @@ const ProjectManagement = () => {
     carregarDados();
   }, []);
 
-  // Componente de navegação lateral
+  // Componente de navegação lateral modernizada
   const Navigation = () => (
-    <div className="w-64 bg-card border-r border-border h-screen fixed left-0 top-0 overflow-y-auto flex flex-col">
-      <div className="p-6">
-        <h1 className="text-xl font-bold text-card-foreground truncate">Gerenciamento de Projetos</h1>
+    <div className="w-64 bg-white border-r border-gray-200 h-screen fixed left-0 top-0 overflow-y-auto flex flex-col shadow-lg">
+      <div className="p-6 border-b border-gray-100">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-primary/10 rounded-lg">
+            <Target className="h-6 w-6 text-primary" />
+          </div>
+          <h1 className="text-lg font-bold text-gray-900 truncate">Gerenciamento</h1>
+        </div>
+        <p className="text-sm text-gray-500 mt-1">Centro de controle</p>
       </div>
       
-      <nav className="mt-6 flex-grow px-3">
+      <nav className="mt-6 flex-grow px-3 space-y-1">
         {[
-          { id: 'agencias', nome: 'Agências', icon: Building2 },
-          { id: 'projetos', nome: 'Projetos', icon: Target },
-          { id: 'deals', nome: 'Deals', icon: TrendingUp },
-          { id: 'equipes', nome: 'Equipes', icon: Users },
-          { id: 'marcos', nome: 'Marcos', icon: Flag },
-          { id: 'relatorios', nome: 'Relatórios', icon: BarChart3 }
+          { id: 'agencias', nome: 'Agências', icon: Building2, desc: 'Parceiros' },
+          { id: 'projetos', nome: 'Projetos', icon: Target, desc: 'Campanhas' },
+          { id: 'deals', nome: 'Deals', icon: TrendingUp, desc: 'Negócios' },
+          { id: 'equipes', nome: 'Equipes', icon: Users, desc: 'Pessoas' },
+          { id: 'marcos', nome: 'Marcos', icon: Flag, desc: 'Cronograma' },
+          { id: 'relatorios', nome: 'Relatórios', icon: BarChart3, desc: 'Analytics' }
         ].map(item => (
-          <Button
-            key={item.id}
-            variant={telaAtiva === item.id ? "secondary" : "ghost"}
-            className="w-full justify-start gap-3 transition-all duration-200 mb-1"
-            onClick={() => setTelaAtiva(item.id)}
-          >
-            <item.icon className={`h-5 w-5 shrink-0 ${
-              telaAtiva === item.id ? 'text-primary' : 'text-muted-foreground'
-            }`} />
-            <span className="truncate flex-1 text-left">{item.nome}</span>
-          </Button>
+          <div key={item.id}>
+            <Button
+              variant={telaAtiva === item.id ? "default" : "ghost"}
+              className={`w-full justify-start gap-3 transition-all duration-200 h-12 ${
+                telaAtiva === item.id ? 'shadow-sm' : 'hover:bg-gray-50'
+              }`}
+              onClick={() => setTelaAtiva(item.id)}
+            >
+              <item.icon className={`h-5 w-5 shrink-0 ${
+                telaAtiva === item.id ? 'text-white' : 'text-gray-600'
+              }`} />
+              <div className="flex-1 text-left">
+                <div className={`font-medium ${
+                  telaAtiva === item.id ? 'text-white' : 'text-gray-900'
+                }`}>
+                  {item.nome}
+                </div>
+                <div className={`text-xs ${
+                  telaAtiva === item.id ? 'text-white/80' : 'text-gray-500'
+                }`}>
+                  {item.desc}
+                </div>
+              </div>
+            </Button>
+          </div>
         ))}
       </nav>
       
-      {/* Notificações */}
-      <div className="p-4">
-        <div className="bg-muted rounded-lg p-3">
+      {/* Stats rápidas */}
+      <div className="p-4 border-t border-gray-100">
+        <div className="bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg p-3">
           <div className="flex items-center gap-2 mb-2">
-            <Bell className="w-4 h-4 text-muted-foreground" />
-            <span className="text-sm font-medium text-card-foreground">Notificações</span>
-            {dados.notificacoes.filter(n => !n.lida).length > 0 && (
-              <span className="bg-destructive text-destructive-foreground text-xs font-semibold px-2 py-0.5 rounded-full">
-                {dados.notificacoes.filter(n => !n.lida).length}
-              </span>
-            )}
+            <BarChart3 className="w-4 h-4 text-blue-600" />
+            <span className="text-sm font-medium text-blue-900">Resumo</span>
           </div>
-          {dados.notificacoes.slice(0, 2).map(notif => (
-            <div key={notif.id} className="text-xs text-muted-foreground mb-1 p-1 rounded hover:bg-accent cursor-pointer">
-              {notif.titulo}
+          <div className="space-y-1 text-xs">
+            <div className="flex justify-between text-blue-800">
+              <span>Agências:</span>
+              <span className="font-semibold">{dados.agencias.length}</span>
             </div>
-          ))}
+            <div className="flex justify-between text-blue-800">
+              <span>Projetos:</span>
+              <span className="font-semibold">{dados.projetos.length}</span>
+            </div>
+            <div className="flex justify-between text-blue-800">
+              <span>Deals:</span>
+              <span className="font-semibold">{dados.deals.length}</span>
+            </div>
+          </div>
         </div>
       </div>
 
       {/* Botão para voltar ao Dashboard */}
-      <div className="p-4 border-t border-border">
+      <div className="p-4 border-t border-gray-100">
         <Button
-          variant="ghost"
+          variant="outline"
           className="w-full justify-start gap-3 transition-all duration-200"
           onClick={() => navigate('/dashboard')}
         >
-          <ArrowLeft className="h-5 w-5 shrink-0 text-muted-foreground" />
+          <ArrowLeft className="h-4 w-4 shrink-0 text-gray-600" />
           <span className="truncate flex-1 text-left">Voltar ao Dashboard</span>
         </Button>
       </div>
@@ -947,12 +1007,20 @@ const ProjectManagement = () => {
         console.log('🚀 Iniciando criação/atualização do projeto...');
         console.log('📋 Dados do formulário:', formData);
         
+        // Corrigir deal_id: converter string vazia para null
+        const dadosCorrigidos = {
+          ...formData,
+          deal_id: formData.deal_id === '' ? null : formData.deal_id
+        };
+        
+        console.log('📋 Dados corrigidos:', dadosCorrigidos);
+        
         if (projetoSelecionado) {
           console.log('✏️ Atualizando projeto existente:', projetoSelecionado.id);
-          await projetoService.atualizar(supabase, projetoSelecionado.id, formData);
+          await projetoService.atualizar(supabase, projetoSelecionado.id, dadosCorrigidos);
         } else {
           console.log('🆕 Criando novo projeto...');
-          await projectManagementService.criarProjetoRobusto(supabase, formData);
+          await projectManagementService.criarProjetoRobusto(supabase, dadosCorrigidos);
         }
         
         console.log('✅ Projeto salvo com sucesso!');
@@ -1047,7 +1115,7 @@ const ProjectManagement = () => {
             </div>
             <div className="flex items-center gap-2 text-sm text-gray-600">
               <Users className="w-4 h-4" />
-              <span>{projeto.responsavel_projeto}</span>
+              <span>{getResponsavelNome(projeto.responsavel_projeto, projeto.id)}</span>
             </div>
           </div>
 
@@ -1288,7 +1356,7 @@ const ProjectManagement = () => {
                     </div>
                     <div className="bg-gray-50 p-4 rounded-lg">
                         <p className="text-sm font-medium text-gray-500">Responsável</p>
-                        <p className="text-lg font-semibold text-gray-800">{showDetalhes.responsavel_projeto}</p>
+                        <p className="text-lg font-semibold text-gray-800">{getResponsavelNome(showDetalhes.responsavel_projeto, showDetalhes.id)}</p>
                     </div>
                 </div>
 
@@ -1544,13 +1612,78 @@ const ProjectManagement = () => {
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         Responsável do Projeto
                       </label>
-                      <PessoaProjetoSelector
-                        value={formData.responsavel_projeto}
-                        onValueChange={(value) => setFormData({...formData, responsavel_projeto: value || null})}
-                        placeholder="Selecione o responsável"
-                        className="w-full"
-                        agenciaId={formData.agencia_id}
-                      />
+                      {(() => {
+                        const membrosEquipe = getMembrosEquipeProjeto(formData.id);
+                        if (membrosEquipe.length === 0) {
+                          return (
+                            <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+                              <p className="text-sm text-yellow-800">
+                                <Users className="inline w-4 h-4 mr-1" />
+                                Nenhum membro na equipe. Adicione membros à equipe primeiro para poder selecionar um responsável.
+                              </p>
+                            </div>
+                          );
+                        }
+                        return (
+                          <Select 
+                            value={formData.responsavel_projeto || undefined} 
+                            onValueChange={(value) => setFormData({...formData, responsavel_projeto: value || null})}
+                          >
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Selecione o responsável">
+                            {formData.responsavel_projeto && (
+                              <div className="flex items-center gap-2">
+                                <div className="h-6 w-6 rounded-full bg-blue-100 flex items-center justify-center">
+                                  <span className="text-xs font-medium text-blue-600">
+                                    {(() => {
+                                      const nome = getResponsavelNome(formData.responsavel_projeto, formData.id);
+                                      return nome ? nome.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) : '??';
+                                    })()}
+                                  </span>
+                                </div>
+                                <span className="truncate font-medium">{getResponsavelNome(formData.responsavel_projeto, formData.id)}</span>
+                              </div>
+                            )}
+                          </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          {(() => {
+                            const membrosEquipe = getMembrosEquipeProjeto(formData.id);
+                            
+                            if (membrosEquipe.length === 0) {
+                              return (
+                                <div className="flex items-center gap-2 text-muted-foreground p-2">
+                                  <Users className="h-4 w-4" />
+                                  <span>Nenhum membro na equipe do projeto</span>
+                                </div>
+                              );
+                            }
+                            
+                            return membrosEquipe.map(membro => (
+                              <SelectItem key={membro.pessoa_id} value={membro.pessoa_id}>
+                                <div className="flex items-center gap-2">
+                                  <div className="h-6 w-6 rounded-full bg-blue-100 flex items-center justify-center">
+                                    <span className="text-xs font-medium text-blue-600">
+                                      {membro.nome_pessoa ? 
+                                        membro.nome_pessoa.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) : 
+                                        '??'
+                                      }
+                                    </span>
+                                  </div>
+                                  <div className="flex flex-col">
+                                    <span className="font-medium">{membro.nome_pessoa || 'Membro sem nome'}</span>
+                                    <span className="text-xs text-gray-500">
+                                      {membro.papel} • {membro.email_pessoa || 'Sem email'}
+                                    </span>
+                                  </div>
+                                </div>
+                              </SelectItem>
+                            ));
+                          })()}
+                        </SelectContent>
+                      </Select>
+                        );
+                      })()}
                     </div>
                   </div>
                 </div>
@@ -1620,19 +1753,67 @@ const ProjectManagement = () => {
 
   return (
     <DashboardLayout>
-      <div className="bg-gray-100 min-h-screen">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50/30">
         <Navigation />
-        <main className="ml-64 p-8">
-          {loading ? (
-            <div className="flex items-center justify-center h-64">
-              <div className="text-center">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                <p className="text-gray-600">Carregando dados...</p>
+        <main className="ml-64">
+          {/* Header da tela ativa */}
+          <div className="bg-white border-b border-gray-200 shadow-sm">
+            <div className="px-8 py-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-primary/10 rounded-lg">
+                    {telaAtiva === 'agencias' && <Building2 className="h-6 w-6 text-primary" />}
+                    {telaAtiva === 'projetos' && <Target className="h-6 w-6 text-primary" />}
+                    {telaAtiva === 'deals' && <TrendingUp className="h-6 w-6 text-primary" />}
+                    {telaAtiva === 'equipes' && <Users className="h-6 w-6 text-primary" />}
+                    {telaAtiva === 'marcos' && <Flag className="h-6 w-6 text-primary" />}
+                    {telaAtiva === 'relatorios' && <BarChart3 className="h-6 w-6 text-primary" />}
+                  </div>
+                  <div>
+                    <h1 className="text-2xl font-bold text-gray-900 capitalize">
+                      {telaAtiva === 'agencias' && 'Agências Parceiras'}
+                      {telaAtiva === 'projetos' && 'Projetos Ativos'}
+                      {telaAtiva === 'deals' && 'Deals e Negócios'}
+                      {telaAtiva === 'equipes' && 'Equipes dos Projetos'}
+                      {telaAtiva === 'marcos' && 'Marcos e Cronograma'}
+                      {telaAtiva === 'relatorios' && 'Relatórios Executivos'}
+                    </h1>
+                    <p className="text-sm text-gray-500 mt-1">
+                      {telaAtiva === 'agencias' && `Gerencie todas as agências • ${dados.agencias.length} parceiros`}
+                      {telaAtiva === 'projetos' && `Acompanhe projetos em execução • ${dados.projetos.length} ativos`}
+                      {telaAtiva === 'deals' && `Controle de negócios • ${dados.deals.length} deals`}
+                      {telaAtiva === 'equipes' && `Gestão de pessoas • ${dados.equipes.length} membros`}
+                      {telaAtiva === 'marcos' && `Cronograma de entregas • ${dados.marcos.length} marcos`}
+                      {telaAtiva === 'relatorios' && 'Análises e métricas de performance'}
+                    </p>
+                  </div>
+                </div>
+                
+                <Button variant="outline" onClick={carregarDados} disabled={loading} className="gap-2">
+                  <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+                  Atualizar
+                </Button>
               </div>
             </div>
-          ) : (
-            renderTelaAtiva()
-          )}
+          </div>
+
+          <div className="p-8">
+            {loading ? (
+              <div className="flex items-center justify-center h-64">
+                <Card className="w-full max-w-md">
+                  <CardContent className="p-8 text-center">
+                    <div className="animate-spin rounded-full h-16 w-16 border-4 border-primary border-t-transparent mx-auto mb-6"></div>
+                    <h3 className="text-xl font-semibold mb-2">Carregando Dados</h3>
+                    <p className="text-muted-foreground">
+                      Sincronizando informações do sistema...
+                    </p>
+                  </CardContent>
+                </Card>
+              </div>
+            ) : (
+              renderTelaAtiva()
+            )}
+          </div>
         </main>
       </div>
     </DashboardLayout>

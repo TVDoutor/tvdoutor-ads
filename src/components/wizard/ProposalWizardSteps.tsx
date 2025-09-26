@@ -4,8 +4,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { 
   FileText, 
   User, 
@@ -310,6 +312,8 @@ export const ScreenSelectionStep: React.FC<ScreenSelectionStepProps> = ({
     selectedSpecialties: []
   });
 
+  const [hasSearched, setHasSearched] = useState(false);
+
   const toggleScreen = (screenId: number) => {
     console.log('🔄 Toggling screen:', screenId);
     const isSelected = data.selectedScreens.includes(screenId);
@@ -327,6 +331,7 @@ export const ScreenSelectionStep: React.FC<ScreenSelectionStepProps> = ({
 
   const handleApplyFilters = () => {
     console.log('🔍 Aplicando filtros:', filters);
+    setHasSearched(true);
     if (onApplyFilters) {
       onApplyFilters(filters);
     }
@@ -342,9 +347,19 @@ export const ScreenSelectionStep: React.FC<ScreenSelectionStepProps> = ({
       selectedSpecialties: []
     };
     setFilters(emptyFilters);
+    setHasSearched(false);
     if (onApplyFilters) {
       onApplyFilters(emptyFilters);
     }
+  };
+
+  const handleSelectAll = () => {
+    const allScreenIds = screens.map(screen => screen.id);
+    onUpdate({ selectedScreens: allScreenIds });
+  };
+
+  const handleDeselectAll = () => {
+    onUpdate({ selectedScreens: [] });
   };
 
   const getUniqueLocations = () => {
@@ -386,60 +401,114 @@ export const ScreenSelectionStep: React.FC<ScreenSelectionStepProps> = ({
         loading={loading}
       />
 
-      {loading ? (
+      {!hasSearched ? (
+        <div className="text-center py-12">
+          <Monitor className="w-16 h-16 text-gray-400 mx-auto mb-6" />
+          <h4 className="text-xl font-semibold text-gray-900 mb-4">Seleção de Telas</h4>
+          <p className="text-gray-600 mb-6 max-w-md mx-auto">
+            Use os filtros acima para buscar e encontrar as telas desejadas. 
+            Após aplicar os filtros, você poderá selecionar as telas que melhor atendem à sua proposta.
+          </p>
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 max-w-lg mx-auto">
+            <div className="flex items-start gap-3">
+              <div className="p-2 bg-blue-100 rounded-full">
+                <Monitor className="w-5 h-5 text-blue-600" />
+              </div>
+              <div className="text-left">
+                <h5 className="font-semibold text-blue-900 mb-2">Como funciona:</h5>
+                <ul className="text-sm text-blue-700 space-y-1">
+                  <li>• Preencha os filtros de busca</li>
+                  <li>• Clique em "Buscar Telas"</li>
+                  <li>• Selecione as telas desejadas</li>
+                  <li>• Use "Selecionar Todas" se necessário</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : loading ? (
         <div className="text-center py-12">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
           <p className="text-gray-500 mt-4">Carregando telas...</p>
         </div>
       ) : screens.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {screens.map((screen) => (
-            <Card
-              key={screen.id}
-              className={`cursor-pointer transition-all duration-200 hover:shadow-lg ${
-                data.selectedScreens.includes(screen.id) ? 'ring-2 ring-blue-600 bg-blue-50' : ''
-              }`}
-              onClick={() => toggleScreen(screen.id)}
-            >
-              <CardContent className="p-4">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <h4 className="font-semibold text-gray-900 mb-1">{screen.name}</h4>
-                    <p className="text-sm text-gray-600 mb-2">{screen.venues?.name}</p>
-                    <div className="text-xs text-gray-500">
-                      <p>{screen.city}, {screen.state}</p>
-                      <Badge variant="outline" className="mt-1">
-                        Classe {screen.class}
-                      </Badge>
+        <div className="space-y-4">
+          {/* Botões de seleção em massa */}
+          <div className="flex justify-between items-center p-4 bg-gray-50 rounded-lg">
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleSelectAll}
+                className="flex items-center gap-2"
+              >
+                <Monitor className="w-4 h-4" />
+                Selecionar Todas ({screens.length})
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleDeselectAll}
+                className="flex items-center gap-2"
+              >
+                Limpar Seleção
+              </Button>
+            </div>
+            <div className="text-sm text-gray-600">
+              {data.selectedScreens.length} de {screens.length} selecionadas
+            </div>
+          </div>
+
+          {/* Grid de telas */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {screens.map((screen) => (
+              <Card
+                key={screen.id}
+                className={`cursor-pointer transition-all duration-200 hover:shadow-lg ${
+                  data.selectedScreens.includes(screen.id) ? 'ring-2 ring-blue-600 bg-blue-50' : ''
+                }`}
+                onClick={() => toggleScreen(screen.id)}
+              >
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <h4 className="font-semibold text-gray-900 mb-1">{screen.name}</h4>
+                      <p className="text-sm text-gray-600 mb-2">{screen.venues?.name}</p>
+                      <div className="text-xs text-gray-500">
+                        <p>{screen.city}, {screen.state}</p>
+                        <Badge variant="outline" className="mt-1">
+                          Classe {screen.class}
+                        </Badge>
+                      </div>
+                    </div>
+                    
+                    <div className={`
+                      w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all duration-200
+                      ${data.selectedScreens.includes(screen.id) 
+                        ? 'bg-blue-600 border-blue-600' 
+                        : 'border-gray-300'
+                      }
+                    `}>
+                      {data.selectedScreens.includes(screen.id) && (
+                        <div className="w-2 h-2 bg-white rounded-full"></div>
+                      )}
                     </div>
                   </div>
-                  
-                  <div className={`
-                    w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all duration-200
-                    ${data.selectedScreens.includes(screen.id) 
-                      ? 'bg-blue-600 border-blue-600' 
-                      : 'border-gray-300'
-                    }
-                  `}>
-                    {data.selectedScreens.includes(screen.id) && (
-                      <div className="w-2 h-2 bg-white rounded-full"></div>
-                    )}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                </CardContent>
+              </Card>
+            ))}
+          </div>
         </div>
       ) : (
         <div className="text-center py-12">
           <Monitor className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-          <h4 className="text-lg font-semibold text-gray-900 mb-2">Nenhuma tela disponível</h4>
+          <h4 className="text-lg font-semibold text-gray-900 mb-2">Nenhuma tela encontrada</h4>
           <p className="text-gray-600 mb-4">
-            Não há telas ativas disponíveis no inventário.
+            Não foram encontradas telas com os filtros aplicados.
           </p>
           <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 max-w-md mx-auto">
             <p className="text-sm text-amber-700">
-              <strong>Dica:</strong> Verifique se existem telas com status "ativo" no sistema de inventário.
+              <strong>Dica:</strong> Tente ajustar os filtros de busca ou limpar todos os filtros para ver mais opções.
             </p>
           </div>
         </div>
@@ -456,53 +525,156 @@ export const ScreenSelectionStep: React.FC<ScreenSelectionStepProps> = ({
 };
 
 // Step 5: Configuration
-export const ConfigurationStep: React.FC<StepProps> = ({ data, onUpdate }) => (
-  <div className="space-y-8">
-    <div className="text-center">
-      <h3 className="text-xl font-semibold text-gray-900 mb-2">Configurações da Campanha</h3>
-      <p className="text-gray-600">Defina os parâmetros técnicos e comerciais</p>
-    </div>
+export const ConfigurationStep: React.FC<StepProps> = ({ data, onUpdate }) => {
+  const [customDuration, setCustomDuration] = useState(data.custom_film_seconds || 0);
+  const [isCustomDialogOpen, setIsCustomDialogOpen] = useState(false);
 
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-      {/* Configurações de Filme */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Play className="w-5 h-5" />
-            Configurações do Filme
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div>
-            <Label>Duração do Filme (segundos)</Label>
-            <RadioGroup
-              value={data.film_seconds[0]?.toString() || '15'}
-              onValueChange={(value) => onUpdate({ film_seconds: [parseInt(value)] })}
-              className="flex gap-4 mt-2"
-            >
-              {[15, 30, 45, 60].map((duration) => (
-                <div key={duration} className="flex items-center space-x-2">
-                  <RadioGroupItem value={duration.toString()} id={`duration-${duration}`} />
-                  <Label htmlFor={`duration-${duration}`}>{duration}s</Label>
+  const handleDurationChange = (duration: number, checked: boolean) => {
+    let newDurations = [...data.film_seconds];
+    
+    if (checked) {
+      if (!newDurations.includes(duration)) {
+        newDurations.push(duration);
+      }
+    } else {
+      newDurations = newDurations.filter(d => d !== duration);
+    }
+    
+    onUpdate({ film_seconds: newDurations });
+  };
+
+  const handleCustomDurationChange = (value: number) => {
+    setCustomDuration(value);
+    if (value > 0) {
+      let newDurations = [...data.film_seconds];
+      // Remove custom duration anterior se existir
+      newDurations = newDurations.filter(d => d !== data.custom_film_seconds);
+      // Adiciona nova custom duration
+      newDurations.push(value);
+      onUpdate({ 
+        film_seconds: newDurations,
+        custom_film_seconds: value
+      });
+    }
+  };
+
+  const handleCustomDurationConfirm = () => {
+    if (customDuration > 0) {
+      handleCustomDurationChange(customDuration);
+      setIsCustomDialogOpen(false);
+    }
+  };
+
+  return (
+    <div className="space-y-8">
+      <div className="text-center">
+        <h3 className="text-xl font-semibold text-gray-900 mb-2">Configurações da Campanha</h3>
+        <p className="text-gray-600">Defina os parâmetros técnicos e comerciais</p>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* Configurações de Filme */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Play className="w-5 h-5" />
+              Configurações do Filme
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <Label>Duração do Filme (segundos)</Label>
+              <p className="text-sm text-gray-500 mb-3">Selecione uma ou mais durações para o filme</p>
+              
+              <div className="space-y-3">
+                {[15, 30, 45, 60].map((duration) => (
+                  <div key={duration} className="flex items-center space-x-3">
+                    <Checkbox
+                      id={`duration-${duration}`}
+                      checked={data.film_seconds.includes(duration)}
+                      onCheckedChange={(checked) => handleDurationChange(duration, checked as boolean)}
+                    />
+                    <Label htmlFor={`duration-${duration}`} className="text-base">
+                      {duration} segundos
+                    </Label>
+                  </div>
+                ))}
+                
+                {/* Opção customizada */}
+                <div className="flex items-center space-x-3 pt-2 border-t">
+                  <Dialog open={isCustomDialogOpen} onOpenChange={setIsCustomDialogOpen}>
+                    <DialogTrigger asChild>
+                      <Button variant="outline" size="sm" className="flex items-center gap-2">
+                        <Play className="w-4 h-4" />
+                        Duração Customizada
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-md">
+                      <DialogHeader>
+                        <DialogTitle>Duração Customizada</DialogTitle>
+                        <DialogDescription>
+                          Insira a duração desejada em segundos. O valor deve ser um número inteiro positivo.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="space-y-4">
+                        <div>
+                          <Label htmlFor="custom-duration">Duração (segundos)</Label>
+                          <Input
+                            id="custom-duration"
+                            type="number"
+                            value={customDuration}
+                            onChange={(e) => setCustomDuration(parseInt(e.target.value) || 0)}
+                            min="1"
+                            max="300"
+                            placeholder="Ex: 90"
+                            className="mt-2"
+                          />
+                          <p className="text-xs text-gray-500 mt-1">
+                            Digite o tempo em segundos (ex: 90 para 1 minuto e 30 segundos)
+                          </p>
+                        </div>
+                        <div className="flex justify-end gap-2">
+                          <Button variant="outline" onClick={() => setIsCustomDialogOpen(false)}>
+                            Cancelar
+                          </Button>
+                          <Button onClick={handleCustomDurationConfirm} disabled={customDuration <= 0}>
+                            Confirmar
+                          </Button>
+                        </div>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                  {data.custom_film_seconds && (
+                    <Badge variant="secondary" className="ml-2">
+                      {data.custom_film_seconds}s selecionado
+                    </Badge>
+                  )}
                 </div>
-              ))}
-            </RadioGroup>
-          </div>
+              </div>
+              
+              {data.film_seconds.length > 0 && (
+                <div className="mt-3 p-3 bg-blue-50 rounded-lg">
+                  <p className="text-sm text-blue-700">
+                    <strong>Durações selecionadas:</strong> {data.film_seconds.sort((a, b) => a - b).join('s, ')}s
+                  </p>
+                </div>
+              )}
+            </div>
 
-          <div>
-            <Label htmlFor="insertions">Inserções por Hora</Label>
-            <Input
-              id="insertions"
-              type="number"
-              value={data.insertions_per_hour}
-              onChange={(e) => onUpdate({ insertions_per_hour: parseInt(e.target.value) || 0 })}
-              min="1"
-              max="12"
-              className="mt-2"
-            />
-          </div>
-        </CardContent>
-      </Card>
+            <div>
+              <Label htmlFor="insertions">Inserções por Hora</Label>
+              <Input
+                id="insertions"
+                type="number"
+                value={data.insertions_per_hour}
+                onChange={(e) => onUpdate({ insertions_per_hour: parseInt(e.target.value) || 0 })}
+                min="1"
+                max="12"
+                className="mt-2"
+              />
+            </div>
+          </CardContent>
+        </Card>
 
       {/* Configurações de CPM */}
       <Card>
@@ -580,6 +752,9 @@ export const ConfigurationStep: React.FC<StepProps> = ({ data, onUpdate }) => (
           <Target className="w-5 h-5" />
           Modelo de Impacto
         </CardTitle>
+        <p className="text-sm text-gray-600 mt-2">
+          Escolha o modelo de cálculo de impacto baseado no perfil de tráfego esperado para sua campanha.
+        </p>
       </CardHeader>
       <CardContent>
         <RadioGroup
@@ -587,27 +762,128 @@ export const ConfigurationStep: React.FC<StepProps> = ({ data, onUpdate }) => (
           onValueChange={(value) => onUpdate({ impact_formula: value })}
           className="grid grid-cols-1 md:grid-cols-3 gap-4"
         >
-          {['A', 'B', 'C'].map((formula) => (
-            <div key={formula}>
-              <RadioGroupItem value={formula} id={`formula-${formula}`} className="peer sr-only" />
+          {[
+            {
+              id: 'A',
+              title: 'Fórmula A',
+              subtitle: 'Tráfego Alto',
+              description: 'Para locais com grande movimento de pessoas',
+              details: [
+                'Shopping centers movimentados',
+                'Aeroportos e terminais',
+                'Hospitais de grande porte',
+                'Centros comerciais principais'
+              ],
+              color: 'from-green-500 to-emerald-600',
+              bgColor: 'bg-green-50',
+              borderColor: 'border-green-200',
+              textColor: 'text-green-700'
+            },
+            {
+              id: 'B',
+              title: 'Fórmula B',
+              subtitle: 'Tráfego Médio',
+              description: 'Para locais com movimento moderado de pessoas',
+              details: [
+                'Farmácias de bairro',
+                'Clínicas médicas',
+                'Postos de saúde',
+                'Centros comerciais menores'
+              ],
+              color: 'from-blue-500 to-cyan-600',
+              bgColor: 'bg-blue-50',
+              borderColor: 'border-blue-200',
+              textColor: 'text-blue-700'
+            },
+            {
+              id: 'C',
+              title: 'Fórmula C',
+              subtitle: 'Tráfego Baixo',
+              description: 'Para locais com menor movimento de pessoas',
+              details: [
+                'Consultórios médicos',
+                'Clínicas especializadas',
+                'Locais de baixo movimento',
+                'Ambientes corporativos'
+              ],
+              color: 'from-orange-500 to-red-500',
+              bgColor: 'bg-orange-50',
+              borderColor: 'border-orange-200',
+              textColor: 'text-orange-700'
+            }
+          ].map((formula) => (
+            <div key={formula.id}>
+              <RadioGroupItem value={formula.id} id={`formula-${formula.id}`} className="peer sr-only" />
               <Label
-                htmlFor={`formula-${formula}`}
-                className="flex flex-col items-center justify-center rounded-lg border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer"
+                htmlFor={`formula-${formula.id}`}
+                className={`
+                  flex flex-col rounded-lg border-2 p-6 cursor-pointer transition-all duration-200 hover:shadow-lg
+                  ${data.impact_formula === formula.id 
+                    ? `border-blue-500 bg-blue-50 shadow-md` 
+                    : `border-gray-200 bg-white hover:border-gray-300`
+                  }
+                `}
               >
-                <div className="text-2xl font-bold text-blue-600 mb-2">Fórmula {formula}</div>
-                <div className="text-sm text-center text-muted-foreground">
-                  {formula === 'A' && 'Impacto baseado em tráfego alto'}
-                  {formula === 'B' && 'Impacto baseado em tráfego médio'}
-                  {formula === 'C' && 'Impacto baseado em tráfego baixo'}
+                <div className="text-center mb-4">
+                  <div className={`text-2xl font-bold mb-1 ${
+                    data.impact_formula === formula.id ? 'text-blue-600' : 'text-gray-700'
+                  }`}>
+                    {formula.title}
+                  </div>
+                  <div className={`text-lg font-semibold ${
+                    data.impact_formula === formula.id ? 'text-blue-600' : 'text-gray-600'
+                  }`}>
+                    {formula.subtitle}
+                  </div>
                 </div>
+                
+                <div className="text-center mb-4">
+                  <p className={`text-sm ${
+                    data.impact_formula === formula.id ? 'text-blue-700' : 'text-gray-600'
+                  }`}>
+                    {formula.description}
+                  </p>
+                </div>
+                
+                <div className={`${formula.bgColor} ${formula.borderColor} border rounded-lg p-3`}>
+                  <p className={`text-xs font-semibold ${formula.textColor} mb-2`}>
+                    Exemplos de locais:
+                  </p>
+                  <ul className={`text-xs ${formula.textColor} space-y-1`}>
+                    {formula.details.map((detail, index) => (
+                      <li key={index} className="flex items-start">
+                        <span className="mr-1">•</span>
+                        <span>{detail}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                
+                {data.impact_formula === formula.id && (
+                  <div className="mt-4 flex items-center justify-center">
+                    <div className="flex items-center gap-2 text-blue-600">
+                      <div className="w-2 h-2 bg-blue-600 rounded-full"></div>
+                      <span className="text-sm font-medium">Selecionado</span>
+                    </div>
+                  </div>
+                )}
               </Label>
             </div>
           ))}
         </RadioGroup>
+        
+        <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+          <h4 className="font-semibold text-gray-900 mb-2">Como funciona o cálculo de impacto?</h4>
+          <p className="text-sm text-gray-600">
+            O modelo de impacto determina quantas pessoas serão expostas ao seu conteúdo baseado no perfil de tráfego do local. 
+            Locais com maior tráfego geram mais impactos, enquanto locais com menor movimento geram impactos mais conservadores.
+          </p>
+        </div>
       </CardContent>
     </Card>
   </div>
-);
+  );
+};
 
 // Step 6: Summary
 export const SummaryStep: React.FC<{ data: ProposalData }> = ({ data }) => {

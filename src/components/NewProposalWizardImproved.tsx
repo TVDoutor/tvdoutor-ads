@@ -44,6 +44,7 @@ export interface ProposalData {
   selected_project?: any;
   selectedScreens: number[];
   film_seconds: number[];
+  custom_film_seconds?: number;
   insertions_per_hour: number;
   cpm_mode: 'manual' | 'blended';
   cpm_value?: number;
@@ -482,9 +483,8 @@ export const NewProposalWizardImproved: React.FC<NewProposalWizardProps> = ({
   useEffect(() => {
     if (currentStep === 3 && data.proposal_type === 'projeto') {
       fetchAllProjects();
-    } else if (currentStep === 4) {
-      fetchScreens();
     }
+    // Removido o fetchScreens automático - agora só busca quando o usuário aplicar filtros
   }, [currentStep, data.proposal_type]);
 
   const renderStepContent = () => {

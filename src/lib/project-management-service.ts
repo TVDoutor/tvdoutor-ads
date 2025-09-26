@@ -905,14 +905,15 @@ export const projectManagementService = {
     try {
       console.log('🔍 Iniciando carregamento de dados no serviço...');
       
-      const [agencias, deals, projetos, contatos, equipes, marcos, pessoasProjeto] = await Promise.all([
+      const [agencias, deals, projetos, contatos, equipes, marcos, pessoasProjeto, profiles] = await Promise.all([
         agenciaService.listar(supabase),
         dealService.listar(supabase),
         projetoService.listar(supabase),
         supabase.from('agencia_contatos').select('*'),
         supabase.from('agencia_projeto_equipe').select('*'),
         supabase.from('agencia_projeto_marcos').select('*'),
-        supabase.from('pessoas_projeto').select('*')
+        supabase.from('pessoas_projeto').select('*'),
+        supabase.from('profiles').select('id, full_name')
       ]);
 
       console.log('📋 Resultados individuais:', {
@@ -932,7 +933,8 @@ export const projectManagementService = {
         contatos: contatos.data || [],
         equipes: equipes.data || [],
         marcos: marcos.data || [],
-        pessoasProjeto: pessoasProjeto.data || []
+        pessoasProjeto: pessoasProjeto.data || [],
+        profiles: profiles.data || []
       };
     } catch (error) {
         logError('Erro ao carregar dados no serviço', error);

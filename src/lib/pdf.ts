@@ -16,34 +16,78 @@ interface PDFGenerationResponse {
  */
 export async function generateProPDF(proposalId: number, logoUrl?: string): Promise<PDFGenerationResponse> {
   try {
-    // Usar sempre o endpoint do Supabase por enquanto (devido ao CSP)
-    const functionsUrl = import.meta.env.VITE_SUPABASE_FUNCTIONS_URL || 
-                        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1`;
+    // Importar o cliente Supabase para usar as Edge Functions
+    const { supabase } = await import('@/integrations/supabase/client');
     
-    const response = await fetch(`${functionsUrl}/pdf-proposal-pro`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${import.meta.env.VITE_SUPABASE_SERVICE_KEY || localStorage.getItem('sb_jwt')}`
-      },
-      body: JSON.stringify({ 
+    // Usar o cliente Supabase para chamar a Edge Function
+    const { data, error } = await supabase.functions.invoke('pdf-proposal-pro', {
+      body: { 
         proposalId, 
         logoUrl 
-      })
+      }
     });
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.error || `HTTP ${response.status}`);
+    if (error) {
+      console.error('Erro na Edge Function:', error);
+      // Fallback: gerar PDF básico no frontend
+      return await generateBasicPDF(proposalId);
     }
 
-    return await response.json() as PDFGenerationResponse;
+    if (!data || !data.ok) {
+      console.warn('Edge Function retornou erro, usando fallback');
+      // Fallback: gerar PDF básico no frontend
+      return await generateBasicPDF(proposalId);
+    }
+
+    return data as PDFGenerationResponse;
     
   } catch (error) {
     console.error('Erro na geração do PDF profissional:', error);
+    // Fallback: gerar PDF básico no frontend
+    return await generateBasicPDF(proposalId);
+  }
+}
+
+/**
+ * Fallback: Gera um PDF básico no frontend quando a Edge Function falha
+ */
+async function generateBasicPDF(proposalId: number): Promise<PDFGenerationResponse> {
+  try {
+    // Importar jsPDF dinamicamente
+    const { jsPDF } = await import('jspdf');
+    
+    // Criar novo documento PDF
+    const doc = new jsPDF();
+    
+    // Adicionar conteúdo básico
+    doc.setFontSize(20);
+    doc.text('TV Doutor ADS', 20, 30);
+    
+    doc.setFontSize(16);
+    doc.text('Proposta Comercial', 20, 50);
+    
+    doc.setFontSize(12);
+    doc.text(`ID da Proposta: ${proposalId}`, 20, 70);
+    doc.text(`Data: ${new Date().toLocaleDateString('pt-BR')}`, 20, 80);
+    
+    doc.text('Esta é uma versão básica do PDF.', 20, 100);
+    doc.text('Para uma versão completa, entre em contato com o suporte.', 20, 110);
+    
+    // Gerar blob URL
+    const pdfBlob = doc.output('blob');
+    const pdfUrl = URL.createObjectURL(pdfBlob);
+    
+    return {
+      ok: true,
+      pdf_url: pdfUrl,
+      pdf_path: `proposta-${proposalId}-basica.pdf`
+    };
+    
+  } catch (error) {
+    console.error('Erro no fallback de PDF:', error);
     return {
       ok: false,
-      error: error instanceof Error ? error.message : 'Erro desconhecido'
+      error: 'Não foi possível gerar o PDF. Tente novamente mais tarde.'
     };
   }
 }

@@ -1,0 +1,6 @@
+Código,Nome de Exibição,Cidade,Estado,Endereço,Classe,Ativo,Especialidade,Latitude,Longitude
+TVD001,Hospital São Paulo,São Paulo,SP,Av. Dr. Enéas Carvalho de Aguiar 255,Classe A,Sim,Cardiologia,-23.5505,-46.6333
+TVD002,Clínica MedCenter,Rio de Janeiro,RJ,Rua das Flores 123,Classe B,Sim,Neurologia,-22.9068,-43.1729
+TVD003,Center Médico,Belo Horizonte,MG,Av. Afonso Pena 1000,Classe C,Não,Oncologia,-19.9167,-43.9345
+TVD004,Hospital Central,Salvador,BA,Rua da Liberdade 456,Classe A,Sim,Cardiologia,-12.9714,-38.5014
+TVD005,Clínica Vida,São Paulo,SP,Av. Paulista 1500,Classe B,Sim,Neurologia,-23.5615,-46.6565

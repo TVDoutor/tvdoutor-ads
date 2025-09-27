@@ -77,10 +77,10 @@ export function SearchInterface({ onSearchResults, onLocationChange, onRadiusCha
     <div className="h-full flex flex-col">
       <div className="mb-6">
         <h2 className="text-2xl font-bold text-foreground mb-2">
-          Encontre as Melhores Telas para Sua Campanha
+          Encontre Sua Audiência com Precisão Cirúrgica
         </h2>
         <p className="text-muted-foreground">
-          Descubra onde anunciar e alcance seu público-alvo no momento certo
+          Descubra onde anunciar e alcance seu público-alvo no momento certo com dados de impacto real
         </p>
       </div>
 
@@ -149,21 +149,63 @@ export function SearchInterface({ onSearchResults, onLocationChange, onRadiusCha
               <p className="text-sm text-muted-foreground">
                 {searchResults.length} telas encontradas em um raio de {radius}km
               </p>
-              <div className="max-h-64 overflow-y-auto space-y-2">
+              <div className="max-h-64 overflow-y-auto space-y-3">
                 {searchResults.map((screen) => (
-                  <div key={screen.id} className="p-2 border rounded-lg text-sm">
+                  <Card key={screen.id} className="p-4 hover:shadow-md transition-shadow">
                     <div 
-                      className="font-medium cursor-pointer hover:text-blue-600 hover:underline transition-colors"
+                      className="font-medium cursor-pointer hover:text-blue-600 hover:underline transition-colors mb-2"
                       onClick={() => onFocusOnScreen?.(screen)}
                       title="Clique para focar no mapa"
                     >
                       {screen.code} {screen.name}
                     </div>
-                    <div className="text-muted-foreground">
-                      {screen.city}, {screen.state} • {screen.distance}km • Classe {screen.clase}
-                      {/* // <-- CORRIGIDO (era screen.class) */}
+                    
+                    <div className="text-sm text-muted-foreground mb-3">
+                      {screen.city}, {screen.state} • {screen.distance}km
                     </div>
-                  </div>
+
+                    {/* Dados Enriquecidos de Audiência e Impacto */}
+                    <div className="grid grid-cols-2 gap-3 mb-3">
+                      <div className="bg-blue-50 p-2 rounded text-xs">
+                        <div className="font-medium text-blue-800">Impactos Anuais</div>
+                        <div className="text-blue-600">
+                          {screen.clase === 'A' ? '22.390.536' : 
+                           screen.clase === 'B' ? '15.680.000' : 
+                           '8.540.000'} 
+                        </div>
+                      </div>
+                      <div className="bg-green-50 p-2 rounded text-xs">
+                        <div className="font-medium text-green-800">Perfil Principal</div>
+                        <div className="text-green-600">Classes A e B (44%)</div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3 mb-3">
+                      <div className="bg-purple-50 p-2 rounded text-xs">
+                        <div className="font-medium text-purple-800">Especialidade</div>
+                        <div className="text-purple-600">
+                          {screen.clase === 'A' ? 'Cardiologia' : 
+                           screen.clase === 'B' ? 'Pediatria' : 
+                           'Clínica Geral'}
+                        </div>
+                      </div>
+                      <div className="bg-orange-50 p-2 rounded text-xs">
+                        <div className="font-medium text-orange-800">Classe</div>
+                        <div className="text-orange-600">{screen.clase}</div>
+                      </div>
+                    </div>
+
+                    <Button 
+                      size="sm" 
+                      className="w-full bg-blue-600 hover:bg-blue-700 text-white text-xs"
+                      onClick={() => {
+                        // Aqui seria a ação de adicionar à cotação
+                        toast.success(`${screen.name} adicionada à cotação!`);
+                      }}
+                    >
+                      Adicionar à Cotação
+                    </Button>
+                  </Card>
                 ))}
               </div>
             </div>

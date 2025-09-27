@@ -47,11 +47,11 @@ const steps = [
 
 const HowItWorksSection = () => {
   return (
-    <section id="como-funciona" className="py-20">
+    <section id="como-funciona" className="py-20 bg-slate-50">
       <div className="container mx-auto px-4 lg:px-6">
         <div className="text-center mb-16">
           <h2 className="text-3xl lg:text-4xl font-bold text-foreground mb-4">
-            Como Funciona o Processo
+            Sua Campanha no Ar em 4 Passos Simples
           </h2>
           <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
             Em apenas 4 passos simples, sua campanha estará rodando nas principais 

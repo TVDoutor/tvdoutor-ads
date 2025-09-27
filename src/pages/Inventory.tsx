@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,13 +12,13 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Search, Filter, Eye, Edit, Monitor, Building, AlertCircle, Trash2, Upload, Download, Plus } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Progress } from "@/components/ui/progress";
+import { Search, Filter, Eye, Edit, Monitor, Building, AlertCircle, Trash2, Upload, Download, Plus, RefreshCw, FileSpreadsheet, CheckCircle, XCircle, Loader2, MapPin, Users, TrendingUp, BarChart3 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { addScreenAsAdmin, deleteScreenAsAdmin } from "@/lib/admin-operations";
-import * as ExcelJS from 'exceljs';
-import { saveAs } from 'file-saver';
 
 // Classes sociais permitidas conforme definido no banco de dados
 const ALLOWED_CLASSES = ['A', 'AB', 'ABC', 'B', 'BC', 'C', 'CD', 'D', 'E', 'ND'] as const;
@@ -102,9 +102,10 @@ const Inventory = () => {
   const [filteredScreens, setFilteredScreens] = useState<Screen[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [typeFilter] = useState<string>("all");
+  const [classFilter, setClassFilter] = useState<string>("all");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
   
   // Modal states
   const [viewModalOpen, setViewModalOpen] = useState(false);
@@ -116,11 +117,21 @@ const Inventory = () => {
   const [saving, setSaving] = useState(false);
   const [specialtyText, setSpecialtyText] = useState('');
   
-  // Upload states
+  // Upload states - apenas para super admins
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [exporting, setExporting] = useState(false);
+  
+  // Stats
+  const [stats, setStats] = useState({
+    total: 0,
+    active: 0,
+    inactive: 0,
+    withLocation: 0,
+    totalCities: 0
+  });
 
   useEffect(() => {
     console.log('🚀 Componente Inventory carregado, iniciando busca de dados...');
@@ -129,7 +140,25 @@ const Inventory = () => {
 
   useEffect(() => {
     filterScreens();
-  }, [searchTerm, statusFilter, typeFilter, screens]);
+  }, [searchTerm, statusFilter, classFilter, screens]);
+
+  // Calcular estatísticas
+  const calculateStats = useCallback((screensData: Screen[]) => {
+    const total = screensData.length;
+    const active = screensData.filter(s => s.active).length;
+    const inactive = total - active;
+    const withLocation = screensData.filter(s => s.lat && s.lng).length;
+    const totalCities = new Set(screensData.map(s => s.city).filter(Boolean)).size;
+    
+    return { total, active, inactive, withLocation, totalCities };
+  }, []);
+
+  // Função para refresh dos dados
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await fetchScreens();
+    setRefreshing(false);
+  };
 
   const fetchScreens = async () => {
     try {
@@ -210,6 +239,10 @@ const Inventory = () => {
         class: enriched[0].class
       } : 'Nenhuma tela');
       setScreens(enriched);
+      
+      // Calcular e atualizar estatísticas
+      const newStats = calculateStats(enriched);
+      setStats(newStats);
     } catch (err: unknown) {
       console.error('Error fetching screens:', err);
       const errorMessage = err instanceof Error ? err.message : 'Erro desconhecido';
@@ -256,8 +289,8 @@ const Inventory = () => {
       }
     }
 
-    if (typeFilter !== "all") {
-      filtered = filtered.filter(screen => screen.class === typeFilter);
+    if (classFilter !== "all") {
+      filtered = filtered.filter(screen => screen.class === classFilter);
     }
 
     setFilteredScreens(filtered);
@@ -593,15 +626,50 @@ const Inventory = () => {
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (file && file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet') {
-      setUploadFile(file);
-    } else {
+    if (!file) return;
+    
+    // Verificar se é super admin
+    if (!isAdmin()) {
       toast({
-        title: "Erro",
-        description: "Por favor, selecione um arquivo Excel (.xlsx)",
+        title: "Acesso Negado",
+        description: "Apenas super administradores podem fazer upload de arquivos.",
         variant: "destructive",
       });
+      return;
     }
+    
+    // Aceitar tanto CSV quanto Excel
+    const allowedTypes = [
+      'text/csv',
+      'application/csv',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/vnd.ms-excel'
+    ];
+    
+    if (!allowedTypes.includes(file.type)) {
+      toast({
+        title: "Formato Inválido",
+        description: "Por favor, selecione um arquivo CSV ou Excel (.csv, .xlsx, .xls)",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Verificar tamanho do arquivo (máximo 10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      toast({
+        title: "Arquivo Muito Grande",
+        description: "O arquivo deve ter no máximo 10MB.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    setUploadFile(file);
+    toast({
+      title: "Arquivo Selecionado",
+      description: `${file.name} foi selecionado para upload.`,
+    });
   };
 
   const validateScreenData = (data: any[]): any[] => {
@@ -682,55 +750,100 @@ const Inventory = () => {
     return validatedData;
   };
 
+  const processCSVFile = async (file: File): Promise<any[]> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const text = e.target?.result as string;
+          const lines = text.split('\n').filter(line => line.trim());
+          
+          if (lines.length < 2) {
+            throw new Error('Arquivo CSV deve ter pelo menos uma linha de cabeçalho e uma linha de dados');
+          }
+          
+          const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
+          const data = [];
+          
+          for (let i = 1; i < lines.length; i++) {
+            const values = lines[i].split(',').map(v => v.trim().replace(/"/g, ''));
+            const row: any = {};
+            
+            headers.forEach((header, index) => {
+              row[header] = values[index] || '';
+            });
+            
+            data.push(row);
+          }
+          
+          resolve(data);
+        } catch (error) {
+          reject(error);
+        }
+      };
+      reader.onerror = () => reject(new Error('Erro ao ler arquivo CSV'));
+      reader.readAsText(file, 'UTF-8');
+    });
+  };
+
   const handleUploadScreens = async () => {
     if (!uploadFile || !isAdmin()) {
       toast({
         title: "Acesso Negado",
-        description: "Apenas super administradores podem fazer upload de planilhas.",
+        description: "Apenas super administradores podem fazer upload de arquivos.",
         variant: "destructive",
       });
       return;
     }
 
     setUploading(true);
+    setUploadProgress(0);
     
     try {
       toast({
         title: "Processando",
-        description: "Lendo arquivo Excel...",
+        description: "Lendo arquivo...",
       });
 
-      // Ler arquivo Excel
-      const data = await uploadFile.arrayBuffer();
-      const workbook = new ExcelJS.Workbook();
-      await workbook.xlsx.load(data);
-      const worksheet = workbook.getWorksheet(1);
-      const jsonData: any[] = [];
+      let jsonData: any[] = [];
       
-      if (worksheet) {
-        worksheet.eachRow((row, rowNumber) => {
-          if (rowNumber === 1) return; // Skip header row
-          const rowData: any = {};
-          row.eachCell((cell, colNumber) => {
-            const headerCell = worksheet.getCell(1, colNumber);
-            const header = headerCell.text || headerCell.value?.toString() || `col${colNumber}`;
-            rowData[header] = cell.text || cell.value;
+      // Processar arquivo baseado no tipo
+      if (uploadFile.type === 'text/csv' || uploadFile.name.endsWith('.csv')) {
+        jsonData = await processCSVFile(uploadFile);
+      } else {
+        // Para arquivos Excel, usar a lógica existente
+        const data = await uploadFile.arrayBuffer();
+        const workbook = new ExcelJS.Workbook();
+        await workbook.xlsx.load(data);
+        const worksheet = workbook.getWorksheet(1);
+        
+        if (worksheet) {
+          worksheet.eachRow((row, rowNumber) => {
+            if (rowNumber === 1) return; // Skip header row
+            const rowData: any = {};
+            row.eachCell((cell, colNumber) => {
+              const headerCell = worksheet.getCell(1, colNumber);
+              const header = headerCell.text || headerCell.value?.toString() || `col${colNumber}`;
+              rowData[header] = cell.text || cell.value;
+            });
+            jsonData.push(rowData);
           });
-          jsonData.push(rowData);
-        });
+        }
       }
 
       if (!jsonData || jsonData.length === 0) {
-        throw new Error('Planilha está vazia ou não contém dados válidos');
+        throw new Error('Arquivo está vazio ou não contém dados válidos');
       }
 
+      setUploadProgress(20);
       toast({
         title: "Validando",
-        description: "Validando dados da planilha...",
+        description: "Validando dados do arquivo...",
       });
 
       // Validar dados
       const validatedData = validateScreenData(jsonData);
+      setUploadProgress(40);
 
       toast({
         title: "Salvando",
@@ -742,8 +855,11 @@ const Inventory = () => {
       let duplicateCount = 0;
       let errorCount = 0;
       const errors: string[] = [];
+      const totalItems = validatedData.length;
 
-      for (const screenData of validatedData) {
+      for (let i = 0; i < validatedData.length; i++) {
+        const screenData = validatedData[i];
+        
         try {
           // Verificar se já existe uma tela com o mesmo código
           const { data: existingScreen } = await supabase
@@ -797,7 +913,13 @@ const Inventory = () => {
           errors.push(`${screenData.name}: ${error.message}`);
           console.error(`Erro ao inserir tela ${screenData.name}:`, error);
         }
+        
+        // Atualizar progresso
+        const progress = 40 + ((i + 1) / totalItems) * 50;
+        setUploadProgress(progress);
       }
+
+      setUploadProgress(100);
 
       // Mostrar resultado
       let resultMessage = `${insertedCount} telas adicionadas`;
@@ -817,7 +939,8 @@ const Inventory = () => {
         // Fechar modal e recarregar dados
         setUploadModalOpen(false);
         setUploadFile(null);
-        fetchScreens();
+        setUploadProgress(0);
+        await fetchScreens();
       } else {
         toast({
           title: "Aviso",
@@ -835,11 +958,12 @@ const Inventory = () => {
       console.error('Error uploading file:', err);
       toast({
         title: "Erro",
-        description: `Erro ao processar planilha: ${err.message}`,
+        description: `Erro ao processar arquivo: ${err.message}`,
         variant: "destructive",
       });
     } finally {
       setUploading(false);
+      setUploadProgress(0);
     }
   };
 
@@ -987,18 +1111,30 @@ const Inventory = () => {
     <DashboardLayout>
       <div className="p-6 space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold flex items-center gap-2">
-              <Monitor className="h-6 w-6 text-primary" />
-              Inventário
+            <h1 className="text-3xl font-bold flex items-center gap-3">
+              <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                <Monitor className="h-6 w-6 text-primary" />
+              </div>
+              Inventário de Telas
             </h1>
-            <p className="text-muted-foreground">
-              Gerencie todas as telas do sistema
+            <p className="text-muted-foreground mt-1">
+              Gerencie e visualize todas as telas do sistema TV Doutor
             </p>
           </div>
           
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <Button 
+              variant="outline" 
+              onClick={handleRefresh}
+              disabled={refreshing || loading}
+              className="gap-2"
+            >
+              <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+              {refreshing ? "Atualizando..." : "Atualizar"}
+            </Button>
+            
             {(isAdmin() || isManager()) && (
               <Button onClick={() => setAddModalOpen(true)} className="gap-2">
                 <Plus className="h-4 w-4" />
@@ -1012,8 +1148,8 @@ const Inventory = () => {
                 onClick={() => setUploadModalOpen(true)}
                 className="gap-2"
               >
-                <Upload className="h-4 w-4" />
-                Upload Planilha
+                <FileSpreadsheet className="h-4 w-4" />
+                Upload CSV
               </Button>
             )}
             
@@ -1030,50 +1166,81 @@ const Inventory = () => {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Card>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <Card className="border-l-4 border-l-primary">
             <CardContent className="p-6">
-              <div className="flex items-center gap-4">
-                <div className="h-12 w-12 rounded-lg bg-primary-soft flex items-center justify-center">
-                  <Monitor className="h-6 w-6 text-primary" />
-                </div>
+              <div className="flex items-center justify-between">
                 <div>
                   <p className="text-2xl font-bold">
-                    {loading ? "..." : screens.length}
+                    {loading ? <Loader2 className="h-6 w-6 animate-spin" /> : stats.total.toLocaleString('pt-BR')}
                   </p>
                   <p className="text-sm text-muted-foreground">Total de Telas</p>
                 </div>
+                <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <Monitor className="h-6 w-6 text-primary" />
+                </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="border-l-4 border-l-green-500">
             <CardContent className="p-6">
-              <div className="flex items-center gap-4">
-                <div className="h-12 w-12 rounded-lg bg-green-100 flex items-center justify-center">
-                  <Building className="h-6 w-6 text-green-600" />
-                </div>
+              <div className="flex items-center justify-between">
                 <div>
                   <p className="text-2xl font-bold text-green-600">
-                    {loading ? "..." : screens.filter(s => s.active === true).length}
+                    {loading ? <Loader2 className="h-6 w-6 animate-spin" /> : stats.active.toLocaleString('pt-BR')}
                   </p>
                   <p className="text-sm text-muted-foreground">Telas Ativas</p>
+                  {!loading && stats.total > 0 && (
+                    <p className="text-xs text-green-600">
+                      {((stats.active / stats.total) * 100).toFixed(1)}% do total
+                    </p>
+                  )}
+                </div>
+                <div className="h-12 w-12 rounded-lg bg-green-500/10 flex items-center justify-center">
+                  <CheckCircle className="h-6 w-6 text-green-600" />
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="border-l-4 border-l-red-500">
             <CardContent className="p-6">
-              <div className="flex items-center gap-4">
-                <div className="h-12 w-12 rounded-lg bg-red-100 flex items-center justify-center">
-                  <AlertCircle className="h-6 w-6 text-red-600" />
-                </div>
+              <div className="flex items-center justify-between">
                 <div>
                   <p className="text-2xl font-bold text-red-600">
-                    {loading ? "..." : screens.filter(s => s.active === false).length}
+                    {loading ? <Loader2 className="h-6 w-6 animate-spin" /> : stats.inactive.toLocaleString('pt-BR')}
                   </p>
                   <p className="text-sm text-muted-foreground">Telas Inativas</p>
+                  {!loading && stats.total > 0 && (
+                    <p className="text-xs text-red-600">
+                      {((stats.inactive / stats.total) * 100).toFixed(1)}% do total
+                    </p>
+                  )}
+                </div>
+                <div className="h-12 w-12 rounded-lg bg-red-500/10 flex items-center justify-center">
+                  <XCircle className="h-6 w-6 text-red-600" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-l-4 border-l-blue-500">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-2xl font-bold text-blue-600">
+                    {loading ? <Loader2 className="h-6 w-6 animate-spin" /> : stats.totalCities.toLocaleString('pt-BR')}
+                  </p>
+                  <p className="text-sm text-muted-foreground">Cidades</p>
+                  {!loading && stats.withLocation > 0 && (
+                    <p className="text-xs text-blue-600">
+                      {stats.withLocation} com localização
+                    </p>
+                  )}
+                </div>
+                <div className="h-12 w-12 rounded-lg bg-blue-500/10 flex items-center justify-center">
+                  <MapPin className="h-6 w-6 text-blue-600" />
                 </div>
               </div>
             </CardContent>
@@ -1082,60 +1249,115 @@ const Inventory = () => {
 
         {/* Filters and Search */}
         <Card>
-          <CardContent className="p-4">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Filter className="h-5 w-5" />
+              Filtros e Busca
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
             <div className="flex flex-col lg:flex-row items-center gap-4">
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                 <Input
-                   placeholder="Buscar por código do ponto, nome de exibição ou localização..."
-                   value={searchTerm}
-                   onChange={(e) => setSearchTerm(e.target.value)}
-                   className="pl-10"
-                 />
+                <Input
+                  placeholder="Buscar por código, nome, cidade ou endereço..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
               </div>
               
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-3">
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-32">
+                  <SelectTrigger className="w-40">
                     <SelectValue placeholder="Status" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">Todos</SelectItem>
-                    <SelectItem value="ativa">Ativas</SelectItem>
-                    <SelectItem value="inativa">Inativas</SelectItem>
+                    <SelectItem value="all">Todos os Status</SelectItem>
+                    <SelectItem value="ativa">Apenas Ativas</SelectItem>
+                    <SelectItem value="inativa">Apenas Inativas</SelectItem>
                   </SelectContent>
                 </Select>
 
-                {/* Removido: Filtro por classe - coluna 'class' não existe no banco */}
+                <Select value={classFilter} onValueChange={setClassFilter}>
+                  <SelectTrigger className="w-40">
+                    <SelectValue placeholder="Classe" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas as Classes</SelectItem>
+                    {ALLOWED_CLASSES.map((classType) => (
+                      <SelectItem key={classType} value={classType}>
+                        Classe {classType}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
 
-                <Button variant="outline" className="gap-2">
-                  <Filter className="h-4 w-4" />
-                  Filtros
-                </Button>
+                {(searchTerm || statusFilter !== "all" || classFilter !== "all") && (
+                  <Button 
+                    variant="outline" 
+                    onClick={() => {
+                      setSearchTerm("");
+                      setStatusFilter("all");
+                      setClassFilter("all");
+                    }}
+                    className="gap-2"
+                  >
+                    <XCircle className="h-4 w-4" />
+                    Limpar Filtros
+                  </Button>
+                )}
               </div>
             </div>
+            
+            {(searchTerm || statusFilter !== "all" || classFilter !== "all") && (
+              <div className="mt-4 p-3 bg-muted/50 rounded-lg">
+                <p className="text-sm text-muted-foreground">
+                  Mostrando {filteredScreens.length} de {screens.length} telas
+                  {searchTerm && ` • Busca: "${searchTerm}"`}
+                  {statusFilter !== "all" && ` • Status: ${statusFilter === "ativa" ? "Ativas" : "Inativas"}`}
+                  {classFilter !== "all" && ` • Classe: ${classFilter}`}
+                </p>
+              </div>
+            )}
           </CardContent>
         </Card>
 
         {/* Table */}
         <Card>
           <CardHeader>
-            <CardTitle>Lista de Telas</CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2">
+                <BarChart3 className="h-5 w-5" />
+                Lista de Telas
+              </CardTitle>
+              <div className="text-sm text-muted-foreground">
+                {loading ? (
+                  <div className="flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Carregando...
+                  </div>
+                ) : (
+                  `${filteredScreens.length} telas encontradas`
+                )}
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
-            <Table>
-                             <TableHeader>
-                 <TableRow>
-                   <TableHead>Código do Ponto</TableHead>
-                   <TableHead>Localização</TableHead>
-                   <TableHead>Status</TableHead>
-                   <TableHead>Classe</TableHead>
-                   <TableHead>Rates</TableHead>
-                   <TableHead>Venue</TableHead>
-                   <TableHead>Especialidades</TableHead>
-                   <TableHead>Ações</TableHead>
-                 </TableRow>
-               </TableHeader>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[200px]">Código do Ponto</TableHead>
+                    <TableHead className="w-[250px]">Localização</TableHead>
+                    <TableHead className="w-[100px]">Status</TableHead>
+                    <TableHead className="w-[100px]">Classe</TableHead>
+                    <TableHead className="w-[150px]">Rates</TableHead>
+                    <TableHead className="w-[200px]">Venue</TableHead>
+                    <TableHead className="w-[200px]">Especialidades</TableHead>
+                    <TableHead className="w-[120px]">Ações</TableHead>
+                  </TableRow>
+                </TableHeader>
               <TableBody>
                 {loading ? (
                   Array.from({ length: 5 }).map((_, index) => (
@@ -1151,17 +1373,46 @@ const Inventory = () => {
                   ))
                 ) : (
                   filteredScreens.map((screen) => (
-                    <TableRow key={screen.id}>
-                                             <TableCell>
-                         <div>
-                           <p className="font-medium font-mono">{screen.code || `ID: ${screen.id}`}</p>
-                           <p className="text-sm text-muted-foreground">
-                             {screen.display_name || screen.venue_info?.name || 'Sem nome de exibição'}
-                           </p>
-                         </div>
-                       </TableCell>
-                      <TableCell>{getLocation(screen)}</TableCell>
-                      <TableCell>{getStatusBadge(screen.active)}</TableCell>
+                    <TableRow key={screen.id} className="hover:bg-muted/50">
+                      <TableCell>
+                        <div className="space-y-1">
+                          <p className="font-medium font-mono text-sm">
+                            {screen.code || `ID: ${screen.id}`}
+                          </p>
+                          <p className="text-xs text-muted-foreground truncate max-w-[180px]">
+                            {screen.display_name || screen.venue_info?.name || 'Sem nome de exibição'}
+                          </p>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="space-y-1">
+                          <p className="text-sm font-medium truncate max-w-[230px]">
+                            {screen.city && screen.state ? `${screen.city}, ${screen.state}` : 'N/A'}
+                          </p>
+                          <p className="text-xs text-muted-foreground truncate max-w-[230px]">
+                            {screen.address || 'Endereço não informado'}
+                          </p>
+                          {screen.lat && screen.lng && (
+                            <div className="flex items-center gap-1 text-xs text-blue-600">
+                              <MapPin className="h-3 w-3" />
+                              Localizada
+                            </div>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        {screen.active ? (
+                          <Badge variant="default" className="bg-green-100 text-green-800 hover:bg-green-100">
+                            <CheckCircle className="h-3 w-3 mr-1" />
+                            Ativa
+                          </Badge>
+                        ) : (
+                          <Badge variant="secondary" className="bg-red-100 text-red-800 hover:bg-red-100">
+                            <XCircle className="h-3 w-3 mr-1" />
+                            Inativa
+                          </Badge>
+                        )}
+                      </TableCell>
                       <TableCell>
                         <Badge variant="outline" className="font-mono">
                           {screen.class || 'ND'}
@@ -1170,59 +1421,68 @@ const Inventory = () => {
                       <TableCell>
                         {screen.screen_rates ? (
                           <div className="text-xs space-y-1">
-                            <div>R$ {screen.screen_rates.standard_rate_month?.toLocaleString() || 'N/A'}</div>
+                            <div className="font-medium">
+                              R$ {screen.screen_rates.standard_rate_month?.toLocaleString('pt-BR') || 'N/A'}
+                            </div>
                             <div className="text-muted-foreground">
                               {screen.screen_rates.spots_per_hour || 'N/A'} spots/h
                             </div>
                           </div>
                         ) : (
-                          <span className="text-muted-foreground text-sm">N/A</span>
+                          <span className="text-muted-foreground text-xs">Não definido</span>
                         )}
                       </TableCell>
                       <TableCell>
                         {screen.venue_info ? (
                           <div className="text-xs space-y-1">
-                            <div className="font-medium">{screen.venue_info.name || 'N/A'}</div>
-                            <div className="text-muted-foreground">
-                              {screen.venue_info.audience_monthly?.toLocaleString() || 'N/A'} audiência/mês
+                            <div className="font-medium truncate max-w-[180px]">
+                              {screen.venue_info.name || 'N/A'}
                             </div>
+                            {screen.venue_info.audience_monthly && (
+                              <div className="text-muted-foreground flex items-center gap-1">
+                                <Users className="h-3 w-3" />
+                                {screen.venue_info.audience_monthly.toLocaleString('pt-BR')}/mês
+                              </div>
+                            )}
                           </div>
                         ) : (
-                          <span className="text-muted-foreground text-sm">N/A</span>
+                          <span className="text-muted-foreground text-xs">Não informado</span>
                         )}
                       </TableCell>
                       <TableCell>
                         {screen.specialty && screen.specialty.length > 0 ? (
-                          <div className="flex flex-wrap gap-1">
-                            {screen.specialty.slice(0, 10).map((spec, index) => (
-                              <Badge key={index} variant="secondary" className="text-xs whitespace-nowrap">
+                          <div className="flex flex-wrap gap-1 max-w-[180px]">
+                            {screen.specialty.slice(0, 2).map((spec, index) => (
+                              <Badge key={index} variant="secondary" className="text-xs">
                                 {spec}
                               </Badge>
                             ))}
-                            {screen.specialty.length > 10 && (
-                              <Badge variant="outline" className="text-xs whitespace-nowrap">
-                                +{screen.specialty.length - 10}
+                            {screen.specialty.length > 2 && (
+                              <Badge variant="outline" className="text-xs">
+                                +{screen.specialty.length - 2}
                               </Badge>
                             )}
                           </div>
                         ) : (
-                          <span className="text-muted-foreground text-sm">N/A</span>
+                          <span className="text-muted-foreground text-xs">Nenhuma</span>
                         )}
                       </TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1">
                           <Button 
                             size="sm" 
-                            variant="outline"
+                            variant="ghost"
                             onClick={() => handleViewScreen(screen)}
+                            className="h-8 w-8 p-0"
                           >
                             <Eye className="h-4 w-4" />
                           </Button>
                           {(isAdmin() || isManager()) && (
                             <Button 
                               size="sm" 
-                              variant="outline"
+                              variant="ghost"
                               onClick={() => handleEditScreen(screen)}
+                              className="h-8 w-8 p-0"
                             >
                               <Edit className="h-4 w-4" />
                             </Button>
@@ -1230,7 +1490,11 @@ const Inventory = () => {
                           {isAdmin() && (
                             <AlertDialog>
                               <AlertDialogTrigger asChild>
-                                <Button size="sm" variant="outline" className="text-destructive hover:text-destructive">
+                                <Button 
+                                  size="sm" 
+                                  variant="ghost" 
+                                  className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                >
                                   <Trash2 className="h-4 w-4" />
                                 </Button>
                               </AlertDialogTrigger>
@@ -1262,23 +1526,36 @@ const Inventory = () => {
               </TableBody>
             </Table>
 
-            {!loading && filteredScreens.length === 0 && (
-              <div className="text-center py-8">
-                <Monitor className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-lg font-semibold mb-2">
-                  {searchTerm || statusFilter !== "all" || typeFilter !== "all" 
-                    ? "Nenhuma tela encontrada"
-                    : "Nenhuma tela cadastrada"
-                  }
-                </h3>
-                <p className="text-muted-foreground">
-                  {searchTerm || statusFilter !== "all" || typeFilter !== "all"
-                    ? "Tente ajustar os filtros de busca."
-                    : "Quando houver telas cadastradas, elas aparecerão aqui."
-                  }
-                </p>
-              </div>
-            )}
+              {!loading && filteredScreens.length === 0 && (
+                <div className="text-center py-12">
+                  <Monitor className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">
+                    {searchTerm || statusFilter !== "all" || classFilter !== "all" 
+                      ? "Nenhuma tela encontrada"
+                      : "Nenhuma tela cadastrada"
+                    }
+                  </h3>
+                  <p className="text-muted-foreground mb-4">
+                    {searchTerm || statusFilter !== "all" || classFilter !== "all"
+                      ? "Tente ajustar os filtros de busca ou limpe os filtros para ver todas as telas."
+                      : "Quando houver telas cadastradas, elas aparecerão aqui."
+                    }
+                  </p>
+                  {(searchTerm || statusFilter !== "all" || classFilter !== "all") && (
+                    <Button 
+                      variant="outline" 
+                      onClick={() => {
+                        setSearchTerm("");
+                        setStatusFilter("all");
+                        setClassFilter("all");
+                      }}
+                    >
+                      Limpar Filtros
+                    </Button>
+                  )}
+                </div>
+              )}
+            </div>
           </CardContent>
         </Card>
 
@@ -1676,43 +1953,111 @@ const Inventory = () => {
           </DialogContent>
         </Dialog>
 
-        {/* Modal de Upload de Planilha */}
+        {/* Modal de Upload de CSV */}
         <Dialog open={uploadModalOpen} onOpenChange={setUploadModalOpen}>
-          <DialogContent className="max-w-md">
+          <DialogContent className="max-w-lg">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
-                <Upload className="h-5 w-5" />
-                Upload de Planilha
+                <FileSpreadsheet className="h-5 w-5" />
+                Upload de Arquivo CSV
               </DialogTitle>
               <DialogDescription>
-                Faça upload de uma planilha Excel para importar múltiplas telas
+                Importe múltiplas telas através de um arquivo CSV ou Excel
               </DialogDescription>
             </DialogHeader>
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="file-upload">Selecionar arquivo Excel (.xlsx)</Label>
-                <Input
-                  id="file-upload"
-                  type="file"
-                  accept=".xlsx,.xls"
-                  onChange={handleFileUpload}
-                />
-                <p className="text-xs text-muted-foreground">
-                  O arquivo deve conter colunas: Nome, Cidade, Estado, Classe, Endereço, etc.
-                </p>
+            <div className="space-y-6">
+              {/* Área de upload */}
+              <div className="space-y-4">
+                <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6 text-center">
+                  <FileSpreadsheet className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                  <div className="space-y-2">
+                    <Label htmlFor="file-upload" className="cursor-pointer">
+                      <div className="space-y-1">
+                        <p className="text-sm font-medium">Clique para selecionar ou arraste o arquivo</p>
+                        <p className="text-xs text-muted-foreground">
+                          Formatos suportados: CSV, XLSX, XLS (máx. 10MB)
+                        </p>
+                      </div>
+                    </Label>
+                    <Input
+                      id="file-upload"
+                      type="file"
+                      accept=".csv,.xlsx,.xls"
+                      onChange={handleFileUpload}
+                      className="hidden"
+                    />
+                  </div>
+                </div>
+                
+                {uploadFile && (
+                  <div className="p-4 bg-muted/50 rounded-lg border">
+                    <div className="flex items-center gap-3">
+                      <FileSpreadsheet className="h-8 w-8 text-primary" />
+                      <div className="flex-1">
+                        <p className="text-sm font-medium">{uploadFile.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {(uploadFile.size / 1024 / 1024).toFixed(2)} MB
+                        </p>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setUploadFile(null)}
+                        disabled={uploading}
+                      >
+                        <XCircle className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
-              
-              {uploadFile && (
-                <div className="p-3 bg-muted rounded-lg">
-                  <p className="text-sm font-medium">Arquivo selecionado:</p>
-                  <p className="text-xs text-muted-foreground">{uploadFile.name}</p>
+
+              {/* Progress bar */}
+              {uploading && (
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span>Processando arquivo...</span>
+                    <span>{Math.round(uploadProgress)}%</span>
+                  </div>
+                  <Progress value={uploadProgress} className="w-full" />
                 </div>
               )}
+
+              {/* Informações sobre o formato */}
+              <div className="p-4 bg-blue-50 dark:bg-blue-950/20 rounded-lg">
+                <div className="flex items-start justify-between mb-2">
+                  <h4 className="text-sm font-medium">Formato do arquivo:</h4>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const link = document.createElement('a');
+                      link.href = '/template-inventario.csv';
+                      link.download = 'template-inventario.csv';
+                      link.click();
+                    }}
+                    className="gap-1"
+                  >
+                    <Download className="h-3 w-3" />
+                    Baixar Template
+                  </Button>
+                </div>
+                <div className="text-xs text-muted-foreground space-y-1">
+                  <p>• Colunas obrigatórias: <code>Código</code>, <code>Nome de Exibição</code></p>
+                  <p>• Colunas opcionais: <code>Cidade</code>, <code>Estado</code>, <code>Endereço</code>, <code>Classe</code>, <code>Ativo</code></p>
+                  <p>• Use vírgulas para separar valores e aspas para textos com vírgulas</p>
+                  <p>• Para <code>Ativo</code>: use "Sim" ou "Não" (padrão: Sim)</p>
+                </div>
+              </div>
             </div>
             <DialogFooter>
               <Button 
                 variant="outline" 
-                onClick={() => setUploadModalOpen(false)}
+                onClick={() => {
+                  setUploadModalOpen(false);
+                  setUploadFile(null);
+                  setUploadProgress(0);
+                }}
                 disabled={uploading}
               >
                 Cancelar
@@ -1720,8 +2065,19 @@ const Inventory = () => {
               <Button 
                 onClick={handleUploadScreens}
                 disabled={!uploadFile || uploading}
+                className="gap-2"
               >
-                {uploading ? "Processando..." : "Processar Planilha"}
+                {uploading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Processando...
+                  </>
+                ) : (
+                  <>
+                    <Upload className="h-4 w-4" />
+                    Importar Arquivo
+                  </>
+                )}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -1732,3 +2088,4 @@ const Inventory = () => {
 };
 
 export default Inventory;
+

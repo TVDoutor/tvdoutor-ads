@@ -55,11 +55,11 @@ const testimonials = [
 
 const TestimonialsSection = () => {
   return (
-    <section className="py-20 bg-muted/30">
+    <section className="py-20 bg-white">
       <div className="container mx-auto px-4 lg:px-6">
         <div className="text-center mb-16">
           <h2 className="text-3xl lg:text-4xl font-bold text-foreground mb-4">
-            Casos de Sucesso Reais
+            Resultados Comprovados por Quem Confia
           </h2>
           <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
             Mais de 500 profissionais da saúde já transformaram seus resultados 

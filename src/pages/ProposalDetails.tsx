@@ -59,16 +59,6 @@ interface ProposalDetails {
     email_empresa?: string;
     telefone_empresa?: string;
   };
-  agencia_projetos?: {
-    id: string;
-    nome_projeto: string;
-    cliente_final?: string;
-    agencia_id: string;
-    agencias?: {
-      id: string;
-      nome_agencia: string;
-    };
-  };
   proposal_screens?: Array<{
     id: number;
     screen_id: number;
@@ -113,18 +103,6 @@ const ProposalDetails = () => {
             nome_agencia,
             email_empresa,
             telefone_empresa
-          ),
-          agencia_projetos (
-            id,
-            nome_projeto,
-            cliente_final,
-            agencia_id,
-            agencias (
-              id,
-              nome_agencia,
-              email_empresa,
-              telefone_empresa
-            )
           ),
           proposal_screens (
             id,
@@ -269,7 +247,13 @@ const ProposalDetails = () => {
       const result = await generateProPDF(proposal.id);
       
       if (result.ok && result.pdf_url) {
-        toast.success("PDF gerado com sucesso!");
+        // Verificar se é PDF básico (fallback)
+        const isBasicPDF = result.pdf_path?.includes('-basica.pdf');
+        if (isBasicPDF) {
+          toast.success("PDF básico gerado! (Versão completa em desenvolvimento)");
+        } else {
+          toast.success("PDF profissional gerado com sucesso!");
+        }
         openPDF(result.pdf_url, `proposta-${proposal.id}.pdf`);
       } else {
         toast.error(result.error || "Erro ao gerar PDF");
@@ -299,7 +283,7 @@ const ProposalDetails = () => {
                 </Button>
                 <div>
                   <h1 className="text-4xl font-bold text-white mb-1">
-                    {proposal.agencia_projetos?.nome_projeto || `Proposta #${proposal.id}`}
+                    {`Proposta #${proposal.id}`}
                   </h1>
                   <p className="text-orange-100 flex items-center gap-2">
                     <Calendar className="h-4 w-4" />
@@ -414,13 +398,13 @@ const ProposalDetails = () => {
                   <div className="space-y-2">
                     <label className="text-sm font-semibold text-slate-600 uppercase tracking-wide">Nome do Projeto</label>
                     <p className="text-2xl font-bold text-slate-900">
-                      {proposal.agencia_projetos?.nome_projeto || 'Projeto não definido'}
+                      {proposal.customer_name || 'Projeto não definido'}
                     </p>
                   </div>
                   <div className="space-y-2">
                     <label className="text-sm font-semibold text-slate-600 uppercase tracking-wide">Cliente Final</label>
                     <p className="text-lg font-medium text-slate-700">
-                      {proposal.agencia_projetos?.cliente_final || proposal.customer_name}
+                      {proposal.customer_name}
                     </p>
                   </div>
                 </div>
@@ -431,7 +415,7 @@ const ProposalDetails = () => {
                     <div className="flex items-center gap-3 p-3 bg-orange-50 rounded-lg border border-orange-200">
                       <Building className="h-5 w-5 text-orange-600" />
                       <p className="text-lg font-medium text-slate-700">
-                        {proposal.agencias?.nome_agencia || proposal.agencia_projetos?.agencias?.nome_agencia || 'Agência não definida'}
+                        {proposal.agencias?.nome_agencia || 'Agência não definida'}
                       </p>
                     </div>
                   </div>

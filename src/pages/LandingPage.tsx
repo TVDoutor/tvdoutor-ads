@@ -5,7 +5,7 @@ import LandingHeader from "@/components/landing/LandingHeader";
 import HeroSection from "@/components/landing/HeroSection";
 import { SearchInterface } from "@/components/landing/SearchInterface";
 import { MapView } from "@/components/landing/MapView";
-import BenefitsSection from "@/components/landing/BenefitsSection";
+import { DataDrivenBenefits } from "@/components/landing/DataDrivenBenefits";
 import HowItWorksSection from "@/components/landing/HowItWorksSection";
 import TestimonialsSection from "@/components/landing/TestimonialsSection";
 import FAQSection from "@/components/landing/FAQSection";
@@ -65,7 +65,7 @@ const LandingPage = () => {
           </div>
         </section>
         
-        <BenefitsSection />
+        <DataDrivenBenefits />
         <HowItWorksSection />
         <TestimonialsSection />
         <FAQSection />

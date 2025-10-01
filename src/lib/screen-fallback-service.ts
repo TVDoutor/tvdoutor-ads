@@ -191,9 +191,6 @@ export async function fetchAllScreens() {
           lat,
           lng,
           active,
-          staging_nome_ponto,
-          staging_tipo_venue,
-          staging_subtipo,
           venue_type_parent,
           venue_type_child
         `)
@@ -212,7 +209,7 @@ export async function fetchAllScreens() {
       console.warn('⚠️ View v_screens_enriched não disponível, tentando tabela screens:', viewErr);
     }
     
-    // Fallback: buscar diretamente da tabela screens
+    // Fallback: buscar diretamente da tabela screens (apenas colunas que existem)
     const { data: screensData, error: screensError } = await supabase
       .from('screens')
       .select(`
@@ -225,9 +222,6 @@ export async function fetchAllScreens() {
         lat,
         lng,
         active,
-        staging_nome_ponto,
-        staging_tipo_venue,
-        staging_subtipo,
         venue_type_parent,
         venue_type_child
       `)
@@ -268,9 +262,6 @@ export async function fetchAllScreens() {
         lat: -23.5505,
         lng: -46.6333,
         active: true,
-        staging_nome_ponto: 'Clínica Central',
-        staging_tipo_venue: 'Clínica',
-        staging_subtipo: 'Geral',
         venue_type_parent: 'Clínica',
         venue_type_child: 'Geral'
       },
@@ -284,9 +275,6 @@ export async function fetchAllScreens() {
         lat: -22.9068,
         lng: -43.1729,
         active: true,
-        staging_nome_ponto: 'Hospital São Lucas',
-        staging_tipo_venue: 'Hospital',
-        staging_subtipo: 'Geral',
         venue_type_parent: 'Hospital',
         venue_type_child: 'Geral'
       },
@@ -300,9 +288,6 @@ export async function fetchAllScreens() {
         lat: -19.9167,
         lng: -43.9345,
         active: true,
-        staging_nome_ponto: 'Clínica Especializada',
-        staging_tipo_venue: 'Clínica',
-        staging_subtipo: 'Especializada',
         venue_type_parent: 'Clínica',
         venue_type_child: 'Especializada'
       },
@@ -316,9 +301,6 @@ export async function fetchAllScreens() {
         lat: -3.7319,
         lng: -38.5267,
         active: false,
-        staging_nome_ponto: 'Centro Médico',
-        staging_tipo_venue: 'Centro Médico',
-        staging_subtipo: 'Geral',
         venue_type_parent: 'Centro Médico',
         venue_type_child: 'Geral'
       },
@@ -332,9 +314,6 @@ export async function fetchAllScreens() {
         lat: -15.7801,
         lng: -47.9292,
         active: true,
-        staging_nome_ponto: 'Laboratório de Análises',
-        staging_tipo_venue: 'Laboratório',
-        staging_subtipo: 'Análises',
         venue_type_parent: 'Laboratório',
         venue_type_child: 'Análises'
       }
@@ -362,9 +341,6 @@ export async function fetchScreensByLocation(venueId: string) {
         lat,
         lng,
         active,
-        staging_nome_ponto,
-        staging_tipo_venue,
-        staging_subtipo,
         venue_type_parent,
         venue_type_child
       `)
@@ -384,7 +360,7 @@ export async function fetchScreensByLocation(venueId: string) {
     // Filtrar telas que correspondem ao venueId
     // O venueId pode ser um nome de ponto ou uma combinação de nome-cidade-estado
     const filteredScreens = screens.filter(screen => {
-      const venueName = screen.staging_nome_ponto || screen.name || '';
+      const venueName = screen.name || '';
       const venueKey = `${venueName}-${screen.city}-${screen.state}`;
       return venueKey === venueId || venueName === venueId;
     });

@@ -113,15 +113,15 @@ const Venues = () => {
       const venuesMap = new Map<string, VenueWithScreens>();
 
       data.forEach(screen => {
-        const venueName = screen.staging_nome_ponto || screen.name || 'Ponto sem nome';
+        const venueName = screen.name || 'Ponto sem nome';
         const venueKey = `${venueName}-${screen.city}-${screen.state}`;
 
         if (!venuesMap.has(venueKey)) {
           venuesMap.set(venueKey, {
             id: venueKey,
             name: venueName,
-            venue_type_parent: screen.staging_tipo_venue || screen.venue_type_parent || 'Não informado',
-            venue_type_child: screen.staging_subtipo || screen.venue_type_child || '',
+            venue_type_parent: screen.venue_type_parent || 'Não informado',
+            venue_type_child: screen.venue_type_child || '',
             city: screen.city || 'Cidade não informada',
             state: screen.state || 'Estado não informado',
             screens: [],
@@ -136,7 +136,7 @@ const Venues = () => {
           id: screen.id,
           code: screen.code || `ID-${screen.id}`,
           name: screen.name || `ID-${screen.id}`,
-          display_name: screen.staging_nome_ponto || screen.name || 'Sem nome',
+          display_name: screen.name || 'Sem nome',
           class: screen.class || 'ND',
           active: Boolean(screen.active),
           lat: screen.lat,

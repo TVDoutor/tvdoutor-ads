@@ -170,7 +170,7 @@ export function GeospatialSearch({ onResults, onNavigateToMap }: GeospatialSearc
                       </span>
                     </div>
                     <div>
-                      <p className="font-medium text-sm">{screen.code} {screen.name}</p>
+                      <p className="font-medium text-sm">{screen.name || screen.code}</p>
                       <p className="text-xs text-muted-foreground">
                         {screen.city}, {screen.state} • {screen.distance}km
                       </p>

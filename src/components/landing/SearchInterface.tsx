@@ -157,7 +157,7 @@ export function SearchInterface({ onSearchResults, onLocationChange, onRadiusCha
                       onClick={() => onFocusOnScreen?.(screen)}
                       title="Clique para focar no mapa"
                     >
-                      {screen.code} {screen.name}
+                      {screen.name || screen.code}
                     </div>
                     
                     <div className="text-sm text-muted-foreground mb-3">

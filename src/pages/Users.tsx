@@ -161,38 +161,41 @@ const Users = () => {
     try {
       logDebug('Criando usuário no Auth', { hasEmail: !!newUser.email, name: newUser.name, role: newUser.role });
       
+      // CORREÇÃO: Usar apenas signUp sem tentar definir role diretamente
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: newUser.email,
         password: newUser.password,
         options: {
           data: {
             full_name: newUser.name,
+            // REGRA DE SEGURANÇA: A role de um novo usuário cadastrado
+            // publicamente DEVE ser sempre 'user'. Nunca deixe o usuário escolher.
+            role: 'user',
           }
         }
       });
 
-      if (authError) throw authError;
+      // Se a chamada signUp retornar um erro, nós o lançamos para o bloco CATCH
+      if (authError) {
+        throw authError;
+      }
 
       if (authData.user) {
-        logDebug('Usuário criado no Auth', { userId: 'user_created' });
+        logDebug('Usuário criado no Auth', { userId: authData.user.id });
         
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        // Aguardar o trigger criar o perfil automaticamente
+        await new Promise(resolve => setTimeout(resolve, 3000));
         
-        const { data: profile } = await supabase
+        // Verificar se o perfil foi criado pelo trigger
+        const { data: profile, error: profileError } = await supabase
           .from('profiles')
           .select('id, email, full_name, display_name, role')
           .eq('id', authData.user.id)
           .single();
 
-        const { data: role } = await supabase
-          .from('user_roles')
-          .select('user_id, role')
-          .eq('user_id', authData.user.id)
-          .single();
-
-        if (!profile) {
+        if (profileError || !profile) {
           console.log('Trigger não criou perfil, criando manualmente...');
-          const { error: profileError } = await supabase
+          const { error: manualProfileError } = await supabase
             .from('profiles')
             .insert({
               id: authData.user.id,
@@ -202,42 +205,16 @@ const Users = () => {
               role: 'user'
             });
 
-          if (profileError) {
-            console.error('Erro ao criar perfil manualmente:', profileError);
-            throw new Error(`Erro ao criar perfil: ${profileError.message}`);
+          if (manualProfileError) {
+            console.error('Erro ao criar perfil manualmente:', manualProfileError);
+            throw new Error(`Erro ao criar perfil: ${manualProfileError.message}`);
           }
           console.log('Perfil criado manualmente');
         }
 
-        if (!role || role.role !== newUser.role) {
-          console.log('Ajustando role do usuário...');
-          
-          if (role && role.role !== newUser.role) {
-            const { error: updateError } = await supabase
-              .from('user_roles')
-              .update({ role: newUser.role as 'user' | 'admin' | 'super_admin' })
-              .eq('user_id', authData.user.id);
-              
-            if (updateError) {
-              console.error('Erro ao atualizar role:', updateError);
-              throw new Error(`Erro ao atualizar role: ${updateError.message}`);
-            }
-            logDebug('Role atualizado para:', { role: newUser.role });
-          } else {
-            const { error: roleError } = await supabase
-              .from('user_roles')
-              .insert({
-                user_id: authData.user.id,
-                role: newUser.role as 'user' | 'admin' | 'super_admin'
-              });
-
-            if (roleError) {
-              console.error('Erro ao criar role:', roleError);
-              throw new Error(`Erro ao criar role: ${roleError.message}`);
-            }
-            logDebug('Role criado:', { role: newUser.role });
-          }
-        }
+        // Nota: Roles são gerenciadas através da tabela profiles.role
+        // O trigger handle_new_user já cria o perfil com role 'user'
+        // Se necessário, a role pode ser atualizada posteriormente através da edição do usuário
 
         await fetchUsers();
         setNewUser({ name: "", email: "", password: "", role: "user" });
@@ -259,6 +236,10 @@ const Users = () => {
         errorMessage = 'Email inválido';
       } else if (error.message?.includes('Password')) {
         errorMessage = 'Senha deve ter pelo menos 6 caracteres';
+      } else if (error.message?.includes('Only super administrators can change user roles')) {
+        errorMessage = 'Apenas super administradores podem alterar roles de usuários';
+      } else if (error.message?.includes('Database error saving new user')) {
+        errorMessage = 'Erro no banco de dados ao salvar usuário';
       } else if (error.message) {
         errorMessage = error.message;
       }

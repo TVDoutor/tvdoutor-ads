@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { DashboardLayout } from '@/components/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -158,7 +157,7 @@ const ProjectManagement = () => {
             <Target className="h-6 w-6 text-white" />
           </div>
           <div>
-            <h1 className="text-lg font-bold text-gray-900 truncate">Gerenciamento</h1>
+            <h1 className="text-lg font-bold text-gray-900">Gerenciamento</h1>
             <p className="text-sm text-gray-600 mt-0.5">Centro de controle</p>
           </div>
         </div>
@@ -1829,10 +1828,9 @@ const ProjectManagement = () => {
   };
 
   return (
-    <DashboardLayout>
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-primary/5">
-        <Navigation />
-        <main className="ml-72">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-primary/5">
+      <Navigation />
+      <main className="ml-72">
           {/* Header da tela ativa */}
           <div className="bg-white/80 backdrop-blur-sm border-b border-gray-200/60 shadow-sm">
             <div className="px-8 py-6">
@@ -1899,9 +1897,8 @@ const ProjectManagement = () => {
               renderTelaAtiva()
             )}
           </div>
-        </main>
-      </div>
-    </DashboardLayout>
+      </main>
+    </div>
   );
 };
 

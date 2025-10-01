@@ -148,7 +148,7 @@ export function MapView({ screens, centerLat, centerLng, radiusKm, loading = fal
                     ${markerNumber}
                   </div>
                   <div style="flex: 1; min-width: 0;">
-                    <h4 style="font-weight: 600; color: #111827; font-size: 16px; margin: 0 0 2px 0; line-height: 1.3; word-wrap: break-word;">${screen.code} ${screen.name}</h4>
+                    <h4 style="font-weight: 600; color: #111827; font-size: 16px; margin: 0 0 2px 0; line-height: 1.3; word-wrap: break-word;">${screen.name || screen.code}</h4>
                     <p style="font-size: 12px; color: #0891b2; font-weight: 500; margin: 0; line-height: 1.4;">Código: ${screen.code}</p>
                   </div>
                 </div>

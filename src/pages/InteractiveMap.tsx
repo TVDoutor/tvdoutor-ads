@@ -281,7 +281,7 @@ export default function InteractiveMap() {
                     </svg>
                   </div>
                   <div>
-                    <h4 style="font-weight: 600; color: #111827; font-size: 16px; margin: 0;">${screen.code} ${screen.name}</h4>
+                    <h4 style="font-weight: 600; color: #111827; font-size: 16px; margin: 0;">${screen.name || screen.code}</h4>
                     <p style="font-size: 12px; color: #0891b2; margin: 0;">Código: ${screen.code}</p>
                   </div>
                 </div>
@@ -454,7 +454,7 @@ export default function InteractiveMap() {
                     </svg>
                   </div>
                   <div>
-                    <h4 style="font-weight: 600; color: #111827; font-size: 16px; margin: 0;">${screen.code} ${screen.name}</h4>
+                    <h4 style="font-weight: 600; color: #111827; font-size: 16px; margin: 0;">${screen.name || screen.code}</h4>
                     <p style="font-size: 12px; color: #0891b2; margin: 0;">Código: ${screen.code}</p>
                   </div>
                 </div>
@@ -625,7 +625,7 @@ export default function InteractiveMap() {
               </svg>
             </div>
             <div>
-              <h4 style="font-weight: 600; color: #111827; font-size: 16px; margin: 0;">${screen.code} ${screen.name}</h4>
+              <h4 style="font-weight: 600; color: #111827; font-size: 16px; margin: 0;">${screen.name || screen.code}</h4>
               <p style="font-size: 12px; color: #0891b2; margin: 0;">Código: ${screen.code}</p>
             </div>
           </div>
@@ -769,7 +769,7 @@ export default function InteractiveMap() {
                         </svg>
                       </div>
                       <div>
-                        <h4 style="font-weight: 600; color: #111827; font-size: 16px; margin: 0;">${screen.code} ${screen.name}</h4>
+                        <h4 style="font-weight: 600; color: #111827; font-size: 16px; margin: 0;">${screen.name || screen.code}</h4>
                         <p style="font-size: 12px; color: #0891b2; margin: 0;">Código: ${screen.code}</p>
                       </div>
                     </div>
@@ -901,7 +901,7 @@ export default function InteractiveMap() {
                     </svg>
                   </div>
                   <div>
-                    <h4 style="font-weight: 600; color: #111827; font-size: 16px; margin: 0;">${screen.code} ${screen.name}</h4>
+                    <h4 style="font-weight: 600; color: #111827; font-size: 16px; margin: 0;">${screen.name || screen.code}</h4>
                     <p style="font-size: 12px; color: #0891b2; margin: 0;">Código: ${screen.code}</p>
                   </div>
                 </div>
@@ -1349,7 +1349,7 @@ export default function InteractiveMap() {
                           }}
                           title="Clique para focar no mapa"
                         >
-                          {screen.code} {screen.name}
+                          {screen.name || screen.code}
                               </div>
                         
                         <div className="text-xs text-muted-foreground mb-2">
@@ -1409,7 +1409,7 @@ export default function InteractiveMap() {
                           }}
                           title="Clique para focar no mapa"
                         >
-                          {screen.code} {screen.name}
+                          {screen.name || screen.code}
         </div>
                         
                         <div className="text-xs text-muted-foreground mb-2">

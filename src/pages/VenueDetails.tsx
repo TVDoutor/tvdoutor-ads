@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { fetchScreensByLocation } from "@/lib/screen-fallback-service";
 
 // normaliza status (se algum dia vier "Ativa", "1", boolean etc.)
 const isActive = (v: unknown) => {
@@ -105,29 +106,8 @@ const VenueDetails = () => {
       const city = decodeURIComponent(parts.pop() || '');
       const venueName = parts.join('-'); // pode conter '-'
 
-      const { data: screensData, error } = await supabase
-        .from('v_screens_enriched')
-        .select(`
-          id, code, name, display_name,
-          city, state,
-          lat, lng,
-          screen_active,
-          class,
-          specialty, staging_especialidades,
-          venue_name,
-          venue_type_parent,
-          venue_type_child,
-          venue_type_grandchildren,
-          address_raw
-        `)
-        .eq('city', city)
-        .eq('state', state)
-        .or(`staging_nome_ponto.ilike.%${venueName}%,name.ilike.%${venueName}%,display_name.ilike.%${venueName}%`);
-
-      if (error) {
-        console.error('❌ Erro ao buscar telas:', error);
-        throw error;
-      }
+      // Usar a função utilitária com fallback automático
+      const screensData = await fetchScreensByLocation(city, state, venueName);
 
       if (!screensData?.length) throw new Error('Ponto de venda não encontrado');
 
@@ -154,7 +134,7 @@ const VenueDetails = () => {
             name: screen.name || screen.display_name || `ID-${screen.id}`,
             display_name: screen.display_name || screen.venue_name || 'Sem nome',
             class: screen.class || 'ND',
-            active: isActive(screen.screen_active), // <<< normalizado
+            active: isActive(screen.active), // <<< normalizado
             lat: screen.lat,
             lng: screen.lng,
             venue_type_parent: screen.venue_type_parent || 'Não informado',
@@ -165,7 +145,7 @@ const VenueDetails = () => {
           };
         }),
         screenCount: venueScreens.length,
-        activeScreens: venueScreens.filter(s => isActive(s.screen_active)).length, // <<< garante consistência
+        activeScreens: venueScreens.filter(s => isActive(s.active)).length, // <<< garante consistência
         coordinates: venueScreens.some(s => s.lat && s.lng)
       };
 

@@ -5,7 +5,7 @@ const benefits = [
     name: 'Segmentação Precisa',
     description: 'Direcione sua campanha por especialidade médica, geolocalização e perfil de público para máximo impacto.',
     icon: Target,
-    stat: '+490 Pontos',
+    stat: '+1200 Pontos',
     stat_desc: 'Em +370 cidades e 25 estados.'
   },
   {

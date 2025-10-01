@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Download, FileText, AlertCircle } from "lucide-react";
-import { pdfService } from "@/lib/pdf-service";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -34,18 +34,34 @@ export const PDFDownloadButton = ({
     setError(null);
 
     try {
-      console.log(`🚀 Iniciando download do PDF para proposta ${proposalId}...`);
+      console.log(`🚀 Iniciando geração do PDF para proposta ${proposalId}...`);
       
-      const filename = `proposta-${proposalId}-${customerName.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
-      
-      await pdfService.downloadProposalPDF(proposalId, filename);
-      
-      toast.success('PDF baixado com sucesso!', {
-        description: `Proposta #${proposalId} salva como ${filename}`
+      // Chamar a Edge Function para gerar o PDF básico
+      const { data, error } = await supabase.functions.invoke('generate-pdf-proposal', {
+        body: { proposalId }
       });
+
+      if (error) {
+        throw new Error(error.message || 'Erro ao chamar função de geração de PDF');
+      }
+
+      if (!data || !data.ok) {
+        throw new Error(data?.error || 'Erro na geração do PDF');
+      }
+
+      if (data.pdf_url) {
+        // Abrir o PDF em uma nova aba
+        window.open(data.pdf_url, '_blank');
+        
+        toast.success('PDF gerado com sucesso!', {
+          description: `Proposta #${proposalId} está sendo baixada...`
+        });
+      } else {
+        throw new Error('URL do PDF não foi retornada');
+      }
       
     } catch (error: any) {
-      console.error('❌ Erro detalhado ao baixar PDF:', {
+      console.error('❌ Erro detalhado ao gerar PDF:', {
         error: error.message,
         stack: error.stack,
         proposalId,

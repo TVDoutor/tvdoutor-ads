@@ -44,6 +44,7 @@ BEGIN
           p_start_date DATE DEFAULT NULL,
           p_end_date DATE DEFAULT NULL,
           p_city TEXT DEFAULT NULL,
+          p_class TEXT DEFAULT NULL,
           p_normalize BOOLEAN DEFAULT FALSE
         )
         RETURNS TABLE (
@@ -105,6 +106,7 @@ BEGIN
             AND (p_start_date IS NULL OR p.created_at::DATE >= p_start_date)
             AND (p_end_date IS NULL OR p.created_at::DATE <= p_end_date)
             AND (p_city IS NULL OR s.city ILIKE ''%'' || p_city || ''%'')
+            AND (p_class IS NULL OR s.class = p_class)
           GROUP BY
             s.id, s.lat, s.lng, s.name, s.city
           ORDER BY
@@ -124,14 +126,16 @@ BEGIN
         EXECUTE 'CREATE OR REPLACE FUNCTION public.get_heatmap_stats(
           p_start_date DATE DEFAULT NULL,
           p_end_date DATE DEFAULT NULL,
-          p_city TEXT DEFAULT NULL
+          p_city TEXT DEFAULT NULL,
+          p_class TEXT DEFAULT NULL
         )
         RETURNS TABLE (
           total_screens BIGINT,
           total_proposals BIGINT,
           max_intensity BIGINT,
           avg_intensity DOUBLE PRECISION,
-          cities_count BIGINT
+          cities_count BIGINT,
+          classes_count BIGINT
         )
         LANGUAGE plpgsql
         SECURITY DEFINER
@@ -140,14 +144,15 @@ BEGIN
         BEGIN
           RETURN QUERY
           WITH heatmap_data AS (
-            SELECT * FROM public.get_heatmap_data(p_start_date, p_end_date, p_city, false)
+            SELECT * FROM public.get_heatmap_data(p_start_date, p_end_date, p_city, p_class, false)
           )
           SELECT
-            COUNT(*) AS total_screens,
-            COALESCE(SUM(proposal_count), 0) AS total_proposals,
-            COALESCE(MAX(proposal_count), 0) AS max_intensity,
+            COUNT(*)::BIGINT AS total_screens,
+            COALESCE(SUM(proposal_count), 0)::BIGINT AS total_proposals,
+            COALESCE(MAX(proposal_count), 0)::BIGINT AS max_intensity,
             COALESCE(AVG(proposal_count), 0) AS avg_intensity,
-            COUNT(DISTINCT city) AS cities_count
+            COUNT(DISTINCT city)::BIGINT AS cities_count,
+            COUNT(DISTINCT class)::BIGINT AS classes_count
           FROM heatmap_data;
         END;
         $func$';
@@ -189,6 +194,44 @@ BEGIN
             proposal_count DESC;
         END;
         $func$';
+
+        EXECUTE 'CREATE OR REPLACE FUNCTION public.get_available_classes(
+          p_start_date DATE DEFAULT NULL,
+          p_end_date DATE DEFAULT NULL
+        )
+        RETURNS TABLE (
+          class TEXT,
+          screen_count BIGINT,
+          proposal_count BIGINT
+        )
+        LANGUAGE plpgsql
+        SECURITY DEFINER
+        SET search_path = public
+        AS $func$
+        BEGIN
+          RETURN QUERY
+          SELECT
+            s.class,
+            COUNT(DISTINCT s.id)::BIGINT AS screen_count,
+            COUNT(DISTINCT ps.proposal_id)::BIGINT AS proposal_count
+          FROM
+            public.screens AS s
+          JOIN
+            public.proposal_screens AS ps ON s.id = ps.screen_id
+          JOIN
+            public.proposals AS p ON ps.proposal_id = p.id
+          WHERE
+            s.lat IS NOT NULL 
+            AND s.lng IS NOT NULL
+            AND s.class IS NOT NULL
+            AND (p_start_date IS NULL OR p.created_at::DATE >= p_start_date)
+            AND (p_end_date IS NULL OR p.created_at::DATE <= p_end_date)
+          GROUP BY
+            s.class
+          ORDER BY
+            proposal_count DESC;
+        END;
+        $func$';
     END IF;
 END $$;
 
@@ -209,6 +252,11 @@ BEGIN
     IF EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'get_available_cities' AND pronamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'public')) THEN
         GRANT EXECUTE ON FUNCTION public.get_available_cities TO authenticated;
         COMMENT ON FUNCTION public.get_available_cities IS 'Função para obter lista de cidades disponíveis no heatmap';
+    END IF;
+    
+    IF EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'get_available_classes' AND pronamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'public')) THEN
+        GRANT EXECUTE ON FUNCTION public.get_available_classes TO authenticated;
+        COMMENT ON FUNCTION public.get_available_classes IS 'Função para obter lista de classes disponíveis no heatmap';
     END IF;
     
     -- Comentário na view

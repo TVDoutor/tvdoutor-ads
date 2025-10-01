@@ -17,16 +17,16 @@ All colors MUST be HSL.
     --popover: 0 0% 100%;
     --popover-foreground: 210 17% 13%;
 
-    /* TV Doutor ADS Brand Colors */
-    --primary: 216 100% 50%; /* #0080FF - Medical Blue */
+    /* TV Doutor ADS Brand Colors - Orange Theme */
+    --primary: 32 100% 50%; /* #F78F1E - Primary Orange */
     --primary-foreground: 0 0% 100%;
-    --primary-soft: 216 100% 95%;
-    --primary-hover: 216 100% 45%;
+    --primary-soft: 32 100% 95%;
+    --primary-hover: 32 100% 45%;
 
-    --secondary: 180 100% 40%; /* #00CC99 - Health Teal */
+    --secondary: 216 100% 50%; /* #0080FF - Medical Blue */
     --secondary-foreground: 0 0% 100%;
-    --secondary-soft: 180 100% 95%;
-    --secondary-hover: 180 100% 35%;
+    --secondary-soft: 216 100% 95%;
+    --secondary-hover: 216 100% 45%;
 
     --accent: 16 100% 60%; /* #FF6B35 - Energy Orange */
     --accent-foreground: 0 0% 100%;
@@ -88,15 +88,15 @@ All colors MUST be HSL.
     --popover: 222 47% 4%;
     --popover-foreground: 210 40% 98%;
 
-    --primary: 216 100% 55%;
+    --primary: 32 100% 60%;
     --primary-foreground: 0 0% 100%;
-    --primary-soft: 216 100% 8%;
-    --primary-hover: 216 100% 60%;
+    --primary-soft: 32 100% 8%;
+    --primary-hover: 32 100% 65%;
 
-    --secondary: 180 100% 45%;
+    --secondary: 216 100% 55%;
     --secondary-foreground: 0 0% 100%;
-    --secondary-soft: 180 100% 8%;
-    --secondary-hover: 180 100% 50%;
+    --secondary-soft: 216 100% 8%;
+    --secondary-hover: 216 100% 60%;
 
     --accent: 16 100% 65%;
     --accent-foreground: 0 0% 100%;

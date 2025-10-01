@@ -40,7 +40,7 @@ SELECT
   sc.lat,
   sc.lng,
   sc.geom,
-  sc.active AS screen_active,
+  sc.active,
   COALESCE(sc.class::text, 'ND') AS class,
   -- Garantir que specialty seja sempre um array
   COALESCE(sc.specialty, ARRAY[]::text[]) AS specialty,

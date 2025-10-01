@@ -171,35 +171,20 @@ export const ProjectSelectionStep: React.FC<ProjectSelectionStepProps> = ({
   projects, 
   loading 
 }) => {
-  if (data.proposal_type === 'avulsa') {
-    return (
-      <div className="text-center space-y-6">
-        <div className="p-8 bg-green-50 border border-green-200 rounded-lg">
-          <div className="flex flex-col items-center gap-4">
-            <div className="p-3 bg-green-100 rounded-full">
-              <Play className="w-8 h-8 text-green-600" />
-            </div>
-            <div>
-              <h3 className="text-xl font-semibold text-green-900 mb-2">Veiculação Avulsa Selecionada</h3>
-              <p className="text-green-700">
-                Esta proposta não requer um projeto específico. Prossiga para a seleção de telas.
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-8">
       <div className="text-center">
         <h3 className="text-xl font-semibold text-gray-900 mb-2">Selecione um Projeto</h3>
-        <p className="text-gray-600">Escolha o projeto relacionado a esta proposta comercial</p>
+        <p className="text-gray-600">Toda proposta deve estar vinculada a um projeto</p>
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mt-4 max-w-2xl mx-auto">
           <p className="text-sm text-blue-700">
             <strong>Todos os projetos ativos</strong> estão listados abaixo. 
             Selecione aquele que melhor se adequa à sua proposta comercial.
+            <br />
+            <span className="text-blue-600 font-medium">
+              Tipo de proposta: {data.proposal_type === 'avulsa' ? 'Veiculação Avulsa' : 'Projeto Especial de Conteúdo'}
+            </span>
           </p>
         </div>
       </div>

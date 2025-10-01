@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Link } from "react-router-dom";
+import { HeroSearchSection } from "./HeroSearchSection";
 
 const clientLogos = [
   // Linha 1 - Farmacêuticas Globais
@@ -61,37 +62,22 @@ const HeroSection = () => {
               A maior plataforma de Digital Out-of-Home em ambientes de saúde do Brasil. 
               Conecte-se com pacientes e médicos onde a saúde acontece.
             </p>
-            <div className="mt-10 flex items-center justify-center gap-x-6">
-              <Button size="lg" className="bg-blue-600 hover:bg-blue-700" asChild>
-                <Link to="/login">Começar Grátis</Link>
-              </Button>
-              <Button size="lg" variant="outline" className="border-blue-600 text-blue-600 hover:bg-blue-50">
-                Falar com um especialista
-              </Button>
-            </div>
           </div>
 
-          {/* Preview da Plataforma */}
-          <div className="mt-16 flow-root sm:mt-24">
-            <Card className="overflow-hidden shadow-2xl bg-gradient-to-br from-blue-50 to-slate-100">
-              <div className="aspect-video bg-gradient-to-br from-blue-100 to-slate-200 flex items-center justify-center">
-                <div className="text-center p-8">
-                  <div className="w-20 h-20 mx-auto mb-4 bg-blue-600 rounded-full flex items-center justify-center">
-                    <svg className="w-10 h-10 text-white" fill="currentColor" viewBox="0 0 20 20">
-                      <path d="M2 6a2 2 0 012-2h6a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6zM14.553 7.106A1 1 0 0014 8v4a1 1 0 00.553.894l2 1A1 1 0 0018 13V7a1 1 0 00-1.447-.894l-2 1z"/>
-                    </svg>
-                  </div>
-                  <h3 className="text-xl font-bold text-gray-800 mb-2">TV Doutor ADS</h3>
-                  <p className="text-gray-600">Plataforma DOOH para ambientes de saúde</p>
-                  <div className="mt-4 flex justify-center space-x-2">
-                    <div className="w-3 h-3 bg-blue-400 rounded-full animate-pulse"></div>
-                    <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse delay-100"></div>
-                    <div className="w-3 h-3 bg-purple-400 rounded-full animate-pulse delay-200"></div>
-                  </div>
-                </div>
-              </div>
-            </Card>
+          {/* Seção de Busca */}
+          <div className="mt-12">
+            <HeroSearchSection />
           </div>
+
+          <div className="mt-12 flex items-center justify-center gap-x-6">
+            <Button size="lg" className="bg-blue-600 hover:bg-blue-700" asChild>
+              <Link to="/login">Começar Grátis</Link>
+            </Button>
+            <Button size="lg" variant="outline" className="border-blue-600 text-blue-600 hover:bg-blue-50">
+              Falar com um especialista
+            </Button>
+          </div>
+
         </div>
       </section>
 

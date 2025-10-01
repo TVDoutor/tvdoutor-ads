@@ -44,3 +44,4 @@ supabase-cli.tar.gz
 supabase.exe
 et --hard*
 fix_*.sql
+.vercel

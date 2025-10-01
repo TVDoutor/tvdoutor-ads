@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { ScreenFallbackService } from '@/lib/screen-fallback-service';
 
 export interface HeatmapDataPoint {
   lat: number;
@@ -97,11 +98,21 @@ export const useHeatmapData = (filters: HeatmapFilters = {}) => {
 
       if (data?.error) {
         console.error('❌ Erro na resposta do heatmap:', data.error);
-        setError(data.message || 'Erro ao processar dados do heatmap');
+        
+        // Se não há dados reais, usar fallback
+        console.log('🔄 Tentando usar dados de fallback...');
+        await useFallbackData();
         return;
       }
 
       const response: HeatmapResponse = data;
+
+      // Se não há dados no heatmap, usar fallback
+      if (!response.heatmap || response.heatmap.length === 0) {
+        console.log('🔄 Nenhum dado no heatmap, usando fallback...');
+        await useFallbackData();
+        return;
+      }
 
       // Converter o formato [lat, lng, intensity] para objetos
       const formattedData: HeatmapDataPoint[] = response.heatmap.map((point: [number, number, number]) => ({
@@ -125,11 +136,44 @@ export const useHeatmapData = (filters: HeatmapFilters = {}) => {
       
     } catch (error) {
       console.error('💥 Erro ao buscar dados do heatmap:', error);
-      setError('Erro de conexão ao buscar dados do heatmap');
+      
+      // Em caso de erro, tentar usar fallback
+      console.log('🔄 Erro na API, usando dados de fallback...');
+      await useFallbackData();
     } finally {
       setLoading(false);
     }
   }, [filters]);
+
+  // Método para usar dados de fallback
+  const useFallbackData = useCallback(async () => {
+    try {
+      console.log('🔄 Carregando dados de fallback...');
+      
+      const [fallbackData, fallbackStats] = await Promise.all([
+        ScreenFallbackService.getFallbackHeatmapData(),
+        ScreenFallbackService.getFallbackStats()
+      ]);
+
+      if (fallbackData.length > 0) {
+        setHeatmapData(fallbackData);
+        setStats(fallbackStats);
+        setCities([]);
+        setClasses([]);
+        setError(null);
+        
+        console.log('✅ Dados de fallback carregados:', {
+          totalPoints: fallbackData.length,
+          totalScreens: fallbackStats.total_screens
+        });
+      } else {
+        setError('Nenhum dado disponível para o mapa de calor');
+      }
+    } catch (fallbackError) {
+      console.error('💥 Erro ao carregar dados de fallback:', fallbackError);
+      setError('Erro ao carregar dados do mapa de calor');
+    }
+  }, []);
 
   // Função para buscar apenas dados do heatmap (sem stats/cities/classes)
   const fetchHeatmapOnly = useCallback(async (customFilters?: HeatmapFilters) => {

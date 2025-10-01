@@ -23,7 +23,7 @@ SELECT
   sc.lat,
   sc.lng,
   sc.geom,
-  sc.active AS screen_active,
+  sc.active,
   COALESCE(sc.class::text, 'ND') AS class,
   COALESCE(sc.specialty, ARRAY[]::text[]) AS specialty,
   COALESCE(sc.board_format, 'LED') AS board_format,

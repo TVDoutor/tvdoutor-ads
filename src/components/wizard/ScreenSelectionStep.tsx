@@ -79,7 +79,7 @@ export const ScreenSelectionStep = ({ data, onUpdate }: ScreenSelectionStepProps
           state,
           lat,
           lng,
-          screen_active,
+          active,
           class,
           specialty,
           address
@@ -99,7 +99,7 @@ export const ScreenSelectionStep = ({ data, onUpdate }: ScreenSelectionStepProps
           display_name: s.display_name || s.name,
           city: s.city,
           state: s.state,
-          active: Boolean(s.screen_active),
+          active: Boolean(s.active),
           lat: s.lat,
           lng: s.lng,
           class: s.class || 'ND',

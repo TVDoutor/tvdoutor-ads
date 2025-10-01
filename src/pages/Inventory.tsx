@@ -19,9 +19,114 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { addScreenAsAdmin, deleteScreenAsAdmin } from "@/lib/admin-operations";
+import * as ExcelJS from 'exceljs';
+import { saveAs } from 'file-saver';
 
 // Classes sociais permitidas conforme definido no banco de dados
 const ALLOWED_CLASSES = ['A', 'AB', 'ABC', 'B', 'BC', 'C', 'CD', 'D', 'E', 'ND'] as const;
+
+// Função para normalizar especialidades médicas
+const normalizeSpecialties = (specialtiesText: string): string[] => {
+  if (!specialtiesText || typeof specialtiesText !== 'string') return [];
+  
+  // Se já tem vírgulas, usar split normal
+  if (specialtiesText.includes(',')) {
+    return specialtiesText.split(',').map(s => s.trim()).filter(Boolean);
+  }
+  
+  // Lista de especialidades médicas conhecidas para separação automática
+  const medicalSpecialties = [
+    'OTORRINOLARINGOLOGIA', 'CIRURGIA GERAL', 'CLINICO GERAL', 'MEDICINA NUCLEAR', 
+    'MEDICINA DO TRABALHO', 'MEDICINA ESPORTIVA', 'GASTROENTEROLOGIA', 
+    'ENDOCRINOLOGIA', 'INFECTOLOGIA', 'OBSTETRICIA', 'REUMATOLOGIA', 
+    'OFTALMOLOGIA', 'CARDIOLOGIA', 'DERMATOLOGIA', 'GINECOLOGIA', 
+    'NEUROLOGIA', 'ORTOPEDIA', 'PEDIATRIA', 'ONCOLOGIA', 'TRANSPLANTE',
+    'PSIQUIATRIA', 'UROLOGIA', 'ANESTESIOLOGIA', 'RADIOLOGIA', 'PATOLOGIA',
+    'HEMATOLOGIA', 'NEFROLOGIA', 'PNEUMOLOGIA', 'GERIATRIA', 'UTI'
+  ];
+  
+  console.log('🔍 Processando especialidades:', specialtiesText);
+  
+  const text = specialtiesText.toUpperCase().trim();
+  const result: string[] = [];
+  
+  // Método simples e direto: substituir cada especialidade por um marcador
+  let processedText = text;
+  const foundSpecialties: string[] = [];
+  
+  // Ordenar por tamanho (maiores primeiro)
+  const sortedSpecialties = [...medicalSpecialties].sort((a, b) => b.length - a.length);
+  
+  // Primeiro, marcar todas as especialidades encontradas
+  for (const specialty of sortedSpecialties) {
+    const regex = new RegExp(specialty.replace(/\s+/g, '\\s+'), 'gi');
+    if (regex.test(processedText)) {
+      foundSpecialties.push(specialty);
+      processedText = processedText.replace(regex, `|${specialty}|`);
+    }
+  }
+  
+  if (foundSpecialties.length > 0) {
+    console.log('✅ Especialidades encontradas:', foundSpecialties);
+    return foundSpecialties;
+  }
+  
+  // Se não encontrou com espaços, tentar sem espaços (texto grudado)
+  console.log('🔄 Tentando separar texto grudado...');
+  
+  let remainingText = text;
+  
+  while (remainingText.length > 0) {
+    let found = false;
+    
+    for (const specialty of sortedSpecialties) {
+      const cleanSpecialty = specialty.replace(/\s+/g, '');
+      
+      if (remainingText.startsWith(cleanSpecialty)) {
+        result.push(specialty);
+        remainingText = remainingText.substring(cleanSpecialty.length);
+        found = true;
+        console.log(`✅ Encontrada: ${specialty}, restante: "${remainingText}"`);
+        break;
+      }
+    }
+    
+    if (!found) {
+      // Procurar a próxima especialidade conhecida
+      let nextIndex = -1;
+      let nextSpecialty = '';
+      
+      for (const specialty of sortedSpecialties) {
+        const cleanSpecialty = specialty.replace(/\s+/g, '');
+        const index = remainingText.indexOf(cleanSpecialty);
+        
+        if (index > 0 && (nextIndex === -1 || index < nextIndex)) {
+          nextIndex = index;
+          nextSpecialty = specialty;
+        }
+      }
+      
+      if (nextIndex > 0) {
+        // Há uma especialidade mais à frente, pegar o texto antes dela
+        const unknownPart = remainingText.substring(0, nextIndex);
+        result.push(unknownPart);
+        remainingText = remainingText.substring(nextIndex);
+        console.log(`⚠️ Parte não reconhecida: "${unknownPart}", próxima: ${nextSpecialty}`);
+      } else {
+        // Não há mais especialidades conhecidas, adicionar o resto
+        if (remainingText.trim()) {
+          result.push(remainingText.trim());
+          console.log(`⚠️ Texto final: "${remainingText}"`);
+        }
+        break;
+      }
+    }
+  }
+  
+  console.log('🔄 Resultado final:', result);
+  return result.length > 0 ? result : [specialtiesText.trim()];
+};
+
 
 
 // Tipo para os dados retornados pela VIEW v_screens_enriched
@@ -37,7 +142,7 @@ type InventoryRow = {
   lat: number | null;
   lng: number | null;
   geom: any | null;
-  screen_active: boolean | null;
+  active: boolean | null;
   class: string | null;
   specialty: string[] | null;
   board_format: string | null;
@@ -171,7 +276,7 @@ const Inventory = () => {
         .from('v_screens_enriched')
         .select(`
           id, code, name, display_name, city, state, cep, address, lat, lng, geom,
-          screen_active, class, specialty, board_format, category, rede,
+          active, class, specialty, board_format, category, rede,
           standard_rate_month, selling_rate_month, spots_per_hour, spot_duration_secs,
           venue_name, venue_address, venue_country, venue_state, venue_district,
           staging_nome_ponto, staging_audiencia, staging_especialidades,
@@ -202,13 +307,13 @@ const Inventory = () => {
           state: r.state ?? '',
           address: r.address ?? '',
           class: r.class ?? 'ND',
-          active: r.screen_active ?? true,
+          active: r.active ?? true,
 
           venue_type_parent: r.staging_tipo_venue ?? '',
           venue_type_child: r.staging_subtipo ?? '',
           venue_type_grandchildren: r.rede ?? r.staging_categoria ?? r.category ?? '',
 
-          specialty: r.specialty ?? (r.staging_especialidades ? r.staging_especialidades.split(',').map(s => s.trim()).filter(Boolean) : []),
+          specialty: r.specialty ?? (r.staging_especialidades ? normalizeSpecialties(r.staging_especialidades) : []),
 
           // sua UI espera "screen_rates"
           screen_rates: {
@@ -1636,6 +1741,9 @@ const Inventory = () => {
                               +{selectedScreen.specialty.length - 10}
                             </Badge>
                           )}
+                        </div>
+                        <div className="mt-2 p-2 bg-muted/50 rounded text-xs text-muted-foreground">
+                          <strong>Texto completo:</strong> {selectedScreen.specialty.join(', ')}
                         </div>
                       </div>
                     ) : (

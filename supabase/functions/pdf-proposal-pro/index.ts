@@ -5,9 +5,9 @@ import {
 } from "https://cdn.skypack.dev/pdf-lib@1.17.1?dts";
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Origin': '*', // Para desenvolvimento. Em produção, use 'http://seu-dominio.com'
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-region',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS', // Incluir OPTIONS
 }
 
 // Tipagem do snapshot imutável
@@ -39,9 +39,15 @@ const BRAND = {
 };
 
 serve(async (req) => {
+  console.log('📡 Request received:', req.method, req.url);
+  
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+    console.log('✅ Handling OPTIONS preflight request');
+    return new Response(null, { 
+      status: 200,
+      headers: corsHeaders 
+    })
   }
 
   try {
@@ -52,7 +58,17 @@ serve(async (req) => {
       })
     }
     
-    const { proposalId, logoUrl } = await req.json();
+    const body = await req.json();
+    console.log('📥 Request body received:', body);
+    
+    const { proposalId, logoUrl } = body;
+    
+    if (!proposalId) {
+      return new Response(JSON.stringify({ error: "proposalId é obrigatório" }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
+    }
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
@@ -61,11 +77,17 @@ serve(async (req) => {
 
     console.log('Generating professional PDF for proposal:', proposalId);
 
-    // 1) Buscar dados da proposta diretamente (sem snapshot por enquanto)
+    // 1) Buscar dados da proposta com informações completas
     const { data: proposalData, error: proposalError } = await supabase
       .from('proposals')
       .select(`
         *,
+        agencias (
+          id,
+          nome_agencia,
+          email_empresa,
+          telefone_empresa
+        ),
         proposal_screens (
           id,
           screen_id,
@@ -118,9 +140,9 @@ serve(async (req) => {
         film_seconds: proposalData.film_seconds,
         start_date: proposalData.start_date,
         end_date: proposalData.end_date,
-        nome_agencia: null,
-        nome_projeto: null,
-        cliente_final: null
+        nome_agencia: proposalData.agencias?.nome_agencia || null,
+        nome_projeto: proposalData.customer_name || null,
+        cliente_final: proposalData.customer_name || null
       },
       items: (proposalData.proposal_screens || []).map((ps: any) => ({
         screen_id: ps.screen_id,
@@ -226,6 +248,20 @@ serve(async (req) => {
     
     if (snap.header.nome_agencia) {
       page.drawText(`Agência: ${snap.header.nome_agencia}`, { 
+        x: M, y, size: 12, font, color: BRAND.dark 
+      });
+      y -= 20;
+    }
+    
+    if (proposalData.agencias?.email_empresa) {
+      page.drawText(`Email da Agência: ${proposalData.agencias.email_empresa}`, { 
+        x: M, y, size: 12, font, color: BRAND.dark 
+      });
+      y -= 20;
+    }
+    
+    if (proposalData.agencias?.telefone_empresa) {
+      page.drawText(`Telefone da Agência: ${proposalData.agencias.telefone_empresa}`, { 
         x: M, y, size: 12, font, color: BRAND.dark 
       });
       y -= 20;
@@ -426,6 +462,64 @@ serve(async (req) => {
     
     drawFooter(pNo++);
 
+    // ======== RESUMO POR CIDADE/ESTADO ========
+    page = newPage();
+    drawHeader("Resumo por Cidade/Estado");
+    
+    // Agrupar telas por cidade/estado
+    const cityStateGroups: { [key: string]: number } = {};
+    snap.items.forEach(item => {
+      const key = `${item.city}/${item.state}`;
+      cityStateGroups[key] = (cityStateGroups[key] || 0) + 1;
+    });
+    
+    let y5 = A4[1]-130;
+    page.drawText("Distribuição das Telas por Localização:", { 
+      x: M, y: y5, size: 12, font: fontB, color: BRAND.dark 
+    });
+    y5 -= 25;
+    
+    Object.entries(cityStateGroups).forEach(([cityState, count]) => {
+      const [city, state] = cityState.split('/');
+      page.drawText(`• ${city} (${state}): ${count} ${count === 1 ? 'Tela' : 'Telas'}`, { 
+        x: M+12, y: y5, size: 11, font, color: BRAND.dark 
+      });
+      y5 -= 18;
+    });
+    
+    y5 -= 20;
+    
+    // Estatísticas adicionais
+    page.drawText("Estatísticas Gerais:", { 
+      x: M, y: y5, size: 12, font: fontB, color: BRAND.dark 
+    });
+    y5 -= 20;
+    
+    const uniqueCities = new Set(snap.items.map(i => i.city)).size;
+    const uniqueStates = new Set(snap.items.map(i => i.state)).size;
+    const avgValuePerScreen = netValue / totalScreens;
+    
+    page.drawText(`• Total de Cidades: ${uniqueCities}`, { 
+      x: M+12, y: y5, size: 11, font, color: BRAND.dark 
+    });
+    y5 -= 16;
+    
+    page.drawText(`• Total de Estados: ${uniqueStates}`, { 
+      x: M+12, y: y5, size: 11, font, color: BRAND.dark 
+    });
+    y5 -= 16;
+    
+    page.drawText(`• Valor Médio por Tela: R$ ${avgValuePerScreen.toLocaleString("pt-BR", {minimumFractionDigits: 2})}`, { 
+      x: M+12, y: y5, size: 11, font, color: BRAND.dark 
+    });
+    y5 -= 16;
+    
+    page.drawText(`• CPM Médio: R$ ${avgCPM.toFixed(2)}`, { 
+      x: M+12, y: y5, size: 11, font, color: BRAND.dark 
+    });
+    
+    drawFooter(pNo++);
+
     // ======== CRONOGRAMA & SLA ========
     page = newPage(); 
     drawHeader("Cronograma & SLA");
@@ -444,6 +538,15 @@ serve(async (req) => {
     
     // Contatos
     page.drawText("Contatos:", { x: M, y: y3, size: 12, font: fontB, color: BRAND.dark }); y3 -= 18;
+    
+    // Contatos da agência se disponível
+    if (proposalData.agencias?.email_empresa) {
+      page.drawText(`Agência: ${proposalData.agencias.email_empresa}`, { x: M+12, y: y3, size: 10, font, color: BRAND.dark }); y3 -= 16;
+    }
+    if (proposalData.agencias?.telefone_empresa) {
+      page.drawText(`Tel. Agência: ${proposalData.agencias.telefone_empresa}`, { x: M+12, y: y3, size: 10, font, color: BRAND.dark }); y3 -= 16;
+    }
+    
     page.drawText("Comercial: comercial@tvdoutor.com", { x: M+12, y: y3, size: 10, font, color: BRAND.dark }); y3 -= 16;
     page.drawText("Operações: ops@tvdoutor.com", { x: M+12, y: y3, size: 10, font, color: BRAND.dark }); y3 -= 16;
     page.drawText("Suporte: suporte@tvdoutor.com", { x: M+12, y: y3, size: 10, font, color: BRAND.dark }); 

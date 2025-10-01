@@ -1,66 +1,34 @@
 #!/bin/bash
 
-# Deploy da Edge Function PDF via Docker
-echo "🐳 Deploy da Edge Function PDF via Docker"
-echo "========================================"
+# Script para fazer deploy da Edge Function de geração de PDF
+# Baseado na especificação fornecida pelo usuário
 
-# Verificar se o Docker está rodando
-if ! docker info > /dev/null 2>&1; then
-    echo "❌ Docker não está rodando. Inicie o Docker primeiro."
+echo "🚀 Fazendo deploy da Edge Function generate-pdf-proposal..."
+
+# Verificar se o Supabase CLI está instalado
+if ! command -v supabase &> /dev/null; then
+    echo "❌ Supabase CLI não encontrado. Instale com: npm install -g supabase"
     exit 1
 fi
 
-# Verificar variáveis de ambiente
-if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
-    echo "❌ Variáveis de ambiente necessárias:"
-    echo "   SUPABASE_URL"
-    echo "   SUPABASE_SERVICE_ROLE_KEY"
-    echo ""
-    echo "Exemplo:"
-    echo "export SUPABASE_URL='https://seu-projeto.supabase.co'"
-    echo "export SUPABASE_SERVICE_ROLE_KEY='sua-service-key'"
+# Verificar se está logado no Supabase
+if ! supabase status &> /dev/null; then
+    echo "❌ Não está conectado ao Supabase. Execute: supabase login"
     exit 1
 fi
 
-echo "✅ Variáveis de ambiente configuradas"
-echo "📦 Fazendo build da Edge Function..."
-
-# Build da imagem Docker
-docker build -t pdf-proposal-pro ./supabase/functions/pdf-proposal-pro/
+# Fazer deploy da função
+echo "📤 Fazendo deploy da função..."
+supabase functions deploy generate-pdf-proposal
 
 if [ $? -eq 0 ]; then
-    echo "✅ Build concluído com sucesso"
-else
-    echo "❌ Erro no build"
-    exit 1
-fi
-
-# Parar container existente se estiver rodando
-docker stop pdf-proposal-pro 2>/dev/null || true
-docker rm pdf-proposal-pro 2>/dev/null || true
-
-echo "🚀 Iniciando container..."
-
-# Rodar o container
-docker run -d \
-    --name pdf-proposal-pro \
-    -p 8001:8000 \
-    -e SUPABASE_URL="$SUPABASE_URL" \
-    -e SUPABASE_SERVICE_ROLE_KEY="$SUPABASE_SERVICE_ROLE_KEY" \
-    -e DENO_DEPLOYMENT_ID="docker-local" \
-    --restart unless-stopped \
-    pdf-proposal-pro
-
-if [ $? -eq 0 ]; then
-    echo "✅ Edge Function rodando em http://localhost:8001"
-    echo "📝 Logs: docker logs -f pdf-proposal-pro"
-    echo "🛑 Parar: docker stop pdf-proposal-pro"
+    echo "✅ Deploy realizado com sucesso!"
     echo ""
-    echo "🧪 Teste a função:"
-    echo "curl -X POST http://localhost:8001 \\"
-    echo "  -H 'Content-Type: application/json' \\"
-    echo "  -d '{\"proposalId\": 32}'"
+    echo "📋 Próximos passos:"
+    echo "1. Execute a migração SQL: supabase db push"
+    echo "2. Teste a função: node scripts/test-pdf-generation.js"
+    echo "3. A função estará disponível em: https://seu-projeto.supabase.co/functions/v1/generate-pdf-proposal"
 else
-    echo "❌ Erro ao iniciar container"
+    echo "❌ Erro no deploy da função"
     exit 1
 fi

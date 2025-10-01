@@ -3,12 +3,16 @@
 import { useEffect, useState } from 'react'
 import type { Agencia } from '../types'
 import { criarAgencia, atualizarAgencia, listarAgencias, excluirAgencia } from '../lib/agencia-service'
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog'
+import { Button } from '@/components/ui/button'
+import { Trash2 } from 'lucide-react'
 
 export function AgenciaForm() {
   const [lista, setLista] = useState<Agencia[]>([])
   const [loading, setLoading] = useState(false)
   const [form, setForm] = useState<Partial<Agencia>>({ taxa_porcentagem: 0 })
   const [criarDealPadrao, setCriarDealPadrao] = useState(true)
+  const [agenciaToDelete, setAgenciaToDelete] = useState<Agencia | null>(null)
 
   async function load() {
     setLoading(true)
@@ -88,12 +92,18 @@ export function AgenciaForm() {
     setForm(a)
   }
 
-  async function handleDelete(id: string) {
-    if (!confirm('Excluir esta agência?')) return
+  const handleDeleteClick = (agencia: Agencia) => {
+    setAgenciaToDelete(agencia)
+  }
+
+  const handleConfirmDelete = async () => {
+    if (!agenciaToDelete) return
+    
     setLoading(true)
     try {
-      await excluirAgencia(id)
+      await excluirAgencia(agenciaToDelete.id)
       await load()
+      setAgenciaToDelete(null)
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Erro ao excluir'
       alert(errorMessage)
@@ -240,12 +250,40 @@ export function AgenciaForm() {
                     >
                       Editar
                     </button>
-                    <button 
-                      className="px-2 py-1 border rounded text-red-600" 
-                      onClick={() => handleDelete(a.id)}
-                    >
-                      Excluir
-                    </button>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                          onClick={() => handleDeleteClick(a)}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Tem certeza que deseja excluir a agência <strong>{agenciaToDelete?.nome_agencia}</strong>?
+                            <br />
+                            <span className="text-red-600 font-medium">Esta ação não pode ser desfeita.</span>
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel onClick={() => setAgenciaToDelete(null)}>
+                            Cancelar
+                          </AlertDialogCancel>
+                          <AlertDialogAction 
+                            onClick={handleConfirmDelete}
+                            className="bg-red-600 hover:bg-red-700"
+                            disabled={loading}
+                          >
+                            {loading ? 'Excluindo...' : 'Excluir Agência'}
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                   </td>
                 </tr>
               ))}

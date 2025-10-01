@@ -212,10 +212,10 @@ export const TelaEquipes = ({ dados, carregarDados }: ProjectManagementScreensPr
     const equipesProjeto = dados.equipes.filter(e => e.projeto_id === projeto.id && e.ativo);
     
     return (
-      <div className="bg-white rounded-lg border border-gray-200 p-6">
+      <div className="bg-white rounded-xl border border-gray-200/60 p-6 hover:shadow-lg transition-all duration-300 group">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h3 className="text-lg font-semibold">{projeto.nome_projeto}</h3>
+            <h3 className="text-lg font-semibold group-hover:text-primary transition-colors duration-300">{projeto.nome_projeto}</h3>
             <p className="text-sm text-gray-600">{projeto.descricao}</p>
           </div>
           <button
@@ -226,7 +226,7 @@ export const TelaEquipes = ({ dados, carregarDados }: ProjectManagementScreensPr
               // Dispara a carga imediatamente para melhor UX
               setTimeout(() => carregarPessoasDisponiveis(), 0);
             }}
-            className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+            className="p-3 text-primary hover:bg-primary/10 rounded-xl transition-all duration-300 hover:shadow-md"
           >
             <UserPlus className="w-5 h-5" />
           </button>
@@ -239,9 +239,9 @@ export const TelaEquipes = ({ dados, carregarDados }: ProjectManagementScreensPr
             const nomePessoa = pessoa?.nome || 'Pessoa não encontrada';
             
             return (
-              <div key={membro.id} className={`flex items-center justify-between p-3 rounded-lg border-2 ${config?.borderColor || 'border-gray-200'}`}>
+              <div key={membro.id} className={`flex items-center justify-between p-4 rounded-xl border-2 ${config?.borderColor || 'border-gray-200'} hover:shadow-md transition-all duration-300`}>
                 <div className="flex items-center gap-3">
-                  <div className={`w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center text-white font-semibold`}>
+                  <div className={`w-12 h-12 rounded-full bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center text-white font-semibold shadow-md`}>
                     {(nomePessoa?.[0] || 'P').toUpperCase()}
                   </div>
                   <div>
@@ -249,8 +249,8 @@ export const TelaEquipes = ({ dados, carregarDados }: ProjectManagementScreensPr
                     <p className="text-sm text-gray-600">{pessoa?.email || 'Email não disponível'}</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className={`text-xs px-2 py-0.5 rounded-full ${config?.color || 'bg-gray-200'}`}>
+                <div className="flex items-center gap-3">
+                  <span className={`text-xs px-3 py-1 rounded-full font-medium ${config?.color || 'bg-gray-200'}`}>
                     {config?.label || membro.papel}
                   </span>
                    <span className="text-xs text-gray-500">
@@ -258,7 +258,7 @@ export const TelaEquipes = ({ dados, carregarDados }: ProjectManagementScreensPr
                     </span>
                   <button
                     onClick={() => {setMembroSelecionado(membro); setProjetoSelecionado(projeto.id); setShowModal(true);}}
-                    className="p-1 text-gray-400 hover:text-gray-600 rounded transition-colors"
+                    className="p-2 text-gray-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-all duration-300"
                   >
                     <Edit className="w-4 h-4" />
                   </button>
@@ -281,54 +281,54 @@ export const TelaEquipes = ({ dados, carregarDados }: ProjectManagementScreensPr
       </div>
 
        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-        <div className="bg-white p-6 rounded-lg border border-gray-200">
+        <div className="bg-white p-6 rounded-xl border border-gray-200/60 hover:shadow-lg transition-all duration-300 group">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">Total de Membros</p>
-              <p className="text-2xl font-bold text-gray-900">
+              <p className="text-2xl font-bold text-gray-900 group-hover:text-primary transition-colors duration-300">
                 {dados.equipes.filter(e => e.ativo).length}
               </p>
             </div>
-            <div className="p-3 bg-blue-100 rounded-lg">
+            <div className="p-3 bg-gradient-to-br from-blue-100 to-blue-50 rounded-xl group-hover:from-blue-200 group-hover:to-blue-100 transition-all duration-300">
               <Users className="w-6 h-6 text-blue-600" />
             </div>
           </div>
         </div>
-        <div className="bg-white p-6 rounded-lg border border-gray-200">
+        <div className="bg-white p-6 rounded-xl border border-gray-200/60 hover:shadow-lg transition-all duration-300 group">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">Projetos com Equipe</p>
-              <p className="text-2xl font-bold text-green-600">
+              <p className="text-2xl font-bold text-green-600 group-hover:text-green-700 transition-colors duration-300">
                 {new Set(dados.equipes.filter(e => e.ativo).map(e => e.projeto_id)).size}
               </p>
             </div>
-            <div className="p-3 bg-green-100 rounded-lg">
+            <div className="p-3 bg-gradient-to-br from-green-100 to-green-50 rounded-xl group-hover:from-green-200 group-hover:to-green-100 transition-all duration-300">
               <Target className="w-6 h-6 text-green-600" />
             </div>
           </div>
         </div>
-        <div className="bg-white p-6 rounded-lg border border-gray-200">
+        <div className="bg-white p-6 rounded-xl border border-gray-200/60 hover:shadow-lg transition-all duration-300 group">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">Coordenadores</p>
-              <p className="text-2xl font-bold text-green-600">
+              <p className="text-2xl font-bold text-green-600 group-hover:text-green-700 transition-colors duration-300">
                 {dados.equipes.filter(e => e.ativo && e.papel === 'coordenador').length}
               </p>
             </div>
-            <div className="p-3 bg-green-100 rounded-lg">
+            <div className="p-3 bg-gradient-to-br from-green-100 to-green-50 rounded-xl group-hover:from-green-200 group-hover:to-green-100 transition-all duration-300">
               <Target className="w-6 h-6 text-green-600" />
             </div>
           </div>
         </div>
-        <div className="bg-white p-6 rounded-lg border border-gray-200">
+        <div className="bg-white p-6 rounded-xl border border-gray-200/60 hover:shadow-lg transition-all duration-300 group">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">Consultores</p>
-              <p className="text-2xl font-bold text-purple-600">
+              <p className="text-2xl font-bold text-purple-600 group-hover:text-purple-700 transition-colors duration-300">
                 {dados.equipes.filter(e => e.ativo && e.papel === 'consultor').length}
               </p>
             </div>
-            <div className="p-3 bg-purple-100 rounded-lg">
+            <div className="p-3 bg-gradient-to-br from-purple-100 to-purple-50 rounded-xl group-hover:from-purple-200 group-hover:to-purple-100 transition-all duration-300">
               <Shield className="w-6 h-6 text-purple-600" />
             </div>
           </div>
@@ -342,14 +342,17 @@ export const TelaEquipes = ({ dados, carregarDados }: ProjectManagementScreensPr
       </div>
 
       {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-md w-full">
-            <div className="p-6 border-b">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-gray-200/60">
+            <div className="p-6 border-b border-gray-100/60 bg-gradient-to-r from-primary/5 to-primary/10">
               <div className="flex items-center justify-between">
-                <h2 className="text-xl font-semibold">
+                <h2 className="text-xl font-semibold text-gray-900">
                   {membroSelecionado ? 'Editar Papel do Membro' : 'Adicionar Membro'}
                 </h2>
-                <button onClick={() => {setShowModal(false); setMembroSelecionado(null); setProjetoSelecionado('');}}>
+                <button 
+                  onClick={() => {setShowModal(false); setMembroSelecionado(null); setProjetoSelecionado('');}}
+                  className="p-2 text-gray-400 hover:text-gray-600 hover:bg-white/50 rounded-lg transition-all duration-300"
+                >
                   <X className="w-6 h-6" />
                 </button>
               </div>
@@ -389,7 +392,7 @@ export const TelaEquipes = ({ dados, carregarDados }: ProjectManagementScreensPr
                     </label>
                     <select
                       name="pessoa_id"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all duration-300"
                       required
                       disabled={carregandoPessoas || !!erroPessoas}
                       defaultValue=""
@@ -420,7 +423,7 @@ export const TelaEquipes = ({ dados, carregarDados }: ProjectManagementScreensPr
                   <select
                     name="papel"
                     defaultValue={membroSelecionado?.papel || 'membro'}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all duration-300"
                     required
                   >
                     <option value="membro">Membro</option>
@@ -429,17 +432,17 @@ export const TelaEquipes = ({ dados, carregarDados }: ProjectManagementScreensPr
                   </select>
                 </div>
 
-                <div className="flex justify-end gap-2 pt-2">
+                <div className="flex justify-end gap-3 pt-6 border-t border-gray-100">
                   <button
                     type="button"
                     onClick={() => {setShowModal(false); setMembroSelecionado(null); setProjetoSelecionado('');}}
-                    className="px-4 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50"
+                    className="px-6 py-3 text-gray-600 border border-gray-300 rounded-xl hover:bg-gray-50 transition-all duration-300 font-medium"
                   >
                     Cancelar
                   </button>
                   <button
                     type="submit"
-                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                    className="px-6 py-3 bg-gradient-to-r from-primary to-primary/90 text-white rounded-xl hover:from-primary/90 hover:to-primary shadow-lg hover:shadow-xl transition-all duration-300 font-medium"
                   >
                     {membroSelecionado ? 'Atualizar Papel' : 'Adicionar Membro'}
                   </button>

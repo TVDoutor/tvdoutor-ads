@@ -95,9 +95,9 @@ export function MapView({ screens, centerLat, centerLng, radiusKm, loading = fal
             html: `<div style="position: relative; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;">
               <!-- Círculo de fundo brando com borda branca -->
               <div style="position: absolute; width: 40px; height: 40px; background: rgba(255, 255, 255, 0.9); border: 3px solid white; border-radius: 50%; box-shadow: 0 3px 8px rgba(0,0,0,0.3);"></div>
-              <!-- Pin laranja centralizado -->
+              <!-- Pin azul ciano centralizado -->
               <svg width="24" height="24" viewBox="0 0 24 24" style="position: relative; z-index: 1; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.2));">
-                <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" fill="#f97316"/>
+                <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" fill="#06b6d4"/>
               </svg>
             </div>`,
             iconSize: [40, 40],
@@ -121,34 +121,31 @@ export function MapView({ screens, centerLat, centerLng, radiusKm, loading = fal
           radius: radiusKm * 1000 // Converter km para metros
         }).addTo(map);
 
-        // Adicionar marcadores para cada tela
-        screens.forEach((screen) => {
+        // Adicionar marcadores numerados para cada tela
+        screens.forEach((screen, index) => {
           if (screen.lat && screen.lng) {
             const getClassColor = () => {
-              // Todas as classes usam azul ciano para melhor visibilidade
+              // Cores baseadas na imagem: azul ciano para marcadores numerados
               return '#06b6d4'; // azul ciano
             };
 
+            const markerNumber = index + 1;
             const marker = L.marker([screen.lat, screen.lng], {
               icon: L.divIcon({
                 className: 'screen-marker',
-                html: `<div style="width: 28px; height: 28px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 6px rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; background: ${getClassColor()};">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="white">
-                    <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
-                  </svg>
+                html: `<div style="width: 32px; height: 32px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 6px rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; background: ${getClassColor()}; font-weight: bold; color: white; font-size: 14px;">
+                  ${markerNumber}
                 </div>`,
-                iconSize: [28, 28],
-                iconAnchor: [14, 14]
+                iconSize: [32, 32],
+                iconAnchor: [16, 16]
               })
             }).addTo(map);
 
             marker.bindPopup(`
               <div style="padding: 12px; min-width: 280px; max-width: 320px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
                 <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
-                  <div style="width: 32px; height: 32px; border-radius: 50%; background: #06b6d4; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="white">
-                      <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
-                    </svg>
+                  <div style="width: 32px; height: 32px; border-radius: 50%; background: #06b6d4; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: white; font-weight: bold; font-size: 14px;">
+                    ${markerNumber}
                   </div>
                   <div style="flex: 1; min-width: 0;">
                     <h4 style="font-weight: 600; color: #111827; font-size: 16px; margin: 0 0 2px 0; line-height: 1.3; word-wrap: break-word;">${screen.code} ${screen.name}</h4>

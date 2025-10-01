@@ -59,6 +59,12 @@ interface ProposalDetails {
     email_empresa?: string;
     telefone_empresa?: string;
   };
+  agencia_projetos?: {
+    id: string;
+    nome_projeto: string;
+    descricao?: string;
+    cliente_final?: string;
+  };
   proposal_screens?: Array<{
     id: number;
     screen_id: number;
@@ -128,7 +134,27 @@ const ProposalDetails = () => {
       if (error) throw error;
       if (!data) throw new Error('Proposta não encontrada');
 
-      setProposal(data);
+      // Buscar dados do projeto se houver projeto_id
+      let projectData = null;
+      if (data.projeto_id) {
+        const { data: project, error: projectError } = await supabase
+          .from('agencia_projetos')
+          .select('id, nome_projeto, descricao, cliente_final')
+          .eq('id', data.projeto_id)
+          .single();
+        
+        if (!projectError && project) {
+          projectData = project;
+        }
+      }
+
+      // Combinar dados da proposta com dados do projeto
+      const proposalWithProject = {
+        ...data,
+        agencia_projetos: projectData
+      };
+
+      setProposal(proposalWithProject);
     } catch (error: any) {
       console.error('Erro ao buscar proposta:', error);
       toast.error('Erro ao carregar proposta');
@@ -283,7 +309,7 @@ const ProposalDetails = () => {
                 </Button>
                 <div>
                   <h1 className="text-4xl font-bold text-white mb-1">
-                    {`Proposta #${proposal.id}`}
+                    {proposal.agencia_projetos?.nome_projeto || proposal.customer_name || `Proposta #${proposal.id}`}
                   </h1>
                   <p className="text-orange-100 flex items-center gap-2">
                     <Calendar className="h-4 w-4" />
@@ -398,13 +424,13 @@ const ProposalDetails = () => {
                   <div className="space-y-2">
                     <label className="text-sm font-semibold text-slate-600 uppercase tracking-wide">Nome do Projeto</label>
                     <p className="text-2xl font-bold text-slate-900">
-                      {proposal.customer_name || 'Projeto não definido'}
+                      {proposal.agencia_projetos?.nome_projeto || proposal.customer_name || 'Projeto não definido'}
                     </p>
                   </div>
                   <div className="space-y-2">
                     <label className="text-sm font-semibold text-slate-600 uppercase tracking-wide">Cliente Final</label>
                     <p className="text-lg font-medium text-slate-700">
-                      {proposal.customer_name}
+                      {proposal.agencia_projetos?.cliente_final || proposal.customer_name}
                     </p>
                   </div>
                 </div>

@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { fetchAllScreens } from "@/lib/screen-fallback-service";
 
 interface VenueWithScreens {
   id: string;
@@ -64,6 +65,7 @@ const Venues = () => {
   const [typeFilter, setTypeFilter] = useState('all');
   const [cityFilter, setCityFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [isUsingSampleData, setIsUsingSampleData] = useState(false);
 
 
 
@@ -84,32 +86,33 @@ const Venues = () => {
       setLoading(true);
       setError(null);
 
-      console.log('🔍 Buscando pontos de venda via v_screens_enriched...');
+      console.log('🔄 Iniciando busca de pontos de venda...');
 
-      // Buscar dados da view v_screens_enriched que já existe
-      const { data, error } = await supabase
-        .from('v_screens_enriched')
-        .select(`
-          id, code, name, display_name, city, state, cep, address, lat, lng, geom,
-          screen_active, class, specialty, board_format, category, rede,
-          standard_rate_month, selling_rate_month, spots_per_hour, spot_duration_secs,
-          venue_name, venue_address, venue_country, venue_state, venue_district,
-          staging_nome_ponto, staging_audiencia, staging_especialidades,
-          staging_tipo_venue, staging_subtipo, staging_categoria
-        `)
-        .order('name', { ascending: true });
-
-      if (error) {
-        console.error('❌ Erro ao buscar dados:', error);
-        throw error;
-      }
+      // Usar a função utilitária com fallback automático
+      const data = await fetchAllScreens();
 
       console.log('✅ Dados recebidos:', data?.length || 0);
+
+      if (!data || data.length === 0) {
+        console.warn('⚠️ Nenhum dado recebido, mas não é erro crítico');
+        setVenues([]);
+        setFilteredVenues([]);
+        setIsUsingSampleData(false);
+        return;
+      }
+
+      // Verificar se são dados de exemplo (IDs baixos indicam dados de exemplo)
+      const isSampleData = data.length <= 5 && data.every(item => item.id <= 5);
+      setIsUsingSampleData(isSampleData);
+      
+      if (isSampleData) {
+        console.log('ℹ️ Usando dados de exemplo devido a problemas de conectividade');
+      }
 
       // Agrupar telas por venue
       const venuesMap = new Map<string, VenueWithScreens>();
 
-      data?.forEach(screen => {
+      data.forEach(screen => {
         const venueName = screen.staging_nome_ponto || screen.name || 'Ponto sem nome';
         const venueKey = `${venueName}-${screen.city}-${screen.state}`;
 
@@ -135,13 +138,13 @@ const Venues = () => {
           name: screen.name || `ID-${screen.id}`,
           display_name: screen.staging_nome_ponto || screen.name || 'Sem nome',
           class: screen.class || 'ND',
-          active: Boolean(screen.screen_active),
+          active: Boolean(screen.active),
           lat: screen.lat,
           lng: screen.lng
         });
 
         venue.screenCount++;
-        if (isActive(screen.screen_active)) {
+        if (isActive(screen.active)) {
           venue.activeScreens++;
         }
         if (screen.lat && screen.lng) {
@@ -157,14 +160,33 @@ const Venues = () => {
         name: venuesArray[0].name,
         screens: venuesArray[0].screens.map(s => ({ code: s.code, class: s.class }))
       } : 'Nenhum venue');
+      
       setVenues(venuesArray);
       setFilteredVenues(venuesArray);
+      
+      // Limpar erro se tudo funcionou
+      setError(null);
+      
     } catch (err: any) {
       console.error('💥 Erro ao buscar pontos de venda:', err);
-      setError(err.message);
+      
+      // Determinar tipo de erro para mensagem mais específica
+      let errorMessage = "Não foi possível carregar os pontos de venda.";
+      
+      if (err.message?.includes('Invalid API key') || err.message?.includes('JWT')) {
+        errorMessage = "Chave API inválida. Verifique as configurações do Supabase.";
+      } else if (err.message?.includes('network') || err.message?.includes('fetch')) {
+        errorMessage = "Erro de conexão. Verifique sua internet.";
+      } else if (err.message?.includes('permission') || err.message?.includes('RLS')) {
+        errorMessage = "Erro de permissão. Contate o administrador.";
+      } else if (err.message?.includes('authentication')) {
+        errorMessage = "Erro de autenticação. Faça login novamente.";
+      }
+      
+      setError(errorMessage);
       toast({
         title: "Erro",
-        description: "Não foi possível carregar os pontos de venda.",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -303,6 +325,24 @@ const Venues = () => {
         </div>
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+          {/* Banner de dados de exemplo */}
+          {isUsingSampleData && (
+            <Card className="bg-amber-50 border-amber-200">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  <AlertCircle className="h-5 w-5 text-amber-600" />
+                  <div>
+                    <h3 className="font-medium text-amber-800">Dados de Exemplo</h3>
+                    <p className="text-sm text-amber-700">
+                      Exibindo dados de exemplo devido a problemas de conectividade com o banco de dados. 
+                      Verifique as configurações do Supabase para acessar os dados reais.
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Enhanced Stats */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200 hover:shadow-lg transition-shadow">

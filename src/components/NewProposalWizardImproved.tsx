@@ -120,7 +120,7 @@ export const NewProposalWizardImproved: React.FC<NewProposalWizardProps> = ({
       switch (currentStep) {
         case 1: return data.proposal_type !== '';
         case 2: return data.customer_name.trim() !== '' && data.customer_email.trim() !== '';
-        case 3: return data.proposal_type === 'avulsa' || data.selected_project;
+        case 3: return data.selected_project; // Sempre exigir projeto selecionado
         case 4: return data.selectedScreens.length > 0;
         case 5: return data.film_seconds.length > 0 && data.insertions_per_hour > 0;
         default: return true;
@@ -279,7 +279,7 @@ export const NewProposalWizardImproved: React.FC<NewProposalWizardProps> = ({
           class,
           venue_name
         `)
-        .eq('screen_active', true)
+        .eq('active', true)
         .limit(100);
 
       // Se a view não existir, fazer fallback para a tabela screens
@@ -380,7 +380,7 @@ export const NewProposalWizardImproved: React.FC<NewProposalWizardProps> = ({
       }
 
       // Sempre filtrar apenas telas ativas
-      selectQuery = selectQuery.eq('screen_active', true);
+      selectQuery = selectQuery.eq('active', true);
 
       const { data: screens, error } = await selectQuery.limit(500);
 
@@ -481,11 +481,12 @@ export const NewProposalWizardImproved: React.FC<NewProposalWizardProps> = ({
   };
 
   useEffect(() => {
-    if (currentStep === 3 && data.proposal_type === 'projeto') {
+    if (currentStep === 3) {
+      // Sempre buscar projetos quando chegar no passo 3, independente do tipo de proposta
       fetchAllProjects();
     }
     // Removido o fetchScreens automático - agora só busca quando o usuário aplicar filtros
-  }, [currentStep, data.proposal_type]);
+  }, [currentStep]);
 
   const renderStepContent = () => {
     switch (currentStep) {

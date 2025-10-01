@@ -173,6 +173,20 @@ export const agenciaService = {
   // Excluir agência
   async excluir(supabase: SupabaseClient, id: string): Promise<void> {
     try {
+      // Primeiro, excluir registros relacionados na tabela pessoas_projeto
+      console.log('🗑️ Removendo dependências da agência...');
+      const { error: pessoasError } = await supabase
+        .from('pessoas_projeto')
+        .delete()
+        .eq('agencia_id', id);
+
+      if (pessoasError) {
+        console.warn('⚠️ Aviso ao remover pessoas do projeto:', pessoasError);
+        // Não falha se não houver registros para remover
+      }
+
+      // Depois, excluir a agência
+      console.log('🗑️ Excluindo agência...');
       const { error } = await supabase
         .from('agencias')
         .delete()

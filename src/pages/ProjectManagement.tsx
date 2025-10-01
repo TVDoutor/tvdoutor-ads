@@ -30,6 +30,7 @@ import {
   Paperclip,
   RefreshCw
 } from 'lucide-react';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { PessoaProjetoSelector } from '@/components/PessoaProjetoSelector';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -150,45 +151,55 @@ const ProjectManagement = () => {
 
   // Componente de navegação lateral modernizada
   const Navigation = () => (
-    <div className="w-64 bg-white border-r border-gray-200 h-screen fixed left-0 top-0 overflow-y-auto flex flex-col shadow-lg">
-      <div className="p-6 border-b border-gray-100">
+    <div className="w-72 bg-gradient-to-b from-white to-gray-50/50 border-r border-gray-200/60 h-screen fixed left-0 top-0 overflow-y-auto flex flex-col shadow-xl backdrop-blur-sm">
+      <div className="p-6 border-b border-gray-100/60 bg-gradient-to-r from-primary/5 to-primary/10">
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-primary/10 rounded-lg">
-            <Target className="h-6 w-6 text-primary" />
+          <div className="p-3 bg-gradient-to-br from-primary to-primary/80 rounded-xl shadow-lg">
+            <Target className="h-6 w-6 text-white" />
           </div>
-          <h1 className="text-lg font-bold text-gray-900 truncate">Gerenciamento</h1>
+          <div>
+            <h1 className="text-lg font-bold text-gray-900 truncate">Gerenciamento</h1>
+            <p className="text-sm text-gray-600 mt-0.5">Centro de controle</p>
+          </div>
         </div>
-        <p className="text-sm text-gray-500 mt-1">Centro de controle</p>
       </div>
       
-      <nav className="mt-6 flex-grow px-3 space-y-1">
+      <nav className="mt-6 flex-grow px-4 space-y-2">
         {[
-          { id: 'agencias', nome: 'Agências', icon: Building2, desc: 'Parceiros' },
-          { id: 'projetos', nome: 'Projetos', icon: Target, desc: 'Campanhas' },
-          { id: 'deals', nome: 'Deals', icon: TrendingUp, desc: 'Negócios' },
-          { id: 'equipes', nome: 'Equipes', icon: Users, desc: 'Pessoas' },
-          { id: 'marcos', nome: 'Marcos', icon: Flag, desc: 'Cronograma' },
-          { id: 'relatorios', nome: 'Relatórios', icon: BarChart3, desc: 'Analytics' }
+          { id: 'agencias', nome: 'Agências', icon: Building2, desc: 'Parceiros', color: 'from-blue-500 to-blue-600' },
+          { id: 'projetos', nome: 'Projetos', icon: Target, desc: 'Campanhas', color: 'from-primary to-primary/80' },
+          { id: 'deals', nome: 'Deals', icon: TrendingUp, desc: 'Negócios', color: 'from-green-500 to-green-600' },
+          { id: 'equipes', nome: 'Equipes', icon: Users, desc: 'Pessoas', color: 'from-purple-500 to-purple-600' },
+          { id: 'marcos', nome: 'Marcos', icon: Flag, desc: 'Cronograma', color: 'from-orange-500 to-orange-600' },
+          { id: 'relatorios', nome: 'Relatórios', icon: BarChart3, desc: 'Analytics', color: 'from-indigo-500 to-indigo-600' }
         ].map(item => (
-          <div key={item.id}>
+          <div key={item.id} className="relative">
             <Button
               variant={telaAtiva === item.id ? "default" : "ghost"}
-              className={`w-full justify-start gap-3 transition-all duration-200 h-12 ${
-                telaAtiva === item.id ? 'shadow-sm' : 'hover:bg-gray-50'
+              className={`w-full justify-start gap-4 transition-all duration-300 h-14 rounded-xl ${
+                telaAtiva === item.id 
+                  ? 'bg-gradient-to-r shadow-lg transform scale-[1.02]' 
+                  : 'hover:bg-gray-50/80 hover:shadow-md hover:scale-[1.01]'
               }`}
               onClick={() => setTelaAtiva(item.id)}
             >
-              <item.icon className={`h-5 w-5 shrink-0 ${
-                telaAtiva === item.id ? 'text-white' : 'text-gray-600'
-              }`} />
+              <div className={`p-2 rounded-lg transition-all duration-300 ${
+                telaAtiva === item.id 
+                  ? `bg-gradient-to-br ${item.color} shadow-md` 
+                  : 'bg-gray-100 group-hover:bg-gray-200'
+              }`}>
+                <item.icon className={`h-5 w-5 transition-colors duration-300 ${
+                  telaAtiva === item.id ? 'text-white' : 'text-gray-600'
+                }`} />
+              </div>
               <div className="flex-1 text-left">
-                <div className={`font-medium ${
+                <div className={`font-semibold transition-colors duration-300 ${
                   telaAtiva === item.id ? 'text-white' : 'text-gray-900'
                 }`}>
                   {item.nome}
                 </div>
-                <div className={`text-xs ${
-                  telaAtiva === item.id ? 'text-white/80' : 'text-gray-500'
+                <div className={`text-xs transition-colors duration-300 ${
+                  telaAtiva === item.id ? 'text-white/90' : 'text-gray-500'
                 }`}>
                   {item.desc}
                 </div>
@@ -199,38 +210,40 @@ const ProjectManagement = () => {
       </nav>
       
       {/* Stats rápidas */}
-      <div className="p-4 border-t border-gray-100">
-        <div className="bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg p-3">
-          <div className="flex items-center gap-2 mb-2">
-            <BarChart3 className="w-4 h-4 text-blue-600" />
-            <span className="text-sm font-medium text-blue-900">Resumo</span>
+      <div className="p-4 border-t border-gray-100/60">
+        <div className="bg-gradient-to-br from-primary/10 via-primary/5 to-white rounded-xl p-4 border border-primary/20">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="p-1.5 bg-primary/20 rounded-lg">
+              <BarChart3 className="w-4 h-4 text-primary" />
+            </div>
+            <span className="text-sm font-semibold text-gray-900">Resumo Rápido</span>
           </div>
-          <div className="space-y-1 text-xs">
-            <div className="flex justify-between text-blue-800">
-              <span>Agências:</span>
-              <span className="font-semibold">{dados.agencias.length}</span>
+          <div className="space-y-2 text-xs">
+            <div className="flex justify-between items-center">
+              <span className="text-gray-600">Agências:</span>
+              <span className="font-bold text-primary bg-primary/10 px-2 py-1 rounded-full">{dados.agencias.length}</span>
             </div>
-            <div className="flex justify-between text-blue-800">
-              <span>Projetos:</span>
-              <span className="font-semibold">{dados.projetos.length}</span>
+            <div className="flex justify-between items-center">
+              <span className="text-gray-600">Projetos:</span>
+              <span className="font-bold text-primary bg-primary/10 px-2 py-1 rounded-full">{dados.projetos.length}</span>
             </div>
-            <div className="flex justify-between text-blue-800">
-              <span>Deals:</span>
-              <span className="font-semibold">{dados.deals.length}</span>
+            <div className="flex justify-between items-center">
+              <span className="text-gray-600">Deals:</span>
+              <span className="font-bold text-primary bg-primary/10 px-2 py-1 rounded-full">{dados.deals.length}</span>
             </div>
           </div>
         </div>
       </div>
 
       {/* Botão para voltar ao Dashboard */}
-      <div className="p-4 border-t border-gray-100">
+      <div className="p-4 border-t border-gray-100/60">
         <Button
           variant="outline"
-          className="w-full justify-start gap-3 transition-all duration-200"
+          className="w-full justify-start gap-3 transition-all duration-300 hover:bg-gray-50 hover:shadow-md rounded-xl h-12"
           onClick={() => navigate('/dashboard')}
         >
           <ArrowLeft className="h-4 w-4 shrink-0 text-gray-600" />
-          <span className="truncate flex-1 text-left">Voltar ao Dashboard</span>
+          <span className="truncate flex-1 text-left font-medium">Voltar ao Dashboard</span>
         </Button>
       </div>
     </div>
@@ -243,6 +256,7 @@ const ProjectManagement = () => {
     const [showContatos, setShowContatos] = useState<string | null>(null);
     const [showModalContato, setShowModalContato] = useState(false);
     const [contatoSelecionado, setContatoSelecionado] = useState<Contato | null>(null);
+    const [agenciaToDelete, setAgenciaToDelete] = useState<Agencia | null>(null);
     const [formDataContato, setFormDataContato] = useState({
       nome_contato: '',
       cargo: '',
@@ -373,33 +387,61 @@ const ProjectManagement = () => {
       setShowModalContato(true);
     };
 
+    const handleDeleteClick = (agencia: Agencia) => {
+      setAgenciaToDelete(agencia);
+    };
+
+    const handleConfirmDelete = async () => {
+      if (!agenciaToDelete) return;
+      
+      setLoading(true);
+      try {
+        await agenciaService.excluir(supabase, agenciaToDelete.id);
+        await carregarDados();
+        setAgenciaToDelete(null);
+      } catch (err: unknown) {
+        const errorMessage = err instanceof Error ? err.message : 'Erro ao excluir';
+        toast.error(errorMessage);
+      } finally {
+        setLoading(false);
+      }
+    };
+
     const AgenciaCard = ({ agencia }: { agencia: Agencia }) => (
-      <div className="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-md transition-shadow">
+      <div className="bg-white rounded-xl border border-gray-200/60 p-6 hover:shadow-lg hover:border-primary/20 transition-all duration-300 group">
         <div className="flex items-start justify-between mb-4">
           <div>
-            <h3 className="text-lg font-semibold text-gray-900">{agencia.nome_agencia}</h3>
+            <h3 className="text-lg font-semibold text-gray-900 group-hover:text-primary transition-colors duration-300">{agencia.nome_agencia}</h3>
             <p className="text-sm text-gray-600">{agencia.codigo_agencia}</p>
           </div>
-          <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm">
+          <span className="px-3 py-1 bg-gradient-to-r from-green-100 to-green-50 text-green-800 rounded-full text-sm font-medium border border-green-200">
             Ativa
           </span>
         </div>
 
-        <div className="space-y-2 mb-4">
-          <div className="flex items-center gap-2 text-sm text-gray-600">
-            <Mail className="w-4 h-4" />
+        <div className="space-y-3 mb-4">
+          <div className="flex items-center gap-3 text-sm text-gray-600">
+            <div className="p-1.5 bg-blue-100 rounded-lg">
+              <Mail className="w-4 h-4 text-blue-600" />
+            </div>
             <span>{agencia.email_empresa}</span>
           </div>
-          <div className="flex items-center gap-2 text-sm text-gray-600">
-            <Phone className="w-4 h-4" />
+          <div className="flex items-center gap-3 text-sm text-gray-600">
+            <div className="p-1.5 bg-green-100 rounded-lg">
+              <Phone className="w-4 h-4 text-green-600" />
+            </div>
             <span>{agencia.telefone_empresa}</span>
           </div>
-          <div className="flex items-center gap-2 text-sm text-gray-600">
-            <MapPin className="w-4 h-4" />
+          <div className="flex items-center gap-3 text-sm text-gray-600">
+            <div className="p-1.5 bg-purple-100 rounded-lg">
+              <MapPin className="w-4 h-4 text-purple-600" />
+            </div>
             <span>{agencia.cidade}, {agencia.estado}</span>
           </div>
-          <div className="flex items-center gap-2 text-sm text-gray-600">
-            <DollarSign className="w-4 h-4" />
+          <div className="flex items-center gap-3 text-sm text-gray-600">
+            <div className="p-1.5 bg-primary/10 rounded-lg">
+              <DollarSign className="w-4 h-4 text-primary" />
+            </div>
             <span>Taxa: {agencia.taxa_porcentagem}%</span>
           </div>
         </div>
@@ -407,20 +449,50 @@ const ProjectManagement = () => {
         <div className="flex items-center justify-between">
           <button 
             onClick={() => setShowContatos(agencia.id)}
-            className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+            className="text-primary hover:text-primary/80 text-sm font-medium transition-colors duration-300 flex items-center gap-2"
           >
+            <Users className="w-4 h-4" />
             Ver Contatos ({dados.contatos.filter(c => c.agencia_id === agencia.id).length})
           </button>
           <div className="flex gap-2">
             <button 
               onClick={() => openEditModal(agencia)}
-              className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded"
+              className="p-2 text-gray-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-all duration-300"
             >
               <Edit className="w-4 h-4" />
             </button>
-            <button className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded">
-              <Trash2 className="w-4 h-4" />
-            </button>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <button 
+                  className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all duration-300"
+                  onClick={() => handleDeleteClick(agencia)}
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Tem certeza que deseja excluir a agência <strong>{agenciaToDelete?.nome_agencia}</strong>?
+                    <br />
+                    <span className="text-red-600 font-medium">Esta ação não pode ser desfeita.</span>
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel onClick={() => setAgenciaToDelete(null)}>
+                    Cancelar
+                  </AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={handleConfirmDelete}
+                    className="bg-red-600 hover:bg-red-700"
+                    disabled={loading}
+                  >
+                    {loading ? 'Excluindo...' : 'Excluir Agência'}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </div>
         </div>
       </div>
@@ -435,7 +507,7 @@ const ProjectManagement = () => {
           </div>
           <button 
             onClick={openNewModal}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+            className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-primary to-primary/90 text-white rounded-xl hover:from-primary/90 hover:to-primary shadow-lg hover:shadow-xl transition-all duration-300 font-medium"
           >
             <Plus className="w-4 h-4" />
             Nova Agência
@@ -450,14 +522,17 @@ const ProjectManagement = () => {
 
         {/* Modal de Agência */}
         {showModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-              <div className="p-6 border-b">
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-gray-200/60">
+              <div className="p-6 border-b border-gray-100/60 bg-gradient-to-r from-primary/5 to-primary/10">
                 <div className="flex items-center justify-between">
-                  <h2 className="text-xl font-semibold">
+                  <h2 className="text-xl font-semibold text-gray-900">
                     {agenciaSelecionada ? 'Editar Agência' : 'Nova Agência'}
                   </h2>
-                  <button onClick={() => {setShowModal(false); resetForm();}}>
+                  <button 
+                    onClick={() => {setShowModal(false); resetForm();}}
+                    className="p-2 text-gray-400 hover:text-gray-600 hover:bg-white/50 rounded-lg transition-all duration-300"
+                  >
                     <X className="w-6 h-6" />
                   </button>
                 </div>
@@ -472,7 +547,7 @@ const ProjectManagement = () => {
                       type="text"
                       value={formData.nome_agencia}
                       onChange={(e) => setFormData({...formData, nome_agencia: e.target.value})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all duration-300"
                       required
                     />
                   </div>
@@ -484,7 +559,7 @@ const ProjectManagement = () => {
                       type="text"
                       value={formData.codigo_agencia}
                       onChange={(e) => setFormData({...formData, codigo_agencia: e.target.value})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all duration-300"
                       placeholder="Ex: A001"
                     />
                   </div>
@@ -499,7 +574,7 @@ const ProjectManagement = () => {
                       type="text"
                       value={formData.cnpj}
                       onChange={(e) => setFormData({...formData, cnpj: e.target.value})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all duration-300"
                       placeholder="00.000.000/0000-00"
                       required
                     />
@@ -513,7 +588,7 @@ const ProjectManagement = () => {
                       step="0.1"
                       value={formData.taxa_porcentagem}
                       onChange={(e) => setFormData({...formData, taxa_porcentagem: parseFloat(e.target.value) || 0})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all duration-300"
                     />
                   </div>
                 </div>
@@ -527,7 +602,7 @@ const ProjectManagement = () => {
                       type="email"
                       value={formData.email_empresa}
                       onChange={(e) => setFormData({...formData, email_empresa: e.target.value})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all duration-300"
                     />
                   </div>
                   <div>
@@ -538,7 +613,7 @@ const ProjectManagement = () => {
                       type="tel"
                       value={formData.telefone_empresa}
                       onChange={(e) => setFormData({...formData, telefone_empresa: e.target.value})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all duration-300"
                     />
                   </div>
                 </div>
@@ -552,7 +627,7 @@ const ProjectManagement = () => {
                       type="text"
                       value={formData.cidade}
                       onChange={(e) => setFormData({...formData, cidade: e.target.value})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all duration-300"
                     />
                   </div>
                   <div>
@@ -563,7 +638,7 @@ const ProjectManagement = () => {
                       type="text"
                       value={formData.estado}
                       onChange={(e) => setFormData({...formData, estado: e.target.value})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all duration-300"
                       maxLength={2}
                     />
                   </div>
@@ -575,7 +650,7 @@ const ProjectManagement = () => {
                       type="text"
                       value={formData.cep}
                       onChange={(e) => setFormData({...formData, cep: e.target.value})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all duration-300"
                     />
                   </div>
                 </div>
@@ -592,17 +667,17 @@ const ProjectManagement = () => {
                   />
                 </div>
 
-                <div className="flex justify-end gap-2 pt-4">
+                <div className="flex justify-end gap-3 pt-6 border-t border-gray-100">
                   <button
                     type="button"
                     onClick={() => {setShowModal(false); resetForm();}}
-                    className="px-4 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50"
+                    className="px-6 py-3 text-gray-600 border border-gray-300 rounded-xl hover:bg-gray-50 transition-all duration-300 font-medium"
                   >
                     Cancelar
                   </button>
                   <button
                     type="submit"
-                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                    className="px-6 py-3 bg-gradient-to-r from-primary to-primary/90 text-white rounded-xl hover:from-primary/90 hover:to-primary shadow-lg hover:shadow-xl transition-all duration-300 font-medium"
                   >
                     {agenciaSelecionada ? 'Atualizar' : 'Criar'}
                   </button>
@@ -1084,14 +1159,16 @@ const ProjectManagement = () => {
       const percentualGasto = (projeto.valor_gasto / projeto.orcamento_projeto) * 100;
 
       return (
-        <div className="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-md transition-shadow">
+        <div className="bg-white rounded-xl border border-gray-200/60 p-6 hover:shadow-lg hover:border-primary/20 transition-all duration-300 group">
           <div className="flex items-start justify-between mb-4">
             <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-1">
+              <h3 className="text-lg font-semibold text-gray-900 mb-1 group-hover:text-primary transition-colors duration-300">
                 {projeto.nome_projeto}
               </h3>
               <div className="flex items-center gap-2 text-sm text-gray-600 mb-2">
-                <Building2 className="w-4 h-4" />
+                <div className="p-1 bg-blue-100 rounded-lg">
+                  <Building2 className="w-3 h-3 text-blue-600" />
+                </div>
                 <span>{agencia?.nome_agencia}</span>
                 <span className='text-gray-400'>•</span>
                 <span>{deal?.nome_deal}</span>
@@ -1199,7 +1276,7 @@ const ProjectManagement = () => {
           </div>
           <button 
             onClick={openNewModal}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+            className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-primary to-primary/90 text-white rounded-xl hover:from-primary/90 hover:to-primary shadow-lg hover:shadow-xl transition-all duration-300 font-medium"
           >
             <Plus className="w-4 h-4" />
             Novo Projeto
@@ -1208,50 +1285,50 @@ const ProjectManagement = () => {
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-            <div className="bg-white p-6 rounded-lg border border-gray-200">
+            <div className="bg-white p-6 rounded-xl border border-gray-200/60 hover:shadow-lg transition-all duration-300 group">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-600">Total de Projetos</p>
-                  <p className="text-2xl font-bold text-gray-900">{dados.projetos.length}</p>
+                  <p className="text-2xl font-bold text-gray-900 group-hover:text-primary transition-colors duration-300">{dados.projetos.length}</p>
                 </div>
-                <div className="p-3 bg-blue-100 rounded-lg">
+                <div className="p-3 bg-gradient-to-br from-blue-100 to-blue-50 rounded-xl group-hover:from-blue-200 group-hover:to-blue-100 transition-all duration-300">
                   <Target className="w-6 h-6 text-blue-600" />
                 </div>
               </div>
             </div>
-            <div className="bg-white p-6 rounded-lg border border-gray-200">
+            <div className="bg-white p-6 rounded-xl border border-gray-200/60 hover:shadow-lg transition-all duration-300 group">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-600">Projetos Ativos</p>
-                  <p className="text-2xl font-bold text-green-600">
+                  <p className="text-2xl font-bold text-green-600 group-hover:text-green-700 transition-colors duration-300">
                     {dados.projetos.filter(p => p.status_projeto === 'ativo').length}
                   </p>
                 </div>
-                <div className="p-3 bg-green-100 rounded-lg">
+                <div className="p-3 bg-gradient-to-br from-green-100 to-green-50 rounded-xl group-hover:from-green-200 group-hover:to-green-100 transition-all duration-300">
                   <TrendingUp className="w-6 h-6 text-green-600" />
                 </div>
               </div>
             </div>
-            <div className="bg-white p-6 rounded-lg border border-gray-200">
+            <div className="bg-white p-6 rounded-xl border border-gray-200/60 hover:shadow-lg transition-all duration-300 group">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-600">Orçamento Total</p>
-                  <p className="text-2xl font-bold text-gray-900">
+                  <p className="text-2xl font-bold text-gray-900 group-hover:text-primary transition-colors duration-300">
                     R$ {dados.projetos.reduce((acc, p) => acc + p.orcamento_projeto, 0).toLocaleString()}
                   </p>
                 </div>
-                <div className="p-3 bg-yellow-100 rounded-lg">
+                <div className="p-3 bg-gradient-to-br from-yellow-100 to-yellow-50 rounded-xl group-hover:from-yellow-200 group-hover:to-yellow-100 transition-all duration-300">
                   <DollarSign className="w-6 h-6 text-yellow-600" />
                 </div>
               </div>
             </div>
-            <div className="bg-white p-6 rounded-lg border border-gray-200">
+            <div className="bg-white p-6 rounded-xl border border-gray-200/60 hover:shadow-lg transition-all duration-300 group">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-600">Agências Ativas</p>
-                  <p className="text-2xl font-bold text-gray-900">{dados.agencias.length}</p>
+                  <p className="text-2xl font-bold text-gray-900 group-hover:text-primary transition-colors duration-300">{dados.agencias.length}</p>
                 </div>
-                <div className="p-3 bg-purple-100 rounded-lg">
+                <div className="p-3 bg-gradient-to-br from-purple-100 to-purple-50 rounded-xl group-hover:from-purple-200 group-hover:to-purple-100 transition-all duration-300">
                   <Building2 className="w-6 h-6 text-purple-600" />
                 </div>
               </div>
@@ -1259,15 +1336,15 @@ const ProjectManagement = () => {
         </div>
 
         {/* Filters */}
-        <div className="bg-white p-4 rounded-lg border border-gray-200 mb-6">
+        <div className="bg-white p-6 rounded-xl border border-gray-200/60 mb-6 shadow-sm">
           <div className="flex items-center gap-4 flex-wrap">
             <div className="flex-1 min-w-64">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                 <input
                   type="text"
                   placeholder="Buscar projetos, clientes ou agências..."
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all duration-300"
                   value={filtros.busca}
                   onChange={(e) => setFiltros({...filtros, busca: e.target.value})}
                 />
@@ -1275,7 +1352,7 @@ const ProjectManagement = () => {
             </div>
             
             <select 
-              className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all duration-300"
               value={filtros.agencia}
               onChange={(e) => setFiltros({...filtros, agencia: e.target.value})}
             >
@@ -1288,7 +1365,7 @@ const ProjectManagement = () => {
             </select>
             
             <select 
-              className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all duration-300"
               value={filtros.status}
               onChange={(e) => setFiltros({...filtros, status: e.target.value})}
             >
@@ -1482,7 +1559,7 @@ const ProjectManagement = () => {
                         type="text"
                         value={formData.nome_projeto}
                         onChange={(e) => setFormData({...formData, nome_projeto: e.target.value})}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all duration-300"
                         placeholder="Ex: Campanha Digital Verão 2024"
                         required
                       />
@@ -1494,7 +1571,7 @@ const ProjectManagement = () => {
                       <select
                         value={formData.agencia_id}
                         onChange={(e) => setFormData({...formData, agencia_id: e.target.value})}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all duration-300"
                         required
                       >
                         <option value="">Selecione uma agência</option>
@@ -1515,7 +1592,7 @@ const ProjectManagement = () => {
                       <select
                         value={formData.deal_id}
                         onChange={(e) => setFormData({...formData, deal_id: e.target.value})}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all duration-300"
                       >
                         <option value="">Selecione um deal</option>
                         {dados.deals.filter(deal => deal.agencia_id === formData.agencia_id).map(deal => (
@@ -1532,7 +1609,7 @@ const ProjectManagement = () => {
                       <select
                         value={formData.status_projeto}
                         onChange={(e) => setFormData({...formData, status_projeto: e.target.value})}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all duration-300"
                       >
                         <option value="ativo">Ativo</option>
                         <option value="pausado">Pausado</option>
@@ -1556,7 +1633,7 @@ const ProjectManagement = () => {
                         step="0.01"
                         value={formData.orcamento_projeto}
                         onChange={(e) => setFormData({...formData, orcamento_projeto: parseFloat(e.target.value) || 0})}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all duration-300"
                         placeholder="0.00"
                       />
                     </div>
@@ -1575,7 +1652,7 @@ const ProjectManagement = () => {
                         type="date"
                         value={formData.data_inicio}
                         onChange={(e) => setFormData({...formData, data_inicio: e.target.value})}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all duration-300"
                       />
                     </div>
                     <div>
@@ -1586,7 +1663,7 @@ const ProjectManagement = () => {
                         type="date"
                         value={formData.data_fim}
                         onChange={(e) => setFormData({...formData, data_fim: e.target.value})}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all duration-300"
                       />
                     </div>
                   </div>
@@ -1604,7 +1681,7 @@ const ProjectManagement = () => {
                         type="text"
                         value={formData.cliente_final}
                         onChange={(e) => setFormData({...formData, cliente_final: e.target.value})}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all duration-300"
                         placeholder="Nome do cliente"
                       />
                     </div>
@@ -1699,7 +1776,7 @@ const ProjectManagement = () => {
                       value={formData.descricao}
                       onChange={(e) => setFormData({...formData, descricao: e.target.value})}
                       rows={4}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all duration-300"
                       placeholder="Descreva os objetivos e detalhes do projeto..."
                     />
                   </div>
@@ -1753,15 +1830,15 @@ const ProjectManagement = () => {
 
   return (
     <DashboardLayout>
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50/30">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-primary/5">
         <Navigation />
-        <main className="ml-64">
+        <main className="ml-72">
           {/* Header da tela ativa */}
-          <div className="bg-white border-b border-gray-200 shadow-sm">
+          <div className="bg-white/80 backdrop-blur-sm border-b border-gray-200/60 shadow-sm">
             <div className="px-8 py-6">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-primary/10 rounded-lg">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 bg-gradient-to-br from-primary/20 to-primary/10 rounded-xl shadow-sm">
                     {telaAtiva === 'agencias' && <Building2 className="h-6 w-6 text-primary" />}
                     {telaAtiva === 'projetos' && <Target className="h-6 w-6 text-primary" />}
                     {telaAtiva === 'deals' && <TrendingUp className="h-6 w-6 text-primary" />}
@@ -1778,7 +1855,7 @@ const ProjectManagement = () => {
                       {telaAtiva === 'marcos' && 'Marcos e Cronograma'}
                       {telaAtiva === 'relatorios' && 'Relatórios Executivos'}
                     </h1>
-                    <p className="text-sm text-gray-500 mt-1">
+                    <p className="text-sm text-gray-600 mt-1">
                       {telaAtiva === 'agencias' && `Gerencie todas as agências • ${dados.agencias.length} parceiros`}
                       {telaAtiva === 'projetos' && `Acompanhe projetos em execução • ${dados.projetos.length} ativos`}
                       {telaAtiva === 'deals' && `Controle de negócios • ${dados.deals.length} deals`}
@@ -1789,7 +1866,12 @@ const ProjectManagement = () => {
                   </div>
                 </div>
                 
-                <Button variant="outline" onClick={carregarDados} disabled={loading} className="gap-2">
+                <Button 
+                  variant="outline" 
+                  onClick={carregarDados} 
+                  disabled={loading} 
+                  className="gap-2 hover:bg-primary/5 hover:border-primary/20 transition-all duration-300"
+                >
                   <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
                   Atualizar
                 </Button>
@@ -1800,11 +1882,14 @@ const ProjectManagement = () => {
           <div className="p-8">
             {loading ? (
               <div className="flex items-center justify-center h-64">
-                <Card className="w-full max-w-md">
+                <Card className="w-full max-w-md border-0 shadow-xl bg-gradient-to-br from-white to-primary/5">
                   <CardContent className="p-8 text-center">
-                    <div className="animate-spin rounded-full h-16 w-16 border-4 border-primary border-t-transparent mx-auto mb-6"></div>
-                    <h3 className="text-xl font-semibold mb-2">Carregando Dados</h3>
-                    <p className="text-muted-foreground">
+                    <div className="relative">
+                      <div className="animate-spin rounded-full h-16 w-16 border-4 border-primary/20 border-t-primary mx-auto mb-6"></div>
+                      <div className="absolute inset-0 rounded-full h-16 w-16 border-4 border-transparent border-t-primary/30 animate-spin mx-auto mb-6" style={{animationDirection: 'reverse', animationDuration: '1.5s'}}></div>
+                    </div>
+                    <h3 className="text-xl font-semibold mb-2 text-gray-900">Carregando Dados</h3>
+                    <p className="text-gray-600">
                       Sincronizando informações do sistema...
                     </p>
                   </CardContent>

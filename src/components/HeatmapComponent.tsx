@@ -152,6 +152,11 @@ export const HeatmapComponent: React.FC<HeatmapComponentProps> = ({
               Dados Normalizados
             </span>
           )}
+          {data.length > 0 && (
+            <span className="ml-2 px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded">
+              Dados de Fallback
+            </span>
+          )}
         </div>
       </CardHeader>
       <CardContent>

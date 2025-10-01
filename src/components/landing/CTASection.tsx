@@ -42,10 +42,10 @@ const CTASection = () => {
                   ))}
                 </div>
 
-                <div className="flex flex-col sm:flex-row gap-4">
+                <div className="space-y-4">
                   <Button 
                     size="lg" 
-                    className="medical-gradient text-primary-foreground hover:opacity-90 transition-opacity flex-1"
+                    className="medical-gradient text-primary-foreground hover:opacity-90 transition-opacity w-full"
                     asChild
                   >
                     <Link to="/login">
@@ -54,13 +54,19 @@ const CTASection = () => {
                       <ArrowRight className="h-5 w-5 ml-2" />
                     </Link>
                   </Button>
-                  <Button 
-                    variant="outline" 
-                    size="lg"
-                    className="medical-glow"
-                  >
-                    Falar com Especialista
-                  </Button>
+                  
+                  <div className="text-center">
+                    <p className="text-sm text-muted-foreground mb-3">
+                      Precisa de ajuda para começar?
+                    </p>
+                    <Button 
+                      variant="outline" 
+                      size="lg"
+                      className="medical-glow border-primary/20 hover:bg-primary/5"
+                    >
+                      Falar com Especialista
+                    </Button>
+                  </div>
                 </div>
 
                 <div className="text-center pt-4">

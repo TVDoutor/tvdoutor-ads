@@ -122,7 +122,7 @@ class EmailService {
       logDebug(`[RESEND] Enviando email`, { hasRecipient: !!emailLog.recipient_email });
 
       // Gerar conteúdo do email
-      const emailContent = this.generateEmailContent(emailLog);
+      const emailContent = await this.generateEmailContent(emailLog);
       
       // Chamar a Edge Function do Supabase que usa Resend
       const { data, error } = await supabase.functions.invoke('send-proposal-email', {
@@ -162,25 +162,82 @@ class EmailService {
   /**
    * Gera conteúdo HTML e texto do email
    */
-  private generateEmailContent(emailLog: EmailLog): { html: string; text: string } {
+  private async generateEmailContent(emailLog: EmailLog): Promise<{ html: string; text: string }> {
     const { email_type, recipient_type, customer_name, proposal_id, proposal_type } = emailLog;
     
-    // Template base
+    // Buscar dados completos da proposta para o template
+    let proposalDetails = null;
+    let screensData = null;
+    
+    try {
+      // Buscar dados da proposta
+      const { data: proposal } = await supabase
+        .from('proposals')
+        .select(`
+          id,
+          customer_name,
+          customer_email,
+          proposal_type,
+          start_date,
+          end_date,
+          impact_formula,
+          insertions_per_hour,
+          film_seconds,
+          cpm_mode,
+          cpm_value,
+          discount_pct,
+          discount_fixed,
+          net_business,
+          status,
+          created_at
+        `)
+        .eq('id', proposal_id)
+        .single();
+
+      if (proposal) {
+        proposalDetails = proposal;
+
+        // Buscar telas associadas
+        const { data: screens } = await supabase
+          .from('proposal_screens')
+          .select(`
+            screen_id,
+            screens!inner(
+              id,
+              name,
+              code,
+              city,
+              specialty,
+              class
+            )
+          `)
+          .eq('proposal_id', proposal_id);
+
+        screensData = screens || [];
+      }
+    } catch (error) {
+      console.error('Erro ao buscar detalhes da proposta:', error);
+    }
+    
+    // Template base melhorado
     const baseTemplate = `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-        <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-          <h1 style="color: #1a365d; margin: 0;">TV Doutor ADS</h1>
-          <p style="color: #718096; margin: 5px 0 0 0;">Sistema de Propostas Comerciais</p>
+      <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 700px; margin: 0 auto; padding: 20px; background-color: #f8fafc;">
+        <!-- Header -->
+        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 12px; margin-bottom: 25px; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
+          <h1 style="color: white; margin: 0; font-size: 28px; font-weight: 700;">TV Doutor ADS</h1>
+          <p style="color: rgba(255,255,255,0.9); margin: 8px 0 0 0; font-size: 16px;">Sistema de Propostas Comerciais</p>
         </div>
         
-        <div style="background-color: white; padding: 30px; border-radius: 8px; border: 1px solid #e2e8f0;">
+        <!-- Content -->
+        <div style="background-color: white; padding: 35px; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 2px 10px rgba(0,0,0,0.05);">
           {{CONTENT}}
         </div>
         
-        <div style="margin-top: 20px; padding: 15px; background-color: #f7fafc; border-radius: 8px; text-align: center;">
-          <p style="color: #718096; font-size: 12px; margin: 0;">
+        <!-- Footer -->
+        <div style="margin-top: 25px; padding: 20px; background-color: #f7fafc; border-radius: 8px; text-align: center; border-top: 3px solid #667eea;">
+          <p style="color: #718096; font-size: 13px; margin: 0; line-height: 1.5;">
             Este é um email automático do sistema TV Doutor ADS.<br>
-            Para dúvidas, entre em contato conosco.
+            Para dúvidas ou suporte, entre em contato conosco.
           </p>
         </div>
       </div>
@@ -190,72 +247,45 @@ class EmailService {
     
     if (email_type === 'proposal_created') {
       if (recipient_type === 'client') {
-        content = `
-          <h2 style="color: #2d3748; margin-bottom: 20px;">Nova Proposta Comercial</h2>
-          <p>Olá <strong>${customer_name}</strong>,</p>
-          <p>Temos o prazer de informar que sua proposta comercial foi criada com sucesso!</p>
-          
-          <div style="background-color: #e6fffa; padding: 15px; border-radius: 6px; margin: 20px 0;">
-            <h3 style="color: #234e52; margin: 0 0 10px 0;">Detalhes da Proposta:</h3>
-            <p style="margin: 5px 0;"><strong>Número:</strong> #${proposal_id}</p>
-            <p style="margin: 5px 0;"><strong>Tipo:</strong> ${proposal_type === 'avulsa' ? 'Campanha Avulsa' : 'Projeto'}</p>
-            <p style="margin: 5px 0;"><strong>Status:</strong> Em preparação</p>
-          </div>
-          
-          <p>Nossa equipe está trabalhando na sua proposta e em breve você receberá mais detalhes.</p>
-          <p>Agradecemos pela confiança em nossos serviços!</p>
-          
-          <p style="margin-top: 30px;">
-            Atenciosamente,<br>
-            <strong>Equipe TV Doutor ADS</strong>
-          </p>
-        `;
+        content = await this.generateClientProposalCreatedContent(proposalDetails, screensData);
+      } else if (recipient_type === 'agency') {
+        content = await this.generateAgencyProposalCreatedContent(proposalDetails, screensData);
       } else {
-        content = `
-          <h2 style="color: #2d3748; margin-bottom: 20px;">Proposta Criada com Sucesso</h2>
-          <p>A proposta comercial foi criada com sucesso no sistema!</p>
-          
-          <div style="background-color: #f0fff4; padding: 15px; border-radius: 6px; margin: 20px 0;">
-            <h3 style="color: #276749; margin: 0 0 10px 0;">Resumo:</h3>
-            <p style="margin: 5px 0;"><strong>Proposta:</strong> #${proposal_id}</p>
-            <p style="margin: 5px 0;"><strong>Cliente:</strong> ${customer_name}</p>
-            <p style="margin: 5px 0;"><strong>Tipo:</strong> ${proposal_type === 'avulsa' ? 'Campanha Avulsa' : 'Projeto'}</p>
-          </div>
-          
-          <p>Você pode acessar o sistema para gerenciar esta proposta e acompanhar seu progresso.</p>
-        `;
+        content = await this.generateUserProposalCreatedContent(proposalDetails, screensData);
       }
     } else if (email_type === 'status_changed') {
       if (recipient_type === 'client') {
         content = `
-          <h2 style="color: #2d3748; margin-bottom: 20px;">Atualização da Sua Proposta</h2>
-          <p>Olá <strong>${customer_name}</strong>,</p>
-          <p>Sua proposta comercial teve uma atualização de status:</p>
+          <h2 style="color: #2d3748; margin-bottom: 25px; font-size: 24px;">Atualização da Sua Proposta</h2>
+          <p style="font-size: 16px; line-height: 1.6; color: #4a5568;">Olá <strong>${customer_name}</strong>,</p>
+          <p style="font-size: 16px; line-height: 1.6; color: #4a5568;">Sua proposta comercial teve uma atualização de status:</p>
           
-          <div style="background-color: #eff6ff; padding: 15px; border-radius: 6px; margin: 20px 0;">
-            <h3 style="color: #1e40af; margin: 0 0 10px 0;">Proposta #${proposal_id}</h3>
-            <p style="margin: 5px 0; font-size: 18px;"><strong>Status atualizado</strong></p>
+          <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 10px; margin: 25px 0; color: white;">
+            <h3 style="color: white; margin: 0 0 10px 0; font-size: 20px;">Proposta #${proposal_id}</h3>
+            <p style="margin: 5px 0; font-size: 18px; font-weight: 600;">Status atualizado</p>
           </div>
           
-          <p>Para mais informações sobre sua proposta, entre em contato conosco.</p>
+          <p style="font-size: 16px; line-height: 1.6; color: #4a5568;">Para mais informações sobre sua proposta, entre em contato conosco.</p>
           
-          <p style="margin-top: 30px;">
-            Atenciosamente,<br>
-            <strong>Equipe TV Doutor ADS</strong>
-          </p>
+          <div style="margin-top: 35px; padding: 20px; background-color: #f0fff4; border-radius: 8px; border-left: 4px solid #38a169;">
+            <p style="margin: 0; font-size: 16px; color: #2f855a;">
+              Atenciosamente,<br>
+              <strong>Equipe TV Doutor ADS</strong>
+            </p>
+          </div>
         `;
       } else {
         content = `
-          <h2 style="color: #2d3748; margin-bottom: 20px;">Status da Proposta Alterado</h2>
-          <p>O status da proposta foi alterado no sistema:</p>
+          <h2 style="color: #2d3748; margin-bottom: 25px; font-size: 24px;">Status da Proposta Alterado</h2>
+          <p style="font-size: 16px; line-height: 1.6; color: #4a5568;">O status da proposta foi alterado no sistema:</p>
           
-          <div style="background-color: #f0f9ff; padding: 15px; border-radius: 6px; margin: 20px 0;">
-            <p style="margin: 5px 0;"><strong>Proposta:</strong> #${proposal_id}</p>
-            <p style="margin: 5px 0;"><strong>Cliente:</strong> ${customer_name}</p>
-            <p style="margin: 5px 0;"><strong>Status:</strong> Alterado</p>
+          <div style="background-color: #f0f9ff; padding: 20px; border-radius: 10px; margin: 25px 0; border-left: 4px solid #3b82f6;">
+            <p style="margin: 5px 0; font-size: 16px;"><strong>Proposta:</strong> #${proposal_id}</p>
+            <p style="margin: 5px 0; font-size: 16px;"><strong>Cliente:</strong> ${customer_name}</p>
+            <p style="margin: 5px 0; font-size: 16px;"><strong>Status:</strong> Alterado</p>
           </div>
           
-          <p>Acesse o sistema para mais detalhes.</p>
+          <p style="font-size: 16px; line-height: 1.6; color: #4a5568;">Acesse o sistema para mais detalhes.</p>
         `;
       }
     }
@@ -264,6 +294,298 @@ class EmailService {
     const text = html.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
     
     return { html, text };
+  }
+
+  /**
+   * Gera conteúdo para cliente quando proposta é criada
+   */
+  private async generateClientProposalCreatedContent(proposalDetails: any, screensData: any[]): Promise<string> {
+    if (!proposalDetails) {
+      return `
+        <h2 style="color: #2d3748; margin-bottom: 20px;">Nova Proposta Comercial</h2>
+        <p>Olá <strong>${proposalDetails?.customer_name || 'Cliente'}</strong>,</p>
+        <p>Temos o prazer de informar que sua proposta comercial foi criada com sucesso!</p>
+      `;
+    }
+
+    const formatCurrency = (value: number) => {
+      return new Intl.NumberFormat('pt-BR', {
+        style: 'currency',
+        currency: 'BRL'
+      }).format(value || 0);
+    };
+
+    const formatDate = (date: string) => {
+      return new Date(date).toLocaleDateString('pt-BR');
+    };
+
+    return `
+      <h2 style="color: #2d3748; margin-bottom: 25px; font-size: 24px;">🎉 Nova Proposta Comercial Criada!</h2>
+      
+      <p style="font-size: 16px; line-height: 1.6; color: #4a5568;">Olá <strong>${proposalDetails.customer_name}</strong>,</p>
+      <p style="font-size: 16px; line-height: 1.6; color: #4a5568;">Temos o prazer de informar que sua proposta comercial foi criada com sucesso em nosso sistema!</p>
+      
+      <!-- Informações principais -->
+      <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 25px; border-radius: 12px; margin: 25px 0; color: white;">
+        <h3 style="color: white; margin: 0 0 15px 0; font-size: 20px;">📋 Detalhes da Proposta</h3>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+          <div>
+            <p style="margin: 8px 0; font-size: 16px;"><strong>Número:</strong> #${proposalDetails.id}</p>
+            <p style="margin: 8px 0; font-size: 16px;"><strong>Tipo:</strong> ${proposalDetails.proposal_type === 'avulsa' ? 'Campanha Avulsa' : 'Projeto'}</p>
+            <p style="margin: 8px 0; font-size: 16px;"><strong>Status:</strong> ${this.getStatusLabel(proposalDetails.status)}</p>
+          </div>
+          <div>
+            <p style="margin: 8px 0; font-size: 16px;"><strong>Início:</strong> ${formatDate(proposalDetails.start_date)}</p>
+            <p style="margin: 8px 0; font-size: 16px;"><strong>Fim:</strong> ${formatDate(proposalDetails.end_date)}</p>
+            <p style="margin: 8px 0; font-size: 16px;"><strong>Valor:</strong> ${formatCurrency(proposalDetails.net_business)}</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Configurações técnicas -->
+      <div style="background-color: #f0fff4; padding: 20px; border-radius: 10px; margin: 20px 0; border-left: 4px solid #38a169;">
+        <h3 style="color: #2f855a; margin: 0 0 15px 0; font-size: 18px;">⚙️ Configurações Técnicas</h3>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+          <div>
+            <p style="margin: 6px 0; font-size: 14px;"><strong>Duração do Filme:</strong> ${proposalDetails.film_seconds}s</p>
+            <p style="margin: 6px 0; font-size: 14px;"><strong>Inserções/Hora:</strong> ${proposalDetails.insertions_per_hour}</p>
+          </div>
+          <div>
+            <p style="margin: 6px 0; font-size: 14px;"><strong>CPM:</strong> ${proposalDetails.cpm_mode === 'fixed' ? formatCurrency(proposalDetails.cpm_value) : 'Dinâmico'}</p>
+            <p style="margin: 6px 0; font-size: 14px;"><strong>Desconto:</strong> ${proposalDetails.discount_pct > 0 ? proposalDetails.discount_pct + '%' : 'Não aplicado'}</p>
+          </div>
+        </div>
+      </div>
+
+      ${screensData && screensData.length > 0 ? `
+      <!-- Telas selecionadas -->
+      <div style="background-color: #eff6ff; padding: 20px; border-radius: 10px; margin: 20px 0; border-left: 4px solid #3b82f6;">
+        <h3 style="color: #1e40af; margin: 0 0 15px 0; font-size: 18px;">📺 Telas Selecionadas (${screensData.length})</h3>
+        <div style="max-height: 200px; overflow-y: auto;">
+          ${screensData.slice(0, 10).map((item: any) => `
+            <div style="padding: 8px; background-color: white; margin: 5px 0; border-radius: 6px; border: 1px solid #e2e8f0;">
+              <p style="margin: 0; font-size: 14px; font-weight: 600;">${item.screens.name || 'Tela ' + item.screen_id}</p>
+              <p style="margin: 2px 0 0 0; font-size: 12px; color: #6b7280;">${item.screens.city || 'Cidade não informada'} • ${item.screens.specialty?.[0] || 'Especialidade não informada'}</p>
+            </div>
+          `).join('')}
+          ${screensData.length > 10 ? `<p style="margin: 10px 0 0 0; font-size: 12px; color: #6b7280; text-align: center;">... e mais ${screensData.length - 10} telas</p>` : ''}
+        </div>
+      </div>
+      ` : ''}
+
+      <p style="font-size: 16px; line-height: 1.6; color: #4a5568;">Nossa equipe está trabalhando na sua proposta e em breve você receberá mais detalhes sobre a implementação.</p>
+      
+      <div style="margin-top: 35px; padding: 20px; background-color: #f0fff4; border-radius: 8px; border-left: 4px solid #38a169;">
+        <p style="margin: 0; font-size: 16px; color: #2f855a;">
+          Agradecemos pela confiança em nossos serviços!<br>
+          <strong>Equipe TV Doutor ADS</strong>
+        </p>
+      </div>
+    `;
+  }
+
+  /**
+   * Gera conteúdo para usuário quando proposta é criada
+   */
+  private async generateUserProposalCreatedContent(proposalDetails: any, screensData: any[]): Promise<string> {
+    if (!proposalDetails) {
+      return `
+        <h2 style="color: #2d3748; margin-bottom: 20px;">Proposta Criada com Sucesso</h2>
+        <p>A proposta comercial foi criada com sucesso no sistema!</p>
+      `;
+    }
+
+    const formatCurrency = (value: number) => {
+      return new Intl.NumberFormat('pt-BR', {
+        style: 'currency',
+        currency: 'BRL'
+      }).format(value || 0);
+    };
+
+    const formatDate = (date: string) => {
+      return new Date(date).toLocaleDateString('pt-BR');
+    };
+
+    return `
+      <h2 style="color: #2d3748; margin-bottom: 25px; font-size: 24px;">✅ Proposta Criada com Sucesso</h2>
+      
+      <p style="font-size: 16px; line-height: 1.6; color: #4a5568;">A proposta comercial foi criada com sucesso no sistema!</p>
+      
+      <!-- Resumo da proposta -->
+      <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 25px; border-radius: 12px; margin: 25px 0; color: white;">
+        <h3 style="color: white; margin: 0 0 15px 0; font-size: 20px;">📊 Resumo da Proposta</h3>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+          <div>
+            <p style="margin: 8px 0; font-size: 16px;"><strong>Proposta:</strong> #${proposalDetails.id}</p>
+            <p style="margin: 8px 0; font-size: 16px;"><strong>Cliente:</strong> ${proposalDetails.customer_name}</p>
+            <p style="margin: 8px 0; font-size: 16px;"><strong>Tipo:</strong> ${proposalDetails.proposal_type === 'avulsa' ? 'Campanha Avulsa' : 'Projeto'}</p>
+          </div>
+          <div>
+            <p style="margin: 8px 0; font-size: 16px;"><strong>Período:</strong> ${formatDate(proposalDetails.start_date)} - ${formatDate(proposalDetails.end_date)}</p>
+            <p style="margin: 8px 0; font-size: 16px;"><strong>Valor:</strong> ${formatCurrency(proposalDetails.net_business)}</p>
+            <p style="margin: 8px 0; font-size: 16px;"><strong>Status:</strong> ${this.getStatusLabel(proposalDetails.status)}</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Estatísticas -->
+      <div style="background-color: #f0f9ff; padding: 20px; border-radius: 10px; margin: 20px 0; border-left: 4px solid #3b82f6;">
+        <h3 style="color: #1e40af; margin: 0 0 15px 0; font-size: 18px;">📈 Estatísticas</h3>
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px;">
+          <div style="text-align: center; padding: 15px; background-color: white; border-radius: 8px;">
+            <p style="margin: 0; font-size: 24px; font-weight: 700; color: #3b82f6;">${screensData?.length || 0}</p>
+            <p style="margin: 5px 0 0 0; font-size: 12px; color: #6b7280;">Telas</p>
+          </div>
+          <div style="text-align: center; padding: 15px; background-color: white; border-radius: 8px;">
+            <p style="margin: 0; font-size: 24px; font-weight: 700; color: #10b981;">${proposalDetails.insertions_per_hour}</p>
+            <p style="margin: 5px 0 0 0; font-size: 12px; color: #6b7280;">Inserções/Hora</p>
+          </div>
+          <div style="text-align: center; padding: 15px; background-color: white; border-radius: 8px;">
+            <p style="margin: 0; font-size: 24px; font-weight: 700; color: #f59e0b;">${proposalDetails.film_seconds}s</p>
+            <p style="margin: 5px 0 0 0; font-size: 12px; color: #6b7280;">Duração</p>
+          </div>
+        </div>
+      </div>
+
+      <p style="font-size: 16px; line-height: 1.6; color: #4a5568;">Você pode acessar o sistema para gerenciar esta proposta e acompanhar seu progresso.</p>
+      
+      <div style="margin-top: 25px; padding: 15px; background-color: #fef3c7; border-radius: 8px; border-left: 4px solid #f59e0b;">
+        <p style="margin: 0; font-size: 14px; color: #92400e;">
+          💡 <strong>Dica:</strong> Use o dashboard para acompanhar o status e fazer atualizações na proposta.
+        </p>
+      </div>
+    `;
+  }
+
+  /**
+   * Gera conteúdo para agência quando proposta é criada
+   */
+  private async generateAgencyProposalCreatedContent(proposalDetails: any, screensData: any[]): Promise<string> {
+    if (!proposalDetails) {
+      return `
+        <h2 style="color: #2d3748; margin-bottom: 20px;">Nova Proposta Criada</h2>
+        <p>Uma nova proposta comercial foi criada no sistema!</p>
+      `;
+    }
+
+    const formatCurrency = (value: number) => {
+      return new Intl.NumberFormat('pt-BR', {
+        style: 'currency',
+        currency: 'BRL'
+      }).format(value || 0);
+    };
+
+    const formatDate = (date: string) => {
+      return new Date(date).toLocaleDateString('pt-BR');
+    };
+
+    return `
+      <h2 style="color: #2d3748; margin-bottom: 25px; font-size: 24px;">🏢 Nova Proposta para Sua Agência</h2>
+      
+      <p style="font-size: 16px; line-height: 1.6; color: #4a5568;">Uma nova proposta comercial foi criada e está associada à sua agência!</p>
+      
+      <!-- Informações da proposta -->
+      <div style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); padding: 25px; border-radius: 12px; margin: 25px 0; color: white;">
+        <h3 style="color: white; margin: 0 0 15px 0; font-size: 20px;">📋 Detalhes da Proposta</h3>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+          <div>
+            <p style="margin: 8px 0; font-size: 16px;"><strong>Número:</strong> #${proposalDetails.id}</p>
+            <p style="margin: 8px 0; font-size: 16px;"><strong>Cliente:</strong> ${proposalDetails.customer_name}</p>
+            <p style="margin: 8px 0; font-size: 16px;"><strong>Tipo:</strong> ${proposalDetails.proposal_type === 'avulsa' ? 'Campanha Avulsa' : 'Projeto'}</p>
+          </div>
+          <div>
+            <p style="margin: 8px 0; font-size: 16px;"><strong>Período:</strong> ${formatDate(proposalDetails.start_date)} - ${formatDate(proposalDetails.end_date)}</p>
+            <p style="margin: 8px 0; font-size: 16px;"><strong>Valor:</strong> ${formatCurrency(proposalDetails.net_business)}</p>
+            <p style="margin: 8px 0; font-size: 16px;"><strong>Status:</strong> ${this.getStatusLabel(proposalDetails.status)}</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Informações do cliente -->
+      <div style="background-color: #f0f9ff; padding: 20px; border-radius: 10px; margin: 20px 0; border-left: 4px solid #3b82f6;">
+        <h3 style="color: #1e40af; margin: 0 0 15px 0; font-size: 18px;">👤 Informações do Cliente</h3>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+          <div>
+            <p style="margin: 6px 0; font-size: 14px;"><strong>Nome:</strong> ${proposalDetails.customer_name}</p>
+            <p style="margin: 6px 0; font-size: 14px;"><strong>Email:</strong> ${proposalDetails.customer_email || 'Não informado'}</p>
+          </div>
+          <div>
+            <p style="margin: 6px 0; font-size: 14px;"><strong>Data de Criação:</strong> ${formatDate(proposalDetails.created_at)}</p>
+            <p style="margin: 6px 0; font-size: 14px;"><strong>Status:</strong> ${this.getStatusLabel(proposalDetails.status)}</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Configurações técnicas -->
+      <div style="background-color: #f0fff4; padding: 20px; border-radius: 10px; margin: 20px 0; border-left: 4px solid #38a169;">
+        <h3 style="color: #2f855a; margin: 0 0 15px 0; font-size: 18px;">⚙️ Configurações Técnicas</h3>
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px;">
+          <div>
+            <p style="margin: 6px 0; font-size: 14px;"><strong>Duração:</strong> ${proposalDetails.film_seconds}s</p>
+            <p style="margin: 6px 0; font-size: 14px;"><strong>Inserções/Hora:</strong> ${proposalDetails.insertions_per_hour}</p>
+          </div>
+          <div>
+            <p style="margin: 6px 0; font-size: 14px;"><strong>CPM:</strong> ${proposalDetails.cpm_mode === 'fixed' ? formatCurrency(proposalDetails.cpm_value) : 'Dinâmico'}</p>
+            <p style="margin: 6px 0; font-size: 14px;"><strong>Desconto:</strong> ${proposalDetails.discount_pct > 0 ? proposalDetails.discount_pct + '%' : 'Não aplicado'}</p>
+          </div>
+          <div>
+            <p style="margin: 6px 0; font-size: 14px;"><strong>Fórmula:</strong> ${proposalDetails.impact_formula || 'Padrão'}</p>
+            <p style="margin: 6px 0; font-size: 14px;"><strong>Valor Total:</strong> ${formatCurrency(proposalDetails.net_business)}</p>
+          </div>
+        </div>
+      </div>
+
+      ${screensData && screensData.length > 0 ? `
+      <!-- Telas selecionadas -->
+      <div style="background-color: #eff6ff; padding: 20px; border-radius: 10px; margin: 20px 0; border-left: 4px solid #3b82f6;">
+        <h3 style="color: #1e40af; margin: 0 0 15px 0; font-size: 18px;">📺 Telas Selecionadas (${screensData.length})</h3>
+        <div style="max-height: 200px; overflow-y: auto;">
+          ${screensData.slice(0, 8).map((item: any) => `
+            <div style="padding: 8px; background-color: white; margin: 5px 0; border-radius: 6px; border: 1px solid #e2e8f0;">
+              <p style="margin: 0; font-size: 14px; font-weight: 600;">${item.screens.name || 'Tela ' + item.screen_id}</p>
+              <p style="margin: 2px 0 0 0; font-size: 12px; color: #6b7280;">${item.screens.city || 'Cidade não informada'} • ${item.screens.specialty?.[0] || 'Especialidade não informada'}</p>
+            </div>
+          `).join('')}
+          ${screensData.length > 8 ? `<p style="margin: 10px 0 0 0; font-size: 12px; color: #6b7280; text-align: center;">... e mais ${screensData.length - 8} telas</p>` : ''}
+        </div>
+      </div>
+      ` : ''}
+
+      <!-- Ações recomendadas -->
+      <div style="background-color: #fef3c7; padding: 20px; border-radius: 10px; margin: 20px 0; border-left: 4px solid #f59e0b;">
+        <h3 style="color: #92400e; margin: 0 0 15px 0; font-size: 18px;">💡 Próximos Passos</h3>
+        <ul style="margin: 0; padding-left: 20px; color: #92400e;">
+          <li style="margin: 8px 0; font-size: 14px;">Revisar os detalhes da proposta no sistema</li>
+          <li style="margin: 8px 0; font-size: 14px;">Contatar o cliente para alinhamento</li>
+          <li style="margin: 8px 0; font-size: 14px;">Acompanhar o progresso da campanha</li>
+          <li style="margin: 8px 0; font-size: 14px;">Manter comunicação ativa com a equipe</li>
+        </ul>
+      </div>
+
+      <p style="font-size: 16px; line-height: 1.6; color: #4a5568;">Esta proposta está agora disponível para acompanhamento em seu painel de agência.</p>
+      
+      <div style="margin-top: 35px; padding: 20px; background-color: #f0fff4; border-radius: 8px; border-left: 4px solid #38a169;">
+        <p style="margin: 0; font-size: 16px; color: #2f855a;">
+          Para mais informações, acesse o sistema de gerenciamento.<br>
+          <strong>Equipe TV Doutor ADS</strong>
+        </p>
+      </div>
+    `;
+  }
+
+  /**
+   * Converte status para label legível
+   */
+  private getStatusLabel(status: string): string {
+    const statusLabels: { [key: string]: string } = {
+      'rascunho': '📝 Rascunho',
+      'enviada': '📤 Enviada',
+      'em_analise': '🔍 Em Análise',
+      'aceita': '✅ Aceita',
+      'rejeitada': '❌ Rejeitada'
+    };
+    
+    return statusLabels[status] || status;
   }
 
   /**
@@ -356,7 +678,7 @@ class EmailService {
     emailType: 'proposal_created' | 'status_changed' = 'proposal_created'
   ): Promise<boolean> {
     try {
-      // Buscar dados da proposta
+      // Buscar dados da proposta com informações da agência
       const { data: proposal, error } = await supabase
         .from('proposals')
         .select(`
@@ -365,7 +687,13 @@ class EmailService {
           customer_email,
           proposal_type,
           status,
-          created_by
+          created_by,
+          agencia_id,
+          agencias!proposals_agencia_id_fkey(
+            id,
+            nome_agencia,
+            email_empresa
+          )
         `)
         .eq('id', proposalId)
         .single();
@@ -379,43 +707,47 @@ class EmailService {
 
       // Criar logs de email manualmente
       const emailLogs = [];
+      const sentEmails = new Set<string>(); // Para evitar emails duplicados
 
       // Log para cliente
-      const { data: clientLogData } = await supabase
-        .from('email_logs')
-        .insert({
-          proposal_id: proposalId,
-          email_type: emailType,
-          recipient_email: proposal.customer_email,
-          recipient_type: 'client',
-          subject: emailType === 'proposal_created' 
-            ? `Nova Proposta Comercial - Proposta #${proposalId}`
-            : `Proposta #${proposalId} - Atualização de Status`,
-          status: 'pending'
-        })
-        .select('log_id')
-        .single();
-      
-      const clientLogId = { data: clientLogData?.log_id };
+      if (proposal.customer_email && !sentEmails.has(proposal.customer_email)) {
+        const { data: clientLogData } = await supabase
+          .from('email_logs')
+          .insert({
+            proposal_id: proposalId,
+            email_type: emailType,
+            recipient_email: proposal.customer_email,
+            recipient_type: 'client',
+            subject: emailType === 'proposal_created' 
+              ? `Nova Proposta Comercial - Proposta #${proposalId}`
+              : `Proposta #${proposalId} - Atualização de Status`,
+            status: 'pending'
+          })
+          .select('log_id')
+          .single();
+        
+        const clientLogId = { data: clientLogData?.log_id };
 
-      if (clientLogId.data) {
-        emailLogs.push({
-          log_id: clientLogId.data,
-          proposal_id: proposalId,
-          email_type: emailType,
-          recipient_email: proposal.customer_email,
-          recipient_type: 'client',
-          subject: emailType === 'proposal_created' 
-            ? `Nova Proposta Comercial - Proposta #${proposalId}`
-            : `Proposta #${proposalId} - Atualização de Status`,
-          customer_name: proposal.customer_name,
-          proposal_type: proposal.proposal_type,
-          created_at: new Date().toISOString()
-        });
+        if (clientLogId.data) {
+          emailLogs.push({
+            log_id: clientLogId.data,
+            proposal_id: proposalId,
+            email_type: emailType,
+            recipient_email: proposal.customer_email,
+            recipient_type: 'client',
+            subject: emailType === 'proposal_created' 
+              ? `Nova Proposta Comercial - Proposta #${proposalId}`
+              : `Proposta #${proposalId} - Atualização de Status`,
+            customer_name: proposal.customer_name,
+            proposal_type: proposal.proposal_type,
+            created_at: new Date().toISOString()
+          });
+          sentEmails.add(proposal.customer_email);
+        }
       }
 
-      // Log para usuário (se email diferente)
-      if (userEmail && userEmail !== proposal.customer_email) {
+      // Log para usuário (se email diferente do cliente)
+      if (userEmail && !sentEmails.has(userEmail)) {
         const { data: userLogData } = await supabase
           .from('email_logs')
           .insert({
@@ -443,6 +775,40 @@ class EmailService {
             proposal_type: proposal.proposal_type,
             created_at: new Date().toISOString()
           });
+          sentEmails.add(userEmail);
+        }
+      }
+
+      // Log para agência (se email diferente dos anteriores)
+      if (proposal.agencias?.email_empresa && !sentEmails.has(proposal.agencias.email_empresa)) {
+        const { data: agencyLogData } = await supabase
+          .from('email_logs')
+          .insert({
+            proposal_id: proposalId,
+            email_type: emailType,
+            recipient_email: proposal.agencias.email_empresa,
+            recipient_type: 'agency',
+            subject: `Proposta #${proposalId} - ${emailType === 'proposal_created' ? 'Nova Proposta Criada' : 'Status Alterado'} - ${proposal.agencias.nome_agencia}`,
+            status: 'pending'
+          })
+          .select('log_id')
+          .single();
+        
+        const agencyLogId = { data: agencyLogData?.log_id };
+
+        if (agencyLogId.data) {
+          emailLogs.push({
+            log_id: agencyLogId.data,
+            proposal_id: proposalId,
+            email_type: emailType,
+            recipient_email: proposal.agencias.email_empresa,
+            recipient_type: 'agency',
+            subject: `Proposta #${proposalId} - ${emailType === 'proposal_created' ? 'Nova Proposta Criada' : 'Status Alterado'} - ${proposal.agencias.nome_agencia}`,
+            customer_name: proposal.customer_name,
+            proposal_type: proposal.proposal_type,
+            created_at: new Date().toISOString()
+          });
+          sentEmails.add(proposal.agencias.email_empresa);
         }
       }
 
@@ -452,7 +818,15 @@ class EmailService {
       );
 
       const successful = results.filter(r => r.status === 'fulfilled' && r.value).length;
-      logInfo(`Notificação enviada`, { successful, total: emailLogs.length });
+      logInfo(`Notificação enviada`, { 
+        successful, 
+        total: emailLogs.length,
+        recipients: {
+          client: proposal.customer_email,
+          user: userEmail,
+          agency: proposal.agencias?.email_empresa
+        }
+      });
 
       return successful > 0;
     } catch (error) {

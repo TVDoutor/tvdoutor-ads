@@ -24,7 +24,7 @@ SELECT
   sc.lat,
   sc.lng,
   sc.geom,
-  sc.active AS screen_active,
+  sc.active,
   sc.class,
   sc.specialty,
   sc.board_format,

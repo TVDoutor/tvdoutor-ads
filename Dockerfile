@@ -9,7 +9,7 @@ COPY package*.json ./
 COPY bun.lockb ./
 
 # Instalar dependências (incluindo devDependencies para o build)
-RUN npm ci
+RUN npm ci --legacy-peer-deps
 
 # Copiar código fonte
 COPY . .

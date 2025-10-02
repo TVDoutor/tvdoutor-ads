@@ -1,7 +1,7 @@
 {
   "name": "vite_react_shadcn_ts",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.2",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -9,6 +9,9 @@
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "build:prod": "vite build --mode production",
+    "build:version": "node scripts/build-with-version.js patch",
+    "build:version:minor": "node scripts/build-with-version.js minor",
+    "build:version:major": "node scripts/build-with-version.js major",
     "build:deploy": "npm run build:prod && npm run deploy:vercel",
     "deploy:vercel": "vercel --prod",
     "deploy:preview": "vercel",

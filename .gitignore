@@ -50,3 +50,8 @@ fix_*.sql
 deploy.log
 build.log
 *.deploy
+
+# Backups grandes
+backups/*.sql
+backups/*.zip
+backups/backup_*

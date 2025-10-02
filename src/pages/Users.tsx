@@ -103,33 +103,56 @@ const Users = () => {
   const fetchUsers = async () => {
     try {
       setLoading(true);
+      logDebug('Starting to fetch users...');
       
+      // Fetch profiles directly from the profiles table
       const { data: profiles, error: profilesError } = await supabase
         .from('profiles')
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (profilesError) throw profilesError;
+      if (profilesError) {
+        logError('Error fetching profiles', profilesError);
+        throw profilesError;
+      }
 
-      const { data: roles, error: rolesError } = await supabase
-        .from('user_roles')
-        .select('user_id, role');
+      logDebug('Successfully fetched profiles', { count: profiles?.length || 0 });
 
-      if (rolesError) throw rolesError;
-
+      // Create roles map from profiles data
       const rolesMap: Record<string, string> = {};
-      roles?.forEach(role => {
-        rolesMap[role.user_id] = role.role;
+      profiles?.forEach(profile => {
+        // Use the role from profiles table, with super_admin taking precedence
+        if (profile.super_admin === true) {
+          rolesMap[profile.id] = 'super_admin';
+        } else {
+          rolesMap[profile.id] = profile.role || 'user';
+        }
       });
 
       setUsers(profiles || []);
       setUserRoles(rolesMap);
       
+      logDebug('Successfully processed users', { 
+        profileCount: profiles?.length || 0,
+        rolesCount: Object.keys(rolesMap).length
+      });
+      
     } catch (error: any) {
       logError('Error fetching users', error);
+      
+      let errorMessage = "Não foi possível carregar os usuários.";
+      
+      if (error.message?.includes('permission denied')) {
+        errorMessage = "Sem permissão para acessar os dados de usuários.";
+      } else if (error.message?.includes('relation') && error.message?.includes('does not exist')) {
+        errorMessage = "Estrutura do banco de dados não encontrada. Execute as migrações.";
+      } else if (error.message) {
+        errorMessage = `Erro: ${error.message}`;
+      }
+      
       toast({
         title: "Erro",
-        description: "Não foi possível carregar os usuários.",
+        description: errorMessage,
         variant: "destructive"
       });
     } finally {
@@ -289,42 +312,22 @@ const Users = () => {
       const currentRole = userRoles[editingUser.id];
       logDebug('Current role vs New role', { currentRole, newRole: editingUser.role });
       
+      // Update the role directly in the profiles table
       if (currentRole !== editingUser.role) {
         const { data: updateData, error: updateError } = await supabase
-          .from('user_roles')
-          .update({ role: editingUser.role as 'user' | 'admin' | 'super_admin' })
-          .eq('user_id', editingUser.id)
+          .from('profiles')
+          .update({ 
+            role: editingUser.role,
+            super_admin: editingUser.role === 'super_admin'
+          })
+          .eq('id', editingUser.id)
           .select();
 
         console.log('Resultado update role:', { updateData, updateError });
 
         if (updateError) {
           console.error('Role update error:', updateError);
-          console.log('Tentando delete + insert...');
-          
-          const { error: deleteError } = await supabase
-            .from('user_roles')
-            .delete()
-            .eq('user_id', editingUser.id);
-
-          if (deleteError) {
-            console.error('Delete role error:', deleteError);
-          }
-
-          const { data: insertData, error: insertError } = await supabase
-            .from('user_roles')
-            .insert({
-              user_id: editingUser.id,
-              role: editingUser.role as 'user' | 'admin' | 'super_admin'
-            })
-            .select();
-
-          console.log('Resultado insert role:', { insertData, insertError });
-
-          if (insertError) {
-            console.error('Insert role error:', insertError);
-            throw insertError;
-          }
+          throw updateError;
         }
       }
 
@@ -362,11 +365,7 @@ const Users = () => {
     if (!confirm('Tem certeza que deseja remover este usuário?')) return;
 
     try {
-      await supabase
-        .from('user_roles')
-        .delete()
-        .eq('user_id', userId);
-
+      // Delete from profiles table (this will cascade to auth.users if configured)
       const { error } = await supabase
         .from('profiles')
         .delete()

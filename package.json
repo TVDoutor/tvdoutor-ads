@@ -8,8 +8,17 @@
     "dev:port": "vite --port 8082",
     "build": "vite build",
     "build:dev": "vite build --mode development",
+    "build:prod": "vite build --mode production",
+    "build:deploy": "npm run build:prod && npm run deploy:vercel",
+    "deploy:vercel": "vercel --prod",
+    "deploy:preview": "vercel",
+    "deploy:full": "npm run build:prod && npm run deploy:vercel && npm run deploy:supabase",
+    "deploy:supabase": "npx supabase db push",
+    "deploy:auto": "node scripts/deploy.js",
+    "deploy:auto:preview": "node scripts/deploy.js --preview",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "postbuild": "echo 'Build completed successfully!'"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

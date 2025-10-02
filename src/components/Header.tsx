@@ -1,4 +1,4 @@
-import { Monitor, Menu, User, LogOut } from "lucide-react";
+import { Monitor, Menu, User, LogOut, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -14,9 +14,11 @@ import { useNavigate } from "react-router-dom";
 
 interface HeaderProps {
   onMenuClick?: () => void;
+  onSidebarToggle?: () => void;
+  isSidebarCollapsed?: boolean;
 }
 
-export const Header = ({ onMenuClick }: HeaderProps) => {
+export const Header = ({ onMenuClick, onSidebarToggle, isSidebarCollapsed }: HeaderProps) => {
   const { profile, signOut } = useAuth();
   const navigate = useNavigate();
 
@@ -48,6 +50,20 @@ export const Header = ({ onMenuClick }: HeaderProps) => {
             onClick={onMenuClick}
           >
             <Menu className="h-5 w-5" />
+          </Button>
+          
+          {/* Desktop Sidebar Toggle */}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="hidden lg:flex"
+            onClick={onSidebarToggle}
+          >
+            {isSidebarCollapsed ? (
+              <PanelLeftOpen className="h-5 w-5" />
+            ) : (
+              <PanelLeftClose className="h-5 w-5" />
+            )}
           </Button>
           
           <div className="flex items-center gap-3">

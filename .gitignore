@@ -45,3 +45,8 @@ supabase.exe
 et --hard*
 fix_*.sql
 .vercel
+
+# Deploy e build
+deploy.log
+build.log
+*.deploy

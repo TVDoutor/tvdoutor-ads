@@ -288,6 +288,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
               // Fallback: criar perfil diretamente se não existir
               const { data: { user } } = await supabase.auth.getUser();
               if (user) {
+                logDebug('Ensuring profile exists for user', { userId: user.id, email: user.email });
+                
                 const { error } = await supabase
                   .from('profiles')
                   .upsert({
@@ -295,17 +297,22 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
                     email: user.email,
                     full_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'Usuário',
                     display_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'Usuário',
-                    role: 'user'
+                    role: 'user',
+                    super_admin: false
                   });
                 
                 if (error) {
                   logError('Error ensuring profile', error);
+                } else {
+                  logDebug('Profile ensured successfully');
                 }
+
+                // Role is now handled directly in the profiles table
               }
             } catch (error) {
               logError('Error ensuring profile', error);
             }
-          }, 0);
+          }, 1000); // Increased delay to ensure auth is fully processed
         }
         
         setTimeout(async () => {
@@ -401,17 +408,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             logError('Profile creation error', profileError);
           }
 
-          // Then create the user role
-          const { error: roleError } = await supabase
-            .from('user_roles')
-            .insert({
-              user_id: data.user.id,
-              role: 'user'
-            });
-
-          if (roleError) {
-            logError('Role creation error', roleError);
-          }
+          // Role is now handled directly in the profiles table
 
         } catch (profileCreationError) {
           logError('Error creating user profile', profileCreationError);

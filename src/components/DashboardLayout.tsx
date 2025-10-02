@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Header } from "@/components/Header";
 import { Sidebar } from "@/components/Sidebar";
 import { TVDoutorFooter } from "@/components/Footer";
@@ -8,13 +8,22 @@ interface DashboardLayoutProps {
 }
 
 export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
-  const [isSidebarCollapsed] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
+    const saved = localStorage.getItem('sidebar-collapsed');
+    return saved ? JSON.parse(saved) : false;
+  });
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  useEffect(() => {
+    localStorage.setItem('sidebar-collapsed', JSON.stringify(isSidebarCollapsed));
+  }, [isSidebarCollapsed]);
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <Header 
         onMenuClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+        onSidebarToggle={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+        isSidebarCollapsed={isSidebarCollapsed}
       />
       
       <div className="flex flex-1">

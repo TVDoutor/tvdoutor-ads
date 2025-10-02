@@ -29,3 +29,6 @@ WHERE sc.lat IS NOT NULL AND sc.lng IS NOT NULL;
 -- Grant permissions
 GRANT SELECT ON public.v_screens_enriched TO authenticated;
 GRANT SELECT ON public.v_screens_enriched TO anon;
+
+
+

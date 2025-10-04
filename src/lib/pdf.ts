@@ -1,12 +1,16 @@
 // src/lib/pdf.ts
 // Integração frontend para geração de PDF profissional
 
-interface PDFGenerationResponse {
-  ok: boolean;
-  pdf_url?: string;
-  pdf_path?: string;
-  error?: string;
-}
+// Tipos para diferentes formatos de retorno
+type ProPdfSuccess =
+  | { ok: true; blob: Blob; kind?: 'pro' | 'basic' }
+  | { ok: true; pdfBase64: string; kind?: 'pro' | 'basic' }
+  | { ok: true; arrayBuffer: ArrayBuffer; kind?: 'pro' | 'basic' }
+  | { ok: true; pdf_url: string; kind?: 'pro' | 'basic' };
+
+type ProPdfFail = { ok: false; reason: string; status?: number; error?: string };
+
+type PDFGenerationResponse = ProPdfSuccess | ProPdfFail;
 
 // Interface para o payload completo da proposta
 interface PdfProposalPayload {
@@ -247,7 +251,10 @@ export async function generateProPDF(proposalId: number, logoUrl?: string): Prom
 
     if (fetchError || !proposalData) {
       console.error('❌ Erro ao buscar dados da proposta:', fetchError);
-      return await generateBasicPDFFallback(proposalId);
+      return {
+        ok: false,
+        reason: `Erro ao buscar dados da proposta: ${fetchError?.message || 'Proposta não encontrada'}`
+      };
     }
 
     // Construir payload completo
@@ -278,8 +285,39 @@ export async function generateProPDF(proposalId: number, logoUrl?: string): Prom
       return await generateBasicPDFFallback(proposalId);
     }
 
-    console.log('✅ PDF profissional gerado com sucesso!');
-    return data as PDFGenerationResponse;
+    // Processar resposta da Edge Function
+    if (data.pdfBase64) {
+      console.log('✅ PDF profissional gerado (base64)!');
+      return {
+        ok: true,
+        pdfBase64: data.pdfBase64,
+        kind: 'pro'
+      };
+    } else if (data.pdf_url) {
+      console.log('✅ PDF profissional gerado (URL)!');
+      return {
+        ok: true,
+        pdf_url: data.pdf_url,
+        kind: 'pro'
+      };
+    } else if (data.blob) {
+      console.log('✅ PDF profissional gerado (Blob)!');
+      return {
+        ok: true,
+        blob: data.blob,
+        kind: 'pro'
+      };
+    } else if (data.arrayBuffer) {
+      console.log('✅ PDF profissional gerado (ArrayBuffer)!');
+      return {
+        ok: true,
+        arrayBuffer: data.arrayBuffer,
+        kind: 'pro'
+      };
+    } else {
+      console.warn('⚠️ Formato de resposta não reconhecido, usando fallback');
+      return await generateBasicPDFFallback(proposalId);
+    }
     
   } catch (error) {
     console.error('💥 Erro na geração do PDF profissional:', error);
@@ -294,6 +332,8 @@ export async function generateProPDF(proposalId: number, logoUrl?: string): Prom
  */
 async function generateBasicPDFFallback(proposalId: number): Promise<PDFGenerationResponse> {
   try {
+    console.log('🔄 Gerando PDF básico como fallback...');
+    
     // Importar jsPDF dinamicamente
     const { jsPDF } = await import('jspdf');
     
@@ -314,21 +354,21 @@ async function generateBasicPDFFallback(proposalId: number): Promise<PDFGenerati
     doc.text('Esta é uma versão básica do PDF.', 20, 100);
     doc.text('Para uma versão completa, entre em contato com o suporte.', 20, 110);
     
-    // Gerar blob URL
+    // Gerar blob
     const pdfBlob = doc.output('blob');
-    const pdfUrl = URL.createObjectURL(pdfBlob);
     
+    console.log('✅ PDF básico gerado com sucesso!');
     return {
       ok: true,
-      pdf_url: pdfUrl,
-      pdf_path: `proposta-${proposalId}-basica.pdf`
+      blob: pdfBlob,
+      kind: 'basic'
     };
     
   } catch (error) {
-    console.error('Erro no fallback de PDF:', error);
+    console.error('❌ Erro no fallback de PDF:', error);
     return {
       ok: false,
-      error: 'Não foi possível gerar o PDF. Tente novamente mais tarde.'
+      reason: 'Não foi possível gerar o PDF. Tente novamente mais tarde.'
     };
   }
 }

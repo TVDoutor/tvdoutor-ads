@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ProposalStatusBadge, type ProposalStatus } from "@/components/ProposalStatusBadge";
-import { PDFDownloadButton } from "@/components/PDFDownloadButton";
 import { 
   ArrowLeft, 
   Calendar, 
@@ -27,7 +26,44 @@ import {
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { generateProPDF, openPDF } from "@/lib/pdf";
+import { generateProPDF } from "@/lib/pdf";
+
+// helper local para abrir PDF a partir de Blob OU URL
+function openPDFFromAny(input: { blob?: Blob; pdfBase64?: string; arrayBuffer?: ArrayBuffer; url?: string; filename?: string }) {
+  const filename = input.filename || 'documento.pdf';
+
+  if (input.url) {
+    window.open(input.url, '_blank', 'noopener,noreferrer');
+    return;
+  }
+
+  let blob: Blob | null = null;
+
+  if (input.pdfBase64) {
+    const bin = atob(input.pdfBase64);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    blob = new Blob([bytes], { type: 'application/pdf' });
+  } else if (input.arrayBuffer) {
+    blob = new Blob([input.arrayBuffer], { type: 'application/pdf' });
+  } else if (input.blob) {
+    blob = input.blob;
+  }
+
+  if (!blob) throw new Error('EMPTY_PDF_PAYLOAD');
+
+  const url = URL.createObjectURL(blob);
+  // Abrir em nova aba e sugerir filename
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.target = '_blank';
+  a.rel = 'noopener';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
+}
 
 interface ProposalDetails {
   id: number;
@@ -270,22 +306,46 @@ const ProposalDetails = () => {
   const handleGeneratePDF = async () => {
     try {
       toast.info("Gerando PDF profissional...");
-      const result = await generateProPDF(proposal.id);
-      
-      if (result.ok && result.pdf_url) {
-        // Verificar se é PDF básico (fallback)
-        const isBasicPDF = result.pdf_path?.includes('-basica.pdf');
-        if (isBasicPDF) {
-          toast.success("PDF básico gerado! (Versão completa em desenvolvimento)");
+      // >>> envie o ID da proposta
+      const result: any = await generateProPDF(proposal.id);
+
+      // Log para telemetria mínima
+      console.debug('[PDF][generateProPDF result]', {
+        ok: result?.ok,
+        keys: Object.keys(result || {}),
+        contentType: result?.contentType,
+        size: result?.blob ? result.blob.size : (result?.arrayBuffer?.byteLength || (result?.pdfBase64?.length || 0)),
+        kind: result?.kind,
+        status: result?.status,
+      });
+
+      // Normalizamos o contrato aceitando múltiplos formatos:
+      if (result?.ok) {
+        const payload = {
+          url: result.pdf_url || result.url,
+          blob: result.blob,
+          pdfBase64: result.pdfBase64 || result.base64,
+          arrayBuffer: result.arrayBuffer,
+          filename: `proposta-${proposal.id}.pdf`,
+        };
+
+        // Se a Edge sinalizar explicitamente que é básico, avise; mas não use heurística de nome.
+        if (result.kind === 'basic') {
+          toast.success("PDF básico gerado (função PRO não respondeu).");
         } else {
           toast.success("PDF profissional gerado com sucesso!");
         }
-        openPDF(result.pdf_url, `proposta-${proposal.id}.pdf`);
-      } else {
-        toast.error(result.error || "Erro ao gerar PDF");
+
+        openPDFFromAny(payload);
+        return;
       }
-    } catch (error) {
-      toast.error("Erro ao gerar PDF");
+
+      // Se não ok, mostre motivo detalhado
+      const reason = result?.reason || result?.error || 'UNKNOWN';
+      toast.error(`Falha ao gerar PDF: ${reason}`);
+    } catch (err: any) {
+      console.error('[PDF][handleGeneratePDF]', err);
+      toast.error(`Erro ao gerar PDF: ${err?.message || 'desconhecido'}`);
     }
   };
 

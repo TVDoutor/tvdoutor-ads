@@ -89,6 +89,7 @@ const Propostas = () => {
   });
 
   useEffect(() => {
+    console.log('🔄 useEffect executado - user mudou:', user);
     fetchProposals();
   }, [user]);
 
@@ -99,15 +100,20 @@ const Propostas = () => {
   const fetchProposals = async () => {
     try {
       setLoading(true);
+      console.log('🔍 Iniciando busca de propostas...');
+      console.log('👤 Usuário atual:', user);
       
       if (!user) {
-        console.warn('Usuário não autenticado');
+        console.warn('⚠️ Usuário não autenticado');
         setProposals([]);
         calculateStats([]);
         return;
       }
 
-      const { data, error } = await supabase
+      console.log('🔍 Buscando propostas para usuário:', user.id);
+      
+      // Primeiro, tentar buscar propostas do usuário
+      let { data, error } = await supabase
         .from('proposals')
         .select(`
           id,
@@ -127,13 +133,50 @@ const Propostas = () => {
         .eq('created_by', user.id)
         .order('status_updated_at', { ascending: false });
 
-      if (error) throw error;
+      console.log('📊 Resultado da busca (usuário):', { data, error });
 
+      // Se não encontrou propostas do usuário, tentar buscar todas (para admins)
+      if (!error && (!data || data.length === 0)) {
+        console.log('🔍 Nenhuma proposta do usuário encontrada, tentando buscar todas...');
+        
+        const { data: allData, error: allError } = await supabase
+          .from('proposals')
+          .select(`
+            id,
+            customer_name,
+            customer_email,
+            proposal_type,
+            status,
+            created_at,
+            updated_at,
+            status_updated_at,
+            start_date,
+            end_date,
+            net_calendar,
+            gross_calendar,
+            created_by
+          `)
+          .order('status_updated_at', { ascending: false });
+
+        console.log('📊 Resultado da busca (todas):', { data: allData, error: allError });
+        
+        if (!allError) {
+          data = allData;
+          error = allError;
+        }
+      }
+
+      if (error) {
+        console.error('❌ Erro na busca:', error);
+        throw error;
+      }
+
+      console.log(`✅ Propostas encontradas: ${data?.length || 0}`);
       setProposals(data || []);
       calculateStats(data || []);
     } catch (error: any) {
-      console.error('Erro ao buscar propostas:', error);
-      toast.error('Erro ao carregar propostas');
+      console.error('❌ Erro ao buscar propostas:', error);
+      toast.error('Erro ao carregar propostas: ' + error.message);
     } finally {
       setLoading(false);
     }

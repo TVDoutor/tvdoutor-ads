@@ -190,10 +190,10 @@ const Users = () => {
         password: newUser.password,
         options: {
           data: {
-            full_name: newUser.name,
+            full_name: newUser.name
             // REGRA DE SEGURANÇA: A role de um novo usuário cadastrado
             // publicamente DEVE ser sempre 'user'. Nunca deixe o usuário escolher.
-            role: 'user',
+            // role: 'user', // Removido - o trigger handle_new_user já define
           }
         }
       });
@@ -224,8 +224,8 @@ const Users = () => {
               id: authData.user.id,
               email: newUser.email,
               full_name: newUser.name,
-              display_name: newUser.name,
-              role: 'user'
+              display_name: newUser.name
+              // role: 'user' // Removido - o trigger handle_new_user já define
             });
 
           if (manualProfileError) {

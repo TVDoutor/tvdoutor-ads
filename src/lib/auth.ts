@@ -26,8 +26,8 @@ export async function registerUser(name: string, email: string, password: string
         id: userId, 
         full_name: name,
         display_name: name,
-        email: email,
-        role: 'user'
+        email: email
+        // role: 'user' // Removido - o trigger handle_new_user já define
       }]);
 
     if (profileError) throw new Error(profileError.message);

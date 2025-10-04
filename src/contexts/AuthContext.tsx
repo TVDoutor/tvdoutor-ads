@@ -45,9 +45,10 @@ export const useAuth = () => {
 const mapDatabaseRoleToUserRole = (dbRole: string): UserRole => {
   switch (dbRole) {
     case 'super_admin':
-      return 'Admin'; // Super Admin vira Admin no frontend
-    case 'admin':
-      return 'Manager'; // Admin vira Manager no frontend
+    case 'admin': // Admin users now have super_admin permissions
+      return 'Admin'; // Both super_admin and admin become Admin in frontend
+    case 'manager':
+      return 'Manager'; // Manager stays Manager
     case 'user':
     default:
       return 'User';
@@ -113,6 +114,9 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           // Verificar se é super admin primeiro
           if (roleData.super_admin === true) {
             fallbackRole = 'Admin';
+          } else if (roleData.role === 'admin') {
+            // Admin users should have Admin permissions
+            fallbackRole = 'Admin';
           } else {
             fallbackRole = mapDatabaseRoleToUserRole(roleData.role || 'user');
           }
@@ -157,6 +161,10 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         } else {
           userRole = mapDatabaseRoleToUserRole(roleData.role || 'user');
         }
+      } else if (profileData.role === 'admin') {
+        // Admin users should have Admin permissions
+        userRole = 'Admin';
+        logDebug('Usuário identificado como admin, dando permissões de Admin');
         logDebug('Role mapeado via fallback', { roleData, frontendRole: userRole });
       }
       
@@ -297,7 +305,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
                     email: user.email,
                     full_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'Usuário',
                     display_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'Usuário',
-                    role: 'user',
+                    // role: 'user', // Removido - o trigger handle_new_user já define
                     super_admin: false
                   });
                 
@@ -400,8 +408,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
               id: data.user.id,
               email: data.user.email,
               full_name: name,
-              display_name: name,
-              role: 'user'
+              display_name: name
+              // role: 'user' // Removido - o trigger handle_new_user já define
             });
 
           if (profileError) {

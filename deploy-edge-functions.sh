@@ -57,6 +57,16 @@ else
     exit 1
 fi
 
+echo "📦 Fazendo deploy da Edge Function: create-admin-user"
+supabase functions deploy create-admin-user
+
+if [ $? -eq 0 ]; then
+    echo "✅ create-admin-user deployada com sucesso!"
+else
+    echo "❌ Erro ao fazer deploy de create-admin-user"
+    exit 1
+fi
+
 echo "🎉 Todas as Edge Functions foram deployadas com sucesso!"
 echo ""
 echo "📋 Próximos passos:"

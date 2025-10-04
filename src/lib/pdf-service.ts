@@ -345,7 +345,7 @@ class PDFService {
             letterRendering: true,
             allowTaint: true,
             backgroundColor: '#ffffff',
-            logging: true,  // Ativar logging para debug
+            logging: false,  // Desativar logging em produção
             width: 800,
             height: null,
             scrollX: 0,

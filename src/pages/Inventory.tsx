@@ -208,6 +208,7 @@ const Inventory = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [classFilter, setClassFilter] = useState<string>("all");
+  const [specialtyFilter, setSpecialtyFilter] = useState<string>("all");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -245,7 +246,22 @@ const Inventory = () => {
 
   useEffect(() => {
     filterScreens();
-  }, [searchTerm, statusFilter, classFilter, screens]);
+  }, [searchTerm, statusFilter, classFilter, specialtyFilter, screens]);
+
+  // Função para obter todas as especialidades únicas
+  const getAllSpecialties = useCallback(() => {
+    const specialtySet = new Set<string>();
+    screens.forEach(screen => {
+      if (screen.specialty && screen.specialty.length > 0) {
+        screen.specialty.forEach(spec => {
+          if (spec && spec.trim()) {
+            specialtySet.add(spec.trim());
+          }
+        });
+      }
+    });
+    return Array.from(specialtySet).sort();
+  }, [screens]);
 
   // Calcular estatísticas
   const calculateStats = useCallback((screensData: Screen[]) => {
@@ -379,10 +395,12 @@ const Inventory = () => {
          const screenCode = screen.code || '';
          const displayName = screen.display_name || '';
          const location = (screen.address || '').toLowerCase();
+         const specialties = screen.specialty ? screen.specialty.join(' ').toLowerCase() : '';
          
          return screenCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 displayName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                location.includes(searchTerm.toLowerCase());
+                location.includes(searchTerm.toLowerCase()) ||
+                specialties.includes(searchTerm.toLowerCase());
        });
      }
 
@@ -396,6 +414,15 @@ const Inventory = () => {
 
     if (classFilter !== "all") {
       filtered = filtered.filter(screen => screen.class === classFilter);
+    }
+
+    if (specialtyFilter !== "all") {
+      filtered = filtered.filter(screen => {
+        if (!screen.specialty || screen.specialty.length === 0) return false;
+        return screen.specialty.some(spec => 
+          spec.toLowerCase().includes(specialtyFilter.toLowerCase())
+        );
+      });
     }
 
     setFilteredScreens(filtered);
@@ -1365,7 +1392,7 @@ const Inventory = () => {
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Buscar por código, nome, cidade ou endereço..."
+                  placeholder="Buscar por código, nome, cidade, endereço ou especialidade..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10"
@@ -1398,13 +1425,28 @@ const Inventory = () => {
                   </SelectContent>
                 </Select>
 
-                {(searchTerm || statusFilter !== "all" || classFilter !== "all") && (
+                <Select value={specialtyFilter} onValueChange={setSpecialtyFilter}>
+                  <SelectTrigger className="w-48">
+                    <SelectValue placeholder="Especialidade" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas as Especialidades</SelectItem>
+                    {getAllSpecialties().map((specialty) => (
+                      <SelectItem key={specialty} value={specialty}>
+                        {specialty}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                {(searchTerm || statusFilter !== "all" || classFilter !== "all" || specialtyFilter !== "all") && (
                   <Button 
                     variant="outline" 
                     onClick={() => {
                       setSearchTerm("");
                       setStatusFilter("all");
                       setClassFilter("all");
+                      setSpecialtyFilter("all");
                     }}
                     className="gap-2"
                   >
@@ -1415,13 +1457,14 @@ const Inventory = () => {
               </div>
             </div>
             
-            {(searchTerm || statusFilter !== "all" || classFilter !== "all") && (
+            {(searchTerm || statusFilter !== "all" || classFilter !== "all" || specialtyFilter !== "all") && (
               <div className="mt-4 p-3 bg-muted/50 rounded-lg">
                 <p className="text-sm text-muted-foreground">
                   Mostrando {filteredScreens.length} de {screens.length} telas
                   {searchTerm && ` • Busca: "${searchTerm}"`}
                   {statusFilter !== "all" && ` • Status: ${statusFilter === "ativa" ? "Ativas" : "Inativas"}`}
                   {classFilter !== "all" && ` • Classe: ${classFilter}`}
+                  {specialtyFilter !== "all" && ` • Especialidade: ${specialtyFilter}`}
                 </p>
               </div>
             )}
@@ -1635,24 +1678,25 @@ const Inventory = () => {
                 <div className="text-center py-12">
                   <Monitor className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
                   <h3 className="text-lg font-semibold mb-2">
-                    {searchTerm || statusFilter !== "all" || classFilter !== "all" 
+                    {searchTerm || statusFilter !== "all" || classFilter !== "all" || specialtyFilter !== "all"
                       ? "Nenhuma tela encontrada"
                       : "Nenhuma tela cadastrada"
                     }
                   </h3>
                   <p className="text-muted-foreground mb-4">
-                    {searchTerm || statusFilter !== "all" || classFilter !== "all"
+                    {searchTerm || statusFilter !== "all" || classFilter !== "all" || specialtyFilter !== "all"
                       ? "Tente ajustar os filtros de busca ou limpe os filtros para ver todas as telas."
                       : "Quando houver telas cadastradas, elas aparecerão aqui."
                     }
                   </p>
-                  {(searchTerm || statusFilter !== "all" || classFilter !== "all") && (
+                  {(searchTerm || statusFilter !== "all" || classFilter !== "all" || specialtyFilter !== "all") && (
                     <Button 
                       variant="outline" 
                       onClick={() => {
                         setSearchTerm("");
                         setStatusFilter("all");
                         setClassFilter("all");
+                        setSpecialtyFilter("all");
                       }}
                     >
                       Limpar Filtros

@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { emailService } from "@/lib/email-service";
 import { toast } from "sonner";
 import { useState } from "react";
+import { useAuth } from "@/contexts/AuthContext";
 import { 
   ArrowLeft, 
   FileText, 
@@ -23,12 +24,19 @@ import {
 
 const NewProposal = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
 
   const handleComplete = async (data: ProposalData) => {
     setLoading(true);
     try {
+      // Verificar se o usuário está autenticado
+      if (!user) {
+        toast.error('Você precisa estar logado para criar uma proposta');
+        return;
+      }
+
       console.log('🔍 Dados da proposta antes de inserir:', {
         customer_name: data.customer_name,
         selectedScreens: data.selectedScreens,
@@ -64,6 +72,7 @@ const NewProposal = () => {
         cpm_value: cpmValue,
         discount_pct: discountPct,
         discount_fixed: discountFixed,
+        created_by: user?.id, // Adicionar o campo created_by para as políticas RLS
       } as const;
 
       console.log('✅ Payload pronto para inserir:', payload);

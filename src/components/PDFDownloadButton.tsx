@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Download, FileText, AlertCircle } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { pdfService } from "@/lib/pdf-service";
 
 interface PDFDownloadButtonProps {
   proposalId: number;
@@ -36,29 +36,12 @@ export const PDFDownloadButton = ({
     try {
       console.log(`🚀 Iniciando geração do PDF para proposta ${proposalId}...`);
       
-      // Chamar a Edge Function para gerar o PDF básico
-      const { data, error } = await supabase.functions.invoke('generate-pdf-proposal', {
-        body: { proposalId }
+      // Usar pdf-service.ts diretamente (client-side)
+      await pdfService.downloadProposalPDF(proposalId, `proposta-${proposalId}.pdf`);
+      
+      toast.success('PDF gerado com sucesso!', {
+        description: `Proposta #${proposalId} está sendo baixada...`
       });
-
-      if (error) {
-        throw new Error(error.message || 'Erro ao chamar função de geração de PDF');
-      }
-
-      if (!data || !data.ok) {
-        throw new Error(data?.error || 'Erro na geração do PDF');
-      }
-
-      if (data.pdf_url) {
-        // Abrir o PDF em uma nova aba
-        window.open(data.pdf_url, '_blank');
-        
-        toast.success('PDF gerado com sucesso!', {
-          description: `Proposta #${proposalId} está sendo baixada...`
-        });
-      } else {
-        throw new Error('URL do PDF não foi retornada');
-      }
       
     } catch (error: any) {
       console.error('❌ Erro detalhado ao gerar PDF:', {

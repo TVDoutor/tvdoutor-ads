@@ -1,6 +1,8 @@
 // src/lib/pdf.ts
 // Integração frontend para geração de PDF profissional
 
+import { pdfService } from './pdf-service';
+
 // Tipos para diferentes formatos de retorno
 type ProPdfSuccess =
   | { ok: true; blob: Blob; kind?: 'pro' | 'basic' }
@@ -261,14 +263,18 @@ export async function generateProPDF(proposalId: number, logoUrl?: string): Prom
     const payload = buildProposalPayload(proposalData);
     console.log('📋 Payload construído:', payload);
     
-    console.log('📡 Chamando Edge Function pdf-proposal-pro (PDF completo)...');
+    console.log('📡 Usando geração client-side (pdf-service.ts)...');
     
-    // Usar o cliente Supabase para chamar a Edge Function PROFISSIONAL
-    const { data, error } = await supabase.functions.invoke('pdf-proposal-pro', {
-      body: {
-        proposalId: proposalId
-      }
-    });
+    // Usar pdf-service.ts diretamente (client-side)
+    const pdfBlob = await pdfService.generateProposalPDF({ proposalId });
+    
+    // Simular resposta da Edge Function para compatibilidade
+    const data = {
+      ok: true,
+      blob: pdfBlob,
+      kind: 'client-side'
+    };
+    const error = null;
 
     console.log('📊 Resposta da Edge Function:', { data, error });
 

@@ -70,62 +70,49 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     try {
       logDebug('Buscando perfil do usuário');
       
-      // Timeout para evitar requests eternos
+      // Buscar perfil e role usando a nova estrutura
       const profilePromise = supabase
         .from('profiles')
         .select('*')
         .eq('id', userId)
         .single();
 
-      // Fallback: buscar role diretamente da tabela profiles
-      const rolesPromise = supabase
-        .from('profiles')
-        .select('role, super_admin')
-        .eq('id', userId)
-        .single();
+      const rolePromise = supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', userId)
+        .order('role', { ascending: true })
+        .limit(1);
 
-      // Timeout de 10 segundos para as consultas (aumentado)
+      // Timeout de 10 segundos para as consultas
       const timeoutPromise = new Promise((_, reject) => {
         setTimeout(() => reject(new Error('Profile fetch timeout')), 10000);
       });
 
-      const [profileResult, rolesResult] = await Promise.race([
-        Promise.all([profilePromise, rolesPromise]),
+      const [profileResult, roleResult] = await Promise.race([
+        Promise.all([profilePromise, rolePromise]),
         timeoutPromise
       ]) as [any, any];
 
       const { data: profileData, error: profileError } = profileResult;
-      const { data: roleData, error: rolesError } = rolesResult;
+      const { data: roleData, error: roleError } = roleResult;
       
       logDebug('Resultado da busca do perfil', { 
         hasProfileData: !!profileData, 
         profileError: profileError?.message, 
         roleData, 
-        rolesError: rolesError?.message 
+        roleError: roleError?.message 
       });
 
-      // Se não conseguir buscar o perfil, criar um perfil básico
+      // Se não conseguir buscar o perfil, usar fallback
       if (profileError) {
         logError('Erro ao buscar perfil', profileError);
         
-        // Mesmo se o perfil falhar, tente obter o role
-        let fallbackRole: UserRole = 'User';
-        if (roleData && !rolesError) {
-          // Verificar se é super admin primeiro
-          if (roleData.super_admin === true) {
-            fallbackRole = 'Admin';
-          } else if (roleData.role === 'admin') {
-            // Admin users should have Admin permissions
-            fallbackRole = 'Admin';
-          } else {
-            fallbackRole = mapDatabaseRoleToUserRole(roleData.role || 'user');
-          }
-          logDebug('Role obtido via fallback', { roleData, mappedRole: fallbackRole });
-        }
-        
-        // Tentar obter informações básicas do usuário autenticado
+        // Fallback: obter informações básicas do usuário autenticado
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
+          let fallbackRole: UserRole = 'User';
+          
           // Se o email for do hildebrando, forçar role Admin
           if (user.email === 'hildebrando.cardoso@tvdoutor.com.br') {
             logDebug('Forçando role Admin para usuário específico');
@@ -143,29 +130,17 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         return null;
       }
 
-      if (rolesError) {
-        logError('Error fetching roles', rolesError);
-      }
-
       // Mapear o role do banco para o frontend
       let userRole: UserRole = 'User';
       
-      // Verificar primeiro se é super admin (campo booleano)
+      // Verificar primeiro se é super admin (campo booleano na tabela profiles)
       if (profileData.super_admin === true) {
         userRole = 'Admin';
         logDebug('Usuário identificado como super_admin via campo booleano');
-      } else if (roleData && !rolesError) {
-        // Verificar se é super admin no roleData também
-        if (roleData.super_admin === true) {
-          userRole = 'Admin';
-        } else {
-          userRole = mapDatabaseRoleToUserRole(roleData.role || 'user');
-        }
-      } else if (profileData.role === 'admin') {
-        // Admin users should have Admin permissions
-        userRole = 'Admin';
-        logDebug('Usuário identificado como admin, dando permissões de Admin');
-        logDebug('Role mapeado via fallback', { roleData, frontendRole: userRole });
+      } else if (roleData && roleData.length > 0 && !roleError) {
+        // Usar role da tabela user_roles
+        userRole = mapDatabaseRoleToUserRole(roleData[0].role || 'user');
+        logDebug('Role obtido da tabela user_roles', { role: roleData[0].role, mappedRole: userRole });
       }
       
       // Fallback especial para hildebrando
@@ -525,44 +500,3 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
-// Adicionar logs no contexto de autenticação
-
-const checkUserProfile = async (user: any) => {
-  logDebug('Verificando perfil do usuário', { userId: user?.id });
-  
-  try {
-    const { data: profile, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', user.id)
-      .single();
-    
-    logDebug('Resultado busca perfil', { hasProfile: !!profile, hasError: !!error });
-    
-    if (error) {
-      logError('Erro ao buscar perfil', error);
-      if (error.code === 'PGRST116') {
-        logDebug('Perfil não encontrado, criando novo perfil');
-        // Criar perfil se não existir
-        const { data: newProfile, error: createError } = await supabase
-          .from('profiles')
-          .insert({
-            id: user.id,
-            email: user.email,
-            full_name: user.user_metadata?.full_name || user.email
-          })
-          .select()
-          .single();
-        
-        logDebug('Resultado criação perfil', { hasNewProfile: !!newProfile, hasCreateError: !!createError });
-        return newProfile;
-      }
-      throw error;
-    }
-    
-    return profile;
-  } catch (error) {
-    logError('Erro inesperado ao verificar perfil', error);
-    throw error;
-  }
-};

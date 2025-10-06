@@ -51,8 +51,8 @@ serve(async (req) => {
       emailContent = generateEmailContent(emailData);
     }
     
-    // Try to send with Resend, fallback to simulation
-    const success = await sendEmailWithResend(emailData.recipientEmail, emailContent)
+    // Try to send with SendGrid first, then Resend, then simulation
+    const success = await sendEmailWithSendGrid(emailData.recipientEmail, emailContent)
     
     if (success) {
       // Update email log status to 'sent'
@@ -224,6 +224,62 @@ function generateEmailContent(emailData: EmailRequest) {
     html: htmlContent,
     text: textContent,
     subject: emailData.subject
+  }
+}
+
+async function sendEmailWithSendGrid(recipientEmail: string, emailContent: any): Promise<boolean> {
+  const sendGridApiKey = Deno.env.get('SENDGRID_API_KEY');
+  
+  if (!sendGridApiKey) {
+    console.warn('⚠️ SENDGRID_API_KEY not configured, falling back to Resend');
+    return await sendEmailWithResend(recipientEmail, emailContent);
+  }
+
+  try {
+    console.log(`📧 Sending email via SendGrid to: ${recipientEmail}`);
+    
+    const response = await fetch('https://api.sendgrid.com/v3/mail/send', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${sendGridApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        personalizations: [{
+          to: [{ email: recipientEmail }],
+          subject: emailContent.subject
+        }],
+        from: {
+          email: 'noreply@tvdoutor.com.br',
+          name: 'TV Doutor ADS'
+        },
+        content: [
+          {
+            type: 'text/html',
+            value: emailContent.html
+          },
+          {
+            type: 'text/plain',
+            value: emailContent.text
+          }
+        ]
+      })
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('❌ SendGrid error:', response.status, errorText);
+      return false;
+    }
+
+    console.log('✅ Email sent via SendGrid successfully');
+    return true;
+    
+  } catch (error) {
+    console.error('❌ Error sending email via SendGrid:', error);
+    // Fallback to Resend
+    console.log('🔄 Falling back to Resend...');
+    return await sendEmailWithResend(recipientEmail, emailContent);
   }
 }
 

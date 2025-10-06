@@ -196,6 +196,12 @@ export const logError = (message: string, error?: unknown) => secureLogger.error
 export const logAuthSuccess = (message: string, userInfo?: { role?: string; hasEmail?: boolean }) => secureLogger.authSuccess(message, userInfo);
 export const logAuthError = (message: string, error?: unknown) => secureLogger.authError(message, error);
 
+// Aliases para compatibilidade (caso alguém use com L maiúsculo)
+export const LogWarn = logWarn;
+export const LogDebug = logDebug;
+export const LogInfo = logInfo;
+export const LogError = logError;
+
 // Definir PHI se não estiver definido
 const PHI = {
   // Adicione as propriedades necessárias aqui

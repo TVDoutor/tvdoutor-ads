@@ -52,17 +52,75 @@ serve(async (req) => {
       )
     }
 
-    // Create Supabase client with service role key
-    const supabaseClient = createClient(
-      supabaseUrl,
-      supabaseServiceKey,
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false
+    // Get authorization header for user context
+    const authHeader = req.headers.get('authorization')
+    let supabaseClient
+    
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      // Use user's JWT token for authenticated requests
+      const token = authHeader.replace('Bearer ', '')
+      supabaseClient = createClient(
+        supabaseUrl,
+        Deno.env.get('SUPABASE_ANON_KEY')!,
+        {
+          auth: {
+            autoRefreshToken: false,
+            persistSession: false
+          },
+          global: {
+            headers: {
+              Authorization: authHeader
+            }
+          }
         }
+      )
+      
+      // Verify the token is valid by getting the user
+      try {
+        const { data: { user }, error: userError } = await supabaseClient.auth.getUser()
+        if (userError || !user) {
+          console.error('Invalid or expired token:', userError)
+          return new Response(
+            JSON.stringify({ 
+              success: false, 
+              error: 'Token inválido ou expirado',
+              details: 'Authentication failed'
+            }),
+            { 
+              status: 401, 
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+            }
+          )
+        }
+        console.log('Authenticated user:', user.id)
+      } catch (authError) {
+        console.error('Authentication error:', authError)
+        return new Response(
+          JSON.stringify({ 
+            success: false, 
+            error: 'Erro de autenticação',
+            details: 'Failed to verify user token'
+          }),
+          { 
+            status: 401, 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          }
+        )
       }
-    )
+    } else {
+      // Use service role key for admin operations
+      supabaseClient = createClient(
+        supabaseUrl,
+        supabaseServiceKey,
+        {
+          auth: {
+            autoRefreshToken: false,
+            persistSession: false
+          }
+        }
+      )
+      console.log('Using service role key for admin operations')
+    }
     
     console.log('Edge Function iniciada:', {
       method: req.method,
@@ -74,30 +132,56 @@ serve(async (req) => {
 
     if (method === 'GET') {
       // Buscar emails pendentes
-      const { data: pendingEmails, error } = await supabaseClient
-        .from('email_logs')
-        .select(`
-          id,
-          proposal_id,
-          email_type,
-          recipient_email,
-          recipient_type,
-          subject,
-          customer_name,
-          proposal_type,
-          created_at
-        `)
-        .eq('status', 'pending')
-        .order('created_at', { ascending: true })
-        .limit(50)
+      try {
+        const { data: pendingEmails, error } = await supabaseClient
+          .from('email_logs')
+          .select(`
+            id,
+            proposal_id,
+            email_type,
+            recipient_email,
+            recipient_type,
+            subject,
+            customer_name,
+            proposal_type,
+            created_at
+          `)
+          .eq('status', 'pending')
+          .order('created_at', { ascending: true })
+          .limit(50)
 
-      if (error) {
-        console.error('Erro ao buscar emails pendentes:', error)
+        if (error) {
+          console.error('Erro ao buscar emails pendentes:', error)
+          return new Response(
+            JSON.stringify({ 
+              success: false, 
+              error: 'Erro ao buscar emails pendentes',
+              details: error.message 
+            }),
+            { 
+              status: 500, 
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+            }
+          )
+        }
+
+        return new Response(
+          JSON.stringify({ 
+            success: true, 
+            data: pendingEmails || [],
+            count: pendingEmails?.length || 0
+          }),
+          { 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          }
+        )
+      } catch (dbError) {
+        console.error('Erro de banco de dados:', dbError)
         return new Response(
           JSON.stringify({ 
             success: false, 
-            error: 'Erro ao buscar emails pendentes',
-            details: error.message 
+            error: 'Erro de banco de dados',
+            details: dbError instanceof Error ? dbError.message : 'Erro desconhecido'
           }),
           { 
             status: 500, 
@@ -105,17 +189,6 @@ serve(async (req) => {
           }
         )
       }
-
-      return new Response(
-        JSON.stringify({ 
-          success: true, 
-          data: pendingEmails || [],
-          count: pendingEmails?.length || 0
-        }),
-        { 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      )
     }
 
     if (method === 'POST') {

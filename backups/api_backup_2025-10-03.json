@@ -1,0 +1,58 @@
+{
+  "timestamp": "2025-10-03T13:58:42.089Z",
+  "projectRef": "vaogzhwzucijiyvyglls",
+  "tables": {
+    "profiles": {
+      "error": "Invalid API key",
+      "records": 0
+    },
+    "screens": {
+      "error": "Invalid API key",
+      "records": 0
+    },
+    "proposals": {
+      "error": "Invalid API key",
+      "records": 0
+    },
+    "proposal_screens": {
+      "error": "Invalid API key",
+      "records": 0
+    },
+    "agencies": {
+      "error": "Invalid API key",
+      "records": 0
+    },
+    "agencia_projetos": {
+      "error": "Invalid API key",
+      "records": 0
+    },
+    "agencia_deals": {
+      "error": "Invalid API key",
+      "records": 0
+    },
+    "venues": {
+      "error": "Invalid API key",
+      "records": 0
+    },
+    "price_rules": {
+      "error": "Invalid API key",
+      "records": 0
+    },
+    "screen_rates": {
+      "error": "Invalid API key",
+      "records": 0
+    },
+    "user_roles": {
+      "error": "Invalid API key",
+      "records": 0
+    },
+    "campaigns": {
+      "error": "Invalid API key",
+      "records": 0
+    },
+    "campaign_screens": {
+      "error": "Invalid API key",
+      "records": 0
+    }
+  }
+}

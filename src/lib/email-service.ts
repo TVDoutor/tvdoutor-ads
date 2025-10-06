@@ -33,8 +33,25 @@ class EmailService {
     try {
       logDebug('Buscando emails pendentes via Edge Function');
       
+      // Get current session for authentication
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError) {
+        logError('Erro ao obter sessão para buscar emails pendentes', sessionError);
+        return [];
+      }
+      
+      if (!session) {
+        logWarn('Nenhuma sessão ativa para buscar emails pendentes');
+        return [];
+      }
+      
       const { data, error } = await supabase.functions.invoke('process-pending-emails', {
-        method: 'GET'
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json'
+        }
       });
 
       if (error) {
@@ -121,6 +138,19 @@ class EmailService {
     try {
       logDebug(`[RESEND] Enviando email`, { hasRecipient: !!emailLog.recipient_email });
 
+      // Get current session for authentication
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError) {
+        logError('Erro ao obter sessão para envio de email', sessionError);
+        return false;
+      }
+      
+      if (!session) {
+        logWarn('Nenhuma sessão ativa para envio de email');
+        return false;
+      }
+
       // Gerar conteúdo do email
       const emailContent = await this.generateEmailContent(emailLog);
       
@@ -137,6 +167,10 @@ class EmailService {
           proposalType: emailLog.proposal_type,
           htmlContent: emailContent.html,
           textContent: emailContent.text
+        },
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json'
         }
       });
 
@@ -612,9 +646,26 @@ class EmailService {
     try {
       logInfo('Iniciando processamento de emails via Edge Function');
       
+      // Get current session for authentication
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError) {
+        logError('Erro ao obter sessão para processamento de emails', sessionError);
+        return { processed: 0, successful: 0, failed: 0 };
+      }
+      
+      if (!session) {
+        logWarn('Nenhuma sessão ativa para processamento de emails');
+        return { processed: 0, successful: 0, failed: 0 };
+      }
+      
       const { data, error } = await supabase.functions.invoke('process-pending-emails', {
         method: 'POST',
-        body: { action: 'process' }
+        body: { action: 'process' },
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json'
+        }
       });
 
       if (error) {

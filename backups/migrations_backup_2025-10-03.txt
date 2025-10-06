@@ -1,0 +1,84 @@
+# 📁 Backup das Migrações
+
+## 📊 Informações
+- **Data**: 2025-10-03T13:57:55.707Z
+- **Projeto**: vaogzhwzucijiyvyglls
+- **Diretório**: supabase/migrations/
+
+## 📋 Lista de Migrações
+- 20250118000000_create_profiles_table.sql
+- 20250119000000_add_ensure_profile_function.sql
+- 20250119120000_add_missing_foreign_keys.sql
+- 20250119130000_add_user_profile_trigger.sql
+- 20250120000000_add_super_admin_user.sql
+- 20250121000000_fix_data_saving_issues.sql
+- 20250122000000_add_google_fields_to_screens.sql
+- 20250124000000_sync_schema_with_remote.sql
+- 20250125000000_fix_class_band_enum.sql
+- 20250126000000_create_campaigns_tables.sql
+- 20250127000000_fix_screens_permissions.sql
+- 20250128000000_sync_schema_with_remote.sql
+- 20250128000002_create_project_rpc.sql
+- 20250128000003_create_essential_rpc_functions.sql
+- 20250128000004_fix_email_tables_rls.sql
+- 20250128000005_fix_email_logs_rls_final.sql
+- 20250128000006_fix_agencia_projeto_marcos_permissions.sql
+- 20250130000001_fix_profiles_rls_policy.sql
+- 20250131000001_add_super_admin_to_profiles.sql
+- 20250131000003_fix_email_logs_structure.sql
+- 20250131000004_ensure_class_column_exists.sql
+- 20250131000006_fix_vw_screens_inventory.sql
+- 20250131000007_create_v_screens_enriched.sql
+- 20250131000008_insert_test_data.sql
+- 20250131000009_fix_view_and_test_data.sql
+- 20250131000010_create_delete_screen_function.sql
+- 20250131000011_fix_specialties_in_view.sql
+- 20250131000012_fix_v_screens_enriched_view.sql
+- 20250131000013_fix_view_columns.sql
+- 20250131000014_simple_view_fix.sql
+- 20250131000015_format_address_view.sql
+- 20250131000016_fix_specialty_data_normalization.sql
+- 20250131000017_create_get_proposal_details_function.sql
+- 20250131000018_fix_admin_logs_rls.sql
+- 20250818154338_84389959-73b1-4cd2-91b0-021763b5a830.sql
+- 20250818154455_17e6db6c-bba2-4adf-b10a-498b7e1ec247.sql
+- 20250825123835_a441f8c0-7c5b-48f9-b25b-d389e5daeb0b.sql
+- 20250825123919_6db6454e-e7a2-4fa9-921f-6ee8b1bc7f04.sql
+- 20250902174844_af7ad348-3e7d-4989-8bbc-a9046420e4f7.sql
+- 20250902180000_fix_proposals_permissions.sql
+- 20250902181000_fix_holidays_permissions.sql
+- 20250902182000_fix_proposal_system_permissions.sql
+- 20250902183000_comprehensive_holidays_and_functions_fix.sql
+- 20250902184000_performance_improvements_and_utility_views.sql
+- 20250902185000_critical_rls_and_updated_at_fix.sql
+- 20250902190000_add_proposal_status_system.sql
+- 20250902195000_email_notification_system.sql
+- 20250902200000_fix_get_user_role_permissions.sql
+- 20250903130000_simple_proposal_kpis_view.sql
+- 20250903140000_implement_rls_policies_and_security.sql
+- 20250904000000_create_agencias_table.sql
+- 20250904171003_281ca992-f250-4c2a-80c0-f4fd2ac19376.sql
+- 20250904171047_535bddb8-0109-414d-801b-a3b8e84f430d.sql
+- 20250905000000_create_agencia_contatos_table.sql
+- 20250905000001_fix_agencia_contatos_rls.sql
+- 20250909000000_create_heatmap_function.sql
+- 20250910000000_update_equipe_functions.sql
+- 20250911000000_create_pessoas_projeto_table.sql
+- 20250911173838_7a7c6a87-5e00-4c0f-96e0-512364f93265.sql
+- 20250911173942_34eaefe7-4174-444d-ba68-a9c6bae2ee87.sql
+- 20250912000000_update_view_pessoas_projeto.sql
+- 20250913000000_fix_agencia_projetos_rls.sql
+- 20250915000000_fix_marco_templates_policy.sql
+- 20250916000000_fix_agencia_projeto_marcos_rls.sql
+- 20250920000000_consolidate_fixes.sql
+- 20250921000000_fix_profiles_rls_policies.sql
+- 20250921000001_fix_marcos_rls_policies.sql
+- 20250921100000_proposal_screens_fk_idx.sql
+- 20250925000000_fix_venues_type_column_error.sql
+- 20250925000001_fix_import_from_staging_function.sql
+- 20251001000004_ultra_minimal_fix.sql
+- 20251001000005_fix_v_screens_enriched_columns.sql
+- 20251001000007_simple_user_creation_fix.sql
+- 20251001000009_simple_profiles_fix.sql
+- 20251002000001_fix_profiles_rls_policies.sql
+- 20251002000002_fix_user_signup.sql

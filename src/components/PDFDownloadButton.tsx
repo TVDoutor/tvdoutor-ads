@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Download, FileText, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { pdfService } from "@/lib/pdf-service";
+import { downloadVisibleProposalPDF } from "@/lib/pdf-service";
 
 interface PDFDownloadButtonProps {
   proposalId: number;
@@ -36,8 +36,22 @@ export const PDFDownloadButton = ({
     try {
       console.log(`🚀 Iniciando geração do PDF para proposta ${proposalId}...`);
       
-      // Usar pdf-service.ts diretamente (client-side)
-      await pdfService.downloadProposalPDF(proposalId, `proposta-${proposalId}.pdf`);
+      // DEBUG CRÍTICO: Verificar se o componente tem dados antes de gerar PDF
+      console.log('🔍 [DEBUG] Estado do componente antes da geração:', {
+        proposalId,
+        customerName,
+        isGenerating,
+        error,
+        timestamp: new Date().toISOString()
+      });
+
+      // Verificar se há dados essenciais
+      if (!proposalId) {
+        throw new Error('ID da proposta não fornecido');
+      }
+      
+      // Usar nova função de captura do DOM vivo
+      await downloadVisibleProposalPDF(`proposta-${proposalId}.pdf`);
       
       toast.success('PDF gerado com sucesso!', {
         description: `Proposta #${proposalId} está sendo baixada...`

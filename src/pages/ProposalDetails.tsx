@@ -26,7 +26,7 @@ import {
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { generateProPDF } from "@/lib/pdf";
+import { downloadVisibleProposalPDF } from "@/lib/pdf-service";
 
 // helper local para abrir PDF a partir de Blob OU URL
 function openPDFFromAny(input: { blob?: Blob; pdfBase64?: string; arrayBuffer?: ArrayBuffer; url?: string; filename?: string }) {
@@ -305,44 +305,35 @@ const ProposalDetails = () => {
   // Nova função para gerar PDF profissional
   const handleGeneratePDF = async () => {
     try {
-      toast.info("Gerando PDF profissional...");
-      // >>> envie o ID da proposta
-      const result: any = await generateProPDF(proposal.id);
-
-      // Log para telemetria mínima
-      console.debug('[PDF][generateProPDF result]', {
-        ok: result?.ok,
-        keys: Object.keys(result || {}),
-        contentType: result?.contentType,
-        size: result?.blob ? result.blob.size : (result?.arrayBuffer?.byteLength || (result?.pdfBase64?.length || 0)),
-        kind: result?.kind,
-        status: result?.status,
+      // DEBUG CRÍTICO: Verificar se os dados estão disponíveis
+      console.log('🔍 [DEBUG] handleGeneratePDF chamado:', {
+        proposalId: proposal?.id,
+        hasProposal: !!proposal,
+        loading,
+        proposalData: proposal ? {
+          id: proposal.id,
+          customer_name: proposal.customer_name,
+          screens_count: proposal.proposal_screens?.length || 0
+        } : null
       });
 
-      // Normalizamos o contrato aceitando múltiplos formatos:
-      if (result?.ok) {
-        const payload = {
-          url: result.pdf_url || result.url,
-          blob: result.blob,
-          pdfBase64: result.pdfBase64 || result.base64,
-          arrayBuffer: result.arrayBuffer,
-          filename: `proposta-${proposal.id}.pdf`,
-        };
-
-        // Se a Edge sinalizar explicitamente que é básico, avise; mas não use heurística de nome.
-        if (result.kind === 'basic') {
-          toast.success("PDF básico gerado (função PRO não respondeu).");
-        } else {
-          toast.success("PDF profissional gerado com sucesso!");
-        }
-
-        openPDFFromAny(payload);
-        return;
+      if (!proposal) {
+        throw new Error('Dados da proposta não carregados');
       }
 
-      // Se não ok, mostre motivo detalhado
-      const reason = result?.reason || result?.error || 'UNKNOWN';
-      toast.error(`Falha ao gerar PDF: ${reason}`);
+      if (loading) {
+        throw new Error('Ainda carregando dados da proposta');
+      }
+
+      toast.info("Gerando PDF profissional...");
+      // >>> usar nova função de captura do DOM vivo
+      await downloadVisibleProposalPDF(`proposta-${proposal.id}.pdf`);
+
+      // PDF gerado com sucesso
+      console.log('✅ PDF gerado com sucesso!');
+
+      // PDF gerado com sucesso
+      toast.success("PDF profissional gerado com sucesso!");
     } catch (err: any) {
       console.error('[PDF][handleGeneratePDF]', err);
       toast.error(`Erro ao gerar PDF: ${err?.message || 'desconhecido'}`);
@@ -351,7 +342,7 @@ const ProposalDetails = () => {
 
   return (
     <DashboardLayout>
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/30">
+      <div id="proposal-print-area" className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/30">
         {/* Hero Header com Gradiente */}
         <div className="relative overflow-hidden bg-gradient-to-r from-orange-500 via-orange-600 to-orange-700">
           <div className="absolute inset-0 bg-black/20"></div>
@@ -362,7 +353,7 @@ const ProposalDetails = () => {
                   variant="secondary" 
                   size="sm" 
                   onClick={() => navigate('/propostas')}
-                  className="gap-2 bg-white/10 hover:bg-white/20 text-white border-white/20"
+                  className="hide-on-pdf gap-2 bg-white/10 hover:bg-white/20 text-white border-white/20"
                 >
                   <ArrowLeft className="h-4 w-4" />
                   Voltar
@@ -379,21 +370,22 @@ const ProposalDetails = () => {
               </div>
               
               <div className="flex items-center gap-3">
-                <ProposalStatusBadge status={proposal.status} />
+                <ProposalStatusBadge status={proposal.status} className="hide-on-pdf" />
                 <Button 
                   variant="secondary"
                   onClick={() => navigate(`/nova-proposta?edit=${proposal.id}`)}
-                  className="gap-2 bg-white/10 hover:bg-white/20 text-white border-white/20"
+                  className="hide-on-pdf gap-2 bg-white/10 hover:bg-white/20 text-white border-white/20"
                 >
                   <Edit className="h-4 w-4" />
                   Editar
                 </Button>
                 <Button 
                   onClick={handleGeneratePDF}
-                  className="gap-2 bg-white text-orange-600 hover:bg-orange-50"
+                  disabled={loading || !proposal}
+                  className="pdf-download-button gap-2 bg-white text-orange-600 hover:bg-orange-50 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Download className="h-4 w-4" />
-                  PDF Profissional
+                  {loading ? 'Carregando...' : 'PDF Profissional'}
                 </Button>
               </div>
             </div>
@@ -470,7 +462,7 @@ const ProposalDetails = () => {
           {/* Grid principal de conteúdo */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {/* Informações do Cliente - Card expandido */}
-            <Card className="lg:col-span-2 border-0 shadow-xl">
+            <Card className="avoid-break-inside lg:col-span-2 border-0 shadow-xl">
               <CardHeader className="pb-4">
                 <CardTitle className="flex items-center gap-3 text-xl">
                   <div className="w-10 h-10 bg-orange-500 rounded-full flex items-center justify-center">
@@ -525,7 +517,7 @@ const ProposalDetails = () => {
                   </div>
                   <div className="space-y-2">
                     <label className="text-sm font-semibold text-slate-600 uppercase tracking-wide">Status Atual</label>
-                    <ProposalStatusBadge status={proposal.status} />
+                    <ProposalStatusBadge status={proposal.status} className="hide-on-pdf" />
                   </div>
                 </div>
                 
@@ -541,7 +533,7 @@ const ProposalDetails = () => {
             </Card>
 
             {/* Resumo Financeiro - Card destacado */}
-            <Card className="border-0 shadow-xl bg-gradient-to-b from-orange-50 to-white">
+            <Card className="avoid-break-inside border-0 shadow-xl bg-gradient-to-b from-orange-50 to-white">
               <CardHeader className="pb-4">
                 <CardTitle className="flex items-center gap-3 text-xl">
                   <div className="w-10 h-10 bg-orange-500 rounded-full flex items-center justify-center">
@@ -659,7 +651,7 @@ const ProposalDetails = () => {
           </div>
 
           {/* Ações de Status - Card moderno */}
-          <Card className="border-0 shadow-xl">
+          <Card className="avoid-break-inside border-0 shadow-xl">
             <CardHeader>
               <CardTitle className="flex items-center gap-3 text-xl">
                 <div className="w-10 h-10 bg-orange-500 rounded-full flex items-center justify-center">
@@ -698,7 +690,7 @@ const ProposalDetails = () => {
           </Card>
 
           {/* Detalhes das Telas - Card expansivo */}
-          <Card className="border-0 shadow-xl">
+          <Card className="avoid-break-inside border-0 shadow-xl">
             <CardHeader>
               <CardTitle className="flex items-center gap-3 text-xl">
                 <div className="w-10 h-10 bg-orange-500 rounded-full flex items-center justify-center">
@@ -787,9 +779,13 @@ const ProposalDetails = () => {
                 <p className="text-orange-700 mb-4">
                   Visualize o inventário detalhado, tabelas financeiras e informações técnicas no documento profissional.
                 </p>
-                <Button onClick={handleGeneratePDF} className="gap-2 bg-orange-500 hover:bg-orange-600 text-white">
+                <Button 
+                  onClick={handleGeneratePDF} 
+                  disabled={loading || !proposal}
+                  className="pdf-download-button gap-2 bg-orange-500 hover:bg-orange-600 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                >
                   <Download className="h-4 w-4" />
-                  Gerar PDF Completo
+                  {loading ? 'Carregando...' : 'Gerar PDF Completo'}
                 </Button>
               </div>
             </CardContent>

@@ -216,8 +216,10 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       try {
         logDebug('Inicializando autenticação...');
         
-        // Inicializar proteção CSRF
-        await createSecureSupabaseRequest();
+        // Don't initialize CSRF protection during auth initialization
+        // It can interfere with the authentication flow
+        // await createSecureSupabaseRequest();
+        
         // Obter sessão inicial
         const { data: { session }, error } = await supabase.auth.getSession();
         
@@ -381,6 +383,19 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   const signUp = async (email: string, password: string, name: string) => {
     try {
+      logDebug('Iniciando processo de cadastro', { email, hasName: !!name });
+      
+      // Verificar se as variáveis de ambiente estão configuradas
+      if (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY) {
+        logAuthError('Variáveis de ambiente não configuradas');
+        toast({
+          title: "Erro de configuração",
+          description: "Configuração do servidor incompleta. Contate o administrador.",
+          variant: "destructive"
+        });
+        return { error: new Error('Environment variables not configured') as AuthError };
+      }
+      
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -393,53 +408,57 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       });
 
       if (error) {
+        logAuthError('Erro no signup do Supabase', error);
         toast({
           title: "Erro no cadastro",
           description: error.message,
           variant: "destructive"
         });
-      } else if (data.user) {
-        // Try to create profile manually if user was created
+        return { error };
+      }
+
+      if (data.user) {
+        logDebug('Usuário criado com sucesso', { userId: data.user.id });
+        
+        // Tentar criar o perfil manualmente se o trigger não funcionar
         try {
-          // First create the profile
           const { error: profileError } = await supabase
             .from('profiles')
             .insert({
               id: data.user.id,
               email: data.user.email,
               full_name: name,
-              display_name: name
-              // role: 'user' // Removido - o trigger handle_new_user já define
+              display_name: name,
+              role: 'user'
             });
 
           if (profileError) {
-            logError('Profile creation error', profileError);
+            logWarn('Erro ao criar perfil, mas usuário foi criado', profileError);
+          } else {
+            logDebug('Perfil criado com sucesso');
           }
-
-          // Role is now handled directly in the profiles table
-
         } catch (profileCreationError) {
-          logError('Error creating user profile', profileCreationError);
-          toast({
-            title: "Erro no cadastro",
-            description: "Database error saving new user",
-            variant: "destructive"
-          });
-          return { error: profileCreationError as AuthError };
+          logWarn('Erro ao criar perfil, mas usuário foi criado', profileCreationError);
         }
-
+        
+        toast({
+          title: "Conta criada!",
+          description: "Verifique seu email para ativar a conta."
+        });
+      } else {
+        logWarn('Signup retornou sucesso mas sem usuário');
         toast({
           title: "Conta criada!",
           description: "Verifique seu email para ativar a conta."
         });
       }
 
-      return { error };
+      return { error: null };
     } catch (error) {
       logAuthError('Sign up error', error);
       toast({
         title: "Erro no cadastro", 
-        description: "Database error saving new user",
+        description: "Erro interno do servidor. Tente novamente.",
         variant: "destructive"
       });
       return { error: error as AuthError };

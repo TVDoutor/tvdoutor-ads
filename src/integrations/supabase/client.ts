@@ -16,7 +16,10 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, 
     persistSession: true,
     autoRefreshToken: true,
     detectSessionInUrl: true,
-    flowType: 'pkce' // Use PKCE flow for enhanced security
+    flowType: 'pkce', // Use PKCE flow for enhanced security
+    // Improve token refresh handling
+    refreshTokenRetryAttempts: 3,
+    refreshTokenRetryInterval: 2000
   },
   global: {
     headers: {

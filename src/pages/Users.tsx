@@ -206,39 +206,13 @@ const Users = () => {
       if (authData.user) {
         logDebug('Usuário criado no Auth', { userId: authData.user.id });
         
-        // Aguardar o trigger criar o perfil automaticamente
-        await new Promise(resolve => setTimeout(resolve, 3000));
+        // O trigger handle_new_user cria automaticamente:
+        // - Profile na tabela profiles
+        // - Role 'user' na tabela user_roles
         
-        // Verificar se o perfil foi criado pelo trigger
-        const { data: profile, error: profileError } = await supabase
-          .from('profiles')
-          .select('id, email, full_name, display_name, role')
-          .eq('id', authData.user.id)
-          .single();
-
-        if (profileError || !profile) {
-          console.log('Trigger não criou perfil, criando manualmente...');
-          const { error: manualProfileError } = await supabase
-            .from('profiles')
-            .insert({
-              id: authData.user.id,
-              email: newUser.email,
-              full_name: newUser.name,
-              display_name: newUser.name
-              // role: 'user' // Removido - o trigger handle_new_user já define
-            });
-
-          if (manualProfileError) {
-            console.error('Erro ao criar perfil manualmente:', manualProfileError);
-            throw new Error(`Erro ao criar perfil: ${manualProfileError.message}`);
-          }
-          console.log('Perfil criado manualmente');
-        }
-
-        // Nota: Roles são gerenciadas através da tabela profiles.role
-        // O trigger handle_new_user já cria o perfil com role 'user'
-        // Se necessário, a role pode ser atualizada posteriormente através da edição do usuário
-
+        // Aguardar um pouco para o trigger processar
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
         await fetchUsers();
         setNewUser({ name: "", email: "", password: "", role: "user" });
         setIsCreateDialogOpen(false);

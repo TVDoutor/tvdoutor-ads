@@ -292,38 +292,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       
       if (session?.user) {
         // Call ensure_profile after OAuth login/redirect
-        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-          setTimeout(async () => {
-            try {
-              // Fallback: criar perfil diretamente se não existir
-              const { data: { user } } = await supabase.auth.getUser();
-              if (user) {
-                logDebug('Ensuring profile exists for user', { userId: user.id, email: user.email });
-                
-                const { error } = await supabase
-                  .from('profiles')
-                  .upsert({
-                    id: user.id,
-                    email: user.email,
-                    full_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'Usuário',
-                    display_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'Usuário',
-                    // role: 'user', // Removido - o trigger handle_new_user já define
-                    super_admin: false
-                  });
-                
-                if (error) {
-                  logError('Error ensuring profile', error);
-                } else {
-                  logDebug('Profile ensured successfully');
-                }
-
-                // Role is now handled directly in the profiles table
-              }
-            } catch (error) {
-              logError('Error ensuring profile', error);
-            }
-          }, 1000); // Increased delay to ensure auth is fully processed
-        }
+        // O trigger handle_new_user cria automaticamente o profile e role
+        // Não é necessário fazer upsert manual
         
         setTimeout(async () => {
           try {
@@ -420,26 +390,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       if (data.user) {
         logDebug('Usuário criado com sucesso', { userId: data.user.id });
         
-        // Tentar criar o perfil manualmente se o trigger não funcionar
-        try {
-          const { error: profileError } = await supabase
-            .from('profiles')
-            .insert({
-              id: data.user.id,
-              email: data.user.email,
-              full_name: name,
-              display_name: name,
-              role: 'user'
-            });
-
-          if (profileError) {
-            logWarn('Erro ao criar perfil, mas usuário foi criado', profileError);
-          } else {
-            logDebug('Perfil criado com sucesso');
-          }
-        } catch (profileCreationError) {
-          logWarn('Erro ao criar perfil, mas usuário foi criado', profileCreationError);
-        }
+        // O trigger handle_new_user cria automaticamente o perfil e role
         
         toast({
           title: "Conta criada!",

@@ -91,6 +91,13 @@ export type Database = {
             foreignKeyName: "agencia_contatos_agencia_id_fkey"
             columns: ["agencia_id"]
             isOneToOne: false
+            referencedRelation: "_audit_agencias_state_unmapped"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agencia_contatos_agencia_id_fkey"
+            columns: ["agencia_id"]
+            isOneToOne: false
             referencedRelation: "agencias"
             referencedColumns: ["id"]
           },
@@ -131,6 +138,13 @@ export type Database = {
           valor_estimado?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "agencia_deals_agencia_id_fkey"
+            columns: ["agencia_id"]
+            isOneToOne: false
+            referencedRelation: "_audit_agencias_state_unmapped"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "agencia_deals_agencia_id_fkey"
             columns: ["agencia_id"]
@@ -197,6 +211,7 @@ export type Database = {
           projeto_id: string
           responsavel_id: string | null
           status: string | null
+          updated_at: string | null
         }
         Insert: {
           created_at?: string | null
@@ -210,6 +225,7 @@ export type Database = {
           projeto_id: string
           responsavel_id?: string | null
           status?: string | null
+          updated_at?: string | null
         }
         Update: {
           created_at?: string | null
@@ -223,14 +239,24 @@ export type Database = {
           projeto_id?: string
           responsavel_id?: string | null
           status?: string | null
+          updated_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "agencia_projeto_marcos_projeto_id_fkey"
+            columns: ["projeto_id"]
+            isOneToOne: false
+            referencedRelation: "agencia_projetos"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       agencia_projetos: {
         Row: {
           agencia_id: string
           arquivos_anexos: Json | null
           briefing: string | null
+          client_id: string | null
           cliente_final: string | null
           created_at: string | null
           data_fim: string | null
@@ -253,6 +279,7 @@ export type Database = {
           agencia_id: string
           arquivos_anexos?: Json | null
           briefing?: string | null
+          client_id?: string | null
           cliente_final?: string | null
           created_at?: string | null
           data_fim?: string | null
@@ -275,6 +302,7 @@ export type Database = {
           agencia_id?: string
           arquivos_anexos?: Json | null
           briefing?: string | null
+          client_id?: string | null
           cliente_final?: string | null
           created_at?: string | null
           data_fim?: string | null
@@ -294,6 +322,13 @@ export type Database = {
           valor_gasto?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "agencia_projetos_agencia_id_fkey"
+            columns: ["agencia_id"]
+            isOneToOne: false
+            referencedRelation: "_audit_agencias_state_unmapped"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "agencia_projetos_agencia_id_fkey"
             columns: ["agencia_id"]
@@ -326,6 +361,7 @@ export type Database = {
           created_at: string | null
           email_empresa: string | null
           estado: string | null
+          estado_uf: string | null
           id: string
           nome_agencia: string
           numero: string | null
@@ -343,6 +379,7 @@ export type Database = {
           created_at?: string | null
           email_empresa?: string | null
           estado?: string | null
+          estado_uf?: string | null
           id?: string
           nome_agencia: string
           numero?: string | null
@@ -360,6 +397,7 @@ export type Database = {
           created_at?: string | null
           email_empresa?: string | null
           estado?: string | null
+          estado_uf?: string | null
           id?: string
           nome_agencia?: string
           numero?: string | null
@@ -368,6 +406,33 @@ export type Database = {
           taxa_porcentagem?: number | null
           telefone_empresa?: string | null
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      audience_estimates: {
+        Row: {
+          city_norm: string
+          clinic_count: number
+          estimated_patients_monthly: number
+          id: number
+          last_updated_at: string | null
+          specialty: string
+        }
+        Insert: {
+          city_norm: string
+          clinic_count?: number
+          estimated_patients_monthly?: number
+          id?: number
+          last_updated_at?: string | null
+          specialty: string
+        }
+        Update: {
+          city_norm?: string
+          clinic_count?: number
+          estimated_patients_monthly?: number
+          id?: number
+          last_updated_at?: string | null
+          specialty?: string
         }
         Relationships: []
       }
@@ -458,6 +523,45 @@ export type Database = {
         }
         Relationships: []
       }
+      br_states: {
+        Row: {
+          created_at: string
+          nome: string
+          regiao: string
+          uf: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          nome: string
+          regiao: string
+          uf: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          nome?: string
+          regiao?: string
+          uf?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      br_states_fullname: {
+        Row: {
+          name: string
+          uf: string
+        }
+        Insert: {
+          name: string
+          uf: string
+        }
+        Update: {
+          name?: string
+          uf?: string
+        }
+        Relationships: []
+      }
       campaign_screens: {
         Row: {
           campaign_id: number
@@ -495,6 +599,13 @@ export type Database = {
             foreignKeyName: "campaign_screens_screen_id_fkey"
             columns: ["screen_id"]
             isOneToOne: false
+            referencedRelation: "_audit_screens_state_unmapped"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_screens_screen_id_fkey"
+            columns: ["screen_id"]
+            isOneToOne: false
             referencedRelation: "screen_proposal_popularity"
             referencedColumns: ["screen_id"]
           },
@@ -503,6 +614,69 @@ export type Database = {
             columns: ["screen_id"]
             isOneToOne: false
             referencedRelation: "screens"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_screens_screen_id_fkey"
+            columns: ["screen_id"]
+            isOneToOne: false
+            referencedRelation: "screens_enriched"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_screens_screen_id_fkey"
+            columns: ["screen_id"]
+            isOneToOne: false
+            referencedRelation: "v_proposal_items"
+            referencedColumns: ["screen_id"]
+          },
+          {
+            foreignKeyName: "campaign_screens_screen_id_fkey"
+            columns: ["screen_id"]
+            isOneToOne: false
+            referencedRelation: "v_proposal_pdf"
+            referencedColumns: ["screen_id"]
+          },
+          {
+            foreignKeyName: "campaign_screens_screen_id_fkey"
+            columns: ["screen_id"]
+            isOneToOne: false
+            referencedRelation: "v_screens_enriched"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_screens_screen_id_fkey"
+            columns: ["screen_id"]
+            isOneToOne: false
+            referencedRelation: "vw_inventory_full"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_screens_screen_id_fkey"
+            columns: ["screen_id"]
+            isOneToOne: false
+            referencedRelation: "vw_screens_front"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_screens_screen_id_fkey"
+            columns: ["screen_id"]
+            isOneToOne: false
+            referencedRelation: "vw_screens_full"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_screens_screen_id_fkey"
+            columns: ["screen_id"]
+            isOneToOne: false
+            referencedRelation: "vw_screens_inventory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_screens_screen_id_fkey"
+            columns: ["screen_id"]
+            isOneToOne: false
+            referencedRelation: "vw_screens_pretty"
             referencedColumns: ["id"]
           },
         ]
@@ -549,14 +723,101 @@ export type Database = {
         }
         Relationships: []
       }
+      cep_geocode: {
+        Row: {
+          cep_int: number
+          formatted_address: string | null
+          lat: number | null
+          lng: number | null
+          partial_match: boolean | null
+          place_id: string | null
+          source: string
+          updated_at: string
+        }
+        Insert: {
+          cep_int: number
+          formatted_address?: string | null
+          lat?: number | null
+          lng?: number | null
+          partial_match?: boolean | null
+          place_id?: string | null
+          source?: string
+          updated_at?: string
+        }
+        Update: {
+          cep_int?: number
+          formatted_address?: string | null
+          lat?: number | null
+          lng?: number | null
+          partial_match?: boolean | null
+          place_id?: string | null
+          source?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      cep_geocode_stg: {
+        Row: {
+          cep_int: number | null
+          formatted_address: string | null
+          generated_at: string | null
+          lat: number | null
+          lng: number | null
+          partial_match: boolean | null
+          place_id: string | null
+          source: string | null
+          status: string | null
+        }
+        Insert: {
+          cep_int?: number | null
+          formatted_address?: string | null
+          generated_at?: string | null
+          lat?: number | null
+          lng?: number | null
+          partial_match?: boolean | null
+          place_id?: string | null
+          source?: string | null
+          status?: string | null
+        }
+        Update: {
+          cep_int?: number | null
+          formatted_address?: string | null
+          generated_at?: string | null
+          lat?: number | null
+          lng?: number | null
+          partial_match?: boolean | null
+          place_id?: string | null
+          source?: string | null
+          status?: string | null
+        }
+        Relationships: []
+      }
+      classes: {
+        Row: {
+          id: number
+          name: string
+        }
+        Insert: {
+          id?: number
+          name: string
+        }
+        Update: {
+          id?: number
+          name?: string
+        }
+        Relationships: []
+      }
       email_logs: {
         Row: {
           created_at: string | null
           created_by: string | null
+          customer_name: string | null
           email_type: string
           error_message: string | null
           id: number
+          log_id: number | null
           proposal_id: number | null
+          proposal_type: string | null
           recipient_email: string
           recipient_type: string
           sent_at: string | null
@@ -566,10 +827,13 @@ export type Database = {
         Insert: {
           created_at?: string | null
           created_by?: string | null
+          customer_name?: string | null
           email_type: string
           error_message?: string | null
           id?: number
+          log_id?: number | null
           proposal_id?: number | null
+          proposal_type?: string | null
           recipient_email: string
           recipient_type: string
           sent_at?: string | null
@@ -579,10 +843,13 @@ export type Database = {
         Update: {
           created_at?: string | null
           created_by?: string | null
+          customer_name?: string | null
           email_type?: string
           error_message?: string | null
           id?: number
+          log_id?: number | null
           proposal_id?: number | null
+          proposal_type?: string | null
           recipient_email?: string
           recipient_type?: string
           sent_at?: string | null
@@ -603,6 +870,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "proposals"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_logs_proposal_id_fkey"
+            columns: ["proposal_id"]
+            isOneToOne: false
+            referencedRelation: "v_proposal_items"
+            referencedColumns: ["proposal_id"]
+          },
+          {
+            foreignKeyName: "email_logs_proposal_id_fkey"
+            columns: ["proposal_id"]
+            isOneToOne: false
+            referencedRelation: "v_proposal_pdf"
+            referencedColumns: ["proposal_id"]
           },
         ]
       }
@@ -656,6 +937,7 @@ export type Database = {
           name: string | null
           scope: string | null
           state: string | null
+          state_uf: string | null
         }
         Insert: {
           city?: string | null
@@ -664,6 +946,7 @@ export type Database = {
           name?: string | null
           scope?: string | null
           state?: string | null
+          state_uf?: string | null
         }
         Update: {
           city?: string | null
@@ -672,6 +955,25 @@ export type Database = {
           name?: string | null
           scope?: string | null
           state?: string | null
+          state_uf?: string | null
+        }
+        Relationships: []
+      }
+      networks: {
+        Row: {
+          created_at: string | null
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          name?: string
         }
         Relationships: []
       }
@@ -711,6 +1013,13 @@ export type Database = {
             foreignKeyName: "pessoas_projeto_agencia_id_fkey"
             columns: ["agencia_id"]
             isOneToOne: false
+            referencedRelation: "_audit_agencias_state_unmapped"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pessoas_projeto_agencia_id_fkey"
+            columns: ["agencia_id"]
+            isOneToOne: false
             referencedRelation: "agencias"
             referencedColumns: ["id"]
           },
@@ -722,7 +1031,6 @@ export type Database = {
           base_monthly: number
           city: string | null
           city_norm: string | null
-          class: Database["public"]["Enums"]["class_band"] | null
           cpm: number | null
           created_at: string | null
           created_by: string | null
@@ -743,7 +1051,6 @@ export type Database = {
           base_monthly?: number
           city?: string | null
           city_norm?: string | null
-          class?: Database["public"]["Enums"]["class_band"] | null
           cpm?: number | null
           created_at?: string | null
           created_by?: string | null
@@ -764,7 +1071,6 @@ export type Database = {
           base_monthly?: number
           city?: string | null
           city_norm?: string | null
-          class?: Database["public"]["Enums"]["class_band"] | null
           cpm?: number | null
           created_at?: string | null
           created_by?: string | null
@@ -785,6 +1091,13 @@ export type Database = {
             foreignKeyName: "price_rules_screen_id_fkey"
             columns: ["screen_id"]
             isOneToOne: false
+            referencedRelation: "_audit_screens_state_unmapped"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "price_rules_screen_id_fkey"
+            columns: ["screen_id"]
+            isOneToOne: false
             referencedRelation: "screen_proposal_popularity"
             referencedColumns: ["screen_id"]
           },
@@ -793,6 +1106,76 @@ export type Database = {
             columns: ["screen_id"]
             isOneToOne: false
             referencedRelation: "screens"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "price_rules_screen_id_fkey"
+            columns: ["screen_id"]
+            isOneToOne: false
+            referencedRelation: "screens_enriched"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "price_rules_screen_id_fkey"
+            columns: ["screen_id"]
+            isOneToOne: false
+            referencedRelation: "v_proposal_items"
+            referencedColumns: ["screen_id"]
+          },
+          {
+            foreignKeyName: "price_rules_screen_id_fkey"
+            columns: ["screen_id"]
+            isOneToOne: false
+            referencedRelation: "v_proposal_pdf"
+            referencedColumns: ["screen_id"]
+          },
+          {
+            foreignKeyName: "price_rules_screen_id_fkey"
+            columns: ["screen_id"]
+            isOneToOne: false
+            referencedRelation: "v_screens_enriched"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "price_rules_screen_id_fkey"
+            columns: ["screen_id"]
+            isOneToOne: false
+            referencedRelation: "vw_inventory_full"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "price_rules_screen_id_fkey"
+            columns: ["screen_id"]
+            isOneToOne: false
+            referencedRelation: "vw_screens_front"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "price_rules_screen_id_fkey"
+            columns: ["screen_id"]
+            isOneToOne: false
+            referencedRelation: "vw_screens_full"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "price_rules_screen_id_fkey"
+            columns: ["screen_id"]
+            isOneToOne: false
+            referencedRelation: "vw_screens_inventory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "price_rules_screen_id_fkey"
+            columns: ["screen_id"]
+            isOneToOne: false
+            referencedRelation: "vw_screens_pretty"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "price_rules_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "_audit_venues_state_unmapped"
             referencedColumns: ["id"]
           },
           {
@@ -806,8 +1189,36 @@ export type Database = {
             foreignKeyName: "price_rules_venue_id_fkey"
             columns: ["venue_id"]
             isOneToOne: false
+            referencedRelation: "screens_enriched"
+            referencedColumns: ["venue_id"]
+          },
+          {
+            foreignKeyName: "price_rules_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
             referencedRelation: "venues"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "price_rules_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "vw_inventory_full"
+            referencedColumns: ["venue_id"]
+          },
+          {
+            foreignKeyName: "price_rules_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "vw_screens_full"
+            referencedColumns: ["venue_id"]
+          },
+          {
+            foreignKeyName: "price_rules_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "vw_venue_specialties"
+            referencedColumns: ["venue_id"]
           },
         ]
       }
@@ -821,7 +1232,7 @@ export type Database = {
           id: string
           organization: string | null
           phone: string | null
-          role: Database["public"]["Enums"]["role_kind"]
+          role: string
           super_admin: boolean
           updated_at: string
         }
@@ -834,7 +1245,7 @@ export type Database = {
           id: string
           organization?: string | null
           phone?: string | null
-          role?: Database["public"]["Enums"]["role_kind"]
+          role?: string
           super_admin?: boolean
           updated_at?: string
         }
@@ -847,11 +1258,19 @@ export type Database = {
           id?: string
           organization?: string | null
           phone?: string | null
-          role?: Database["public"]["Enums"]["role_kind"]
+          role?: string
           super_admin?: boolean
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "profiles_role_fkey"
+            columns: ["role"]
+            isOneToOne: false
+            referencedRelation: "roles"
+            referencedColumns: ["name"]
+          },
+        ]
       }
       proposal_screens: {
         Row: {
@@ -900,6 +1319,27 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "proposal_screens_proposal_id_fkey"
+            columns: ["proposal_id"]
+            isOneToOne: false
+            referencedRelation: "v_proposal_items"
+            referencedColumns: ["proposal_id"]
+          },
+          {
+            foreignKeyName: "proposal_screens_proposal_id_fkey"
+            columns: ["proposal_id"]
+            isOneToOne: false
+            referencedRelation: "v_proposal_pdf"
+            referencedColumns: ["proposal_id"]
+          },
+          {
+            foreignKeyName: "proposal_screens_screen_id_fkey"
+            columns: ["screen_id"]
+            isOneToOne: false
+            referencedRelation: "_audit_screens_state_unmapped"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "proposal_screens_screen_id_fkey"
             columns: ["screen_id"]
             isOneToOne: false
@@ -913,15 +1353,125 @@ export type Database = {
             referencedRelation: "screens"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "proposal_screens_screen_id_fkey"
+            columns: ["screen_id"]
+            isOneToOne: false
+            referencedRelation: "screens_enriched"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proposal_screens_screen_id_fkey"
+            columns: ["screen_id"]
+            isOneToOne: false
+            referencedRelation: "v_proposal_items"
+            referencedColumns: ["screen_id"]
+          },
+          {
+            foreignKeyName: "proposal_screens_screen_id_fkey"
+            columns: ["screen_id"]
+            isOneToOne: false
+            referencedRelation: "v_proposal_pdf"
+            referencedColumns: ["screen_id"]
+          },
+          {
+            foreignKeyName: "proposal_screens_screen_id_fkey"
+            columns: ["screen_id"]
+            isOneToOne: false
+            referencedRelation: "v_screens_enriched"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proposal_screens_screen_id_fkey"
+            columns: ["screen_id"]
+            isOneToOne: false
+            referencedRelation: "vw_inventory_full"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proposal_screens_screen_id_fkey"
+            columns: ["screen_id"]
+            isOneToOne: false
+            referencedRelation: "vw_screens_front"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proposal_screens_screen_id_fkey"
+            columns: ["screen_id"]
+            isOneToOne: false
+            referencedRelation: "vw_screens_full"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proposal_screens_screen_id_fkey"
+            columns: ["screen_id"]
+            isOneToOne: false
+            referencedRelation: "vw_screens_inventory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proposal_screens_screen_id_fkey"
+            columns: ["screen_id"]
+            isOneToOne: false
+            referencedRelation: "vw_screens_pretty"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      proposal_snapshots: {
+        Row: {
+          created_at: string | null
+          payload: Json
+          proposal_id: number
+        }
+        Insert: {
+          created_at?: string | null
+          payload: Json
+          proposal_id: number
+        }
+        Update: {
+          created_at?: string | null
+          payload?: Json
+          proposal_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proposal_snapshots_proposal_id_fkey"
+            columns: ["proposal_id"]
+            isOneToOne: true
+            referencedRelation: "proposal_kpis"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proposal_snapshots_proposal_id_fkey"
+            columns: ["proposal_id"]
+            isOneToOne: true
+            referencedRelation: "proposals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proposal_snapshots_proposal_id_fkey"
+            columns: ["proposal_id"]
+            isOneToOne: true
+            referencedRelation: "v_proposal_items"
+            referencedColumns: ["proposal_id"]
+          },
+          {
+            foreignKeyName: "proposal_snapshots_proposal_id_fkey"
+            columns: ["proposal_id"]
+            isOneToOne: true
+            referencedRelation: "v_proposal_pdf"
+            referencedColumns: ["proposal_id"]
+          },
         ]
       }
       proposals: {
         Row: {
           agencia_id: string | null
           city: string | null
-          class: Database["public"]["Enums"]["class_band"] | null
           clicksign_document_key: string | null
           clicksign_sign_url: string | null
+          client_id: string | null
           cpm_mode: string | null
           cpm_value: number | null
           created_at: string | null
@@ -952,7 +1502,6 @@ export type Database = {
           projeto_id: string | null
           proposal_type: string | null
           quote: Json
-          screens: Json
           start_date: string | null
           status: string | null
           status_updated_at: string | null
@@ -961,9 +1510,9 @@ export type Database = {
         Insert: {
           agencia_id?: string | null
           city?: string | null
-          class?: Database["public"]["Enums"]["class_band"] | null
           clicksign_document_key?: string | null
           clicksign_sign_url?: string | null
+          client_id?: string | null
           cpm_mode?: string | null
           cpm_value?: number | null
           created_at?: string | null
@@ -994,7 +1543,6 @@ export type Database = {
           projeto_id?: string | null
           proposal_type?: string | null
           quote: Json
-          screens: Json
           start_date?: string | null
           status?: string | null
           status_updated_at?: string | null
@@ -1003,9 +1551,9 @@ export type Database = {
         Update: {
           agencia_id?: string | null
           city?: string | null
-          class?: Database["public"]["Enums"]["class_band"] | null
           clicksign_document_key?: string | null
           clicksign_sign_url?: string | null
+          client_id?: string | null
           cpm_mode?: string | null
           cpm_value?: number | null
           created_at?: string | null
@@ -1036,13 +1584,19 @@ export type Database = {
           projeto_id?: string | null
           proposal_type?: string | null
           quote?: Json
-          screens?: Json
           start_date?: string | null
           status?: string | null
           status_updated_at?: string | null
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "proposals_agencia_id_fkey"
+            columns: ["agencia_id"]
+            isOneToOne: false
+            referencedRelation: "_audit_agencias_state_unmapped"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "proposals_agencia_id_fkey"
             columns: ["agencia_id"]
@@ -1109,6 +1663,20 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "proposta_servicos_especiais_proposta_id_fkey"
+            columns: ["proposta_id"]
+            isOneToOne: false
+            referencedRelation: "v_proposal_items"
+            referencedColumns: ["proposal_id"]
+          },
+          {
+            foreignKeyName: "proposta_servicos_especiais_proposta_id_fkey"
+            columns: ["proposta_id"]
+            isOneToOne: false
+            referencedRelation: "v_proposal_pdf"
+            referencedColumns: ["proposal_id"]
+          },
+          {
             foreignKeyName: "proposta_servicos_especiais_servico_id_fkey"
             columns: ["servico_id"]
             isOneToOne: false
@@ -1116,6 +1684,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      roles: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          name: string
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          name: string
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          name?: string
+        }
+        Relationships: []
       }
       screen_availability: {
         Row: {
@@ -1150,6 +1736,13 @@ export type Database = {
             foreignKeyName: "screen_availability_screen_id_fkey"
             columns: ["screen_id"]
             isOneToOne: false
+            referencedRelation: "_audit_screens_state_unmapped"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "screen_availability_screen_id_fkey"
+            columns: ["screen_id"]
+            isOneToOne: false
             referencedRelation: "screen_proposal_popularity"
             referencedColumns: ["screen_id"]
           },
@@ -1158,6 +1751,69 @@ export type Database = {
             columns: ["screen_id"]
             isOneToOne: false
             referencedRelation: "screens"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "screen_availability_screen_id_fkey"
+            columns: ["screen_id"]
+            isOneToOne: false
+            referencedRelation: "screens_enriched"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "screen_availability_screen_id_fkey"
+            columns: ["screen_id"]
+            isOneToOne: false
+            referencedRelation: "v_proposal_items"
+            referencedColumns: ["screen_id"]
+          },
+          {
+            foreignKeyName: "screen_availability_screen_id_fkey"
+            columns: ["screen_id"]
+            isOneToOne: false
+            referencedRelation: "v_proposal_pdf"
+            referencedColumns: ["screen_id"]
+          },
+          {
+            foreignKeyName: "screen_availability_screen_id_fkey"
+            columns: ["screen_id"]
+            isOneToOne: false
+            referencedRelation: "v_screens_enriched"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "screen_availability_screen_id_fkey"
+            columns: ["screen_id"]
+            isOneToOne: false
+            referencedRelation: "vw_inventory_full"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "screen_availability_screen_id_fkey"
+            columns: ["screen_id"]
+            isOneToOne: false
+            referencedRelation: "vw_screens_front"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "screen_availability_screen_id_fkey"
+            columns: ["screen_id"]
+            isOneToOne: false
+            referencedRelation: "vw_screens_full"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "screen_availability_screen_id_fkey"
+            columns: ["screen_id"]
+            isOneToOne: false
+            referencedRelation: "vw_screens_inventory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "screen_availability_screen_id_fkey"
+            columns: ["screen_id"]
+            isOneToOne: false
+            referencedRelation: "vw_screens_pretty"
             referencedColumns: ["id"]
           },
         ]
@@ -1198,6 +1854,13 @@ export type Database = {
             foreignKeyName: "screen_bookings_screen_id_fkey"
             columns: ["screen_id"]
             isOneToOne: false
+            referencedRelation: "_audit_screens_state_unmapped"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "screen_bookings_screen_id_fkey"
+            columns: ["screen_id"]
+            isOneToOne: false
             referencedRelation: "screen_proposal_popularity"
             referencedColumns: ["screen_id"]
           },
@@ -1206,6 +1869,176 @@ export type Database = {
             columns: ["screen_id"]
             isOneToOne: false
             referencedRelation: "screens"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "screen_bookings_screen_id_fkey"
+            columns: ["screen_id"]
+            isOneToOne: false
+            referencedRelation: "screens_enriched"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "screen_bookings_screen_id_fkey"
+            columns: ["screen_id"]
+            isOneToOne: false
+            referencedRelation: "v_proposal_items"
+            referencedColumns: ["screen_id"]
+          },
+          {
+            foreignKeyName: "screen_bookings_screen_id_fkey"
+            columns: ["screen_id"]
+            isOneToOne: false
+            referencedRelation: "v_proposal_pdf"
+            referencedColumns: ["screen_id"]
+          },
+          {
+            foreignKeyName: "screen_bookings_screen_id_fkey"
+            columns: ["screen_id"]
+            isOneToOne: false
+            referencedRelation: "v_screens_enriched"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "screen_bookings_screen_id_fkey"
+            columns: ["screen_id"]
+            isOneToOne: false
+            referencedRelation: "vw_inventory_full"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "screen_bookings_screen_id_fkey"
+            columns: ["screen_id"]
+            isOneToOne: false
+            referencedRelation: "vw_screens_front"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "screen_bookings_screen_id_fkey"
+            columns: ["screen_id"]
+            isOneToOne: false
+            referencedRelation: "vw_screens_full"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "screen_bookings_screen_id_fkey"
+            columns: ["screen_id"]
+            isOneToOne: false
+            referencedRelation: "vw_screens_inventory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "screen_bookings_screen_id_fkey"
+            columns: ["screen_id"]
+            isOneToOne: false
+            referencedRelation: "vw_screens_pretty"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      screen_classes: {
+        Row: {
+          class_id: number
+          screen_id: number
+        }
+        Insert: {
+          class_id: number
+          screen_id: number
+        }
+        Update: {
+          class_id?: number
+          screen_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "screen_classes_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "screen_classes_screen_id_fkey"
+            columns: ["screen_id"]
+            isOneToOne: false
+            referencedRelation: "_audit_screens_state_unmapped"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "screen_classes_screen_id_fkey"
+            columns: ["screen_id"]
+            isOneToOne: false
+            referencedRelation: "screen_proposal_popularity"
+            referencedColumns: ["screen_id"]
+          },
+          {
+            foreignKeyName: "screen_classes_screen_id_fkey"
+            columns: ["screen_id"]
+            isOneToOne: false
+            referencedRelation: "screens"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "screen_classes_screen_id_fkey"
+            columns: ["screen_id"]
+            isOneToOne: false
+            referencedRelation: "screens_enriched"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "screen_classes_screen_id_fkey"
+            columns: ["screen_id"]
+            isOneToOne: false
+            referencedRelation: "v_proposal_items"
+            referencedColumns: ["screen_id"]
+          },
+          {
+            foreignKeyName: "screen_classes_screen_id_fkey"
+            columns: ["screen_id"]
+            isOneToOne: false
+            referencedRelation: "v_proposal_pdf"
+            referencedColumns: ["screen_id"]
+          },
+          {
+            foreignKeyName: "screen_classes_screen_id_fkey"
+            columns: ["screen_id"]
+            isOneToOne: false
+            referencedRelation: "v_screens_enriched"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "screen_classes_screen_id_fkey"
+            columns: ["screen_id"]
+            isOneToOne: false
+            referencedRelation: "vw_inventory_full"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "screen_classes_screen_id_fkey"
+            columns: ["screen_id"]
+            isOneToOne: false
+            referencedRelation: "vw_screens_front"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "screen_classes_screen_id_fkey"
+            columns: ["screen_id"]
+            isOneToOne: false
+            referencedRelation: "vw_screens_full"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "screen_classes_screen_id_fkey"
+            columns: ["screen_id"]
+            isOneToOne: false
+            referencedRelation: "vw_screens_inventory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "screen_classes_screen_id_fkey"
+            columns: ["screen_id"]
+            isOneToOne: false
+            referencedRelation: "vw_screens_pretty"
             referencedColumns: ["id"]
           },
         ]
@@ -1264,6 +2097,13 @@ export type Database = {
             foreignKeyName: "screen_rates_screen_id_fkey"
             columns: ["screen_id"]
             isOneToOne: false
+            referencedRelation: "_audit_screens_state_unmapped"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "screen_rates_screen_id_fkey"
+            columns: ["screen_id"]
+            isOneToOne: false
             referencedRelation: "screen_proposal_popularity"
             referencedColumns: ["screen_id"]
           },
@@ -1274,6 +2114,69 @@ export type Database = {
             referencedRelation: "screens"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "screen_rates_screen_id_fkey"
+            columns: ["screen_id"]
+            isOneToOne: false
+            referencedRelation: "screens_enriched"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "screen_rates_screen_id_fkey"
+            columns: ["screen_id"]
+            isOneToOne: false
+            referencedRelation: "v_proposal_items"
+            referencedColumns: ["screen_id"]
+          },
+          {
+            foreignKeyName: "screen_rates_screen_id_fkey"
+            columns: ["screen_id"]
+            isOneToOne: false
+            referencedRelation: "v_proposal_pdf"
+            referencedColumns: ["screen_id"]
+          },
+          {
+            foreignKeyName: "screen_rates_screen_id_fkey"
+            columns: ["screen_id"]
+            isOneToOne: false
+            referencedRelation: "v_screens_enriched"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "screen_rates_screen_id_fkey"
+            columns: ["screen_id"]
+            isOneToOne: false
+            referencedRelation: "vw_inventory_full"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "screen_rates_screen_id_fkey"
+            columns: ["screen_id"]
+            isOneToOne: false
+            referencedRelation: "vw_screens_front"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "screen_rates_screen_id_fkey"
+            columns: ["screen_id"]
+            isOneToOne: false
+            referencedRelation: "vw_screens_full"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "screen_rates_screen_id_fkey"
+            columns: ["screen_id"]
+            isOneToOne: false
+            referencedRelation: "vw_screens_inventory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "screen_rates_screen_id_fkey"
+            columns: ["screen_id"]
+            isOneToOne: false
+            referencedRelation: "vw_screens_pretty"
+            referencedColumns: ["id"]
+          },
         ]
       }
       screens: {
@@ -1282,17 +2185,22 @@ export type Database = {
           address_norm: string | null
           address_raw: string | null
           asset_url: string | null
+          base_daily_traffic: number | null
           board_format: string | null
           category: string | null
           cep: string | null
+          cep_norm: string | null
           city: string | null
           city_norm: string | null
-          class: Database["public"]["Enums"]["class_band"]
+          class: Database["public"]["Enums"]["class_band"] | null
           code: string | null
           created_at: string | null
           display_name: string | null
+          endereco_completo: string | null
           facing: string | null
+          geo: unknown | null
           geom: unknown | null
+          geom_geog: unknown | null
           google_formatted_address: string | null
           google_place_id: string | null
           id: number
@@ -1303,13 +2211,15 @@ export type Database = {
           screen_facing: string | null
           screen_start_time: string | null
           specialty: string[] | null
+          spots_per_hour: number | null
           state: string | null
           state_norm: string | null
+          state_uf: string | null
           tag: string
           updated_at: string | null
           venue_id: number | null
           venue_type_child: string | null
-          venue_type_grandchildren: string | null
+          venue_type_grandchildren: string
           venue_type_parent: string | null
         }
         Insert: {
@@ -1317,17 +2227,22 @@ export type Database = {
           address_norm?: string | null
           address_raw?: string | null
           asset_url?: string | null
+          base_daily_traffic?: number | null
           board_format?: string | null
           category?: string | null
           cep?: string | null
+          cep_norm?: string | null
           city?: string | null
           city_norm?: string | null
-          class?: Database["public"]["Enums"]["class_band"]
+          class?: Database["public"]["Enums"]["class_band"] | null
           code?: string | null
           created_at?: string | null
           display_name?: string | null
+          endereco_completo?: string | null
           facing?: string | null
+          geo?: unknown | null
           geom?: unknown | null
+          geom_geog?: unknown | null
           google_formatted_address?: string | null
           google_place_id?: string | null
           id?: number
@@ -1338,13 +2253,15 @@ export type Database = {
           screen_facing?: string | null
           screen_start_time?: string | null
           specialty?: string[] | null
+          spots_per_hour?: number | null
           state?: string | null
           state_norm?: string | null
+          state_uf?: string | null
           tag?: string
           updated_at?: string | null
           venue_id?: number | null
           venue_type_child?: string | null
-          venue_type_grandchildren?: string | null
+          venue_type_grandchildren?: string
           venue_type_parent?: string | null
         }
         Update: {
@@ -1352,17 +2269,22 @@ export type Database = {
           address_norm?: string | null
           address_raw?: string | null
           asset_url?: string | null
+          base_daily_traffic?: number | null
           board_format?: string | null
           category?: string | null
           cep?: string | null
+          cep_norm?: string | null
           city?: string | null
           city_norm?: string | null
-          class?: Database["public"]["Enums"]["class_band"]
+          class?: Database["public"]["Enums"]["class_band"] | null
           code?: string | null
           created_at?: string | null
           display_name?: string | null
+          endereco_completo?: string | null
           facing?: string | null
+          geo?: unknown | null
           geom?: unknown | null
+          geom_geog?: unknown | null
           google_formatted_address?: string | null
           google_place_id?: string | null
           id?: number
@@ -1373,16 +2295,25 @@ export type Database = {
           screen_facing?: string | null
           screen_start_time?: string | null
           specialty?: string[] | null
+          spots_per_hour?: number | null
           state?: string | null
           state_norm?: string | null
+          state_uf?: string | null
           tag?: string
           updated_at?: string | null
           venue_id?: number | null
           venue_type_child?: string | null
-          venue_type_grandchildren?: string | null
+          venue_type_grandchildren?: string
           venue_type_parent?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "screens_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "_audit_venues_state_unmapped"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "screens_venue_id_fkey"
             columns: ["venue_id"]
@@ -1394,10 +2325,392 @@ export type Database = {
             foreignKeyName: "screens_venue_id_fkey"
             columns: ["venue_id"]
             isOneToOne: false
+            referencedRelation: "screens_enriched"
+            referencedColumns: ["venue_id"]
+          },
+          {
+            foreignKeyName: "screens_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
             referencedRelation: "venues"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "screens_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "vw_inventory_full"
+            referencedColumns: ["venue_id"]
+          },
+          {
+            foreignKeyName: "screens_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "vw_screens_full"
+            referencedColumns: ["venue_id"]
+          },
+          {
+            foreignKeyName: "screens_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "vw_venue_specialties"
+            referencedColumns: ["venue_id"]
+          },
         ]
+      }
+      screens_backup_20250919: {
+        Row: {
+          active: boolean | null
+          address_norm: string | null
+          address_raw: string | null
+          asset_url: string | null
+          base_daily_traffic: number | null
+          board_format: string | null
+          category: string | null
+          cep: string | null
+          city: string | null
+          city_norm: string | null
+          class: Database["public"]["Enums"]["class_band"] | null
+          code: string | null
+          created_at: string | null
+          display_name: string | null
+          facing: string | null
+          geom: unknown | null
+          google_formatted_address: string | null
+          google_place_id: string | null
+          id: number | null
+          lat: number | null
+          lng: number | null
+          name: string | null
+          screen_end_time: string | null
+          screen_facing: string | null
+          screen_start_time: string | null
+          specialty: string[] | null
+          spots_per_hour: number | null
+          state: string | null
+          state_norm: string | null
+          state_uf: string | null
+          tag: string | null
+          updated_at: string | null
+          venue_id: number | null
+          venue_type_child: string | null
+          venue_type_grandchildren: string | null
+          venue_type_parent: string | null
+        }
+        Insert: {
+          active?: boolean | null
+          address_norm?: string | null
+          address_raw?: string | null
+          asset_url?: string | null
+          base_daily_traffic?: number | null
+          board_format?: string | null
+          category?: string | null
+          cep?: string | null
+          city?: string | null
+          city_norm?: string | null
+          class?: Database["public"]["Enums"]["class_band"] | null
+          code?: string | null
+          created_at?: string | null
+          display_name?: string | null
+          facing?: string | null
+          geom?: unknown | null
+          google_formatted_address?: string | null
+          google_place_id?: string | null
+          id?: number | null
+          lat?: number | null
+          lng?: number | null
+          name?: string | null
+          screen_end_time?: string | null
+          screen_facing?: string | null
+          screen_start_time?: string | null
+          specialty?: string[] | null
+          spots_per_hour?: number | null
+          state?: string | null
+          state_norm?: string | null
+          state_uf?: string | null
+          tag?: string | null
+          updated_at?: string | null
+          venue_id?: number | null
+          venue_type_child?: string | null
+          venue_type_grandchildren?: string | null
+          venue_type_parent?: string | null
+        }
+        Update: {
+          active?: boolean | null
+          address_norm?: string | null
+          address_raw?: string | null
+          asset_url?: string | null
+          base_daily_traffic?: number | null
+          board_format?: string | null
+          category?: string | null
+          cep?: string | null
+          city?: string | null
+          city_norm?: string | null
+          class?: Database["public"]["Enums"]["class_band"] | null
+          code?: string | null
+          created_at?: string | null
+          display_name?: string | null
+          facing?: string | null
+          geom?: unknown | null
+          google_formatted_address?: string | null
+          google_place_id?: string | null
+          id?: number | null
+          lat?: number | null
+          lng?: number | null
+          name?: string | null
+          screen_end_time?: string | null
+          screen_facing?: string | null
+          screen_start_time?: string | null
+          specialty?: string[] | null
+          spots_per_hour?: number | null
+          state?: string | null
+          state_norm?: string | null
+          state_uf?: string | null
+          tag?: string | null
+          updated_at?: string | null
+          venue_id?: number | null
+          venue_type_child?: string | null
+          venue_type_grandchildren?: string | null
+          venue_type_parent?: string | null
+        }
+        Relationships: []
+      }
+      screens_backup_20250919_144453: {
+        Row: {
+          active: boolean | null
+          address_norm: string | null
+          address_raw: string | null
+          asset_url: string | null
+          base_daily_traffic: number | null
+          board_format: string | null
+          category: string | null
+          cep: string | null
+          city: string | null
+          city_norm: string | null
+          class: Database["public"]["Enums"]["class_band"] | null
+          code: string | null
+          created_at: string | null
+          display_name: string | null
+          facing: string | null
+          geom: unknown | null
+          google_formatted_address: string | null
+          google_place_id: string | null
+          id: number | null
+          lat: number | null
+          lng: number | null
+          name: string | null
+          screen_end_time: string | null
+          screen_facing: string | null
+          screen_start_time: string | null
+          specialty: string[] | null
+          spots_per_hour: number | null
+          state: string | null
+          state_norm: string | null
+          state_uf: string | null
+          tag: string | null
+          updated_at: string | null
+          venue_id: number | null
+          venue_type_child: string | null
+          venue_type_grandchildren: string | null
+          venue_type_parent: string | null
+        }
+        Insert: {
+          active?: boolean | null
+          address_norm?: string | null
+          address_raw?: string | null
+          asset_url?: string | null
+          base_daily_traffic?: number | null
+          board_format?: string | null
+          category?: string | null
+          cep?: string | null
+          city?: string | null
+          city_norm?: string | null
+          class?: Database["public"]["Enums"]["class_band"] | null
+          code?: string | null
+          created_at?: string | null
+          display_name?: string | null
+          facing?: string | null
+          geom?: unknown | null
+          google_formatted_address?: string | null
+          google_place_id?: string | null
+          id?: number | null
+          lat?: number | null
+          lng?: number | null
+          name?: string | null
+          screen_end_time?: string | null
+          screen_facing?: string | null
+          screen_start_time?: string | null
+          specialty?: string[] | null
+          spots_per_hour?: number | null
+          state?: string | null
+          state_norm?: string | null
+          state_uf?: string | null
+          tag?: string | null
+          updated_at?: string | null
+          venue_id?: number | null
+          venue_type_child?: string | null
+          venue_type_grandchildren?: string | null
+          venue_type_parent?: string | null
+        }
+        Update: {
+          active?: boolean | null
+          address_norm?: string | null
+          address_raw?: string | null
+          asset_url?: string | null
+          base_daily_traffic?: number | null
+          board_format?: string | null
+          category?: string | null
+          cep?: string | null
+          city?: string | null
+          city_norm?: string | null
+          class?: Database["public"]["Enums"]["class_band"] | null
+          code?: string | null
+          created_at?: string | null
+          display_name?: string | null
+          facing?: string | null
+          geom?: unknown | null
+          google_formatted_address?: string | null
+          google_place_id?: string | null
+          id?: number | null
+          lat?: number | null
+          lng?: number | null
+          name?: string | null
+          screen_end_time?: string | null
+          screen_facing?: string | null
+          screen_start_time?: string | null
+          specialty?: string[] | null
+          spots_per_hour?: number | null
+          state?: string | null
+          state_norm?: string | null
+          state_uf?: string | null
+          tag?: string | null
+          updated_at?: string | null
+          venue_id?: number | null
+          venue_type_child?: string | null
+          venue_type_grandchildren?: string | null
+          venue_type_parent?: string | null
+        }
+        Relationships: []
+      }
+      screens_backup_geo_utc_now: {
+        Row: {
+          active: boolean | null
+          address_norm: string | null
+          address_raw: string | null
+          asset_url: string | null
+          base_daily_traffic: number | null
+          board_format: string | null
+          category: string | null
+          cep: string | null
+          cep_norm: string | null
+          city: string | null
+          city_norm: string | null
+          class: Database["public"]["Enums"]["class_band"] | null
+          code: string | null
+          created_at: string | null
+          display_name: string | null
+          facing: string | null
+          geom: unknown | null
+          google_formatted_address: string | null
+          google_place_id: string | null
+          id: number | null
+          lat: number | null
+          lng: number | null
+          name: string | null
+          screen_end_time: string | null
+          screen_facing: string | null
+          screen_start_time: string | null
+          specialty: string[] | null
+          spots_per_hour: number | null
+          state: string | null
+          state_norm: string | null
+          state_uf: string | null
+          tag: string | null
+          updated_at: string | null
+          venue_id: number | null
+          venue_type_child: string | null
+          venue_type_grandchildren: string | null
+          venue_type_parent: string | null
+        }
+        Insert: {
+          active?: boolean | null
+          address_norm?: string | null
+          address_raw?: string | null
+          asset_url?: string | null
+          base_daily_traffic?: number | null
+          board_format?: string | null
+          category?: string | null
+          cep?: string | null
+          cep_norm?: string | null
+          city?: string | null
+          city_norm?: string | null
+          class?: Database["public"]["Enums"]["class_band"] | null
+          code?: string | null
+          created_at?: string | null
+          display_name?: string | null
+          facing?: string | null
+          geom?: unknown | null
+          google_formatted_address?: string | null
+          google_place_id?: string | null
+          id?: number | null
+          lat?: number | null
+          lng?: number | null
+          name?: string | null
+          screen_end_time?: string | null
+          screen_facing?: string | null
+          screen_start_time?: string | null
+          specialty?: string[] | null
+          spots_per_hour?: number | null
+          state?: string | null
+          state_norm?: string | null
+          state_uf?: string | null
+          tag?: string | null
+          updated_at?: string | null
+          venue_id?: number | null
+          venue_type_child?: string | null
+          venue_type_grandchildren?: string | null
+          venue_type_parent?: string | null
+        }
+        Update: {
+          active?: boolean | null
+          address_norm?: string | null
+          address_raw?: string | null
+          asset_url?: string | null
+          base_daily_traffic?: number | null
+          board_format?: string | null
+          category?: string | null
+          cep?: string | null
+          cep_norm?: string | null
+          city?: string | null
+          city_norm?: string | null
+          class?: Database["public"]["Enums"]["class_band"] | null
+          code?: string | null
+          created_at?: string | null
+          display_name?: string | null
+          facing?: string | null
+          geom?: unknown | null
+          google_formatted_address?: string | null
+          google_place_id?: string | null
+          id?: number | null
+          lat?: number | null
+          lng?: number | null
+          name?: string | null
+          screen_end_time?: string | null
+          screen_facing?: string | null
+          screen_start_time?: string | null
+          specialty?: string[] | null
+          spots_per_hour?: number | null
+          state?: string | null
+          state_norm?: string | null
+          state_uf?: string | null
+          tag?: string | null
+          updated_at?: string | null
+          venue_id?: number | null
+          venue_type_child?: string | null
+          venue_type_grandchildren?: string | null
+          venue_type_parent?: string | null
+        }
+        Relationships: []
       }
       servicos_especiais: {
         Row: {
@@ -1456,6 +2769,111 @@ export type Database = {
           proj4text?: string | null
           srid?: number
           srtext?: string | null
+        }
+        Relationships: []
+      }
+      specialties: {
+        Row: {
+          created_at: string | null
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
+      specialty_term_map: {
+        Row: {
+          created_at: string | null
+          id: string
+          specialty_id: string
+          term_norm: string
+          term_original: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          specialty_id: string
+          term_norm: string
+          term_original: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          specialty_id?: string
+          term_norm?: string
+          term_original?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "specialty_term_map_specialty_id_fkey"
+            columns: ["specialty_id"]
+            isOneToOne: false
+            referencedRelation: "specialties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "specialty_term_map_specialty_id_fkey"
+            columns: ["specialty_id"]
+            isOneToOne: false
+            referencedRelation: "vw_venue_specialties"
+            referencedColumns: ["specialty_id"]
+          },
+        ]
+      }
+      staging_screens: {
+        Row: {
+          address_raw: string | null
+          base_daily_traffic: string | null
+          category: string | null
+          cep: string | null
+          city: string | null
+          class: string | null
+          code: string | null
+          display_name: string | null
+          imported_at: string | null
+          lat: string | null
+          lng: string | null
+          specialty: string | null
+          state: string | null
+        }
+        Insert: {
+          address_raw?: string | null
+          base_daily_traffic?: string | null
+          category?: string | null
+          cep?: string | null
+          city?: string | null
+          class?: string | null
+          code?: string | null
+          display_name?: string | null
+          imported_at?: string | null
+          lat?: string | null
+          lng?: string | null
+          specialty?: string | null
+          state?: string | null
+        }
+        Update: {
+          address_raw?: string | null
+          base_daily_traffic?: string | null
+          category?: string | null
+          cep?: string | null
+          city?: string | null
+          class?: string | null
+          code?: string | null
+          display_name?: string | null
+          imported_at?: string | null
+          lat?: string | null
+          lng?: string | null
+          specialty?: string | null
+          state?: string | null
         }
         Relationships: []
       }
@@ -1606,6 +3024,13 @@ export type Database = {
             foreignKeyName: "stg_ponto_screen_id_fkey"
             columns: ["screen_id"]
             isOneToOne: false
+            referencedRelation: "_audit_screens_state_unmapped"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stg_ponto_screen_id_fkey"
+            columns: ["screen_id"]
+            isOneToOne: false
             referencedRelation: "screen_proposal_popularity"
             referencedColumns: ["screen_id"]
           },
@@ -1616,7 +3041,202 @@ export type Database = {
             referencedRelation: "screens"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "stg_ponto_screen_id_fkey"
+            columns: ["screen_id"]
+            isOneToOne: false
+            referencedRelation: "screens_enriched"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stg_ponto_screen_id_fkey"
+            columns: ["screen_id"]
+            isOneToOne: false
+            referencedRelation: "v_proposal_items"
+            referencedColumns: ["screen_id"]
+          },
+          {
+            foreignKeyName: "stg_ponto_screen_id_fkey"
+            columns: ["screen_id"]
+            isOneToOne: false
+            referencedRelation: "v_proposal_pdf"
+            referencedColumns: ["screen_id"]
+          },
+          {
+            foreignKeyName: "stg_ponto_screen_id_fkey"
+            columns: ["screen_id"]
+            isOneToOne: false
+            referencedRelation: "v_screens_enriched"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stg_ponto_screen_id_fkey"
+            columns: ["screen_id"]
+            isOneToOne: false
+            referencedRelation: "vw_inventory_full"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stg_ponto_screen_id_fkey"
+            columns: ["screen_id"]
+            isOneToOne: false
+            referencedRelation: "vw_screens_front"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stg_ponto_screen_id_fkey"
+            columns: ["screen_id"]
+            isOneToOne: false
+            referencedRelation: "vw_screens_full"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stg_ponto_screen_id_fkey"
+            columns: ["screen_id"]
+            isOneToOne: false
+            referencedRelation: "vw_screens_inventory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stg_ponto_screen_id_fkey"
+            columns: ["screen_id"]
+            isOneToOne: false
+            referencedRelation: "vw_screens_pretty"
+            referencedColumns: ["id"]
+          },
         ]
+      }
+      stg_screens_new: {
+        Row: {
+          "ACEITA CONVÊNIO": string | null
+          AUDIÊNCIA: string | null
+          "CAPITAL/INTERIOR": string | null
+          CEP: string | null
+          CIDADE: string | null
+          CLASSE: string | null
+          code_norm: string | null
+          "CÓDIGO DE PONTO": string | null
+          display_name: string | null
+          endereco_completo: string | null
+          "ESPECIALIDADE 1": string | null
+          "ESPECIALIDADE 2": string | null
+          "ESPECIALIDADE 3": string | null
+          "ESPECIALIDADE 4": string | null
+          "ESPECIALIDADE 5": string | null
+          "ESPECIALIDADES ATENDIDAS": string | null
+          LATITUDE: string | null
+          LONGITUDE: string | null
+          "Nome do Ponto": string | null
+          PROGRAMÁTICA: string | null
+          REDE: string | null
+          REGIÃO: string | null
+          RESTRIÇÕES: string | null
+          "Tipo de Espaço": string | null
+          UF: string | null
+        }
+        Insert: {
+          "ACEITA CONVÊNIO"?: string | null
+          AUDIÊNCIA?: string | null
+          "CAPITAL/INTERIOR"?: string | null
+          CEP?: string | null
+          CIDADE?: string | null
+          CLASSE?: string | null
+          code_norm?: string | null
+          "CÓDIGO DE PONTO"?: string | null
+          display_name?: string | null
+          endereco_completo?: string | null
+          "ESPECIALIDADE 1"?: string | null
+          "ESPECIALIDADE 2"?: string | null
+          "ESPECIALIDADE 3"?: string | null
+          "ESPECIALIDADE 4"?: string | null
+          "ESPECIALIDADE 5"?: string | null
+          "ESPECIALIDADES ATENDIDAS"?: string | null
+          LATITUDE?: string | null
+          LONGITUDE?: string | null
+          "Nome do Ponto"?: string | null
+          PROGRAMÁTICA?: string | null
+          REDE?: string | null
+          REGIÃO?: string | null
+          RESTRIÇÕES?: string | null
+          "Tipo de Espaço"?: string | null
+          UF?: string | null
+        }
+        Update: {
+          "ACEITA CONVÊNIO"?: string | null
+          AUDIÊNCIA?: string | null
+          "CAPITAL/INTERIOR"?: string | null
+          CEP?: string | null
+          CIDADE?: string | null
+          CLASSE?: string | null
+          code_norm?: string | null
+          "CÓDIGO DE PONTO"?: string | null
+          display_name?: string | null
+          endereco_completo?: string | null
+          "ESPECIALIDADE 1"?: string | null
+          "ESPECIALIDADE 2"?: string | null
+          "ESPECIALIDADE 3"?: string | null
+          "ESPECIALIDADE 4"?: string | null
+          "ESPECIALIDADE 5"?: string | null
+          "ESPECIALIDADES ATENDIDAS"?: string | null
+          LATITUDE?: string | null
+          LONGITUDE?: string | null
+          "Nome do Ponto"?: string | null
+          PROGRAMÁTICA?: string | null
+          REDE?: string | null
+          REGIÃO?: string | null
+          RESTRIÇÕES?: string | null
+          "Tipo de Espaço"?: string | null
+          UF?: string | null
+        }
+        Relationships: []
+      }
+      stg_venue_specialties_pairs: {
+        Row: {
+          code: string | null
+          spec: string | null
+        }
+        Insert: {
+          code?: string | null
+          spec?: string | null
+        }
+        Update: {
+          code?: string | null
+          spec?: string | null
+        }
+        Relationships: []
+      }
+      stg_venue_specs_raw: {
+        Row: {
+          code: string | null
+          raw: string | null
+        }
+        Insert: {
+          code?: string | null
+          raw?: string | null
+        }
+        Update: {
+          code?: string | null
+          raw?: string | null
+        }
+        Relationships: []
+      }
+      tmp_ceps_uf: {
+        Row: {
+          cep: string | null
+          cidade_norm: string | null
+          logradouro_norm: string | null
+        }
+        Insert: {
+          cep?: string | null
+          cidade_norm?: string | null
+          logradouro_norm?: string | null
+        }
+        Update: {
+          cep?: string | null
+          cidade_norm?: string | null
+          logradouro_norm?: string | null
+        }
+        Relationships: []
       }
       user_profiles_secure: {
         Row: {
@@ -1642,7 +3262,7 @@ export type Database = {
         }
         Relationships: []
       }
-      user_roles: {
+      user_role_assignments: {
         Row: {
           created_at: string | null
           created_by: string | null
@@ -1662,6 +3282,30 @@ export type Database = {
           created_by?: string | null
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          created_at: string | null
+          id: string
+          role: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          role?: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          role?: string
+          updated_at?: string | null
           user_id?: string
         }
         Relationships: []
@@ -1696,8 +3340,22 @@ export type Database = {
             foreignKeyName: "venue_audience_monthly_venue_id_fkey"
             columns: ["venue_id"]
             isOneToOne: false
+            referencedRelation: "_audit_venues_state_unmapped"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "venue_audience_monthly_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
             referencedRelation: "safe_venues"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "venue_audience_monthly_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "screens_enriched"
+            referencedColumns: ["venue_id"]
           },
           {
             foreignKeyName: "venue_audience_monthly_venue_id_fkey"
@@ -1706,10 +3364,113 @@ export type Database = {
             referencedRelation: "venues"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "venue_audience_monthly_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "vw_inventory_full"
+            referencedColumns: ["venue_id"]
+          },
+          {
+            foreignKeyName: "venue_audience_monthly_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "vw_screens_full"
+            referencedColumns: ["venue_id"]
+          },
+          {
+            foreignKeyName: "venue_audience_monthly_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "vw_venue_specialties"
+            referencedColumns: ["venue_id"]
+          },
+        ]
+      }
+      venue_specialties: {
+        Row: {
+          specialty_id: string
+          venue_id: number
+        }
+        Insert: {
+          specialty_id: string
+          venue_id: number
+        }
+        Update: {
+          specialty_id?: string
+          venue_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_specialty"
+            columns: ["specialty_id"]
+            isOneToOne: false
+            referencedRelation: "specialties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_specialty"
+            columns: ["specialty_id"]
+            isOneToOne: false
+            referencedRelation: "vw_venue_specialties"
+            referencedColumns: ["specialty_id"]
+          },
+          {
+            foreignKeyName: "fk_venue"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "_audit_venues_state_unmapped"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_venue"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "safe_venues"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_venue"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "screens_enriched"
+            referencedColumns: ["venue_id"]
+          },
+          {
+            foreignKeyName: "fk_venue"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_venue"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "vw_inventory_full"
+            referencedColumns: ["venue_id"]
+          },
+          {
+            foreignKeyName: "fk_venue"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "vw_screens_full"
+            referencedColumns: ["venue_id"]
+          },
+          {
+            foreignKeyName: "fk_venue"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "vw_venue_specialties"
+            referencedColumns: ["venue_id"]
+          },
         ]
       }
       venues: {
         Row: {
+          aceita_convenio: boolean | null
+          cep: string | null
+          cidade: string | null
           code: string | null
           country: string | null
           created_at: string | null
@@ -1721,10 +3482,18 @@ export type Database = {
           lat: number | null
           lng: number | null
           name: string
+          network_id: string | null
+          numero: string | null
+          rua_av: string | null
           state: string | null
+          state_uf: string | null
+          type: string | null
           updated_at: string | null
         }
         Insert: {
+          aceita_convenio?: boolean | null
+          cep?: string | null
+          cidade?: string | null
           code?: string | null
           country?: string | null
           created_at?: string | null
@@ -1736,10 +3505,18 @@ export type Database = {
           lat?: number | null
           lng?: number | null
           name: string
+          network_id?: string | null
+          numero?: string | null
+          rua_av?: string | null
           state?: string | null
+          state_uf?: string | null
+          type?: string | null
           updated_at?: string | null
         }
         Update: {
+          aceita_convenio?: boolean | null
+          cep?: string | null
+          cidade?: string | null
           code?: string | null
           country?: string | null
           created_at?: string | null
@@ -1751,13 +3528,110 @@ export type Database = {
           lat?: number | null
           lng?: number | null
           name?: string
+          network_id?: string | null
+          numero?: string | null
+          rua_av?: string | null
           state?: string | null
+          state_uf?: string | null
+          type?: string | null
           updated_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "fk_venues_network_id"
+            columns: ["network_id"]
+            isOneToOne: false
+            referencedRelation: "networks"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
+      _audit_agencias_state_unmapped: {
+        Row: {
+          cidade: string | null
+          id: string | null
+          nome_agencia: string | null
+          raw_estado: string | null
+        }
+        Insert: {
+          cidade?: string | null
+          id?: string | null
+          nome_agencia?: string | null
+          raw_estado?: string | null
+        }
+        Update: {
+          cidade?: string | null
+          id?: string | null
+          nome_agencia?: string | null
+          raw_estado?: string | null
+        }
+        Relationships: []
+      }
+      _audit_holidays_state_unmapped: {
+        Row: {
+          city: string | null
+          id: number | null
+          name: string | null
+          raw_state: string | null
+        }
+        Insert: {
+          city?: string | null
+          id?: number | null
+          name?: string | null
+          raw_state?: string | null
+        }
+        Update: {
+          city?: string | null
+          id?: number | null
+          name?: string | null
+          raw_state?: string | null
+        }
+        Relationships: []
+      }
+      _audit_screens_state_unmapped: {
+        Row: {
+          city: string | null
+          id: number | null
+          name: string | null
+          raw_state: string | null
+        }
+        Insert: {
+          city?: string | null
+          id?: number | null
+          name?: string | null
+          raw_state?: string | null
+        }
+        Update: {
+          city?: string | null
+          id?: number | null
+          name?: string | null
+          raw_state?: string | null
+        }
+        Relationships: []
+      }
+      _audit_venues_state_unmapped: {
+        Row: {
+          cidade: string | null
+          id: number | null
+          name: string | null
+          raw_state: string | null
+        }
+        Insert: {
+          cidade?: string | null
+          id?: number | null
+          name?: string | null
+          raw_state?: string | null
+        }
+        Update: {
+          cidade?: string | null
+          id?: number | null
+          name?: string | null
+          raw_state?: string | null
+        }
+        Relationships: []
+      }
       email_stats: {
         Row: {
           email_type: string | null
@@ -1909,6 +3783,20 @@ export type Database = {
             referencedRelation: "proposals"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "proposal_screens_proposal_id_fkey"
+            columns: ["proposal_id"]
+            isOneToOne: false
+            referencedRelation: "v_proposal_items"
+            referencedColumns: ["proposal_id"]
+          },
+          {
+            foreignKeyName: "proposal_screens_proposal_id_fkey"
+            columns: ["proposal_id"]
+            isOneToOne: false
+            referencedRelation: "v_proposal_pdf"
+            referencedColumns: ["proposal_id"]
+          },
         ]
       }
       proposal_locations_summary: {
@@ -1934,6 +3822,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "proposals"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proposal_screens_proposal_id_fkey"
+            columns: ["proposal_id"]
+            isOneToOne: false
+            referencedRelation: "v_proposal_items"
+            referencedColumns: ["proposal_id"]
+          },
+          {
+            foreignKeyName: "proposal_screens_proposal_id_fkey"
+            columns: ["proposal_id"]
+            isOneToOne: false
+            referencedRelation: "v_proposal_pdf"
+            referencedColumns: ["proposal_id"]
           },
         ]
       }
@@ -1985,11 +3887,33 @@ export type Database = {
       screen_proposal_popularity: {
         Row: {
           city: string | null
+          class: string | null
           lat: number | null
           lng: number | null
           name: string | null
           proposal_count: number | null
           screen_id: number | null
+        }
+        Relationships: []
+      }
+      screens_enriched: {
+        Row: {
+          city: string | null
+          code: string | null
+          display_name: string | null
+          geom: unknown | null
+          id: number | null
+          is_screen_active: boolean | null
+          lat: number | null
+          lng: number | null
+          name: string | null
+          screens_enriched_active: boolean | null
+          specialty: string[] | null
+          state_uf: string | null
+          venue_aceita_convenio: boolean | null
+          venue_id: number | null
+          venue_name: string | null
+          venue_type: string | null
         }
         Relationships: []
       }
@@ -2072,6 +3996,522 @@ export type Database = {
           display_name: string | null
           id: string | null
           profile_role: string | null
+        }
+        Relationships: []
+      }
+      v_proposal_items: {
+        Row: {
+          agencia_id: string | null
+          category: string | null
+          city: string | null
+          cpm_mode: string | null
+          cpm_value: number | null
+          customer_email: string | null
+          customer_name: string | null
+          discount_fixed: number | null
+          discount_pct: number | null
+          end_date: string | null
+          film_seconds: number | null
+          insertions_per_hour: number | null
+          projeto_id: string | null
+          proposal_city: string | null
+          proposal_id: number | null
+          screen_id: number | null
+          specialties: string[] | null
+          start_date: string | null
+          state: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proposals_agencia_id_fkey"
+            columns: ["agencia_id"]
+            isOneToOne: false
+            referencedRelation: "_audit_agencias_state_unmapped"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proposals_agencia_id_fkey"
+            columns: ["agencia_id"]
+            isOneToOne: false
+            referencedRelation: "agencias"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      v_proposal_pdf: {
+        Row: {
+          base_daily_traffic: number | null
+          city: string | null
+          code: string | null
+          cpm_mode: string | null
+          cpm_value: number | null
+          created_at: string | null
+          custom_cpm: number | null
+          customer_email: string | null
+          customer_name: string | null
+          daily_traffic_override: number | null
+          discount_fixed: number | null
+          discount_pct: number | null
+          film_seconds: number | null
+          filters: Json | null
+          hours_on_override: number | null
+          insertions_per_hour: number | null
+          proposal_id: number | null
+          quote: Json | null
+          screen_city: string | null
+          screen_id: number | null
+          screen_name: string | null
+          screen_state: string | null
+          spots_per_hour: number | null
+          status: string | null
+        }
+        Relationships: []
+      }
+      v_screens_enriched: {
+        Row: {
+          active: boolean | null
+          address: string | null
+          board_format: string | null
+          category: string | null
+          cep: string | null
+          city: string | null
+          class: string | null
+          code: string | null
+          created_at: string | null
+          display_name: string | null
+          geom: unknown | null
+          id: number | null
+          lat: number | null
+          lng: number | null
+          name: string | null
+          rede: string | null
+          selling_rate_month: number | null
+          specialty: string[] | null
+          spot_duration_secs: number | null
+          spots_per_hour: number | null
+          staging_audiencia: number | null
+          staging_categoria: string | null
+          staging_especialidades: string | null
+          staging_nome_ponto: string | null
+          staging_subtipo: string | null
+          staging_tipo_venue: string | null
+          standard_rate_month: number | null
+          state: string | null
+          updated_at: string | null
+          venue_address: string | null
+          venue_country: string | null
+          venue_district: string | null
+          venue_name: string | null
+          venue_state: string | null
+        }
+        Relationships: []
+      }
+      v_specialty_term_map: {
+        Row: {
+          specialty: string | null
+          term_norm: string | null
+          term_original: string | null
+        }
+        Relationships: []
+      }
+      vw_inventory_full: {
+        Row: {
+          active: boolean | null
+          address_raw: string | null
+          base_daily_traffic: number | null
+          category: string | null
+          cep: string | null
+          city: string | null
+          class: Database["public"]["Enums"]["class_band"] | null
+          classes_map: string[] | null
+          code: string | null
+          display_name: string | null
+          geom: unknown | null
+          id: number | null
+          lat: number | null
+          lng: number | null
+          name: string | null
+          selling_rate_month: number | null
+          specialties: string[] | null
+          spot_duration_secs: number | null
+          spots_per_hour: number | null
+          standard_rate_month: number | null
+          state: string | null
+          venue_id: number | null
+          venue_name: string | null
+          venue_state_uf: string | null
+          venue_type_child: string | null
+          venue_type_grandchildren: string | null
+          venue_type_parent: string | null
+        }
+        Relationships: []
+      }
+      vw_screens_front: {
+        Row: {
+          active: boolean | null
+          address_norm: string | null
+          address_raw: string | null
+          board_format: string | null
+          category: string | null
+          cep: string | null
+          city: string | null
+          classes: string[] | null
+          code: string | null
+          created_at: string | null
+          display_name: string | null
+          id: number | null
+          lat: number | null
+          lng: number | null
+          name: string | null
+          screen_end_time: string | null
+          screen_specialty: string[] | null
+          screen_start_time: string | null
+          spots_per_hour: number | null
+          state_name: string | null
+          state_uf: string | null
+          updated_at: string | null
+          venue_city: string | null
+          venue_code: string | null
+          venue_id: number | null
+          venue_name: string | null
+          venue_specialties: string[] | null
+          venue_state_uf: string | null
+          venue_type_child: string | null
+          venue_type_grandchildren: string | null
+          venue_type_parent: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "screens_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "_audit_venues_state_unmapped"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "screens_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "safe_venues"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "screens_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "screens_enriched"
+            referencedColumns: ["venue_id"]
+          },
+          {
+            foreignKeyName: "screens_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "screens_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "vw_inventory_full"
+            referencedColumns: ["venue_id"]
+          },
+          {
+            foreignKeyName: "screens_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "vw_screens_full"
+            referencedColumns: ["venue_id"]
+          },
+          {
+            foreignKeyName: "screens_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "vw_venue_specialties"
+            referencedColumns: ["venue_id"]
+          },
+        ]
+      }
+      vw_screens_full: {
+        Row: {
+          active: boolean | null
+          address_norm: string | null
+          address_raw: string | null
+          board_format: string | null
+          category: string | null
+          cep: string | null
+          city: string | null
+          classes: string[] | null
+          code: string | null
+          cpm: number | null
+          created_at: string | null
+          display_name: string | null
+          future_bookings: number | null
+          geom: unknown | null
+          id: number | null
+          lat: number | null
+          lng: number | null
+          name: string | null
+          next_available_from: string | null
+          next_available_to: string | null
+          rate_spots_per_hour: number | null
+          screen_end_time: string | null
+          screen_start_time: string | null
+          selling_rate_month: number | null
+          specialty: string[] | null
+          spot_duration_secs: number | null
+          spots_per_hour: number | null
+          standard_rate_month: number | null
+          state_name: string | null
+          state_uf: string | null
+          updated_at: string | null
+          venue_city: string | null
+          venue_code: string | null
+          venue_id: number | null
+          venue_name: string | null
+          venue_state_uf: string | null
+          venue_type_child: string | null
+          venue_type_grandchildren: string | null
+          venue_type_parent: string | null
+        }
+        Relationships: []
+      }
+      vw_screens_inventory: {
+        Row: {
+          active: boolean | null
+          address: string | null
+          cep: string | null
+          city: string | null
+          class: Database["public"]["Enums"]["class_band"] | null
+          code: string | null
+          geom: unknown | null
+          id: number | null
+          lat: number | null
+          lng: number | null
+          name: string | null
+          selling_rate_month: number | null
+          spot_duration_secs: number | null
+          spots_per_hour: number | null
+          staging_audiencia: number | null
+          staging_categoria: string | null
+          staging_especialidades: string | null
+          staging_nome_ponto: string | null
+          staging_subtipo: string | null
+          staging_tipo_venue: string | null
+          standard_rate_month: number | null
+          state: string | null
+          venue_type_child: string | null
+          venue_type_grandchildren: string | null
+          venue_type_parent: string | null
+        }
+        Relationships: []
+      }
+      vw_screens_pretty: {
+        Row: {
+          active: boolean | null
+          address_norm: string | null
+          address_raw: string | null
+          asset_url: string | null
+          base_daily_traffic: number | null
+          board_format: string | null
+          category: string | null
+          cep: string | null
+          cep_norm: string | null
+          city: string | null
+          city_norm: string | null
+          class: Database["public"]["Enums"]["class_band"] | null
+          code: string | null
+          created_at: string | null
+          display_name: string | null
+          facing: string | null
+          geo: unknown | null
+          geom: unknown | null
+          google_formatted_address: string | null
+          google_place_id: string | null
+          id: number | null
+          lat: number | null
+          lng: number | null
+          name: string | null
+          screen_end_time: string | null
+          screen_facing: string | null
+          screen_start_time: string | null
+          specialty: string[] | null
+          spots_per_hour: number | null
+          state: string | null
+          state_norm: string | null
+          state_uf: string | null
+          tag: string | null
+          updated_at: string | null
+          venue_id: number | null
+          venue_type_child: string | null
+          venue_type_grandchildren: string | null
+          venue_type_parent: string | null
+        }
+        Insert: {
+          active?: boolean | null
+          address_norm?: string | null
+          address_raw?: string | null
+          asset_url?: string | null
+          base_daily_traffic?: number | null
+          board_format?: string | null
+          category?: string | null
+          cep?: string | null
+          cep_norm?: string | null
+          city?: string | null
+          city_norm?: string | null
+          class?: Database["public"]["Enums"]["class_band"] | null
+          code?: string | null
+          created_at?: string | null
+          display_name?: string | null
+          facing?: string | null
+          geo?: unknown | null
+          geom?: unknown | null
+          google_formatted_address?: string | null
+          google_place_id?: string | null
+          id?: number | null
+          lat?: number | null
+          lng?: number | null
+          name?: string | null
+          screen_end_time?: string | null
+          screen_facing?: string | null
+          screen_start_time?: string | null
+          specialty?: string[] | null
+          spots_per_hour?: number | null
+          state?: string | null
+          state_norm?: string | null
+          state_uf?: string | null
+          tag?: string | null
+          updated_at?: string | null
+          venue_id?: number | null
+          venue_type_child?: string | null
+          venue_type_grandchildren?: string | null
+          venue_type_parent?: string | null
+        }
+        Update: {
+          active?: boolean | null
+          address_norm?: string | null
+          address_raw?: string | null
+          asset_url?: string | null
+          base_daily_traffic?: number | null
+          board_format?: string | null
+          category?: string | null
+          cep?: string | null
+          cep_norm?: string | null
+          city?: string | null
+          city_norm?: string | null
+          class?: Database["public"]["Enums"]["class_band"] | null
+          code?: string | null
+          created_at?: string | null
+          display_name?: string | null
+          facing?: string | null
+          geo?: unknown | null
+          geom?: unknown | null
+          google_formatted_address?: string | null
+          google_place_id?: string | null
+          id?: number | null
+          lat?: number | null
+          lng?: number | null
+          name?: string | null
+          screen_end_time?: string | null
+          screen_facing?: string | null
+          screen_start_time?: string | null
+          specialty?: string[] | null
+          spots_per_hour?: number | null
+          state?: string | null
+          state_norm?: string | null
+          state_uf?: string | null
+          tag?: string | null
+          updated_at?: string | null
+          venue_id?: number | null
+          venue_type_child?: string | null
+          venue_type_grandchildren?: string | null
+          venue_type_parent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "screens_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "_audit_venues_state_unmapped"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "screens_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "safe_venues"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "screens_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "screens_enriched"
+            referencedColumns: ["venue_id"]
+          },
+          {
+            foreignKeyName: "screens_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "screens_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "vw_inventory_full"
+            referencedColumns: ["venue_id"]
+          },
+          {
+            foreignKeyName: "screens_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "vw_screens_full"
+            referencedColumns: ["venue_id"]
+          },
+          {
+            foreignKeyName: "screens_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "vw_venue_specialties"
+            referencedColumns: ["venue_id"]
+          },
+        ]
+      }
+      vw_specs_unmapped_staging: {
+        Row: {
+          code: string | null
+          term_norm: string | null
+          term_raw: string | null
+        }
+        Relationships: []
+      }
+      vw_venue_specialties: {
+        Row: {
+          specialty_created_at: string | null
+          specialty_id: string | null
+          specialty_name: string | null
+          state_uf: string | null
+          venue_code: string | null
+          venue_created_at: string | null
+          venue_id: number | null
+          venue_name: string | null
+        }
+        Relationships: []
+      }
+      vw_venues_with_screens: {
+        Row: {
+          activeScreens: number | null
+          city: string | null
+          coordinates: boolean | null
+          id: string | null
+          name: string | null
+          screenCount: number | null
+          screens: Json | null
+          state: string | null
+          venue_type_child: string | null
+          venue_type_parent: string | null
         }
         Relationships: []
       }
@@ -2191,6 +4631,10 @@ export type Database = {
         Args: { geom1: unknown; geom2: unknown }
         Returns: boolean
       }
+      _strip_state_noise: {
+        Args: { src: string }
+        Returns: string
+      }
       accounts_admin_list: {
         Args: Record<PropertyKey, never>
         Returns: {
@@ -2242,6 +4686,10 @@ export type Database = {
               use_typmod?: boolean
             }
         Returns: string
+      }
+      array_distinct_nonempty: {
+        Args: { a: string[] }
+        Returns: string[]
       }
       box: {
         Args: { "": unknown } | { "": unknown }
@@ -2300,6 +4748,10 @@ export type Database = {
           user_role: string
         }[]
       }
+      clean_text_array: {
+        Args: { arr: string[] }
+        Returns: string[]
+      }
       create_email_log: {
         Args: {
           p_email_type: string
@@ -2310,13 +4762,39 @@ export type Database = {
         }
         Returns: number
       }
+      create_project: {
+        Args: {
+          p_agencia_id: string
+          p_arquivos_anexos?: Json
+          p_briefing?: string
+          p_cliente_final?: string
+          p_data_fim?: string
+          p_data_inicio?: string
+          p_deal_id?: string
+          p_descricao?: string
+          p_nome_projeto: string
+          p_objetivos?: string[]
+          p_orcamento_projeto?: number
+          p_prioridade?: string
+          p_progresso?: number
+          p_responsavel_projeto?: string
+          p_status_projeto?: string
+          p_tags?: string[]
+          p_valor_gasto?: number
+        }
+        Returns: Json
+      }
       debug_permissions: {
         Args: Record<PropertyKey, never>
         Returns: Json
       }
       delete_screen_as_admin: {
-        Args: { screen_id_to_delete: number }
-        Returns: Record<string, unknown>
+        Args: { screen_id: number }
+        Returns: boolean
+      }
+      delete_user_by_email: {
+        Args: { user_email: string }
+        Returns: string
       }
       disablelongtransactions: {
         Args: Record<PropertyKey, never>
@@ -2345,6 +4823,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: string
       }
+      ensure_all_users_have_profiles: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
       ensure_profile: {
         Args: Record<PropertyKey, never>
         Returns: undefined
@@ -2352,6 +4834,34 @@ export type Database = {
       equals: {
         Args: { geom1: unknown; geom2: unknown }
         Returns: boolean
+      }
+      find_nearby_screens: {
+        Args: { lat_in: number; lng_in: number; radius_meters_in: number }
+        Returns: {
+          active: boolean
+          address_raw: string
+          city: string
+          clase: string
+          display_name: string
+          distance: number
+          id: number
+          lat: number
+          lng: number
+          name: string
+          state: string
+          venue_name: string
+        }[]
+      }
+      find_screens_count_v1: {
+        Args: {
+          city_in: string
+          class_in: string
+          lat_in: number
+          lng_in: number
+          only_active?: boolean
+          radius_km_in: number
+        }
+        Returns: number
       }
       find_screens_v2: {
         Args:
@@ -2383,14 +4893,52 @@ export type Database = {
               in_start_date?: string
             }
         Returns: {
-          address_norm: string
+          city: string
           class: Database["public"]["Enums"]["class_band"]
           code: string
           distance_m: number
-          lat: number
-          lng: number
+          id: number
           name: string
+          state: string
+        }[]
+      }
+      find_screens_v3: {
+        Args: {
+          city_in: string
+          class_in: string
+          lat_in: number
+          lng_in: number
+          only_active?: boolean
+          radius_km_in: number
+        }
+        Returns: {
+          city: string
+          class: string
+          distance_m: number
           screen_id: number
+          state: string
+          venue_id: number
+        }[]
+      }
+      find_screens_v4: {
+        Args: {
+          city_in: string
+          class_in: string
+          lat_in: number
+          limit_in?: number
+          lng_in: number
+          offset_in?: number
+          only_active?: boolean
+          radius_km_in: number
+          sort_by_distance?: boolean
+        }
+        Returns: {
+          city: string
+          class: string
+          distance_m: number
+          screen_id: number
+          state: string
+          venue_id: number
         }[]
       }
       gbt_bit_compress: {
@@ -2841,9 +5389,56 @@ export type Database = {
         Args: { "": string }
         Returns: unknown
       }
+      get_available_cities: {
+        Args: { p_end_date?: string; p_start_date?: string }
+        Returns: {
+          city: string
+          proposal_count: number
+          screen_count: number
+        }[]
+      }
       get_current_user_role: {
         Args: Record<PropertyKey, never>
         Returns: string
+      }
+      get_equipe_stats: {
+        Args: { projeto_uuid: string }
+        Returns: {
+          membros_ativos: number
+          total_coordenadores: number
+          total_diretores: number
+          total_gerentes: number
+          total_membros: number
+        }[]
+      }
+      get_heatmap_data: {
+        Args: {
+          p_city?: string
+          p_end_date?: string
+          p_normalize?: boolean
+          p_start_date?: string
+        }
+        Returns: {
+          city: string
+          class: string
+          lat: number
+          lng: number
+          name: string
+          normalized_intensity: number
+          proposal_count: number
+          screen_id: number
+          total_proposals_in_period: number
+        }[]
+      }
+      get_heatmap_stats: {
+        Args: { p_city?: string; p_end_date?: string; p_start_date?: string }
+        Returns: {
+          avg_intensity: number
+          cities_count: number
+          max_intensity: number
+          total_proposals: number
+          total_screens: number
+        }[]
       }
       get_my_role: {
         Args: Record<PropertyKey, never>
@@ -2866,6 +5461,10 @@ export type Database = {
       get_proj4_from_srid: {
         Args: { "": number }
         Returns: string
+      }
+      get_proposal_details: {
+        Args: { p_proposal_id: number }
+        Returns: Json
       }
       get_proposal_stats: {
         Args: { p_proposal_id: number }
@@ -2926,10 +5525,9 @@ export type Database = {
         Returns: unknown
       }
       has_role: {
-        Args: {
-          _role: Database["public"]["Enums"]["app_role"]
-          _user_id: string
-        }
+        Args:
+          | { _role: Database["public"]["Enums"]["app_role"]; _user_id: string }
+          | { _role: string; _user_id: string }
         Returns: boolean
       }
       import_from_staging: {
@@ -2983,6 +5581,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: boolean
       }
+      make_proposal_snapshot: {
+        Args: { p_id: number }
+        Returns: Json
+      }
       my_account: {
         Args: Record<PropertyKey, never>
         Returns: {
@@ -3001,6 +5603,10 @@ export type Database = {
           provider_id: string
         }[]
       }
+      norm_specialty_term: {
+        Args: { p: string }
+        Returns: string
+      }
       norm_text_imm: {
         Args: { t: string }
         Returns: string
@@ -3009,9 +5615,25 @@ export type Database = {
         Args: { t: string }
         Returns: string
       }
+      norm_uf_br: {
+        Args: { src: string }
+        Returns: string
+      }
+      norm_uf_br_smart: {
+        Args: { src: string }
+        Returns: string
+      }
+      normalize_medical_specialties: {
+        Args: { specialty_text: string }
+        Returns: string[]
+      }
       path: {
         Args: { "": unknown }
         Returns: unknown
+      }
+      period_label: {
+        Args: { p_end: string; p_start: string }
+        Returns: string
       }
       pgis_asflatgeobuf_finalfn: {
         Args: { "": unknown }
@@ -3067,7 +5689,6 @@ export type Database = {
           base_monthly: number
           city: string | null
           city_norm: string | null
-          class: Database["public"]["Enums"]["class_band"] | null
           cpm: number | null
           created_at: string | null
           created_by: string | null
@@ -3091,6 +5712,10 @@ export type Database = {
       polygon: {
         Args: { "": unknown }
         Returns: unknown
+      }
+      populate_email_logs_missing_fields: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
       }
       populate_geometry_columns: {
         Args:
@@ -3229,6 +5854,10 @@ export type Database = {
       promote_to_super_admin: {
         Args: { p_user_id: string }
         Returns: undefined
+      }
+      proposal_summary: {
+        Args: { p_id: number }
+        Returns: Json
       }
       quote_price_detailed: {
         Args: {
@@ -4341,6 +6970,10 @@ export type Database = {
         Args: { "": unknown }
         Returns: number
       }
+      strip_braces_quotes: {
+        Args: { t: string }
+        Returns: string
+      }
       text: {
         Args: { "": unknown }
         Returns: string
@@ -4393,6 +7026,8 @@ export type Database = {
         | "D"
         | "E"
         | "ND"
+        | "ABCD"
+      marco_status: "pendente" | "em_andamento" | "concluido" | "atrasado"
       proposal_status:
         | "rascunho"
         | "enviada"
@@ -4538,7 +7173,20 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["super_admin", "admin", "user"],
-      class_band: ["A", "AB", "ABC", "B", "BC", "C", "CD", "D", "E", "ND"],
+      class_band: [
+        "A",
+        "AB",
+        "ABC",
+        "B",
+        "BC",
+        "C",
+        "CD",
+        "D",
+        "E",
+        "ND",
+        "ABCD",
+      ],
+      marco_status: ["pendente", "em_andamento", "concluido", "atrasado"],
       proposal_status: [
         "rascunho",
         "enviada",

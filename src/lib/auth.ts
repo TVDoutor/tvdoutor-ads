@@ -17,31 +17,10 @@ export async function registerUser(name: string, email: string, password: string
 
   if (authError) throw new Error(authError.message);
 
-  // 2. Se o usuário foi criado, insere na tabela profiles
-  const userId = authData.user?.id;
-  if (userId) {
-    const { error: profileError } = await supabase
-      .from('profiles')
-      .insert([{ 
-        id: userId, 
-        full_name: name,
-        display_name: name,
-        email: email
-        // role: 'user' // Removido - o trigger handle_new_user já define
-      }]);
-
-    if (profileError) throw new Error(profileError.message);
-
-    // 3. Insere também na tabela user_roles
-    const { error: roleError } = await supabase
-      .from('user_roles')
-      .insert([{
-        user_id: userId,
-        role: 'user'
-      }]);
-
-    if (roleError) throw new Error(roleError.message);
-  }
+  // O trigger handle_new_user criará automaticamente:
+  // - O perfil na tabela profiles
+  // - A role 'user' na tabela user_roles
+  // Não é necessário criar manualmente
 
   return authData;
 }

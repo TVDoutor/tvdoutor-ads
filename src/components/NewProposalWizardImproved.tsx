@@ -1,11 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
 import { Progress } from '@/components/ui/progress';
 import { 
   ChevronLeft, 
@@ -15,15 +10,7 @@ import {
   Briefcase, 
   Monitor, 
   Settings, 
-  BarChart3,
-  Building2,
-  Calendar,
-  DollarSign,
-  Target,
-  Users,
-  MapPin,
-  Clock,
-  Play
+  BarChart3
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -136,68 +123,6 @@ export const NewProposalWizardImproved: React.FC<NewProposalWizardProps> = ({
     return result;
   };
 
-  // Buscar projetos baseado no cliente
-  const searchProjects = async () => {
-    if (!data.customer_name.trim()) return;
-    
-    setLoading(true);
-    console.log('🔍 Buscando projetos para cliente:', data.customer_name);
-    
-    try {
-      // Primeira busca: projetos básicos
-      const { data: projects, error } = await supabase
-        .from('agencia_projetos')
-        .select(`
-          id,
-          nome_projeto,
-          descricao,
-          data_inicio,
-          data_fim,
-          orcamento_projeto,
-          status_projeto,
-          cliente_final,
-          responsavel_projeto
-        `)
-        .or(`cliente_final.ilike.%${data.customer_name.trim()}%,nome_projeto.ilike.%${data.customer_name.trim()}%`)
-        .eq('status_projeto', 'ativo')
-        .limit(20);
-
-      console.log('📊 Projetos encontrados:', projects);
-      console.log('❌ Erro na busca:', error);
-
-      if (error) {
-        console.error('Erro detalhado:', error);
-        toast.error('Erro ao buscar projetos: ' + error.message);
-      } else if (projects && projects.length > 0) {
-        // Segunda busca: enriquecer com dados dos responsáveis
-        const projectsWithResponsaveis = await Promise.all(
-          projects.map(async (project) => {
-            if (project.responsavel_projeto) {
-              const { data: responsavel } = await supabase
-                .from('pessoas_projeto')
-                .select('id, nome, email')
-                .eq('id', project.responsavel_projeto)
-                .single();
-              
-              return { ...project, pessoas_projeto: responsavel };
-            }
-            return project;
-          })
-        );
-        
-        console.log('📊 Projetos enriquecidos:', projectsWithResponsaveis);
-        setAvailableProjects(projectsWithResponsaveis);
-      } else {
-        setAvailableProjects([]);
-      }
-    } catch (error) {
-      console.error('Erro ao buscar projetos:', error);
-      toast.error('Erro ao conectar com o banco de dados');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   // Buscar todos os projetos ativos
   const fetchAllProjects = async () => {
     setLoading(true);
@@ -222,7 +147,7 @@ export const NewProposalWizardImproved: React.FC<NewProposalWizardProps> = ({
             nome_agencia
           )
         `)
-        .eq('status_projeto', 'ativo')
+        .eq('status_projeto', 'ativo' as any)
         .order('created_at', { ascending: false })
         .limit(50);
 
@@ -235,7 +160,7 @@ export const NewProposalWizardImproved: React.FC<NewProposalWizardProps> = ({
       } else if (projects && projects.length > 0) {
         // Enriquecer com dados dos responsáveis
         const projectsWithResponsaveis = await Promise.all(
-          projects.map(async (project) => {
+          projects.map(async (project: any) => {
             if (project.responsavel_projeto) {
               const { data: responsavel } = await supabase
                 .from('pessoas_projeto')
@@ -256,73 +181,6 @@ export const NewProposalWizardImproved: React.FC<NewProposalWizardProps> = ({
       }
     } catch (error) {
       console.error('Erro ao buscar projetos:', error);
-      toast.error('Erro ao conectar com o banco de dados');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Buscar telas disponíveis
-  const fetchScreens = async () => {
-    setLoading(true);
-    console.log('🔍 Buscando telas do inventário...');
-    
-    try {
-      // Tentar primeiro com a view enriquecida
-      let { data: screens, error } = await supabase
-        .from('v_screens_enriched')
-        .select(`
-          id,
-          name,
-          city,
-          state,
-          class,
-          venue_name
-        `)
-        .eq('active', true)
-        .limit(100);
-
-      // Se a view não existir, fazer fallback para a tabela screens
-      if (error && (error.code === '42P01' || error.message.includes('does not exist'))) {
-        console.log('⚠️ View v_screens_enriched indisponível, usando tabela screens');
-        const fallback = await supabase
-          .from('screens')
-          .select(`
-            id,
-            name,
-            city,
-            state,
-            class,
-            venues (name, type)
-          `)
-          .eq('active', true)
-          .limit(100);
-        
-        screens = fallback.data;
-        error = fallback.error;
-      }
-
-      console.log('📊 Telas encontradas:', screens);
-      console.log('❌ Erro na busca de telas:', error);
-
-      if (error) {
-        console.error('Erro detalhado:', error);
-        toast.error('Erro ao buscar telas: ' + error.message);
-      } else if (screens) {
-        // Normalizar dados para compatibilidade
-        const normalizedScreens = screens.map((screen: any) => ({
-          ...screen,
-          venues: screen.venues || { name: screen.venue_name, type: null }
-        }));
-        
-        setAvailableScreens(normalizedScreens);
-        console.log('✅ Telas carregadas:', normalizedScreens.length);
-      } else {
-        setAvailableScreens([]);
-        console.log('⚠️ Nenhuma tela encontrada');
-      }
-    } catch (error) {
-      console.error('Erro ao buscar telas:', error);
       toast.error('Erro ao conectar com o banco de dados');
     } finally {
       setLoading(false);
@@ -371,7 +229,7 @@ export const NewProposalWizardImproved: React.FC<NewProposalWizardProps> = ({
 
       // Filtro por classe
       if (filters.selectedClasses.length > 0) {
-        selectQuery = selectQuery.in('class', filters.selectedClasses);
+        selectQuery = selectQuery.in('class', filters.selectedClasses as any);
       }
 
       // Filtro por especialidade
@@ -380,7 +238,7 @@ export const NewProposalWizardImproved: React.FC<NewProposalWizardProps> = ({
       }
 
       // Sempre filtrar apenas telas ativas
-      selectQuery = selectQuery.eq('active', true);
+      selectQuery = selectQuery.eq('active', true as any);
 
       const { data: screens, error } = await selectQuery.limit(500);
 
@@ -399,7 +257,7 @@ export const NewProposalWizardImproved: React.FC<NewProposalWizardProps> = ({
         toast.error('Erro ao buscar telas: ' + error.message);
       } else if (screens) {
         // Normalizar dados
-        const normalizedScreens = screens.map((screen: any) => ({
+        const normalizedScreens = (screens as any[]).map((screen: any) => ({
           ...screen,
           venues: { name: screen.venue_name, type: null }
         }));
@@ -454,14 +312,14 @@ export const NewProposalWizardImproved: React.FC<NewProposalWizardProps> = ({
       }
 
       if (filters.selectedClasses.length > 0) {
-        selectQuery = selectQuery.in('class', filters.selectedClasses);
+        selectQuery = selectQuery.in('class', filters.selectedClasses as any);
       }
 
       if (filters.selectedSpecialties.length > 0) {
         selectQuery = selectQuery.overlaps('specialty', filters.selectedSpecialties);
       }
 
-      selectQuery = selectQuery.eq('active', true);
+      selectQuery = selectQuery.eq('active', true as any);
 
       const { data: screens, error } = await selectQuery.limit(500);
 

@@ -21,7 +21,6 @@ export function GeospatialSearch({ onResults, onNavigateToMap }: GeospatialSearc
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [results, setResults] = useState<ScreenSearchResult[]>([]);
-  const [center, setCenter] = useState<{ lat: number; lng: number } | null>(null);
 
   const radiusOptions = [
     { value: '1', label: '1 km' },
@@ -52,7 +51,6 @@ export function GeospatialSearch({ onResults, onNavigateToMap }: GeospatialSearc
       }
 
       console.log('📍 Endereço geocodificado:', geocoded);
-      setCenter({ lat: geocoded.lat, lng: geocoded.lng });
 
       // Buscar telas próximas
       const screens = await searchScreensNearLocation({

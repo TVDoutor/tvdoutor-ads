@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { PessoasProjetoService } from '@/lib/pessoas-projeto-service';
 import { User } from 'lucide-react';
 import type { PessoaProjeto } from '@/types/agencia';

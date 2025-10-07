@@ -8,14 +8,14 @@ export const useHtml2pdf = () => {
     const loadHtml2pdf = async () => {
       try {
         // Verificar se já está carregado
-        if (window.html2pdf) {
+        if ((window as any).html2pdf) {
           setIsLoaded(true);
           return;
         }
 
         // Carregar dinamicamente
         const html2pdf = await import('html2pdf.js');
-        window.html2pdf = html2pdf.default;
+        (window as any).html2pdf = html2pdf.default;
         
         setIsLoaded(true);
       } catch (err) {

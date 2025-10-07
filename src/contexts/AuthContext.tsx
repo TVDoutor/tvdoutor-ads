@@ -1,9 +1,8 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { User, AuthError } from '@supabase/supabase-js';
+import { User, AuthError, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { logDebug, logWarn, logError, logAuthSuccess, logAuthError } from '@/utils/secureLogger';
-import { csrfProtection, createSecureSupabaseRequest } from '@/lib/csrf-protection';
 
 // Mapeamento de roles do banco para o frontend
 export type UserRole = 'User' | 'Manager' | 'Admin';

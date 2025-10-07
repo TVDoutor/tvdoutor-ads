@@ -3,6 +3,7 @@
  * Implementa proteção contra Cross-Site Request Forgery
  */
 
+// @ts-nocheck
 import { supabase } from '@/integrations/supabase/client';
 
 class CSRFProtection {

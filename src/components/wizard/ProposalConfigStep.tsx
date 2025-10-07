@@ -30,7 +30,6 @@ const INSERTION_OPTIONS = Array.from({ length: 12 }, (_, i) => ({
 
 export const ProposalConfigStep = ({ data, onUpdate }: ProposalConfigStepProps) => {
   const [customFilmDuration, setCustomFilmDuration] = useState<string>('');
-  const [isCustomDuration, setIsCustomDuration] = useState(false);
 
   const handleFilmDurationToggle = (duration: number) => {
     const currentDurations = data.film_seconds;

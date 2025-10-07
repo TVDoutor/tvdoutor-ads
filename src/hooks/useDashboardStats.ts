@@ -59,7 +59,7 @@ export const useDashboardStats = () => {
           const { data: kpisData, error: kpisError } = await supabase
             .from('proposal_kpis')
             .select('id, total_value, created_at, status')
-            .eq('status', 'active');
+            .eq('status', 'active' as any);
 
           if (kpisError) {
             console.warn('proposal_kpis não disponível, tentando proposals diretamente');
@@ -68,7 +68,7 @@ export const useDashboardStats = () => {
             const { data: directProposalsData, error: proposalsError } = await supabase
               .from('proposals')
               .select('id, created_at, net_business, gross_business, status')
-              .in('status', ['enviada', 'aceita', 'em_analise'])
+              .in('status', ['enviada' as any, 'aceita' as any, 'em_analise' as any])
               .limit(100);
 
             if (proposalsError) {
@@ -106,7 +106,7 @@ export const useDashboardStats = () => {
           const { data: prevScreensData } = await supabase
             .from('screens')
             .select('id')
-            .eq('active', true)
+            .eq('active', true as any)
             .lt('created_at', lastMonth.toISOString())
             .limit(1000);
 

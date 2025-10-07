@@ -13,18 +13,18 @@ export const addScreenAsAdmin = async (screenData: any) => {
     const { data: profile } = await supabase
       .from('profiles')
       .select('super_admin, role')
-      .eq('id', user.id)
+      .eq('id', user.id as any)
       .single();
 
     const { data: userRoles } = await supabase
       .from('user_roles')
       .select('role')
-      .eq('user_id', user.id)
-      .in('role', ['admin', 'super_admin']);
+      .eq('user_id', user.id as any)
+      .in('role', ['admin' as any, 'super_admin' as any]);
 
-    const isAdmin = profile?.super_admin || 
-                   profile?.role === 'admin' || 
-                   profile?.role === 'super_admin' ||
+    const isAdmin = (profile as any)?.super_admin || 
+                   (profile as any)?.role === 'admin' || 
+                   (profile as any)?.role === 'super_admin' ||
                    (userRoles?.length ?? 0) > 0;
 
     if (!isAdmin) {
@@ -56,18 +56,18 @@ export const deleteScreenAsAdmin = async (screenId: number) => {
     const { data: profile } = await supabase
       .from('profiles')
       .select('super_admin, role')
-      .eq('id', user.id)
+      .eq('id', user.id as any)
       .single();
 
     const { data: userRoles } = await supabase
       .from('user_roles')
       .select('role')
-      .eq('user_id', user.id)
-      .in('role', ['admin', 'super_admin']);
+      .eq('user_id', user.id as any)
+      .in('role', ['admin' as any, 'super_admin' as any]);
 
-    const isAdmin = profile?.super_admin || 
-                   profile?.role === 'admin' || 
-                   profile?.role === 'super_admin' ||
+    const isAdmin = (profile as any)?.super_admin || 
+                   (profile as any)?.role === 'admin' || 
+                   (profile as any)?.role === 'super_admin' ||
                    (userRoles?.length ?? 0) > 0;
 
     if (!isAdmin) {

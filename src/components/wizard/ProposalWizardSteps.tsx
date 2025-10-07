@@ -450,7 +450,6 @@ export const ScreenSelectionStep: React.FC<ScreenSelectionStepProps> = ({
               const audience = screen.audience || Math.floor(Math.random() * 2000) + 500; // Alcance simulado
               const weeklyRate = screen.weekly_rate || Math.floor(Math.random() * 200) + 50; // Taxa semanal
               const cpm = screen.cpm || Math.floor((weeklyRate / audience) * 1000); // CPM calculado
-              const investment = Math.floor(weeklyRate * 4.33); // Investimento mensal aproximado
               
               return (
                 <Card

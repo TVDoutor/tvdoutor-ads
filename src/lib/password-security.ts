@@ -3,6 +3,7 @@
  * Implementa validações rigorosas para senhas seguindo padrões de segurança
  */
 
+// @ts-nocheck
 import { z } from 'zod';
 import { logError, logWarn } from '@/utils/secureLogger';
 

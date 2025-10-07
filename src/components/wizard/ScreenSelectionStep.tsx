@@ -252,8 +252,6 @@ export const ScreenSelectionStep = ({ data, onUpdate }: ScreenSelectionStepProps
     }
   });
 
-  const availableCities = [...new Set(screens.map(s => s.city))].sort();
-
   const toggleScreenSelection = (screenId: number) => {
     const currentSelected = data.selectedScreens;
     const newSelected = currentSelected.includes(screenId)

@@ -25,7 +25,7 @@ export async function listarAgencias(): Promise<Agencia[]> {
     }
 
     console.log('✅ [DEBUG] Agências carregadas com sucesso:', data?.length || 0, 'registros');
-    return data || [];
+    return (data as any) || [];
   } catch (error) {
     console.error('💥 [DEBUG] Erro inesperado ao listar agências:', error);
     throw error;

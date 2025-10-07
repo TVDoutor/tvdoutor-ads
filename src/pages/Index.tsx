@@ -87,13 +87,6 @@ const Index = () => {
     }
   ];
 
-  const handleCreateProposal = () => {
-    navigate("/nova-proposta");
-  };
-
-  const handleViewInventory = () => {
-    navigate("/inventory");
-  };
 
   const handleQuickAction = (action: string) => {
     switch (action) {

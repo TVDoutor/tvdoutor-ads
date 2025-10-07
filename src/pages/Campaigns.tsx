@@ -18,17 +18,12 @@ import {
   Users, 
   Monitor, 
   Eye, 
-  Edit,
-  MoreHorizontal,
-  Trash2,
   PlayCircle,
   PauseCircle,
   StopCircle,
-  BarChart3,
   Target,
   DollarSign,
   TrendingUp,
-  AlertCircle,
   CheckCircle2,
   Clock
 } from 'lucide-react';

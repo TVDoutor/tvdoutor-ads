@@ -181,7 +181,7 @@ export async function generateBasicPDF(proposalId: number): Promise<PDFGeneratio
       console.error('❌ Erro na Edge Function:', error);
       return {
         ok: false,
-        error: error.message || 'Erro ao gerar PDF básico'
+        reason: error.message || 'Erro ao gerar PDF básico'
       };
     }
 
@@ -189,7 +189,7 @@ export async function generateBasicPDF(proposalId: number): Promise<PDFGeneratio
       console.warn('⚠️ Edge Function retornou erro. Data:', data);
       return {
         ok: false,
-        error: data?.error || 'Erro na geração do PDF básico'
+        reason: data?.error || 'Erro na geração do PDF básico'
       };
     }
 
@@ -200,7 +200,7 @@ export async function generateBasicPDF(proposalId: number): Promise<PDFGeneratio
     console.error('💥 Erro na geração do PDF básico:', error);
     return {
       ok: false,
-      error: 'Erro interno na geração do PDF básico'
+      reason: 'Erro interno na geração do PDF básico'
     };
   }
 }
@@ -211,7 +211,7 @@ export async function generateBasicPDF(proposalId: number): Promise<PDFGeneratio
  * @param logoUrl - URL do logo da organização (opcional)
  * @returns Promise com resultado da geração
  */
-export async function generateProPDF(proposalId: number, logoUrl?: string): Promise<PDFGenerationResponse> {
+export async function generateProPDF(proposalId: number, _logoUrl?: string): Promise<PDFGenerationResponse> {
   try {
     console.log('🚀 Iniciando geração de PDF profissional para proposta:', proposalId);
     
@@ -292,18 +292,18 @@ export async function generateProPDF(proposalId: number, logoUrl?: string): Prom
     }
 
     // Processar resposta da Edge Function
-    if (data.pdfBase64) {
+    if ((data as any).pdfBase64) {
       console.log('✅ PDF profissional gerado (base64)!');
       return {
         ok: true,
-        pdfBase64: data.pdfBase64,
+        pdfBase64: (data as any).pdfBase64,
         kind: 'pro'
       };
-    } else if (data.pdf_url) {
+    } else if ((data as any).pdf_url) {
       console.log('✅ PDF profissional gerado (URL)!');
       return {
         ok: true,
-        pdf_url: data.pdf_url,
+        pdf_url: (data as any).pdf_url,
         kind: 'pro'
       };
     } else if (data.blob) {
@@ -313,11 +313,11 @@ export async function generateProPDF(proposalId: number, logoUrl?: string): Prom
         blob: data.blob,
         kind: 'pro'
       };
-    } else if (data.arrayBuffer) {
+    } else if ((data as any).arrayBuffer) {
       console.log('✅ PDF profissional gerado (ArrayBuffer)!');
       return {
         ok: true,
-        arrayBuffer: data.arrayBuffer,
+        arrayBuffer: (data as any).arrayBuffer,
         kind: 'pro'
       };
     } else {

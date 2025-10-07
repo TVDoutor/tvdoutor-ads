@@ -1,6 +1,5 @@
 import { SupabaseClient } from '@supabase/supabase-js';
 import { toast } from 'sonner';
-import type { PessoaProjeto } from '@/types/agencia';
 import { logDebug, logError, logWarn } from '@/utils/secureLogger';
 
 // Tipos baseados na estrutura do banco de dados

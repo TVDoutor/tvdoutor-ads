@@ -175,8 +175,6 @@ export async function fetchAllScreens() {
     console.log('🔄 Buscando todas as telas...');
     
     // Primeiro, tentar buscar da view v_screens_enriched
-    let screens = null;
-    let error = null;
     
     try {
       const { data, error: viewError } = await supabase
@@ -202,8 +200,6 @@ export async function fetchAllScreens() {
         console.log(`✅ ${data.length} telas encontradas na view v_screens_enriched`);
         return data;
       }
-      
-      error = viewError;
       console.warn('⚠️ Erro na view v_screens_enriched, tentando tabela screens diretamente:', viewError);
       
     } catch (viewErr) {
@@ -243,11 +239,11 @@ export async function fetchAllScreens() {
     console.log(`✅ ${screensData.length} telas encontradas na tabela screens`);
     return screensData;
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('💥 Erro ao buscar telas:', error);
     
     // Verificar se é erro de API key inválida
-    if (error.message?.includes('Invalid API key') || error.message?.includes('JWT')) {
+    if (error?.message?.includes('Invalid API key') || error?.message?.includes('JWT')) {
       console.warn('⚠️ Chave API inválida - retornando dados de exemplo');
     }
     
@@ -333,7 +329,6 @@ export async function fetchScreensByLocation(city: string, state: string, venueN
     
     // Primeiro, tentar buscar da view v_screens_enriched
     let screens = null;
-    let error = null;
     
     try {
       const { data, error: viewError } = await supabase
@@ -365,7 +360,6 @@ export async function fetchScreensByLocation(city: string, state: string, venueN
         console.log(`✅ ${data.length} telas encontradas na view v_screens_enriched`);
         screens = data;
       } else {
-        error = viewError;
         console.warn('⚠️ Erro na view v_screens_enriched, tentando tabela screens diretamente:', viewError);
       }
       
@@ -410,7 +404,7 @@ export async function fetchScreensByLocation(city: string, state: string, venueN
 
     // Filtrar telas que correspondem ao venueName
     const filteredScreens = screens.filter(screen => {
-      const screenName = screen.name || screen.display_name || screen.venue_name || '';
+      const screenName = screen.name || (screen as any).display_name || (screen as any).venue_name || '';
       const normalizedScreenName = screenName.toLowerCase().trim();
       const normalizedVenueName = venueName.toLowerCase().trim();
       

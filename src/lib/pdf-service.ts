@@ -102,7 +102,7 @@ export class PDFService {
    * Método de compatibilidade com a interface anterior
    * @deprecated Use downloadVisibleProposalPDF() em vez disso
    */
-  async downloadProposalPDF(proposalId: number, filename: string): Promise<void> {
+  async downloadProposalPDF(_proposalId: number, filename: string): Promise<void> {
     console.log('⚠️ Usando método legado. Considere migrar para downloadVisibleProposalPDF()');
     return this.downloadVisibleProposalPDF(filename);
   }

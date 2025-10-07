@@ -3,7 +3,7 @@
  * Implementa controle de taxa de requisições para prevenir abuso
  */
 
-import { logWarn, logError } from '@/utils/secureLogger';
+import { logWarn } from '@/utils/secureLogger';
 
 interface RateLimitConfig {
   windowMs: number; // Janela de tempo em millisegundos

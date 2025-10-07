@@ -43,7 +43,7 @@ export const useDashboardStats = () => {
           if (screensError) {
             console.warn('Erro ao buscar screens:', screensError);
           } else {
-            activeScreensData = screensData?.filter(screen => Boolean(screen.active)) || [];
+            activeScreensData = (screensData as any)?.filter((screen: any) => Boolean(screen.active)) || [];
           }
         } catch (screensFetchError) {
           console.warn('Falha ao buscar screens, usando dados padrão');

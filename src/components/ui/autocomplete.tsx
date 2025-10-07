@@ -34,7 +34,7 @@ export function Autocomplete({
   const [isOpen, setIsOpen] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const inputRef = useRef<HTMLInputElement>(null);
-  const listRef = useRef<HTMLDivElement>(null);
+  
 
   // Fechar dropdown quando clicar fora
   useEffect(() => {

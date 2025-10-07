@@ -27,7 +27,7 @@ export function SearchResultsMap({ screens, centerLat, centerLng, radiusKm, load
   // Callback para quando o container for montado
   const handleContainerRef = (node: HTMLDivElement | null) => {
     if (mapContainer.current !== node) {
-      mapContainer.current = node;
+      (mapContainer as any).current = node;
     }
     if (node) {
       console.log('🎯 Container do mapa montado no DOM');

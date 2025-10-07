@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { MapPin, Search, Plus, Users, Target, AlertCircle, Play, RefreshCw, Heart, ShoppingCart, Filter, ArrowUpDown, ZoomIn, ZoomOut, Eye, EyeOff } from "lucide-react";
+import { MapPin, Search, Users, AlertCircle, Play, RefreshCw, Heart, ShoppingCart, Filter, ArrowUpDown, ZoomIn, ZoomOut, EyeOff } from "lucide-react";
 import { type ScreenSearchResult, searchScreensNearLocation, searchScreensByCity } from "@/lib/search-service";
 import { MapView } from "./MapView";
 import { geocodeAddress } from "@/lib/geocoding";
@@ -18,7 +18,7 @@ interface HeroSearchSectionProps {
   onNavigateToMap?: () => void;
 }
 
-export function HeroSearchSection({ onSearchResults, onNavigateToMap }: HeroSearchSectionProps) {
+export function HeroSearchSection({ onSearchResults }: HeroSearchSectionProps) {
   const navigate = useNavigate();
   const [searchType, setSearchType] = useState("location");
   const [address, setAddress] = useState("Av Paulista, São Paulo");
@@ -222,7 +222,7 @@ export function HeroSearchSection({ onSearchResults, onNavigateToMap }: HeroSear
                 <p className="text-gray-600">Digite um endereço ou cidade e clique em "Buscar" para encontrar telas disponíveis.</p>
               </div>
             ) : (
-              searchResults.map((screen, index) => (
+              searchResults.map((screen) => (
               <Card key={screen.id} className="overflow-hidden hover:shadow-lg transition-shadow">
                 <div className="relative">
                   {/* Imagem do Local */}
@@ -238,7 +238,7 @@ export function HeroSearchSection({ onSearchResults, onNavigateToMap }: HeroSear
                     
                     {/* Tags */}
                     <div className="absolute top-3 left-3 flex gap-2">
-                      {screen.tags?.map((tag, tagIndex) => (
+                      {(screen as any).tags?.map((tag: string, tagIndex: number) => (
                         <Badge key={tagIndex} variant="secondary" className="text-xs bg-white/90">
                           {tag}
                         </Badge>

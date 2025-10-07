@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { User, Session, AuthError } from '@supabase/supabase-js';
+import { User, AuthError } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { logDebug, logWarn, logError, logAuthSuccess, logAuthError } from '@/utils/secureLogger';
@@ -74,13 +74,13 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       const profilePromise = supabase
         .from('profiles')
         .select('*')
-        .eq('id', userId)
+        .eq('id', userId as any)
         .single();
 
       const rolePromise = supabase
         .from('user_roles')
         .select('role')
-        .eq('user_id', userId)
+        .eq('user_id', userId as any)
         .order('role', { ascending: true })
         .limit(1);
 
@@ -259,7 +259,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     // Escutar mudanças na autenticação
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, session) => {
+    } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!mounted) return;
 
       setSession(session);

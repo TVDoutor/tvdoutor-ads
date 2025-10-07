@@ -38,7 +38,7 @@ export const ProposalSummaryStep = ({ data }: ProposalSummaryStepProps) => {
       let { data: enriched, error: enrichedError } = await supabase
         .from('v_screens_enriched')
         .select('id, name, city, state, class')
-        .in('id', data.selectedScreens);
+        .in('id', data.selectedScreens as any);
 
       if (!enrichedError && enriched) {
         setSelectedScreens(enriched.map((s: any) => ({
@@ -55,7 +55,7 @@ export const ProposalSummaryStep = ({ data }: ProposalSummaryStepProps) => {
       let { data: screens, error } = await supabase
         .from('screens')
         .select('id, name, city, state, class')
-        .in('id', data.selectedScreens);
+        .in('id', data.selectedScreens as any);
 
       // Se a coluna class não existir, buscar novamente sem ela
       if (error && error.code === '42703' && error.message.includes('column screens.class does not exist')) {
@@ -63,9 +63,9 @@ export const ProposalSummaryStep = ({ data }: ProposalSummaryStepProps) => {
         const { data: screensWithoutClass, error: errorWithoutClass } = await supabase
           .from('screens')
           .select('id, name, city, state')
-          .in('id', data.selectedScreens);
+          .in('id', data.selectedScreens as any);
         
-        screens = screensWithoutClass?.map(screen => ({ ...screen, class: 'ND' })) || null;
+        screens = (screensWithoutClass as any)?.map((screen: any) => ({ ...screen, class: 'ND' })) || null;
         error = errorWithoutClass;
       }
 
@@ -214,7 +214,7 @@ export const ProposalSummaryStep = ({ data }: ProposalSummaryStepProps) => {
       </Card>
 
       {/* Seções por Duração de Filme */}
-      {data.film_seconds.map((filmDuration, index) => (
+      {data.film_seconds.map((filmDuration) => (
         <div key={filmDuration} className="space-y-4">
           {/* Título da Seção para esta duração */}
           <div className="flex items-center gap-2 p-3 bg-primary/5 rounded-lg border border-primary/20">

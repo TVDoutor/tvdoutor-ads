@@ -85,7 +85,7 @@ export const AudienceCalculator = () => {
           .from('screens')
           .select('city')
           .not('city', 'is', null)
-          .eq('active', true)
+          .eq('active', true as any)
           .limit(2000);
 
         if (citiesError) throw citiesError;

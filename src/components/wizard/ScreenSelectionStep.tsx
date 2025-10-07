@@ -2,9 +2,8 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { MapPin, Monitor, Users, CheckCircle2, X, Search, Building2, Filter, Loader2 } from "lucide-react";
+import { MapPin, Monitor, Users, CheckCircle2, X, Search, Building2, Filter } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import type { ProposalData } from "../NewProposalWizard";
@@ -56,8 +55,6 @@ export const ScreenSelectionStep = ({ data, onUpdate }: ScreenSelectionStepProps
   const [availableSpecialties, setAvailableSpecialties] = useState<{ value: string; label: string; count: number }[]>([]);
   const [radiusSearchResults, setRadiusSearchResults] = useState<any[]>([]);
   const [radiusSearchActive, setRadiusSearchActive] = useState(false);
-  const [searchPerformed, setSearchPerformed] = useState(false);
-  const [searchLoading, setSearchLoading] = useState(false);
 
   useEffect(() => {
     fetchScreens();
@@ -131,7 +128,7 @@ export const ScreenSelectionStep = ({ data, onUpdate }: ScreenSelectionStepProps
             address_raw,
             class
           `)
-          .eq('active', true)
+      .eq('active', true as any)
           .not('lat', 'is', null)
           .not('lng', 'is', null)
           .order('display_name');
@@ -155,13 +152,13 @@ export const ScreenSelectionStep = ({ data, onUpdate }: ScreenSelectionStepProps
               address_raw,
               class
             `)
-            .eq('active', true)
+            .eq('active', true as any)
             .not('lat', 'is', null)
             .not('lng', 'is', null)
             .order('display_name');
 
           if (errorWithoutSpecialty) throw errorWithoutSpecialty;
-          fromScreens = screensWithoutSpecialty;
+          fromScreens = screensWithoutSpecialty as any;
           error = null as any;
         }
 
@@ -299,7 +296,6 @@ export const ScreenSelectionStep = ({ data, onUpdate }: ScreenSelectionStepProps
     // Limpar telas selecionadas anteriores e selecionar apenas as encontradas na busca
     setRadiusSearchResults(screens);
     setRadiusSearchActive(true);
-    setSearchPerformed(true);
     onUpdate({ selectedScreens: screenIds });
     
     toast.success(`${screens.length} telas encontradas e selecionadas automaticamente!`);
@@ -463,7 +459,7 @@ export const ScreenSelectionStep = ({ data, onUpdate }: ScreenSelectionStepProps
         <div className="pt-4">
           <AddressRadiusSearch
             onResults={handleRadiusSearchResults}
-            disabled={searchLoading || loading}
+            disabled={loading}
           />
         </div>
 
@@ -658,7 +654,7 @@ export const ScreenSelectionStep = ({ data, onUpdate }: ScreenSelectionStepProps
               onClick={handleSelectAllScreens}
               variant="outline"
               className="w-full"
-              disabled={searchLoading}
+              disabled={loading}
             >
               <CheckCircle2 className="w-4 h-4 mr-2" />
               Selecionar todas as telas ({filteredScreens.length})

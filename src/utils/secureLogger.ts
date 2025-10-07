@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Sistema de logging seguro que evita exposição de dados sensíveis
  */

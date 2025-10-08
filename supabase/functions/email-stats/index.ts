@@ -8,7 +8,12 @@ const corsHeaders = {
   'Access-Control-Max-Age': '86400',
 }
 
+// ✅ INSTRUÇÃO ADICIONADA: Dizendo ao "robô" para usar o 'console' como a caneta 'loggers'.
+const loggers = console;
+
 serve(async (req) => {
+  console.log('📊 Email Stats Function called:', req.method, req.url)
+  
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { 
@@ -17,26 +22,58 @@ serve(async (req) => {
     })
   }
 
-  try {
-    // Create Supabase client with service role key
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false
-        }
+  // Aceitar apenas requisições GET
+  if (req.method !== 'GET') {
+    return new Response(
+      JSON.stringify({ 
+        success: false, 
+        error: 'Método não permitido. Use GET.' 
+      }),
+      { 
+        status: 405, 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
       }
     )
+  }
+
+  try {
+    // Verificar se as variáveis de ambiente estão configuradas
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')
+    
+    console.log('🔧 Environment check:', { 
+      hasUrl: !!supabaseUrl, 
+      hasServiceKey: !!supabaseServiceKey,
+      hasAnonKey: !!supabaseAnonKey
+    })
+    
+    if (!supabaseUrl || !supabaseServiceKey || !supabaseAnonKey) {
+      console.error('❌ Variáveis de ambiente não configuradas')
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: 'Configuração de ambiente inválida'
+        }),
+        { 
+          status: 500, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      )
+    }
+
+    // Always use service role key for database access (bypass user authentication)
+    console.log('🔑 Using service role key for database access')
+    const supabaseClient = createClient(supabaseUrl, supabaseServiceKey)
 
     // Buscar estatísticas de emails
+    console.log('📧 Buscando estatísticas de emails...')
     const { data: stats, error } = await supabaseClient
       .from('email_logs')
       .select('email_type, status, created_at')
 
     if (error) {
-      console.error('Erro ao buscar estatísticas:', error)
+      console.error('❌ Erro ao buscar estatísticas:', error)
       return new Response(
         JSON.stringify({ 
           success: false, 
@@ -49,6 +86,8 @@ serve(async (req) => {
         }
       )
     }
+
+    console.log('📊 Dados encontrados:', stats?.length || 0, 'registros')
 
     // Processar estatísticas
     const statsMap = new Map()
@@ -82,6 +121,7 @@ serve(async (req) => {
     })
 
     const statsArray = Array.from(statsMap.values())
+    console.log('✅ Estatísticas processadas:', statsArray.length, 'tipos')
 
     return new Response(
       JSON.stringify({ 
@@ -94,7 +134,7 @@ serve(async (req) => {
     )
 
   } catch (error) {
-    console.error('Erro na Edge Function de estatísticas:', error)
+    console.error('❌ Erro na Edge Function de estatísticas:', error)
     return new Response(
       JSON.stringify({ 
         success: false, 

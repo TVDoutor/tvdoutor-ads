@@ -642,54 +642,60 @@ class EmailService {
 
   /**
    * Processa todos os emails pendentes via Edge Function
+   * Não bloqueia operações críticas (como signup) em caso de erro
    */
   async processAllPendingEmails(): Promise<{ processed: number; successful: number; failed: number }> {
     try {
       logInfo('Iniciando processamento de emails via Edge Function');
       
-      // Get current session for authentication
+      // Get current session for authentication (opcional)
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       
       if (sessionError) {
-        logError('Erro ao obter sessão para processamento de emails', sessionError);
-        return { processed: 0, successful: 0, failed: 0 };
+        console.warn('⚠️ Erro ao obter sessão para processamento de emails (não crítico):', sessionError);
+        // Não retornar erro, tentar sem autenticação
       }
       
-      if (!session) {
-        logWarn('Nenhuma sessão ativa para processamento de emails');
-        return { processed: 0, successful: 0, failed: 0 };
-      }
-      
-      const { data, error } = await supabase.functions.invoke('process-pending-emails', {
-        method: 'POST',
-        body: { action: 'process' },
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json'
+      try {
+        const { data, error } = await supabase.functions.invoke('process-pending-emails', {
+          method: 'POST',
+          body: { action: 'process' },
+          headers: session?.access_token ? {
+            Authorization: `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json'
+          } : {
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (error) {
+          console.warn('⚠️ Edge Function error (não crítico):', error);
+          // Não retornar erro, apenas logar
+          return { processed: 0, successful: 0, failed: 0 };
         }
-      });
 
-      if (error) {
-        logError('Erro na Edge Function de processamento', error);
+        if (data?.success) {
+          const result = {
+            processed: data.processed || 0,
+            successful: data.successful || 0,
+            failed: data.failed || 0
+          };
+
+          logInfo('✅ Processamento de emails concluído via Edge Function', result);
+          return result;
+        }
+
+        logDebug('ℹ️ Nenhum email pendente para processar');
+        return { processed: 0, successful: 0, failed: 0 };
+      } catch (invokeError) {
+        console.warn('⚠️ Erro ao chamar Edge Function (não crítico):', invokeError);
+        // Não propagar erro, apenas logar
         return { processed: 0, successful: 0, failed: 0 };
       }
-
-      if (data?.success) {
-        const result = {
-          processed: data.processed || 0,
-          successful: data.successful || 0,
-          failed: data.failed || 0
-        };
-
-        logInfo('Processamento de emails concluído via Edge Function', result);
-        return result;
-      }
-
-      logDebug('Nenhum email pendente para processar');
-      return { processed: 0, successful: 0, failed: 0 };
     } catch (error) {
-      logError('Erro ao processar emails pendentes via Edge Function', error);
-      return { processed: 0, successful: 0, failed: 0 }; // Graceful fallback
+      console.warn('⚠️ Erro ao processar emails pendentes (não crítico):', error);
+      // Graceful fallback - não bloquear operações críticas
+      return { processed: 0, successful: 0, failed: 0 };
     }
   }
 

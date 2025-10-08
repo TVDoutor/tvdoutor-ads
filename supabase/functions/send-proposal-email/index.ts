@@ -7,6 +7,9 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+// ✅ INSTRUÇÃO ADICIONADA: Dizendo ao "robô" para usar o 'console' como a caneta 'loggers'.
+const loggers = console;
+
 interface EmailRequest {
   logId: number;
   proposalId: number;

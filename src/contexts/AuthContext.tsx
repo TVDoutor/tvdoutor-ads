@@ -327,10 +327,14 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   const signUp = async (email: string, password: string, name: string) => {
     try {
+      console.log('🔵 ==================== INÍCIO DO SIGNUP ====================');
+      console.log('📧 Email:', email);
+      console.log('👤 Nome:', name);
       logDebug('Iniciando processo de cadastro', { email, hasName: !!name });
       
       // Verificar se as variáveis de ambiente estão configuradas
       if (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY) {
+        console.error('❌ Variáveis de ambiente não configuradas');
         logAuthError('Variáveis de ambiente não configuradas');
         toast({
           title: "Erro de configuração",
@@ -340,6 +344,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         return { error: new Error('Environment variables not configured') as AuthError };
       }
       
+      console.log('🔧 Chamando supabase.auth.signUp...');
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -352,6 +357,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       });
 
       if (error) {
+        console.error('❌ Erro no signup do Supabase:', error);
         logAuthError('Erro no signup do Supabase', error);
         toast({
           title: "Erro no cadastro",
@@ -362,15 +368,81 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       }
 
       if (data.user) {
+        console.log('✅ Usuário criado com sucesso no auth.users');
+        console.log('   User ID:', data.user.id);
+        console.log('   Email:', data.user.email);
+        console.log('   Email confirmado:', data.user.email_confirmed_at ? 'Sim' : 'Não');
         logDebug('Usuário criado com sucesso', { userId: data.user.id });
         
-        // O trigger handle_new_user cria automaticamente o perfil e role
+        console.log('⏳ Aguardando trigger handle_new_user criar profile e role...');
+        
+        // Aguardar um pouco para o trigger executar
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        // Verificar se o profile foi criado
+        console.log('🔍 Verificando se profile foi criado...');
+        try {
+          const { data: profileData, error: profileError } = await supabase
+            .from('profiles')
+            .select('id, email, full_name, super_admin')
+            .eq('id', data.user.id)
+            .single();
+          
+          if (profileError) {
+            console.error('❌ Erro ao buscar profile:', profileError);
+            console.log('   Código:', profileError.code);
+            console.log('   Mensagem:', profileError.message);
+            console.log('   Detalhes:', profileError.details);
+          } else if (profileData) {
+            console.log('✅ Profile criado com sucesso');
+            console.log('   ID:', profileData.id);
+            console.log('   Email:', profileData.email);
+            console.log('   Nome:', profileData.full_name);
+            console.log('   Super Admin:', profileData.super_admin ? 'Sim' : 'Não');
+          } else {
+            console.warn('⚠️ Profile não encontrado (pode estar sendo criado)');
+          }
+        } catch (profileCheckError) {
+          console.error('❌ Erro ao verificar profile:', profileCheckError);
+        }
+        
+        // Verificar se a role foi atribuída
+        console.log('🔍 Verificando se role foi atribuída...');
+        try {
+          const { data: roleData, error: roleError } = await supabase
+            .from('user_roles')
+            .select('user_id, role')
+            .eq('user_id', data.user.id);
+          
+          if (roleError) {
+            console.error('❌ Erro ao buscar role:', roleError);
+            console.log('   Código:', roleError.code);
+            console.log('   Mensagem:', roleError.message);
+            console.log('   Detalhes:', roleError.details);
+          } else if (roleData && roleData.length > 0) {
+            console.log('✅ Role atribuída com sucesso');
+            console.log('   User ID:', roleData[0].user_id);
+            console.log('   Role:', roleData[0].role);
+            roleData.forEach((role, index) => {
+              if (index > 0) {
+                console.log(`   Role adicional [${index}]:`, role.role);
+              }
+            });
+          } else {
+            console.warn('⚠️ Nenhuma role encontrada (pode estar sendo criada)');
+          }
+        } catch (roleCheckError) {
+          console.error('❌ Erro ao verificar role:', roleCheckError);
+        }
+        
+        console.log('🔵 ==================== FIM DO SIGNUP ====================');
         
         toast({
           title: "Conta criada!",
           description: "Verifique seu email para ativar a conta."
         });
       } else {
+        console.warn('⚠️ Signup retornou sucesso mas sem usuário');
         logWarn('Signup retornou sucesso mas sem usuário');
         toast({
           title: "Conta criada!",
@@ -380,6 +452,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
       return { error: null };
     } catch (error) {
+      console.error('❌ Erro crítico no signup:', error);
       logAuthError('Sign up error', error);
       toast({
         title: "Erro no cadastro", 

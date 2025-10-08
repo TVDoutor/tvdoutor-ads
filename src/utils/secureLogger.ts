@@ -15,18 +15,24 @@ class SecureLogger {
   private isProduction: boolean;
 
   constructor() {
-    this.isProduction = import.meta.env.PROD || import.meta.env.NODE_ENV === 'production';
+    let isProd = false;
+
+    // ✅ VERIFICAÇÃO INTELIGENTE:
+    // 1. Estamos no ambiente Deno (Edge Function)?
+    if (typeof Deno !== 'undefined') {
+      isProd = Deno.env.get('SUPABASE_ENV') === 'production';
+    }
+    // 2. Senão, estamos no ambiente Vite/Browser (Front-end)?
+    else if (typeof import.meta.env !== 'undefined') {
+      isProd = import.meta.env.PROD;
+    }
+
+    this.isProduction = isProd;
+    // O resto do seu construtor continua igual...
     this.config = {
       level: this.isProduction ? 'error' : 'debug',
       enableInProduction: false
     };
-    
-    // Em produção, desabilitar completamente os logs de debug e info
-    if (this.isProduction) {
-      console.log = () => {};
-      console.debug = () => {};
-      console.info = () => {};
-    }
   }
 
   /**

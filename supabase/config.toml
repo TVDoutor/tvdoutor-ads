@@ -2,3 +2,9 @@ project_id = "vaogzhwzucijiyvyglls"
 
 [functions.mapbox-token]
 verify_jwt = true
+
+[functions.email-stats]
+verify_jwt = false
+
+[functions.process-pending-emails]
+verify_jwt = false

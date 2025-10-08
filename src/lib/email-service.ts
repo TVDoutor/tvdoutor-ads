@@ -935,3 +935,41 @@ export const stopEmailProcessing = () => {
     logInfo('Processamento automático de emails parado');
   }
 };
+
+/**
+ * Processa a fila de emails de forma resiliente
+ * Não bloqueia operações críticas em caso de erro
+ */
+export const processEmailQueue = async () => {
+  try {
+    logDebug('📧 Iniciando processamento da fila de emails...');
+    
+    const { data, error } = await supabase.functions.invoke(
+      'process-pending-emails',
+      {
+        method: 'POST',
+        body: { action: 'process' }
+      }
+    );
+    
+    if (error) {
+      console.warn('⚠️ Edge Function error (não crítico):', error);
+      logDebug('Erro ao processar emails (não crítico)', { error: error.message });
+    } else {
+      console.log('✅ Emails processados com sucesso');
+      logDebug('✅ Emails processados com sucesso', { 
+        processed: data?.processed,
+        successful: data?.successful,
+        failed: data?.failed
+      });
+    }
+    
+    return data;
+  } catch (error) {
+    console.warn('⚠️ Erro ao chamar Edge Function (não crítico):', error);
+    logDebug('Exceção ao processar emails (não crítico)', { 
+      error: error instanceof Error ? error.message : 'Erro desconhecido'
+    });
+    return null;
+  }
+};

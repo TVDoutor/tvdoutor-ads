@@ -116,7 +116,8 @@ async function testEdgeFunction() {
     console.log('🔧 Testando Edge Function process-pending-emails...');
     
     const { data, error } = await supabase.functions.invoke('process-pending-emails', {
-      method: 'GET'
+      method: 'GET',
+      body: {}
     });
 
     if (error) {

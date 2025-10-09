@@ -28,7 +28,23 @@ export const ProtectedRoute = ({
     profile: profile ? `${profile.name} (${profile.role})` : 'Null',
     loading,
     requireAuth,
-    requiredRole
+    requiredRole,
+    hasPermission: requiredRole && profile ? (() => {
+      switch (requiredRole) {
+        case 'Admin':
+          return profile.role === 'admin';
+        case 'Manager':
+          return profile.role === 'admin' || profile.role === 'manager';
+        case 'User':
+          return true;
+        default:
+          return false;
+      }
+    })() : 'N/A',
+    // Debug adicional para admin
+    isAdminCheck: profile?.role === 'admin',
+    superAdminCheck: (profile as any)?.super_admin === true,
+    profileRaw: profile
   });
 
   // Mostrar loading enquanto verifica autenticação
@@ -44,11 +60,14 @@ export const ProtectedRoute = ({
   // Verificar se tem o role necessário
   if (requiredRole && profile) {
     const hasPermission = (() => {
+      // Verificação especial para super_admin
+      const isSuperAdmin = (profile as any)?.super_admin === true;
+      
       switch (requiredRole) {
         case 'Admin':
-          return profile.role === 'Admin';
+          return profile.role === 'admin' || isSuperAdmin;
         case 'Manager':
-          return profile.role === 'Admin' || profile.role === 'Manager';
+          return profile.role === 'admin' || profile.role === 'manager' || isSuperAdmin;
         case 'User':
           return true; // Todos os usuários autenticados podem acessar recursos de User
         default:

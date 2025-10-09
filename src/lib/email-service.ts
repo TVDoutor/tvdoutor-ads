@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { supabase } from '@/integrations/supabase/client';
-import { logDebug, logError, logInfo } from '@/utils/secureLogger';
+import { logDebug, logError, logInfo, logWarn } from '@/utils/secureLogger';
 
 // Configuração do Resend
 
@@ -49,6 +49,7 @@ class EmailService {
       
       const { data, error } = await supabase.functions.invoke('process-pending-emails', {
         method: 'GET',
+        body: {},
         headers: {
           Authorization: `Bearer ${session.access_token}`,
           'Content-Type': 'application/json'
@@ -706,7 +707,13 @@ class EmailService {
     try {
       logDebug('Buscando estatísticas de email via Edge Function');
       
-      const { data, error } = await supabase.functions.invoke('email-stats');
+      const { data, error } = await supabase.functions.invoke('email-stats', {
+        method: 'GET',
+        body: {},
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
 
       if (error) {
         logError('Erro na Edge Function de estatísticas', error);
@@ -901,14 +908,29 @@ class EmailService {
     
     const processEmails = async () => {
       try {
+        // Verificar se há sessão ativa antes de processar
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        
+        if (sessionError) {
+          console.warn('⚠️ Erro ao verificar sessão para processamento automático (não crítico):', sessionError);
+          return;
+        }
+
+        // Se não há sessão, pular processamento (usuário não logado)
+        if (!session) {
+          console.debug('🔐 Nenhuma sessão ativa, pulando processamento de emails');
+          return;
+        }
+
         await this.processAllPendingEmails();
       } catch (error) {
+        console.warn('⚠️ Erro no processamento automático (não crítico):', error);
         logError('Erro no processamento automático', error);
       }
     };
 
-    // Processar imediatamente
-    processEmails();
+    // Não processar imediatamente - aguardar o usuário estar logado
+    // processEmails();
 
     // Configurar intervalo
     return setInterval(processEmails, intervalMs);
@@ -948,7 +970,10 @@ export const processEmailQueue = async () => {
       'process-pending-emails',
       {
         method: 'POST',
-        body: { action: 'process' }
+        body: { action: 'process' },
+        headers: {
+          'Content-Type': 'application/json'
+        }
       }
     );
     

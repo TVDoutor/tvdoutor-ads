@@ -56,7 +56,8 @@ async function testEdgeFunctionWithAuth() {
       const supabaseService = createClient(supabaseUrl, supabaseServiceKey);
       
       const { data, error } = await supabaseService.functions.invoke('process-pending-emails', {
-        method: 'GET'
+        method: 'GET',
+        body: {}
       });
       
       if (error) {
@@ -71,6 +72,7 @@ async function testEdgeFunctionWithAuth() {
     // Testar com token de usuário
     const { data, error } = await supabase.functions.invoke('process-pending-emails', {
       method: 'GET',
+      body: {},
       headers: {
         Authorization: `Bearer ${session.access_token}`,
         'Content-Type': 'application/json'

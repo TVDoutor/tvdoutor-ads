@@ -586,7 +586,9 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   };
 
   const isAdmin = (): boolean => {
-    return profile?.role === 'admin';
+    if (!profile) return false;
+    // Verificar tanto role 'admin' quanto super_admin
+    return profile.role === 'admin' || (profile as any)?.super_admin === true;
   };
 
   const isManager = (): boolean => {

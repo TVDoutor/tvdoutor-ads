@@ -62,37 +62,37 @@ const menuItems = [
     label: "Campanhas",
     icon: Calendar,
     href: "/campaigns",
-    requiredRole: "Manager" as UserRole
+    requiredRole: "manager" as UserRole
   },
   {
     label: "Relatórios",
     icon: BarChart3,
     href: "/reports",
-    requiredRole: "Manager" as UserRole
+    requiredRole: "manager" as UserRole
   },
   {
     label: "Pontos de Venda",
     icon: Package,
     href: "/venues",
-    requiredRole: "Manager" as UserRole
+    requiredRole: "manager" as UserRole
   },
   {
     label: "Agências",
     icon: Building2,
     href: "/gerenciamento-projetos",
-    requiredRole: "Manager" as UserRole
+    requiredRole: "manager" as UserRole
   },
   {
     label: "Usuários",
     icon: Users,
     href: "/users",
-    requiredRole: "Admin" as UserRole
+    requiredRole: "admin" as UserRole
   },
   {
     label: "Pessoas do Projeto",
     icon: UserCheck,
     href: "/pessoas-projeto",
-    requiredRole: "Admin" as UserRole
+    requiredRole: "admin" as UserRole
   },
   {
     label: "Configurações",

@@ -13,7 +13,8 @@ async function testProcessEmails() {
     // Teste 1: GET request
     console.log('\n1. Testando GET request...');
     const { data: getData, error: getError } = await supabase.functions.invoke('process-pending-emails', {
-      method: 'GET'
+      method: 'GET',
+      body: {}
     });
     
     if (getError) {

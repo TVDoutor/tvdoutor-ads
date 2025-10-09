@@ -124,61 +124,61 @@ const App = () => {
             
             {/* Rotas com controle de acesso por role */}
             <Route path="/campaigns" element={
-              <ProtectedRoute requiredRole="Manager">
+              <ProtectedRoute requiredRole="manager">
                 <Campaigns />
               </ProtectedRoute>
             } />
             
             <Route path="/campaigns/:id" element={
-              <ProtectedRoute requiredRole="Manager">
+              <ProtectedRoute requiredRole="manager">
                 <CampaignDetails />
               </ProtectedRoute>
             } />
             
             <Route path="/reports" element={
-              <ProtectedRoute requiredRole="Manager">
+              <ProtectedRoute requiredRole="manager">
                 <Reports />
               </ProtectedRoute>
             } />
             
             <Route path="/venues" element={
-              <ProtectedRoute requiredRole="Manager">
+              <ProtectedRoute requiredRole="manager">
                 <Venues />
               </ProtectedRoute>
             } />
             
             <Route path="/venues/:id" element={
-              <ProtectedRoute requiredRole="Manager">
+              <ProtectedRoute requiredRole="manager">
                 <VenueDetails />
               </ProtectedRoute>
             } />
             
             <Route path="/agencias" element={
-              <ProtectedRoute requiredRole="Manager">
+              <ProtectedRoute requiredRole="manager">
                 <Agencias />
               </ProtectedRoute>
             } />
             
             <Route path="/agencias/projetos" element={
-              <ProtectedRoute requiredRole="Manager">
+              <ProtectedRoute requiredRole="manager">
                 <AgenciasProjetos />
               </ProtectedRoute>
             } />
             
             <Route path="/gerenciamento-projetos" element={
-              <ProtectedRoute requiredRole="Manager">
+              <ProtectedRoute requiredRole="manager">
                 <ProjectManagement />
               </ProtectedRoute>
             } />
             
             <Route path="/users" element={
-              <ProtectedRoute requiredRole="Admin">
+              <ProtectedRoute requiredRole="admin">
                 <Users />
               </ProtectedRoute>
             } />
             
             <Route path="/pessoas-projeto" element={
-              <ProtectedRoute requiredRole="Admin">
+              <ProtectedRoute requiredRole="admin">
                 <PessoasProjeto />
               </ProtectedRoute>
             } />

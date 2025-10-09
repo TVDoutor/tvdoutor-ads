@@ -38,7 +38,8 @@ async function testEdgeFunction() {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     
     const { data, error } = await supabase.functions.invoke('process-pending-emails', {
-      method: 'GET'
+      method: 'GET',
+      body: {}
     });
     
     if (error) {

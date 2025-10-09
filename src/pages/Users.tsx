@@ -48,6 +48,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import { AdminDebug } from "@/components/AdminDebug";
 import { logDebug, logError } from "@/utils/secureLogger";
 
 interface UserProfile {
@@ -166,7 +167,7 @@ const Users = () => {
                          user.email?.toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesRole = roleFilter === 'all' || userRoles[user.id] === roleFilter || 
-                       (roleFilter === 'super_admin' && user.super_admin);
+                       (roleFilter === 'admin' && user.super_admin);
 
     return matchesSearch && matchesRole;
   });
@@ -265,6 +266,21 @@ const Users = () => {
   const handleSaveEdit = async () => {
     if (!editingUser) return;
 
+    // Verificar permissões de edição
+    const currentUserRole = userRoles[profile?.id || ''];
+    const isCurrentUserAdmin = currentUserRole === 'admin' || profile?.super_admin;
+    const isEditingOwnProfile = editingUser.id === profile?.id;
+    
+    // Managers e clients só podem editar seus próprios dados, admins podem editar qualquer um
+    if (!isCurrentUserAdmin && !isEditingOwnProfile) {
+      toast({
+        title: "Acesso Negado",
+        description: "Você só pode editar seus próprios dados",
+        variant: "destructive"
+      });
+      return;
+    }
+
     setSaving(true);
     try {
       logDebug('Iniciando atualização de usuário', { userId: editingUser?.id });
@@ -287,13 +303,13 @@ const Users = () => {
       const currentRole = userRoles[editingUser.id];
       logDebug('Current role vs New role', { currentRole, newRole: editingUser.role });
       
-      // Update the role directly in the profiles table
-      if (currentRole !== editingUser.role) {
+      // Apenas admins podem alterar roles de outros usuários
+      if (currentRole !== editingUser.role && isCurrentUserAdmin) {
         const { data: updateData, error: updateError } = await supabase
           .from('profiles')
           .update({ 
             role: editingUser.role,
-            super_admin: editingUser.role === 'super_admin'
+            super_admin: editingUser.role === 'admin'
           })
           .eq('id', editingUser.id)
           .select();
@@ -304,6 +320,13 @@ const Users = () => {
           console.error('Role update error:', updateError);
           throw updateError;
         }
+      } else if (currentRole !== editingUser.role && !isCurrentUserAdmin) {
+        toast({
+          title: "Acesso Negado",
+          description: "Apenas administradores podem alterar roles de usuários",
+          variant: "destructive"
+        });
+        return;
       }
 
       await fetchUsers();
@@ -339,6 +362,19 @@ const Users = () => {
   const handleDeleteUser = async (userId: string) => {
     if (!confirm('Tem certeza que deseja remover este usuário?')) return;
 
+    // Verificar se o usuário atual pode excluir outros usuários
+    const currentUserRole = userRoles[profile?.id || ''];
+    const isCurrentUserAdmin = currentUserRole === 'admin' || profile?.super_admin;
+    
+    if (!isCurrentUserAdmin) {
+      toast({
+        title: "Acesso Negado",
+        description: "Apenas administradores podem excluir outros usuários",
+        variant: "destructive"
+      });
+      return;
+    }
+
     try {
       // Delete from profiles table (this will cascade to auth.users if configured)
       const { error } = await supabase
@@ -370,8 +406,10 @@ const Users = () => {
     }
     
     switch (role) {
-      case "super_admin": return "destructive";
-      case "admin": return "secondary";
+      case "admin": return "destructive";
+      case "manager": return "secondary";
+      case "client": return "outline";
+      case "user": return "default";
       default: return "default";
     }
   };
@@ -382,8 +420,10 @@ const Users = () => {
     }
     
     switch (role) {
-      case "super_admin": return "Super Admin";
-      case "admin": return "Admin";
+      case "admin": return "Administrador";
+      case "manager": return "Gerente";
+      case "client": return "Cliente";
+      case "user": return "Usuário";
       default: return "Usuário";
     }
   };
@@ -529,6 +569,7 @@ const Users = () => {
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="user">Usuário</SelectItem>
+                            <SelectItem value="manager">Manager</SelectItem>
                             <SelectItem value="admin">Admin</SelectItem>
                             <SelectItem value="super_admin">Super Admin</SelectItem>
                           </SelectContent>
@@ -564,6 +605,11 @@ const Users = () => {
           </div>
         </div>
 
+        {/* Debug Admin - TEMPORÁRIO */}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <AdminDebug />
+        </div>
+
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
           {/* Enhanced Stats Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -588,7 +634,7 @@ const Users = () => {
                   <div>
                     <p className="text-sm font-medium text-purple-800">Administradores</p>
                     <p className="text-3xl font-bold text-purple-900">
-                      {loading ? "..." : Object.values(userRoles).filter(role => role === "admin" || role === "super_admin").length}
+                      {loading ? "..." : Object.values(userRoles).filter(role => role === "admin" || role === "manager" || role === "client").length}
                     </p>
                     <p className="text-xs text-purple-700">Com privilégios elevados</p>
                   </div>
@@ -649,8 +695,9 @@ const Users = () => {
                     <SelectContent>
                       <SelectItem value="all">Todas as funções</SelectItem>
                       <SelectItem value="user">Usuário</SelectItem>
-                      <SelectItem value="admin">Admin</SelectItem>
-                      <SelectItem value="super_admin">Super Admin</SelectItem>
+                      <SelectItem value="client">Cliente</SelectItem>
+                      <SelectItem value="manager">Gerente</SelectItem>
+                      <SelectItem value="admin">Administrador</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -724,6 +771,7 @@ const Users = () => {
                       getRoleColor={getRoleColor}
                       getRoleLabel={getRoleLabel}
                       formatDate={formatDate}
+                      currentProfile={profile}
                     />
                   ))}
                 </div>
@@ -808,14 +856,17 @@ const Users = () => {
                                 >
                                   <Edit className="h-4 w-4" />
                                 </Button>
-                                <Button 
-                                  variant="outline" 
-                                  size="sm"
-                                  onClick={() => handleDeleteUser(user.id)}
-                                  className="text-destructive hover:text-destructive"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
+                                {/* Só mostrar botão de excluir se for admin ou se for o próprio usuário */}
+                                {(userRoles[user.id] === 'admin' || (profile && user.id === profile.id)) && (
+                                  <Button 
+                                    variant="outline" 
+                                    size="sm"
+                                    onClick={() => handleDeleteUser(user.id)}
+                                    className="text-destructive hover:text-destructive"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                )}
                               </div>
                             </TableCell>
                           </TableRow>
@@ -925,8 +976,9 @@ const Users = () => {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="user">Usuário</SelectItem>
-                        <SelectItem value="admin">Admin</SelectItem>
-                        <SelectItem value="super_admin">Super Admin</SelectItem>
+                        <SelectItem value="client">Cliente</SelectItem>
+                        <SelectItem value="manager">Gerente</SelectItem>
+                        <SelectItem value="admin">Administrador</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -961,7 +1013,8 @@ function ModernUserCard({
   onDelete, 
   getRoleColor, 
   getRoleLabel, 
-  formatDate 
+  formatDate,
+  currentProfile
 }: {
   user: UserProfile;
   userRole: string;
@@ -971,9 +1024,11 @@ function ModernUserCard({
   getRoleColor: (role: string, user?: UserProfile) => string;
   getRoleLabel: (role: string, user?: UserProfile) => string;
   formatDate: (date: string) => string;
+  currentProfile: UserProfile | null;
 }) {
-  const roleIcon = user.super_admin || userRole === 'super_admin' ? Crown :
-                  userRole === 'admin' ? Shield : User;
+  const roleIcon = user.super_admin || userRole === 'admin' ? Crown :
+                  userRole === 'manager' ? Shield : 
+                  userRole === 'client' ? Shield : User;
   
   return (
     <Card className="group hover:shadow-lg transition-all duration-300 hover:-translate-y-1 border-l-4 border-l-primary/20 hover:border-l-primary">
@@ -1032,14 +1087,17 @@ function ModernUserCard({
             <Edit className="h-3 w-3 mr-1" />
             Editar
           </Button>
-          <Button 
-            size="sm" 
-            variant="outline"
-            onClick={() => onDelete(user.id)}
-            className="text-xs h-8 text-destructive hover:text-destructive"
-          >
-            <Trash2 className="h-3 w-3" />
-          </Button>
+          {/* Só mostrar botão de excluir se for admin ou se for o próprio usuário */}
+          {(userRole === 'admin' || (currentProfile && user.id === currentProfile.id)) && (
+            <Button 
+              size="sm" 
+              variant="outline"
+              onClick={() => onDelete(user.id)}
+              className="text-xs h-8 text-destructive hover:text-destructive"
+            >
+              <Trash2 className="h-3 w-3" />
+            </Button>
+          )}
         </div>
       </CardContent>
     </Card>

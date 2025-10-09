@@ -5,7 +5,7 @@ import { useToast } from '@/hooks/use-toast';
 import { logDebug, logWarn, logError, logAuthSuccess, logAuthError } from '@/utils/secureLogger';
 
 // Mapeamento de roles do banco para o frontend
-export type UserRole = 'User' | 'Manager' | 'Admin';
+export type UserRole = 'user' | 'client' | 'manager' | 'admin';
 
 interface UserProfile {
   id: string;
@@ -43,14 +43,15 @@ export const useAuth = () => {
 // Função para mapear roles do banco para o frontend
 const mapDatabaseRoleToUserRole = (dbRole: string): UserRole => {
   switch (dbRole) {
-    case 'super_admin':
-    case 'admin': // Admin users now have super_admin permissions
-      return 'Admin'; // Both super_admin and admin become Admin in frontend
+    case 'admin':
+      return 'admin'; // Administrador: Acesso total ao sistema
     case 'manager':
-      return 'Manager'; // Manager stays Manager
+      return 'manager'; // Gerente: Pode criar, ler e editar, mas não pode excluir
+    case 'client':
+      return 'client'; // Cliente: Acesso para visualizar propostas e projetos atribuídos
     case 'user':
     default:
-      return 'User';
+      return 'user'; // Usuário: Acesso padrão à plataforma
   }
 };
 
@@ -81,7 +82,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         .select('role')
         .eq('user_id', userId as any)
         .order('role', { ascending: true })
-        .limit(1);
+        .limit(1)
+        .maybeSingle();
 
       // Timeout de 10 segundos para as consultas
       const timeoutPromise = new Promise((_, reject) => {
@@ -95,6 +97,14 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
       const { data: profileData, error: profileError } = profileResult;
       const { data: roleData, error: roleError } = roleResult;
+      
+      // Log dos erros para debug
+      if (profileError) {
+        logError('Profile fetch error', profileError);
+      }
+      if (roleError) {
+        logError('Role fetch error', roleError);
+      }
       
       logDebug('Resultado da busca do perfil', { 
         hasProfileData: !!profileData, 
@@ -110,12 +120,37 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         // Fallback: obter informações básicas do usuário autenticado
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
-          let fallbackRole: UserRole = 'User';
+          let fallbackRole: UserRole = 'user';
           
-          // Se o email for do hildebrando, forçar role Admin
-          if (user.email === 'hildebrando.cardoso@tvdoutor.com.br') {
-            logDebug('Forçando role Admin para usuário específico');
-            fallbackRole = 'Admin';
+          // Se o email for do hildebrando ou ID específico, forçar role admin
+          if (user.email === 'hildebrando.cardoso@tvdoutor.com.br' || 
+              user.id === '7f8dae1a-dcbe-4c65-92dd-23bd9dc905e3') {
+            logDebug('Forçando role admin para usuário específico', { userId: user.id });
+            fallbackRole = 'admin';
+          }
+          
+          return {
+            id: user.id,
+            name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'Usuário',
+            email: user.email || '',
+            role: fallbackRole,
+            avatar: user.user_metadata?.avatar_url
+          };
+        }
+        return null;
+      }
+
+      // Se não conseguir buscar o perfil, mas não há erro, usar fallback também
+      if (!profileData) {
+        logWarn('Profile data is null, using fallback');
+        
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          let fallbackRole: UserRole = 'user';
+          
+          if (user.email === 'hildebrando.cardoso@tvdoutor.com.br' || 
+              user.id === '7f8dae1a-dcbe-4c65-92dd-23bd9dc905e3') {
+            fallbackRole = 'admin';
           }
           
           return {
@@ -130,22 +165,23 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       }
 
       // Mapear o role do banco para o frontend
-      let userRole: UserRole = 'User';
+      let userRole: UserRole = 'user';
       
       // Verificar primeiro se é super admin (campo booleano na tabela profiles)
       if (profileData.super_admin === true) {
-        userRole = 'Admin';
+        userRole = 'admin';
         logDebug('Usuário identificado como super_admin via campo booleano');
-      } else if (roleData && roleData.length > 0 && !roleError) {
+      } else if (roleData && !roleError) {
         // Usar role da tabela user_roles
-        userRole = mapDatabaseRoleToUserRole(roleData[0].role || 'user');
-        logDebug('Role obtido da tabela user_roles', { role: roleData[0].role, mappedRole: userRole });
+        userRole = mapDatabaseRoleToUserRole(roleData.role || 'user');
+        logDebug('Role obtido da tabela user_roles', { role: roleData.role, mappedRole: userRole });
       }
       
-      // Fallback especial para hildebrando
-      if (profileData.email === 'hildebrando.cardoso@tvdoutor.com.br' && userRole !== 'Admin') {
-        logDebug('Forçando role Admin para usuário específico (fallback)');
-        userRole = 'Admin';
+      // Fallback especial para hildebrando e outros admins
+      if ((profileData.email === 'hildebrando.cardoso@tvdoutor.com.br' || 
+           profileData.id === '7f8dae1a-dcbe-4c65-92dd-23bd9dc905e3') && userRole !== 'admin') {
+        logDebug('Forçando role admin para usuário específico (fallback)', { userId: profileData.id });
+        userRole = 'admin';
       }
 
       logAuthSuccess('Perfil do usuário carregado', {
@@ -171,7 +207,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             id: user.id,
             name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'Usuário',
             email: user.email || '',
-            role: 'User',
+            role: 'user',
             avatar: user.user_metadata?.avatar_url
           };
         }
@@ -537,21 +573,24 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     if (!profile) return false;
     
     // Admin tem acesso a tudo
-    if (profile.role === 'Admin') return true;
+    if (profile.role === 'admin') return true;
     
-    // Manager tem acesso a Manager e User
-    if (profile.role === 'Manager' && (role === 'Manager' || role === 'User')) return true;
+    // Manager tem acesso a manager, client e user
+    if (profile.role === 'manager' && (role === 'manager' || role === 'client' || role === 'user')) return true;
     
-    // User só tem acesso a User
+    // Client tem acesso a client e user
+    if (profile.role === 'client' && (role === 'client' || role === 'user')) return true;
+    
+    // User só tem acesso a user
     return profile.role === role;
   };
 
   const isAdmin = (): boolean => {
-    return profile?.role === 'Admin';
+    return profile?.role === 'admin';
   };
 
   const isManager = (): boolean => {
-    return profile?.role === 'Manager' || profile?.role === 'Admin';
+    return profile?.role === 'manager' || profile?.role === 'admin';
   };
 
   const value = {

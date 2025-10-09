@@ -268,14 +268,16 @@ const Users = () => {
 
     // Verificar permissões de edição
     const currentUserRole = userRoles[profile?.id || ''];
-    const isCurrentUserAdmin = currentUserRole === 'admin' || isSuperAdmin();
+    const isCurrentUserSuperAdmin = currentUserRole === 'super_admin' || isSuperAdmin();
+    const isCurrentUserAdmin = currentUserRole === 'admin' || isCurrentUserSuperAdmin;
     const isEditingOwnProfile = editingUser.id === profile?.id;
     
-    // Managers e clients só podem editar seus próprios dados, admins podem editar qualquer um
-    if (!isCurrentUserAdmin && !isEditingOwnProfile) {
+    // Apenas super_admins podem editar outros usuários
+    // Outros usuários só podem editar seus próprios dados
+    if (!isCurrentUserSuperAdmin && !isEditingOwnProfile) {
       toast({
         title: "Acesso Negado",
-        description: "Você só pode editar seus próprios dados",
+        description: "Apenas Super Administradores podem editar outros usuários",
         variant: "destructive"
       });
       return;
@@ -634,7 +636,7 @@ const Users = () => {
                   <div>
                     <p className="text-sm font-medium text-purple-800">Administradores</p>
                     <p className="text-3xl font-bold text-purple-900">
-                      {loading ? "..." : Object.values(userRoles).filter(role => role === "admin" || role === "manager" || role === "client").length}
+                      {loading ? "..." : Object.values(userRoles).filter(role => role === "super_admin" || role === "admin" || role === "manager" || role === "client").length}
                     </p>
                     <p className="text-xs text-purple-700">Com privilégios elevados</p>
                   </div>
@@ -857,7 +859,7 @@ const Users = () => {
                                   <Edit className="h-4 w-4" />
                                 </Button>
                                 {/* Só mostrar botão de excluir se for admin ou se for o próprio usuário */}
-                                {(userRoles[user.id] === 'admin' || (profile && user.id === profile.id)) && (
+                                {(userRoles[user.id] === 'super_admin' || userRoles[user.id] === 'admin' || (profile && user.id === profile.id)) && (
                                   <Button 
                                     variant="outline" 
                                     size="sm"
@@ -1026,7 +1028,7 @@ function ModernUserCard({
   formatDate: (date: string) => string;
   currentProfile: UserProfile | null;
 }) {
-  const roleIcon = user.super_admin || userRole === 'admin' ? Crown :
+  const roleIcon = user.super_admin || userRole === 'super_admin' || userRole === 'admin' ? Crown :
                   userRole === 'manager' ? Shield : 
                   userRole === 'client' ? Shield : User;
   
@@ -1087,8 +1089,8 @@ function ModernUserCard({
             <Edit className="h-3 w-3 mr-1" />
             Editar
           </Button>
-          {/* Só mostrar botão de excluir se for admin ou se for o próprio usuário */}
-          {(userRole === 'admin' || (currentProfile && user.id === currentProfile.id)) && (
+          {/* Só mostrar botão de excluir se for super_admin ou se for o próprio usuário */}
+          {(userRole === 'super_admin' || (currentProfile && user.id === currentProfile.id)) && (
             <Button 
               size="sm" 
               variant="outline"

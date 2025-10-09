@@ -64,8 +64,8 @@ export const AdminDebug = () => {
                 </Badge>
               </p>
               <p><strong>Super Admin:</strong> 
-                <Badge variant={(profile as any)?.super_admin ? 'destructive' : 'outline'} className="ml-1">
-                  {(profile as any)?.super_admin ? 'Sim' : 'Não'}
+                <Badge variant={profile?.role === 'super_admin' || (profile as any)?.super_admin ? 'destructive' : 'outline'} className="ml-1">
+                  {profile?.role === 'super_admin' || (profile as any)?.super_admin ? 'Sim' : 'Não'}
                 </Badge>
               </p>
             </div>
@@ -78,22 +78,22 @@ export const AdminDebug = () => {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
             <div className="flex items-center justify-between p-2 bg-accent/20 rounded">
               <span>isAdmin():</span>
-              <Badge variant={profile?.role === 'admin' || (profile as any)?.super_admin ? 'default' : 'secondary'}>
-                {profile?.role === 'admin' || (profile as any)?.super_admin ? 'Sim' : 'Não'}
+              <Badge variant={profile?.role === 'admin' || profile?.role === 'super_admin' || (profile as any)?.super_admin ? 'default' : 'secondary'}>
+                {profile?.role === 'admin' || profile?.role === 'super_admin' || (profile as any)?.super_admin ? 'Sim' : 'Não'}
               </Badge>
             </div>
             
             <div className="flex items-center justify-between p-2 bg-accent/20 rounded">
               <span>Acesso Users:</span>
-              <Badge variant={profile?.role === 'admin' || (profile as any)?.super_admin ? 'default' : 'secondary'}>
-                {profile?.role === 'admin' || (profile as any)?.super_admin ? 'Sim' : 'Não'}
+              <Badge variant={profile?.role === 'admin' || profile?.role === 'super_admin' || (profile as any)?.super_admin ? 'default' : 'secondary'}>
+                {profile?.role === 'admin' || profile?.role === 'super_admin' || (profile as any)?.super_admin ? 'Sim' : 'Não'}
               </Badge>
             </div>
             
             <div className="flex items-center justify-between p-2 bg-accent/20 rounded">
               <span>Acesso Manager:</span>
-              <Badge variant={profile?.role === 'admin' || profile?.role === 'manager' || (profile as any)?.super_admin ? 'default' : 'secondary'}>
-                {profile?.role === 'admin' || profile?.role === 'manager' || (profile as any)?.super_admin ? 'Sim' : 'Não'}
+              <Badge variant={profile?.role === 'admin' || profile?.role === 'manager' || profile?.role === 'super_admin' || (profile as any)?.super_admin ? 'default' : 'secondary'}>
+                {profile?.role === 'admin' || profile?.role === 'manager' || profile?.role === 'super_admin' || (profile as any)?.super_admin ? 'Sim' : 'Não'}
               </Badge>
             </div>
             

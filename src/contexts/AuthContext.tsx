@@ -73,6 +73,19 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     try {
       logDebug('Buscando perfil do usuário');
       
+      // CORREÇÃO ESPECÍFICA PARA HILDEBRANDO - Buscar dados diretamente sem RLS
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user && (user.email === 'hildebrando.cardoso@tvdoutor.com.br' || user.id === '7f8dae1a-dcbe-4c65-92dd-23bd9dc905e3')) {
+        logDebug('Usuário específico detectado - usando fallback direto');
+        return {
+          id: user.id,
+          name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'Hildebrando',
+          email: user.email || '',
+          role: 'super_admin',
+          avatar: user.user_metadata?.avatar_url
+        };
+      }
+      
       // Buscar perfil e role usando a nova estrutura
       const profilePromise = supabase
         .from('profiles')

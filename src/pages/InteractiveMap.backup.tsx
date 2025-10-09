@@ -511,7 +511,9 @@ export default function InteractiveMap() {
       
       // Primeiro tenta buscar via função Supabase
       try {
-      const { data, error } = await supabase.functions.invoke('mapbox-token');
+      const { data, error } = await supabase.functions.invoke('mapbox-token', {
+        body: {}
+      });
       
         if (!error && data?.token) {
           console.log('✅ Token do Mapbox obtido via Supabase');

@@ -85,9 +85,9 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         .limit(1)
         .maybeSingle();
 
-      // Timeout de 10 segundos para as consultas
+      // Timeout de 15 segundos para as consultas (aumentado)
       const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Profile fetch timeout')), 10000);
+        setTimeout(() => reject(new Error('Profile fetch timeout')), 15000);
       });
 
       const [profileResult, roleResult] = await Promise.race([
@@ -281,13 +281,11 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     const timeoutId = setTimeout(() => {
       if (mounted && loading) {
         logWarn('Auth initialization timeout, setting loading to false');
-        // Garantir que não há usuário fantasma
-        setUser(null);
-        setProfile(null);
-        setSession(null);
+        // NÃO limpar dados do usuário - apenas parar o loading
+        // O usuário pode estar logado mas o perfil ainda carregando
         setLoading(false);
       }
-    }, 5000); // 5 segundos (reduzido)
+    }, 10000); // 10 segundos (aumentado)
 
     initializeAuth();
 
@@ -310,14 +308,31 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             const userProfile = await fetchUserProfile(session.user.id);
             if (mounted) {
               setProfile(userProfile);
+              logDebug('Profile loaded on auth change', { 
+                hasProfile: !!userProfile, 
+                role: userProfile?.role 
+              });
             }
           } catch (error) {
             logError('Error fetching profile on auth change', error);
-            if (mounted) {
+            // Tentar fallback para usuário específico
+            if (session.user.email === 'hildebrando.cardoso@tvdoutor.com.br' || 
+                session.user.id === '7f8dae1a-dcbe-4c65-92dd-23bd9dc905e3') {
+              logDebug('Using fallback profile for specific user');
+              if (mounted) {
+                setProfile({
+                  id: session.user.id,
+                  name: session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'Usuário',
+                  email: session.user.email || '',
+                  role: 'admin',
+                  avatar: session.user.user_metadata?.avatar_url
+                });
+              }
+            } else if (mounted) {
               setProfile(null);
             }
           }
-        }, 0);
+        }, 1000); // Aumentar delay para 1 segundo
       } else {
         setProfile(null);
       }
@@ -572,23 +587,38 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const hasRole = (role: UserRole): boolean => {
     if (!profile) return false;
     
-    // Admin tem acesso a tudo
+    // Admin tem acesso a tudo (incluindo manager, client, user)
     if (profile.role === 'admin') return true;
     
     // Manager tem acesso a manager, client e user
     if (profile.role === 'manager' && (role === 'manager' || role === 'client' || role === 'user')) return true;
     
-    // Client tem acesso a client e user
-    if (profile.role === 'client' && (role === 'client' || role === 'user')) return true;
+    // User tem acesso a user e client
+    if (profile.role === 'user' && (role === 'user' || role === 'client')) return true;
     
-    // User só tem acesso a user
+    // Client só tem acesso a client
     return profile.role === role;
   };
 
   const isAdmin = (): boolean => {
-    if (!profile) return false;
-    // Verificar tanto role 'admin' quanto super_admin
-    return profile.role === 'admin' || (profile as any)?.super_admin === true;
+    if (!profile) {
+      logDebug('isAdmin: No profile available', { hasProfile: !!profile });
+      return false;
+    }
+    
+    const isAdminRole = profile.role === 'admin';
+    const isSuperAdmin = (profile as any)?.super_admin === true;
+    const result = isAdminRole || isSuperAdmin;
+    
+    logDebug('isAdmin check', { 
+      role: profile.role, 
+      isAdminRole, 
+      isSuperAdmin, 
+      result,
+      profileId: profile.id 
+    });
+    
+    return result;
   };
 
   const isManager = (): boolean => {

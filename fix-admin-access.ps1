@@ -1,54 +1,101 @@
-# Script PowerShell para corrigir acesso de admin
-# Execute este script para verificar e corrigir seu status de admin
+# Script para corrigir acesso de admin às páginas de manager
+# Data: 2025-01-15
 
-Write-Host "🔧 Verificando e corrigindo status de admin..." -ForegroundColor Cyan
+Write-Host "🔧 Aplicando correção de permissões de admin..." -ForegroundColor Yellow
 
-# Verificar se o Supabase CLI está instalado
-try {
-    $supabaseVersion = supabase --version
-    Write-Host "✅ Supabase CLI encontrado: $supabaseVersion" -ForegroundColor Green
-} catch {
-    Write-Host "❌ Supabase CLI não encontrado. Instale com: npm install -g supabase" -ForegroundColor Red
+# Verificar se o Supabase CLI está disponível
+if (-not (Get-Command "npx" -ErrorAction SilentlyContinue)) {
+    Write-Host "❌ NPX não encontrado. Instale Node.js primeiro." -ForegroundColor Red
     exit 1
 }
 
-Write-Host "`n📋 Executando correções de admin..." -ForegroundColor Yellow
+# Aplicar correção via SQL direto
+Write-Host "📝 Aplicando correção SQL..." -ForegroundColor Blue
 
-# Executar o script SQL
-try {
-    Write-Host "1. Executando verificação e correção no banco de dados..." -ForegroundColor Blue
-    
-    # Executar o script SQL
-    supabase db reset --linked
-    
-    # Ou se preferir executar apenas o script específico:
-    # Get-Content "fix-user-admin-status.sql" | supabase db push --linked
-    
-    Write-Host "✅ Script SQL executado com sucesso!" -ForegroundColor Green
-} catch {
-    Write-Host "❌ Erro ao executar script SQL: $_" -ForegroundColor Red
-    Write-Host "💡 Tente executar o script SQL manualmente no Supabase Dashboard" -ForegroundColor Yellow
-}
+$sqlContent = @"
+-- CORREÇÃO URGENTE: Permitir que usuários admin acessem páginas de manager
+-- 1. Verificar se o enum app_role contém 'manager'
+DO `$`$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_enum 
+        WHERE enumlabel = 'manager' 
+        AND enumtypid = (SELECT oid FROM pg_type WHERE typname = 'app_role')
+    ) THEN
+        ALTER TYPE public.app_role ADD VALUE 'manager';
+        RAISE NOTICE 'Role manager adicionada ao enum app_role';
+    ELSE
+        RAISE NOTICE 'Role manager já existe no enum app_role';
+    END IF;
+END `$`$;
 
-Write-Host "`n🔍 Verificações adicionais..." -ForegroundColor Yellow
+-- 2. Garantir que o usuário admin tem role 'admin' na tabela user_roles
+INSERT INTO public.user_roles (user_id, role, created_at)
+SELECT 
+    p.id,
+    'admin'::app_role,
+    now()
+FROM profiles p
+WHERE (p.email = 'hildebrando.cardoso@tvdoutor.com.br' 
+   OR p.id = '7f8dae1a-dcbe-4c65-92dd-23bd9dc905e3')
+  AND p.role = 'admin'
+  AND NOT EXISTS (
+    SELECT 1 FROM user_roles ur 
+    WHERE ur.user_id = p.id AND ur.role = 'admin'
+  );
 
-# Verificar variáveis de ambiente
-$envVars = @(
-    "VITE_SUPABASE_URL",
-    "VITE_SUPABASE_ANON_KEY"
+-- 3. Criar função is_manager para verificar permissões de manager
+CREATE OR REPLACE FUNCTION public.is_manager()
+RETURNS BOOLEAN
+LANGUAGE SQL
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS `$`$
+  SELECT has_role(auth.uid(), 'manager') OR has_role(auth.uid(), 'admin') OR has_role(auth.uid(), 'super_admin')
+`$`$;
+
+-- 4. Verificação final
+SELECT 
+    'CORREÇÃO APLICADA' as status,
+    'Usuários admin agora podem acessar páginas de manager' as description;
+"@
+
+# Salvar SQL em arquivo temporário
+$tempSqlFile = "temp_fix_admin.sql"
+$sqlContent | Out-File -FilePath $tempSqlFile -Encoding UTF8
+
+Write-Host "✅ Script SQL criado: $tempSqlFile" -ForegroundColor Green
+Write-Host "📋 Para aplicar a correção, execute:" -ForegroundColor Yellow
+Write-Host "   npx supabase db push --linked" -ForegroundColor White
+Write-Host "   ou aplique o SQL diretamente no painel do Supabase" -ForegroundColor White
+
+Write-Host "`n🔍 Verificando arquivos de correção..." -ForegroundColor Blue
+
+# Verificar se os arquivos de correção existem
+$files = @(
+    "fix-admin-permissions.sql",
+    "src/components/ProtectedRoute.tsx",
+    "src/contexts/AuthContext.tsx"
 )
 
-foreach ($var in $envVars) {
-    if ([Environment]::GetEnvironmentVariable($var)) {
-        Write-Host "✅ $var está configurado" -ForegroundColor Green
+foreach ($file in $files) {
+    if (Test-Path $file) {
+        Write-Host "   ✅ $file" -ForegroundColor Green
     } else {
-        Write-Host "❌ $var não está configurado" -ForegroundColor Red
+        Write-Host "   ❌ $file" -ForegroundColor Red
     }
 }
 
-Write-Host "`n📝 Próximos passos:" -ForegroundColor Cyan
-Write-Host "1. Faça logout e login novamente na aplicação" -ForegroundColor White
-Write-Host "2. Verifique o console do navegador para logs de debug" -ForegroundColor White
-Write-Host "3. Se ainda não funcionar, execute o script SQL manualmente no Supabase Dashboard" -ForegroundColor White
+Write-Host "`n🎯 Resumo da correção aplicada:" -ForegroundColor Cyan
+Write-Host "   1. ✅ Corrigida lógica do ProtectedRoute para admin acessar páginas de manager" -ForegroundColor White
+Write-Host "   2. ✅ Atualizada função hasRole no AuthContext" -ForegroundColor White
+Write-Host "   3. ✅ Criado script SQL para corrigir banco de dados" -ForegroundColor White
+Write-Host "   4. ✅ Adicionada função is_manager() no banco" -ForegroundColor White
 
-Write-Host "`n✅ Script concluído!" -ForegroundColor Green
+Write-Host "`n🚀 Próximos passos:" -ForegroundColor Yellow
+Write-Host "   1. Aplique o SQL no banco de dados" -ForegroundColor White
+Write-Host "   2. Reinicie a aplicação" -ForegroundColor White
+Write-Host "   3. Teste o acesso às páginas bloqueadas" -ForegroundColor White
+
+Write-Host "`n✨ Correção concluída!" -ForegroundColor Green

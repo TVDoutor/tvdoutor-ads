@@ -17,7 +17,7 @@ export const ProtectedRoute = ({
   requiredRole,
   requireAuth = true 
 }: ProtectedRouteProps) => {
-  const { user, profile, loading } = useAuth();
+  const { user, profile, loading, hasRole } = useAuth();
   const location = useLocation();
 
   // Debug logs para investigar o problema - usando secureLogger
@@ -30,12 +30,14 @@ export const ProtectedRoute = ({
     requireAuth,
     requiredRole,
     hasPermission: requiredRole && profile ? (() => {
+      const isSuperAdmin = (profile as any)?.super_admin === true;
       switch (requiredRole) {
-        case 'Admin':
-          return profile.role === 'admin';
-        case 'Manager':
-          return profile.role === 'admin' || profile.role === 'manager';
-        case 'User':
+        case 'admin':
+          return profile.role === 'admin' || isSuperAdmin;
+        case 'manager':
+          return profile.role === 'admin' || profile.role === 'manager' || isSuperAdmin;
+        case 'user':
+        case 'client':
           return true;
         default:
           return false;
@@ -57,23 +59,9 @@ export const ProtectedRoute = ({
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  // Verificar se tem o role necessário
+  // Verificar se tem o role necessário usando a função hasRole do contexto
   if (requiredRole && profile) {
-    const hasPermission = (() => {
-      // Verificação especial para super_admin
-      const isSuperAdmin = (profile as any)?.super_admin === true;
-      
-      switch (requiredRole) {
-        case 'Admin':
-          return profile.role === 'admin' || isSuperAdmin;
-        case 'Manager':
-          return profile.role === 'admin' || profile.role === 'manager' || isSuperAdmin;
-        case 'User':
-          return true; // Todos os usuários autenticados podem acessar recursos de User
-        default:
-          return false;
-      }
-    })();
+    const hasPermission = hasRole(requiredRole);
 
     if (!hasPermission) {
       return (

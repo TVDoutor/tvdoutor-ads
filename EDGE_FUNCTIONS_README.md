@@ -183,7 +183,8 @@ const { data, error } = await supabase
 ### Depois (Edge Function):
 ```typescript
 const { data, error } = await supabase.functions.invoke('process-pending-emails', {
-  method: 'GET'
+  method: 'GET',
+  body: {}
 })
 ```
 

@@ -103,8 +103,11 @@ const { data, error } = await supabase.functions.invoke('process-pending-emails'
     method: 'POST',
     body: { action: 'process' },
     headers: session?.access_token ? {
-        Authorization: `Bearer ${session.access_token}`
-    } : {}
+        Authorization: `Bearer ${session.access_token}`,
+        'Content-Type': 'application/json'
+    } : {
+        'Content-Type': 'application/json'
+    }
 });
 ```
 

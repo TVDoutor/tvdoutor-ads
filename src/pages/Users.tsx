@@ -66,7 +66,7 @@ interface UserProfile {
 
 const Users = () => {
   const { toast } = useToast();
-  const { isAdmin, profile } = useAuth();
+  const { isAdmin, isSuperAdmin, profile } = useAuth();
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -124,7 +124,7 @@ const Users = () => {
       const rolesMap: Record<string, string> = {};
       profiles?.forEach(profile => {
         // Use the role from profiles table, with super_admin taking precedence
-        if (profile.super_admin === true) {
+        if (profile.super_admin === true || profile.role === 'super_admin') {
           rolesMap[profile.id] = 'super_admin';
         } else {
           rolesMap[profile.id] = profile.role || 'user';
@@ -268,7 +268,7 @@ const Users = () => {
 
     // Verificar permissões de edição
     const currentUserRole = userRoles[profile?.id || ''];
-    const isCurrentUserAdmin = currentUserRole === 'admin' || profile?.super_admin;
+    const isCurrentUserAdmin = currentUserRole === 'admin' || isSuperAdmin();
     const isEditingOwnProfile = editingUser.id === profile?.id;
     
     // Managers e clients só podem editar seus próprios dados, admins podem editar qualquer um
@@ -309,7 +309,7 @@ const Users = () => {
           .from('profiles')
           .update({ 
             role: editingUser.role,
-            super_admin: editingUser.role === 'admin'
+            super_admin: editingUser.role === 'super_admin'
           })
           .eq('id', editingUser.id)
           .select();
@@ -364,7 +364,7 @@ const Users = () => {
 
     // Verificar se o usuário atual pode excluir outros usuários
     const currentUserRole = userRoles[profile?.id || ''];
-    const isCurrentUserAdmin = currentUserRole === 'admin' || profile?.super_admin;
+    const isCurrentUserAdmin = currentUserRole === 'admin' || isSuperAdmin();
     
     if (!isCurrentUserAdmin) {
       toast({

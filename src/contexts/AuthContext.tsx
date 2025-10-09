@@ -5,7 +5,7 @@ import { useToast } from '@/hooks/use-toast';
 import { logDebug, logWarn, logError, logAuthSuccess, logAuthError } from '@/utils/secureLogger';
 
 // Mapeamento de roles do banco para o frontend
-export type UserRole = 'user' | 'client' | 'manager' | 'admin';
+export type UserRole = 'user' | 'client' | 'manager' | 'admin' | 'super_admin';
 
 interface UserProfile {
   id: string;
@@ -27,6 +27,7 @@ interface AuthContextType {
   signOut: () => Promise<void>;
   hasRole: (role: UserRole) => boolean;
   isAdmin: () => boolean;
+  isSuperAdmin: () => boolean;
   isManager: () => boolean;
 }
 
@@ -43,8 +44,10 @@ export const useAuth = () => {
 // Função para mapear roles do banco para o frontend
 const mapDatabaseRoleToUserRole = (dbRole: string): UserRole => {
   switch (dbRole) {
+    case 'super_admin':
+      return 'super_admin'; // Super Administrador: Acesso total ao sistema
     case 'admin':
-      return 'admin'; // Administrador: Acesso total ao sistema
+      return 'admin'; // Administrador: Acesso administrativo
     case 'manager':
       return 'manager'; // Gerente: Pode criar, ler e editar, mas não pode excluir
     case 'client':
@@ -122,11 +125,11 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         if (user) {
           let fallbackRole: UserRole = 'user';
           
-          // Se o email for do hildebrando ou ID específico, forçar role admin
+          // Se o email for do hildebrando ou ID específico, forçar role super_admin
           if (user.email === 'hildebrando.cardoso@tvdoutor.com.br' || 
               user.id === '7f8dae1a-dcbe-4c65-92dd-23bd9dc905e3') {
-            logDebug('Forçando role admin para usuário específico', { userId: user.id });
-            fallbackRole = 'admin';
+            logDebug('Forçando role super_admin para usuário específico', { userId: user.id });
+            fallbackRole = 'super_admin';
           }
           
           return {
@@ -150,7 +153,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           
           if (user.email === 'hildebrando.cardoso@tvdoutor.com.br' || 
               user.id === '7f8dae1a-dcbe-4c65-92dd-23bd9dc905e3') {
-            fallbackRole = 'admin';
+            fallbackRole = 'super_admin';
           }
           
           return {
@@ -169,7 +172,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       
       // Verificar primeiro se é super admin (campo booleano na tabela profiles)
       if (profileData.super_admin === true) {
-        userRole = 'admin';
+        userRole = 'super_admin';
         logDebug('Usuário identificado como super_admin via campo booleano');
       } else if (roleData && !roleError) {
         // Usar role da tabela user_roles
@@ -177,11 +180,11 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         logDebug('Role obtido da tabela user_roles', { role: roleData.role, mappedRole: userRole });
       }
       
-      // Fallback especial para hildebrando e outros admins
+      // Fallback especial para hildebrando e outros super_admins
       if ((profileData.email === 'hildebrando.cardoso@tvdoutor.com.br' || 
-           profileData.id === '7f8dae1a-dcbe-4c65-92dd-23bd9dc905e3') && userRole !== 'admin') {
-        logDebug('Forçando role admin para usuário específico (fallback)', { userId: profileData.id });
-        userRole = 'admin';
+           profileData.id === '7f8dae1a-dcbe-4c65-92dd-23bd9dc905e3') && userRole !== 'super_admin') {
+        logDebug('Forçando role super_admin para usuário específico (fallback)', { userId: profileData.id });
+        userRole = 'super_admin';
       }
 
       logAuthSuccess('Perfil do usuário carregado', {
@@ -324,7 +327,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
                   id: session.user.id,
                   name: session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'Usuário',
                   email: session.user.email || '',
-                  role: 'admin',
+                  role: 'super_admin',
                   avatar: session.user.user_metadata?.avatar_url
                 });
               }
@@ -587,8 +590,11 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const hasRole = (role: UserRole): boolean => {
     if (!profile) return false;
     
-    // Admin tem acesso a tudo (incluindo manager, client, user)
-    if (profile.role === 'admin') return true;
+    // Super Admin tem acesso a tudo
+    if (profile.role === 'super_admin' || (profile as any)?.super_admin === true) return true;
+    
+    // Admin tem acesso a admin, manager, client, user
+    if (profile.role === 'admin' && (role === 'admin' || role === 'manager' || role === 'client' || role === 'user')) return true;
     
     // Manager tem acesso a manager, client e user
     if (profile.role === 'manager' && (role === 'manager' || role === 'client' || role === 'user')) return true;
@@ -606,9 +612,11 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       return false;
     }
     
-    const isAdminRole = profile.role === 'admin';
-    const isSuperAdmin = (profile as any)?.super_admin === true;
-    const result = isAdminRole || isSuperAdmin;
+    // Verificar se é super_admin (tanto pelo campo boolean quanto pelo role)
+    const isSuperAdmin = (profile as any)?.super_admin === true || profile.role === 'super_admin';
+    // Admin normal (não super_admin)
+    const isAdminRole = profile.role === 'admin' && !isSuperAdmin;
+    const result = isSuperAdmin || isAdminRole;
     
     logDebug('isAdmin check', { 
       role: profile.role, 
@@ -619,6 +627,13 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     });
     
     return result;
+  };
+
+  const isSuperAdmin = (): boolean => {
+    if (!profile) return false;
+    
+    // Verificar se é super_admin (tanto pelo campo boolean quanto pelo role)
+    return (profile as any)?.super_admin === true || profile.role === 'super_admin';
   };
 
   const isManager = (): boolean => {
@@ -637,6 +652,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     signOut,
     hasRole,
     isAdmin,
+    isSuperAdmin,
     isManager,
   };
 

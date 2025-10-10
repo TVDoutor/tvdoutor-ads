@@ -8,9 +8,11 @@ import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { Settings as SettingsIcon, Bell, Shield, Palette, Database } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { ChangePasswordModal } from "@/components/ChangePasswordModal";
 
 const Settings = () => {
   const { toast } = useToast();
+  const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
   const [settings, setSettings] = useState({
     notifications: {
       email: true,
@@ -39,6 +41,10 @@ const Settings = () => {
       title: "Configurações salvas",
       description: "Suas configurações foram atualizadas com sucesso."
     });
+  };
+
+  const handleChangePassword = () => {
+    setShowChangePasswordModal(true);
   };
 
   // Mock user data for demo
@@ -148,7 +154,11 @@ const Settings = () => {
                 />
               </div>
 
-              <Button variant="outline" className="w-full">
+              <Button 
+                variant="outline" 
+                className="w-full"
+                onClick={handleChangePassword}
+              >
                 Alterar senha
               </Button>
             </CardContent>
@@ -290,6 +300,12 @@ const Settings = () => {
           </div>
         </div>
       </div>
+
+      {/* Modal de Alteração de Senha */}
+      <ChangePasswordModal 
+        isOpen={showChangePasswordModal}
+        onClose={() => setShowChangePasswordModal(false)}
+      />
     </DashboardLayout>
   );
 };

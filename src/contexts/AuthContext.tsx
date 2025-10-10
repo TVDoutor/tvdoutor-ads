@@ -24,6 +24,7 @@ interface AuthContextType {
   signUp: (email: string, password: string, name: string) => Promise<{ error: AuthError | null }>;
   signInWithGoogle: () => Promise<{ error: AuthError | null }>;
   resetPassword: (email: string) => Promise<{ error: AuthError | null }>;
+  updatePassword: (newPassword: string) => Promise<{ error: AuthError | null }>;
   signOut: () => Promise<void>;
   hasRole: (role: UserRole) => boolean;
   isAdmin: () => boolean;
@@ -580,6 +581,36 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     }
   };
 
+  const updatePassword = async (newPassword: string) => {
+    try {
+      logDebug('Iniciando atualização de senha');
+      
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword
+      });
+
+      if (error) {
+        logAuthError('Password update error', error);
+        toast({
+          title: "Erro ao alterar senha",
+          description: error.message,
+          variant: "destructive"
+        });
+      } else {
+        logAuthSuccess('Password updated successfully');
+        toast({
+          title: "Senha alterada!",
+          description: "Sua senha foi atualizada com sucesso."
+        });
+      }
+
+      return { error };
+    } catch (error) {
+      logError('Update password error', error);
+      return { error: error as AuthError };
+    }
+  };
+
   const signOut = async () => {
     try {
       const { error } = await supabase.auth.signOut();
@@ -662,6 +693,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     signUp,
     signInWithGoogle,
     resetPassword,
+    updatePassword,
     signOut,
     hasRole,
     isAdmin,

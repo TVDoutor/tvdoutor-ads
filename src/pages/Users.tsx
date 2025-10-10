@@ -287,48 +287,47 @@ const Users = () => {
     try {
       logDebug('Iniciando atualização de usuário', { userId: editingUser?.id });
       
-      const { data: profileData, error: profileError } = await supabase
+      // 1. Prepara o objeto de atualização com os dados básicos
+      const updatePayload: { [key: string]: any } = {
+        display_name: editingUser.display_name,
+        full_name: editingUser.display_name, // Garante consistência
+        updated_at: new Date().toISOString(),
+      };
+
+      const currentRole = userRoles[editingUser.id];
+      const newRole = editingUser.role;
+      logDebug('Current role vs New role', { currentRole, newRole });
+
+      // 2. Verifica se a role foi alterada e se o usuário atual tem permissão
+      if (currentRole !== newRole) {
+        if (isCurrentUserAdmin) {
+          // Adiciona as alterações de role ao mesmo objeto
+          updatePayload.role = newRole;
+          updatePayload.super_admin = newRole === 'super_admin'; // Atualiza a flag booleana
+        } else {
+          // Se não tiver permissão, exibe um erro e interrompe
+          toast({
+            title: "Acesso Negado",
+            description: "Você não tem permissão para alterar a função de um usuário.",
+            variant: "destructive",
+          });
+          setSaving(false); // Libera o botão de salvar
+          return; // Interrompe a execução da função
+        }
+      }
+
+      // 3. Executa UMA ÚNICA chamada de update com todos os dados
+      logDebug('Enviando payload de atualização unificado:', updatePayload);
+      const { data, error } = await supabase
         .from('profiles')
-        .update({
-          display_name: editingUser.display_name,
-          full_name: editingUser.display_name,
-          updated_at: new Date().toISOString()
-        })
+        .update(updatePayload)
         .eq('id', editingUser.id)
         .select();
 
-      if (profileError) {
-        console.error('Profile update error:', profileError);
-        throw profileError;
-      }
-
-      const currentRole = userRoles[editingUser.id];
-      logDebug('Current role vs New role', { currentRole, newRole: editingUser.role });
-      
-      // Apenas admins podem alterar roles de outros usuários
-      if (currentRole !== editingUser.role && isCurrentUserAdmin) {
-        const { data: updateData, error: updateError } = await supabase
-          .from('profiles')
-          .update({ 
-            role: editingUser.role,
-            super_admin: editingUser.role === 'super_admin'
-          })
-          .eq('id', editingUser.id)
-          .select();
-
-        console.log('Resultado update role:', { updateData, updateError });
-
-        if (updateError) {
-          console.error('Role update error:', updateError);
-          throw updateError;
-        }
-      } else if (currentRole !== editingUser.role && !isCurrentUserAdmin) {
-        toast({
-          title: "Acesso Negado",
-          description: "Apenas administradores podem alterar roles de usuários",
-          variant: "destructive"
-        });
-        return;
+      // 4. Trata o erro (se houver)
+      if (error) {
+        console.error('Unified update error:', error);
+        throw error;
       }
 
       await fetchUsers();

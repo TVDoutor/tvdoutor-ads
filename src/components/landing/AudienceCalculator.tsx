@@ -2,8 +2,11 @@ import { useEffect, useMemo, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { Calculator, Users, Building2, Loader2 } from 'lucide-react';
+import { Calculator, Users, Building2, Loader2, X, CheckSquare } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Checkbox } from '@/components/ui/checkbox';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { supabase } from '@/integrations/supabase/client';
 
 interface AudienceResult {
@@ -12,6 +15,7 @@ interface AudienceResult {
 }
 
 export const AudienceCalculator = () => {
+  // Estados existentes (mantidos intactos)
   const [specialty, setSpecialty] = useState('');
   const [city, setCity] = useState('');
   const [result, setResult] = useState<AudienceResult | null>(null);
@@ -19,7 +23,14 @@ export const AudienceCalculator = () => {
   const [error, setError] = useState('');
   const [specialties, setSpecialties] = useState<string[]>([]);
   const [cities, setCities] = useState<string[]>([]);
+  const [availableCities, setAvailableCities] = useState<string[]>([]);
   const [loadingOptions, setLoadingOptions] = useState(false);
+  const [loadingCities, setLoadingCities] = useState(false);
+
+  // Novos estados para seleção múltipla (adicionados sem alterar os existentes)
+  const [multiCityMode, setMultiCityMode] = useState(false);
+  const [selectedCities, setSelectedCities] = useState<string[]>([]);
+  const [showCityModal, setShowCityModal] = useState(false);
 
   // Map simples de alcance por classe (mantém compatibilidade com a base atual)
   const reachByClass = useMemo(() => ({
@@ -34,6 +45,69 @@ export const AudienceCalculator = () => {
     'E': 900,
     'ND': 800
   } as Record<string, number>), []);
+
+  // Função para buscar cidades por especialidade
+  const fetchCitiesBySpecialty = async (selectedSpecialty: string) => {
+    console.log('🔍 Buscando cidades para especialidade:', selectedSpecialty);
+    setLoadingCities(true);
+    try {
+      // Tentar primeiro com a view enriquecida
+      let { data, error } = await supabase
+        .from('v_screens_enriched')
+        .select('city')
+        .contains('specialty', [selectedSpecialty])
+        .not('city', 'is', null)
+        .limit(2000);
+
+      console.log('📊 Query v_screens_enriched result:', { data, error });
+
+      // Se der erro, tentar com a tabela screens
+      if (error) {
+        console.log('🔄 Tentando fallback para tabela screens...');
+        const fallback = await supabase
+          .from('screens')
+          .select('city')
+          .contains('specialty', [selectedSpecialty])
+          .eq('active', true as any)
+          .not('city', 'is', null)
+          .limit(2000);
+        
+        data = fallback.data;
+        error = fallback.error;
+        console.log('📊 Query screens fallback result:', { data, error });
+      }
+
+      if (error) {
+        console.warn('⚠️ Erro na query, usando todas as cidades como fallback');
+        // Fallback final: usar todas as cidades disponíveis
+        setAvailableCities(cities);
+        return;
+      }
+
+      const uniqueCities = Array.from(new Set(
+        (data || [])
+          .map((r: any) => (r.city || '').trim())
+          .filter(Boolean)
+      )).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+
+      console.log('🏙️ Cidades encontradas:', uniqueCities);
+      
+      // Se não encontrou cidades específicas, usar todas como fallback
+      if (uniqueCities.length === 0) {
+        console.log('🔄 Nenhuma cidade encontrada, usando todas as cidades disponíveis');
+        setAvailableCities(cities);
+      } else {
+        setAvailableCities(uniqueCities);
+      }
+    } catch (err) {
+      console.error('❌ Erro ao buscar cidades por especialidade:', err);
+      // Fallback final: usar todas as cidades
+      setAvailableCities(cities);
+      setError('Erro ao carregar cidades específicas. Mostrando todas as cidades.');
+    } finally {
+      setLoadingCities(false);
+    }
+  };
 
   // Carregar opções reais de Especialidades e Cidades
   useEffect(() => {
@@ -80,7 +154,7 @@ export const AudienceCalculator = () => {
 
         setSpecialties(specs);
 
-        // Buscar cidades distintas
+        // Buscar cidades distintas (mantido para compatibilidade)
         const { data: citiesRows, error: citiesError } = await supabase
           .from('screens')
           .select('city')
@@ -104,9 +178,63 @@ export const AudienceCalculator = () => {
     fetchOptions();
   }, []);
 
+  // Handler para mudança de especialidade (lógica existente preservada)
+  const handleSpecialtyChange = (newSpecialty: string) => {
+    console.log('🎯 Especialidade alterada para:', newSpecialty);
+    setSpecialty(newSpecialty);
+    setCity(''); // Reset cidade única
+    setSelectedCities([]); // Reset cidades múltiplas
+    setResult(null); // Reset resultado
+    setError(''); // Limpar erros
+    fetchCitiesBySpecialty(newSpecialty);
+  };
+
+  // Novas funções para seleção múltipla (adicionadas sem alterar as existentes)
+  const handleMultiCityToggle = (enabled: boolean) => {
+    console.log('🔄 Modo múltiplas cidades:', enabled ? 'ATIVADO' : 'DESATIVADO');
+    setMultiCityMode(enabled);
+    
+    if (enabled) {
+      // Ativar modo múltiplo: limpar seleção única e abrir modal
+      setCity('');
+      setSelectedCities([]);
+      setShowCityModal(true);
+    } else {
+      // Desativar modo múltiplo: limpar seleções múltiplas
+      setSelectedCities([]);
+    }
+  };
+
+  const handleCityToggle = (cityName: string, checked: boolean) => {
+    if (checked) {
+      setSelectedCities(prev => [...prev, cityName]);
+    } else {
+      setSelectedCities(prev => prev.filter(c => c !== cityName));
+    }
+  };
+
+  const handleSelectAllCities = () => {
+    setSelectedCities([...availableCities]);
+  };
+
+  const handleClearAllCities = () => {
+    setSelectedCities([]);
+  };
+
+  const handleRemoveCity = (cityName: string) => {
+    setSelectedCities(prev => prev.filter(c => c !== cityName));
+  };
+
   const handleCalculate = async () => {
-    if (!specialty || !city) {
-      setError('Por favor, selecione uma especialidade e uma cidade');
+    // Validação adaptada para ambos os modos
+    const hasValidSelection = multiCityMode 
+      ? (selectedCities.length > 0)
+      : (city.length > 0);
+
+    if (!specialty || !hasValidSelection) {
+      setError(multiCityMode 
+        ? 'Por favor, selecione uma especialidade e pelo menos uma cidade'
+        : 'Por favor, selecione uma especialidade e uma cidade');
       return;
     }
 
@@ -114,14 +242,28 @@ export const AudienceCalculator = () => {
     setError('');
 
     try {
+      console.log('🧮 Calculando alcance:', {
+        specialty,
+        mode: multiCityMode ? 'multiple' : 'single',
+        cities: multiCityMode ? selectedCities : [city]
+      });
+
       // Preferir view enriquecida; se der erro, usar tabela screens
       let query = supabase
         .from('v_screens_enriched')
         .select('id, class, city, specialty, venue_name, display_name, name')
-        .ilike('city', `%${city}%`)
         .not('class', 'is', null);
 
-      // Filtrar especialidade (array text[])
+      // Filtrar por cidade(s) - ADAPTAÇÃO PARA MODO MÚLTIPLO
+      if (multiCityMode) {
+        // Modo múltiplo: usar operador .in() para array de cidades
+        query = (query as any).in('city', selectedCities);
+      } else {
+        // Modo único: usar .ilike() como antes (lógica existente preservada)
+        query = (query as any).ilike('city', `%${city}%`);
+      }
+
+      // Filtrar especialidade (array text[]) - LÓGICA EXISTENTE PRESERVADA
       // Supabase suporta contains para arrays
       // Ex.: .contains('specialty', ['Dermatologia'])
       query = (query as any).contains('specialty', [specialty]);
@@ -129,12 +271,20 @@ export const AudienceCalculator = () => {
       let { data, error: qError } = await query as any;
 
       if (qError) {
-        // Fallback para screens
-        const fb = await supabase
+        // Fallback para screens - LÓGICA EXISTENTE PRESERVADA COM ADAPTAÇÃO
+        let fbQuery = supabase
           .from('screens')
           .select('id, class, city, specialty, display_name, name')
-          .ilike('city', `%${city}%`)
           .contains('specialty', [specialty]);
+
+        // Aplicar filtro de cidade no fallback também
+        if (multiCityMode) {
+          fbQuery = (fbQuery as any).in('city', selectedCities);
+        } else {
+          fbQuery = (fbQuery as any).ilike('city', `%${city}%`);
+        }
+
+        const fb = await fbQuery;
         data = fb.data as any[] | null;
         qError = fb.error as any;
       }
@@ -142,11 +292,18 @@ export const AudienceCalculator = () => {
       if (qError) throw qError;
       const rows = (data || []) as Array<{ id: string; class?: string | null; specialty?: string[] | null; venue_name?: string | null; display_name?: string | null; name?: string | null }>;
 
+      console.log('📊 Dados obtidos:', {
+        totalRows: rows.length,
+        cities: multiCityMode ? selectedCities : [city]
+      });
+
       // Contabilizar "clínicas" por nome do local (venue/display/name) para evitar duplicidade por múltiplas telas
+      // LÓGICA EXISTENTE PRESERVADA
       const venueKey = (r: any) => (r.venue_name || r.display_name || r.name || r.id || '').toString();
       const uniqueVenueCount = Array.from(new Set(rows.map(venueKey))).length;
 
       // Estimar pacientes/mês somando alcance estimado por classe
+      // LÓGICA EXISTENTE PRESERVADA
       const estimatedPatients = rows.reduce((sum, r) => {
         const key = (r.class || 'ND').toUpperCase();
         const reach = reachByClass[key] ?? reachByClass['ND'];
@@ -177,10 +334,29 @@ export const AudienceCalculator = () => {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
+        {/* Toggle para seleção múltipla */}
+        <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+          <div className="flex items-center space-x-2">
+            <CheckSquare className="w-4 h-4 text-primary" />
+            <span className="text-sm font-medium">Selecionar mais de uma cidade</span>
+          </div>
+          <div className="flex items-center space-x-2">
+            <span className="text-xs text-muted-foreground">Não</span>
+            <Button
+              variant={multiCityMode ? "default" : "outline"}
+              size="sm"
+              onClick={() => handleMultiCityToggle(!multiCityMode)}
+              disabled={!specialty}
+            >
+              Sim
+            </Button>
+          </div>
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
             <label className="text-sm font-medium">Especialidade Médica</label>
-            <Select value={specialty} onValueChange={setSpecialty}>
+            <Select value={specialty} onValueChange={handleSpecialtyChange}>
               <SelectTrigger>
                 <SelectValue placeholder="Selecione uma especialidade" />
               </SelectTrigger>
@@ -196,24 +372,78 @@ export const AudienceCalculator = () => {
 
           <div className="space-y-2">
             <label className="text-sm font-medium">Cidade</label>
-            <Select value={city} onValueChange={setCity}>
-              <SelectTrigger>
-                <SelectValue placeholder="Selecione uma cidade" />
-              </SelectTrigger>
-              <SelectContent>
-                {cities.map((cityOption) => (
-                  <SelectItem key={cityOption} value={cityOption}>
-                    {cityOption}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {!multiCityMode ? (
+              // Modo único (lógica existente preservada)
+              <Select 
+                value={city} 
+                onValueChange={setCity}
+                disabled={!specialty || loadingCities}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={
+                    !specialty 
+                      ? "Selecione uma especialidade primeiro" 
+                      : loadingCities 
+                        ? "Carregando cidades..." 
+                        : availableCities.length === 0
+                          ? "Nenhuma cidade encontrada"
+                          : "Selecione uma cidade"
+                  } />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableCities.map((cityOption) => (
+                    <SelectItem key={cityOption} value={cityOption}>
+                      {cityOption}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : (
+              // Modo múltiplo (nova funcionalidade)
+              <div className="space-y-2">
+                <Button
+                  variant="outline"
+                  className="w-full justify-between"
+                  onClick={() => setShowCityModal(true)}
+                  disabled={!specialty || loadingCities}
+                >
+                  {selectedCities.length === 0 
+                    ? (loadingCities ? "Carregando cidades..." : "Selecionar cidades")
+                    : `${selectedCities.length} cidade(s) selecionada(s)`
+                  }
+                  <CheckSquare className="w-4 h-4" />
+                </Button>
+                
+                {/* Badges das cidades selecionadas */}
+                {selectedCities.length > 0 && (
+                  <div className="flex flex-wrap gap-1">
+                    {selectedCities.map((cityName) => (
+                      <Badge key={cityName} variant="secondary" className="text-xs">
+                        {cityName}
+                        <button
+                          onClick={() => handleRemoveCity(cityName)}
+                          className="ml-1 hover:bg-destructive/20 rounded-full p-0.5"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+            
+            {specialty && availableCities.length === 0 && !loadingCities && (
+              <p className="text-xs text-muted-foreground">
+                Nenhuma cidade encontrada com a especialidade "{specialty}"
+              </p>
+            )}
           </div>
         </div>
 
         <Button 
           onClick={handleCalculate} 
-          disabled={loading || loadingOptions || !specialty || !city}
+          disabled={loading || loadingOptions || !specialty || (multiCityMode ? selectedCities.length === 0 : !city)}
           className="w-full"
         >
           {loading ? (
@@ -266,13 +496,96 @@ export const AudienceCalculator = () => {
               <div className="flex items-start gap-2">
                 <Badge variant="secondary" className="shrink-0">💡 Insight</Badge>
                 <p className="text-sm">
-                  Em {city}, você pode alcançar até <strong>{result.estimated_patients_monthly.toLocaleString('pt-BR')} pacientes</strong> por mês 
-                  através de telas estrategicamente posicionadas em {result.clinic_count} clínicas especializadas em {specialty}.
+                  {multiCityMode ? (
+                    <>
+                      Em {selectedCities.length} cidade(s) selecionada(s), você pode alcançar até <strong>{result.estimated_patients_monthly.toLocaleString('pt-BR')} pacientes</strong> por mês 
+                      através de telas estrategicamente posicionadas em {result.clinic_count} clínicas especializadas em {specialty}.
+                    </>
+                  ) : (
+                    <>
+                      Em {city}, você pode alcançar até <strong>{result.estimated_patients_monthly.toLocaleString('pt-BR')} pacientes</strong> por mês 
+                      através de telas estrategicamente posicionadas em {result.clinic_count} clínicas especializadas em {specialty}.
+                    </>
+                  )}
                 </p>
               </div>
             </div>
           </div>
         )}
+
+        {/* Modal de seleção múltipla de cidades */}
+        <Dialog open={showCityModal} onOpenChange={setShowCityModal}>
+          <DialogContent className="max-w-2xl max-h-[80vh]">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <CheckSquare className="w-5 h-5 text-primary" />
+                Selecionar Cidades
+              </DialogTitle>
+            </DialogHeader>
+            
+            <div className="space-y-4">
+              {/* Controles de seleção */}
+              <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+                <div className="flex items-center gap-4">
+                  <span className="text-sm font-medium">
+                    {selectedCities.length} de {availableCities.length} cidades selecionadas
+                  </span>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleSelectAllCities}
+                    disabled={selectedCities.length === availableCities.length}
+                  >
+                    Selecionar Todas
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleClearAllCities}
+                    disabled={selectedCities.length === 0}
+                  >
+                    Limpar Seleção
+                  </Button>
+                </div>
+              </div>
+
+              {/* Lista de cidades */}
+              <ScrollArea className="h-96 border rounded-lg">
+                <div className="p-4 space-y-2">
+                  {availableCities.map((cityName) => (
+                    <div key={cityName} className="flex items-center space-x-3 p-2 hover:bg-muted/50 rounded-lg">
+                      <Checkbox
+                        id={cityName}
+                        checked={selectedCities.includes(cityName)}
+                        onCheckedChange={(checked) => handleCityToggle(cityName, checked as boolean)}
+                      />
+                      <label 
+                        htmlFor={cityName}
+                        className="flex-1 text-sm cursor-pointer"
+                      >
+                        {cityName}
+                      </label>
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
+            </div>
+
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowCityModal(false)}>
+                Cancelar
+              </Button>
+              <Button 
+                onClick={() => setShowCityModal(false)}
+                disabled={selectedCities.length === 0}
+              >
+                Confirmar ({selectedCities.length} cidades)
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </CardContent>
     </Card>
   );

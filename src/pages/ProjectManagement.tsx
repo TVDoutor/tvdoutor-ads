@@ -28,7 +28,8 @@ import {
   Bell,
   BarChart3,
   Paperclip,
-  RefreshCw
+  RefreshCw,
+  UserCheck
 } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { PessoaProjetoSelector } from '@/components/PessoaProjetoSelector';
@@ -49,7 +50,7 @@ import {
   type Marco
 } from '@/lib/project-management-service';
 import type { PessoaProjeto } from '@/types/agencia';
-import { TelaEquipes, TelaMarcos, TelaRelatorios } from '@/components/ProjectManagementScreens';
+import { TelaEquipes, TelaMarcos, TelaRelatorios, TelaPessoasProjeto } from '@/components/ProjectManagementScreens';
 
 interface Notificacao {
   id: string;
@@ -151,15 +152,15 @@ const ProjectManagement = () => {
 
   // Componente de navegação lateral modernizada
   const Navigation = () => (
-    <div className="w-72 bg-gradient-to-b from-white to-gray-50/50 border-r border-gray-200/60 h-screen fixed left-0 top-0 overflow-y-auto flex flex-col shadow-xl backdrop-blur-sm">
-      <div className="p-6 border-b border-gray-100/60 bg-gradient-to-r from-primary/5 to-primary/10">
+    <div className="w-72 bg-slate-900 border-r border-slate-700 h-screen fixed left-0 top-0 overflow-y-auto flex flex-col shadow-xl">
+      <div className="p-6 border-b border-slate-700">
         <div className="flex items-center gap-3">
-          <div className="p-3 bg-gradient-to-br from-primary to-primary/80 rounded-xl shadow-lg">
-            <Target className="h-6 w-6 text-white" />
+          <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center">
+            <span className="text-white font-bold text-sm">TV</span>
           </div>
           <div>
-            <h1 className="text-lg font-bold text-gray-900">Gerenciamento</h1>
-            <p className="text-sm text-gray-600 mt-0.5">Centro de controle</p>
+            <h2 className="text-lg font-bold text-white">TV Doutor ADS</h2>
+            <p className="text-xs text-slate-400">Digital Out-of-Home Platform</p>
           </div>
         </div>
       </div>
@@ -171,36 +172,23 @@ const ProjectManagement = () => {
           { id: 'deals', nome: 'Deals', icon: TrendingUp, desc: 'Negócios', color: 'from-green-500 to-green-600' },
           { id: 'equipes', nome: 'Equipes', icon: Users, desc: 'Pessoas', color: 'from-purple-500 to-purple-600' },
           { id: 'marcos', nome: 'Marcos', icon: Flag, desc: 'Cronograma', color: 'from-orange-500 to-orange-600' },
+          { id: 'pessoas', nome: 'Pessoas', icon: UserCheck, desc: 'Contatos', color: 'from-teal-500 to-teal-600' },
           { id: 'relatorios', nome: 'Relatórios', icon: BarChart3, desc: 'Analytics', color: 'from-indigo-500 to-indigo-600' }
         ].map(item => (
           <div key={item.id} className="relative">
             <Button
-              variant={telaAtiva === item.id ? "default" : "ghost"}
-              className={`w-full justify-start gap-4 transition-all duration-300 h-14 rounded-xl ${
-                telaAtiva === item.id 
-                  ? 'bg-gradient-to-r shadow-lg transform scale-[1.02]' 
-                  : 'hover:bg-gray-50/80 hover:shadow-md hover:scale-[1.01]'
+              variant="ghost"
+              className={`w-full justify-start gap-4 transition-all duration-300 h-14 rounded-xl text-slate-300 hover:text-white hover:bg-slate-800 ${
+                telaAtiva === item.id ? 'bg-slate-800 text-white' : ''
               }`}
               onClick={() => setTelaAtiva(item.id)}
             >
-              <div className={`p-2 rounded-lg transition-all duration-300 ${
-                telaAtiva === item.id 
-                  ? `bg-gradient-to-br ${item.color} shadow-md` 
-                  : 'bg-gray-100 group-hover:bg-gray-200'
-              }`}>
-                <item.icon className={`h-5 w-5 transition-colors duration-300 ${
-                  telaAtiva === item.id ? 'text-white' : 'text-gray-600'
-                }`} />
-              </div>
+              <item.icon className="h-5 w-5 shrink-0" />
               <div className="flex-1 text-left">
-                <div className={`font-semibold transition-colors duration-300 ${
-                  telaAtiva === item.id ? 'text-white' : 'text-gray-900'
-                }`}>
+                <div className="font-semibold truncate">
                   {item.nome}
                 </div>
-                <div className={`text-xs transition-colors duration-300 ${
-                  telaAtiva === item.id ? 'text-white/90' : 'text-gray-500'
-                }`}>
+                <div className="text-xs text-slate-400 truncate">
                   {item.desc}
                 </div>
               </div>
@@ -210,39 +198,39 @@ const ProjectManagement = () => {
       </nav>
       
       {/* Stats rápidas */}
-      <div className="p-4 border-t border-gray-100/60">
-        <div className="bg-gradient-to-br from-primary/10 via-primary/5 to-white rounded-xl p-4 border border-primary/20">
+      <div className="p-4 border-t border-slate-700">
+        <div className="bg-slate-800 rounded-xl p-4 border border-slate-600">
           <div className="flex items-center gap-2 mb-3">
-            <div className="p-1.5 bg-primary/20 rounded-lg">
-              <BarChart3 className="w-4 h-4 text-primary" />
+            <div className="p-1.5 bg-slate-700 rounded-lg">
+              <BarChart3 className="w-4 h-4 text-slate-300" />
             </div>
-            <span className="text-sm font-semibold text-gray-900">Resumo Rápido</span>
+            <span className="text-sm font-semibold text-white">Resumo Rápido</span>
           </div>
           <div className="space-y-2 text-xs">
             <div className="flex justify-between items-center">
-              <span className="text-gray-600">Agências:</span>
-              <span className="font-bold text-primary bg-primary/10 px-2 py-1 rounded-full">{dados.agencias.length}</span>
+              <span className="text-slate-400">Agências:</span>
+              <span className="font-bold text-white bg-slate-700 px-2 py-1 rounded-full">{dados.agencias.length}</span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-gray-600">Projetos:</span>
-              <span className="font-bold text-primary bg-primary/10 px-2 py-1 rounded-full">{dados.projetos.length}</span>
+              <span className="text-slate-400">Projetos:</span>
+              <span className="font-bold text-white bg-slate-700 px-2 py-1 rounded-full">{dados.projetos.length}</span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-gray-600">Deals:</span>
-              <span className="font-bold text-primary bg-primary/10 px-2 py-1 rounded-full">{dados.deals.length}</span>
+              <span className="text-slate-400">Deals:</span>
+              <span className="font-bold text-white bg-slate-700 px-2 py-1 rounded-full">{dados.deals.length}</span>
             </div>
           </div>
         </div>
       </div>
 
       {/* Botão para voltar ao Dashboard */}
-      <div className="p-4 border-t border-gray-100/60">
+      <div className="p-4 border-t border-slate-700">
         <Button
-          variant="outline"
-          className="w-full justify-start gap-3 transition-all duration-300 hover:bg-gray-50 hover:shadow-md rounded-xl h-12"
+          variant="ghost"
+          className="w-full justify-start gap-3 transition-all duration-300 text-slate-300 hover:text-white hover:bg-slate-800 rounded-xl h-12"
           onClick={() => navigate('/dashboard')}
         >
-          <ArrowLeft className="h-4 w-4 shrink-0 text-gray-600" />
+          <ArrowLeft className="h-4 w-4 shrink-0" />
           <span className="truncate flex-1 text-left font-medium">Voltar ao Dashboard</span>
         </Button>
       </div>
@@ -1821,6 +1809,8 @@ const ProjectManagement = () => {
         return <TelaEquipes {...props} />;
       case 'marcos':
         return <TelaMarcos {...props} />;
+      case 'pessoas':
+        return <TelaPessoasProjeto {...props} />;
       case 'relatorios':
         return <TelaRelatorios {...props} />;
       default:
@@ -1843,6 +1833,7 @@ const ProjectManagement = () => {
                     {telaAtiva === 'deals' && <TrendingUp className="h-6 w-6 text-primary" />}
                     {telaAtiva === 'equipes' && <Users className="h-6 w-6 text-primary" />}
                     {telaAtiva === 'marcos' && <Flag className="h-6 w-6 text-primary" />}
+                    {telaAtiva === 'pessoas' && <UserCheck className="h-6 w-6 text-primary" />}
                     {telaAtiva === 'relatorios' && <BarChart3 className="h-6 w-6 text-primary" />}
                   </div>
                   <div>
@@ -1852,6 +1843,7 @@ const ProjectManagement = () => {
                       {telaAtiva === 'deals' && 'Deals e Negócios'}
                       {telaAtiva === 'equipes' && 'Equipes dos Projetos'}
                       {telaAtiva === 'marcos' && 'Marcos e Cronograma'}
+                      {telaAtiva === 'pessoas' && 'Pessoas do Projeto'}
                       {telaAtiva === 'relatorios' && 'Relatórios Executivos'}
                     </h1>
                     <p className="text-sm text-gray-600 mt-1">
@@ -1860,6 +1852,7 @@ const ProjectManagement = () => {
                       {telaAtiva === 'deals' && `Controle de negócios • ${dados.deals.length} deals`}
                       {telaAtiva === 'equipes' && `Gestão de pessoas • ${dados.equipes.length} membros`}
                       {telaAtiva === 'marcos' && `Cronograma de entregas • ${dados.marcos.length} marcos`}
+                      {telaAtiva === 'pessoas' && `Gestão de contatos • ${dados.pessoasProjeto.length} pessoas`}
                       {telaAtiva === 'relatorios' && 'Análises e métricas de performance'}
                     </p>
                   </div>

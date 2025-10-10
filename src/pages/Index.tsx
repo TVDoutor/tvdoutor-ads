@@ -5,6 +5,10 @@ import { StatsCard } from "@/components/StatsCard";
 import { RecentProposals } from "@/components/RecentProposals";
 import { EmailStatsCard } from "@/components/EmailStatsCard";
 import { GeospatialSearch } from "@/components/GeospatialSearch";
+import { RevenueChart } from "@/components/RevenueChart";
+import { ConversionRateCard } from "@/components/ConversionRateCard";
+import { ExecutiveSummary } from "@/components/ExecutiveSummary";
+import { AlertsCenter } from "@/components/AlertsCenter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -222,6 +226,18 @@ const Index = () => {
             </div>
           ))}
         </div>
+
+        {/* Executive Summary */}
+        <ExecutiveSummary />
+
+        {/* Analytics Section */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <RevenueChart />
+          <ConversionRateCard />
+        </div>
+
+        {/* Alerts Center */}
+        <AlertsCenter />
 
         {/* Error message if any */}
         {error && (

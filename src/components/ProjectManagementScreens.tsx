@@ -1181,3 +1181,392 @@ export const TelaRelatorios = ({ dados }: ProjectManagementScreensProps) => {
       </div>
     );
   };
+
+// Componente para gerenciar Pessoas do Projeto
+export const TelaPessoasProjeto = ({ dados, carregarDados }: ProjectManagementScreensProps) => {
+  const [showModal, setShowModal] = useState(false);
+  const [editingPessoa, setEditingPessoa] = useState<PessoaProjeto | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [agenciaFilter, setAgenciaFilter] = useState('all');
+  const [formData, setFormData] = useState({
+    nome: '',
+    email: '',
+    telefone: '',
+    cargo: '',
+    agencia_id: ''
+  });
+
+  const filteredPessoas = dados.pessoasProjeto.filter(pessoa => {
+    const matchesSearch = pessoa.nome?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         pessoa.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         pessoa.cargo?.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    const matchesAgencia = agenciaFilter === 'all' || 
+                          (agenciaFilter === 'null' && !pessoa.agencia_id) ||
+                          pessoa.agencia_id === agenciaFilter;
+
+    return matchesSearch && matchesAgencia;
+  });
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    try {
+      const pessoaData = {
+        nome: formData.nome.trim(),
+        email: formData.email.trim() || null,
+        telefone: formData.telefone.trim() || null,
+        cargo: formData.cargo.trim() || null,
+        agencia_id: formData.agencia_id === 'null' ? null : formData.agencia_id || null
+      };
+
+      if (editingPessoa) {
+        const { error } = await supabase
+          .from('pessoas_projeto')
+          .update(pessoaData)
+          .eq('id', editingPessoa.id);
+        
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('pessoas_projeto')
+          .insert([pessoaData]);
+        
+        if (error) throw error;
+      }
+
+      setShowModal(false);
+      resetForm();
+      await carregarDados();
+    } catch (error) {
+      console.error('Erro ao salvar pessoa:', error);
+    }
+  };
+
+  const handleDelete = async (pessoaId: string) => {
+    if (!confirm('Tem certeza que deseja remover esta pessoa?')) return;
+    
+    try {
+      const { error } = await supabase
+        .from('pessoas_projeto')
+        .delete()
+        .eq('id', pessoaId);
+      
+      if (error) throw error;
+      await carregarDados();
+    } catch (error) {
+      console.error('Erro ao remover pessoa:', error);
+    }
+  };
+
+  const resetForm = () => {
+    setFormData({
+      nome: '',
+      email: '',
+      telefone: '',
+      cargo: '',
+      agencia_id: 'null'
+    });
+    setEditingPessoa(null);
+  };
+
+  const openEditModal = (pessoa: PessoaProjeto) => {
+    setEditingPessoa(pessoa);
+    setFormData({
+      nome: pessoa.nome,
+      email: pessoa.email || '',
+      telefone: pessoa.telefone || '',
+      cargo: pessoa.cargo || '',
+      agencia_id: pessoa.agencia_id || 'null'
+    });
+    setShowModal(true);
+  };
+
+  const getAgenciaNome = (agenciaId: string | null) => {
+    if (!agenciaId) return 'Não vinculada';
+    const agencia = dados.agencias.find(a => a.id === agenciaId);
+    return agencia?.nome_agencia || 'Agência não encontrada';
+  };
+
+  const totalPessoas = dados.pessoasProjeto.length;
+  const pessoasComAgencia = dados.pessoasProjeto.filter(p => p.agencia_id).length;
+  const pessoasSemAgencia = totalPessoas - pessoasComAgencia;
+
+  return (
+    <div className="space-y-6">
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="bg-white p-6 rounded-lg border border-gray-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">Total de Pessoas</p>
+              <p className="text-2xl font-bold text-blue-600">{totalPessoas}</p>
+              <p className="text-xs text-gray-500 mt-1">Cadastradas no sistema</p>
+            </div>
+            <div className="p-3 bg-blue-100 rounded-lg">
+              <Users className="w-6 h-6 text-blue-600" />
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white p-6 rounded-lg border border-gray-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">Com Agência</p>
+              <p className="text-2xl font-bold text-green-600">{pessoasComAgencia}</p>
+              <p className="text-xs text-gray-500 mt-1">Vinculadas a agências</p>
+            </div>
+            <div className="p-3 bg-green-100 rounded-lg">
+              <CheckCircle className="w-6 h-6 text-green-600" />
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white p-6 rounded-lg border border-gray-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">Sem Agência</p>
+              <p className="text-2xl font-bold text-orange-600">{pessoasSemAgencia}</p>
+              <p className="text-xs text-gray-500 mt-1">Aguardando vinculação</p>
+            </div>
+            <div className="p-3 bg-orange-100 rounded-lg">
+              <AlertCircle className="w-6 h-6 text-orange-600" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Filters and Actions */}
+      <div className="bg-white p-6 rounded-lg border border-gray-200">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Buscar</label>
+            <input
+              type="text"
+              placeholder="Nome, email ou cargo..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Filtrar por Agência</label>
+            <select
+              value={agenciaFilter}
+              onChange={(e) => setAgenciaFilter(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+            >
+              <option value="all">Todas as agências</option>
+              <option value="null">Sem agência</option>
+              {dados.agencias.map(agencia => (
+                <option key={agencia.id} value={agencia.id}>{agencia.nome_agencia}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex items-end">
+            <button
+              onClick={() => {
+                resetForm();
+                setShowModal(true);
+              }}
+              className="w-full px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors flex items-center justify-center gap-2"
+            >
+              <Plus className="w-4 h-4" />
+              Nova Pessoa
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* People List */}
+      <div className="bg-white rounded-lg border border-gray-200">
+        <div className="p-6 border-b">
+          <h3 className="text-lg font-semibold text-gray-900">
+            Pessoas Cadastradas ({filteredPessoas.length})
+          </h3>
+        </div>
+        
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Nome
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Cargo
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Email
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Telefone
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Agência
+                </th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Ações
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {filteredPessoas.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
+                    Nenhuma pessoa encontrada
+                  </td>
+                </tr>
+              ) : (
+                filteredPessoas.map(pessoa => (
+                  <tr key={pessoa.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <div className="flex-shrink-0 h-10 w-10 bg-primary/10 rounded-full flex items-center justify-center">
+                          <User className="h-5 w-5 text-primary" />
+                        </div>
+                        <div className="ml-4">
+                          <div className="text-sm font-medium text-gray-900">{pessoa.nome}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {pessoa.cargo || '-'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {pessoa.email || '-'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {pessoa.telefone || '-'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        pessoa.agencia_id ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                      }`}>
+                        {getAgenciaNome(pessoa.agencia_id)}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                      <button
+                        onClick={() => openEditModal(pessoa)}
+                        className="text-primary hover:text-primary/80 mr-3"
+                      >
+                        <Edit className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(pessoa.id)}
+                        className="text-red-600 hover:text-red-900"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Modal */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-md w-full p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+              <UserPlus className="w-5 h-5 text-primary" />
+              {editingPessoa ? 'Editar Pessoa' : 'Nova Pessoa'}
+            </h3>
+            
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Nome *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={formData.nome}
+                  onChange={(e) => setFormData({...formData, nome: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Email
+                </label>
+                <input
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) => setFormData({...formData, email: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Telefone
+                </label>
+                <input
+                  type="tel"
+                  value={formData.telefone}
+                  onChange={(e) => setFormData({...formData, telefone: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Cargo
+                </label>
+                <input
+                  type="text"
+                  value={formData.cargo}
+                  onChange={(e) => setFormData({...formData, cargo: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Agência
+                </label>
+                <select
+                  value={formData.agencia_id}
+                  onChange={(e) => setFormData({...formData, agencia_id: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                >
+                  <option value="null">Sem agência</option>
+                  {dados.agencias.map(agencia => (
+                    <option key={agencia.id} value={agencia.id}>{agencia.nome_agencia}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowModal(false);
+                    resetForm();
+                  }}
+                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"
+                >
+                  {editingPessoa ? 'Salvar' : 'Criar'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};

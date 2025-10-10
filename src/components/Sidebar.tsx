@@ -77,7 +77,7 @@ const menuItems = [
     requiredRole: "manager" as UserRole
   },
   {
-    label: "Agências",
+    label: "Projetos",
     icon: Building2,
     href: "/gerenciamento-projetos",
     requiredRole: "manager" as UserRole
@@ -88,12 +88,14 @@ const menuItems = [
     href: "/users",
     requiredRole: "admin" as UserRole
   },
-  {
-    label: "Pessoas do Projeto",
-    icon: UserCheck,
-    href: "/pessoas-projeto",
-    requiredRole: "admin" as UserRole
-  },
+  // NOTA: "Pessoas do Projeto" agora está integrado em /gerenciamento-projetos
+  // Mantendo a rota /pessoas-projeto ativa para acesso direto, mas removida do menu
+  // {
+  //   label: "Pessoas do Projeto",
+  //   icon: UserCheck,
+  //   href: "/pessoas-projeto",
+  //   requiredRole: "admin" as UserRole
+  // },
   {
     label: "Configurações",
     icon: Settings,

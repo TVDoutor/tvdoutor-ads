@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { Calculator, Users, Building2, Loader2, X, CheckSquare } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Calculator, Users, Building2, Loader2, X, CheckSquare, Search, MapPin } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -31,6 +32,7 @@ export const AudienceCalculator = () => {
   const [multiCityMode, setMultiCityMode] = useState(false);
   const [selectedCities, setSelectedCities] = useState<string[]>([]);
   const [showCityModal, setShowCityModal] = useState(false);
+  const [citySearchTerm, setCitySearchTerm] = useState('');
 
   // Map simples de alcance por classe (mantém compatibilidade com a base atual)
   const reachByClass = useMemo(() => ({
@@ -214,7 +216,8 @@ export const AudienceCalculator = () => {
   };
 
   const handleSelectAllCities = () => {
-    setSelectedCities([...availableCities]);
+    const citiesToSelect = filteredAvailableCities.filter(city => !selectedCities.includes(city));
+    setSelectedCities(prev => [...prev, ...citiesToSelect]);
   };
 
   const handleClearAllCities = () => {
@@ -223,6 +226,20 @@ export const AudienceCalculator = () => {
 
   const handleRemoveCity = (cityName: string) => {
     setSelectedCities(prev => prev.filter(c => c !== cityName));
+  };
+
+  // Filtrar cidades baseado no termo de busca
+  const filteredAvailableCities = useMemo(() => {
+    if (!citySearchTerm.trim()) return availableCities;
+    return availableCities.filter(city => 
+      city.toLowerCase().includes(citySearchTerm.toLowerCase())
+    );
+  }, [availableCities, citySearchTerm]);
+
+  // Reset busca quando modal é fechado
+  const handleCloseModal = () => {
+    setShowCityModal(false);
+    setCitySearchTerm('');
   };
 
   const handleCalculate = async () => {
@@ -399,35 +416,28 @@ export const AudienceCalculator = () => {
                 </SelectContent>
               </Select>
             ) : (
-              // Modo múltiplo (nova funcionalidade)
+              // Modo múltiplo (otimizado para melhor uso do espaço)
               <div className="space-y-2">
                 <Button
                   variant="outline"
-                  className="w-full justify-between"
+                  className="w-full justify-between h-10"
                   onClick={() => setShowCityModal(true)}
                   disabled={!specialty || loadingCities}
                 >
-                  {selectedCities.length === 0 
-                    ? (loadingCities ? "Carregando cidades..." : "Selecionar cidades")
-                    : `${selectedCities.length} cidade(s) selecionada(s)`
-                  }
+                  <div className="flex items-center gap-2">
+                    <MapPin className="w-4 h-4" />
+                    {selectedCities.length === 0 
+                      ? (loadingCities ? "Carregando cidades..." : "Selecionar cidades")
+                      : `${selectedCities.length} cidade(s) selecionada(s)`
+                    }
+                  </div>
                   <CheckSquare className="w-4 h-4" />
                 </Button>
                 
-                {/* Badges das cidades selecionadas */}
+                {/* Indicador compacto de cidades selecionadas */}
                 {selectedCities.length > 0 && (
-                  <div className="flex flex-wrap gap-1">
-                    {selectedCities.map((cityName) => (
-                      <Badge key={cityName} variant="secondary" className="text-xs">
-                        {cityName}
-                        <button
-                          onClick={() => handleRemoveCity(cityName)}
-                          className="ml-1 hover:bg-destructive/20 rounded-full p-0.5"
-                        >
-                          <X className="w-3 h-3" />
-                        </button>
-                      </Badge>
-                    ))}
+                  <div className="text-xs text-muted-foreground">
+                    Clique para gerenciar seleção ({selectedCities.length} cidades)
                   </div>
                 )}
               </div>
@@ -513,30 +523,49 @@ export const AudienceCalculator = () => {
           </div>
         )}
 
-        {/* Modal de seleção múltipla de cidades */}
-        <Dialog open={showCityModal} onOpenChange={setShowCityModal}>
-          <DialogContent className="max-w-2xl max-h-[80vh]">
+        {/* Modal de seleção múltipla de cidades - OTIMIZADO */}
+        <Dialog open={showCityModal} onOpenChange={handleCloseModal}>
+          <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
-                <CheckSquare className="w-5 h-5 text-primary" />
-                Selecionar Cidades
+                <MapPin className="w-5 h-5 text-primary" />
+                Selecionar Cidades para {specialty}
               </DialogTitle>
             </DialogHeader>
             
-            <div className="space-y-4">
+            <div className="flex-1 space-y-4 flex flex-col">
+              {/* Barra de busca */}
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar cidades..."
+                  value={citySearchTerm}
+                  onChange={(e) => setCitySearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+
               {/* Controles de seleção */}
-              <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+              <div className="flex items-center justify-between p-4 bg-gradient-to-r from-primary/5 to-secondary/5 rounded-lg border">
                 <div className="flex items-center gap-4">
-                  <span className="text-sm font-medium">
-                    {selectedCities.length} de {availableCities.length} cidades selecionadas
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <CheckSquare className="w-4 h-4 text-primary" />
+                    <span className="text-sm font-medium">
+                      {selectedCities.length} de {availableCities.length} cidades selecionadas
+                    </span>
+                  </div>
+                  {citySearchTerm && (
+                    <Badge variant="secondary" className="text-xs">
+                      {filteredAvailableCities.length} encontradas
+                    </Badge>
+                  )}
                 </div>
                 <div className="flex gap-2">
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={handleSelectAllCities}
-                    disabled={selectedCities.length === availableCities.length}
+                    disabled={filteredAvailableCities.length === 0 || selectedCities.length === filteredAvailableCities.length}
                   >
                     Selecionar Todas
                   </Button>
@@ -551,35 +580,79 @@ export const AudienceCalculator = () => {
                 </div>
               </div>
 
-              {/* Lista de cidades */}
-              <ScrollArea className="h-96 border rounded-lg">
-                <div className="p-4 space-y-2">
-                  {availableCities.map((cityName) => (
-                    <div key={cityName} className="flex items-center space-x-3 p-2 hover:bg-muted/50 rounded-lg">
-                      <Checkbox
-                        id={cityName}
-                        checked={selectedCities.includes(cityName)}
-                        onCheckedChange={(checked) => handleCityToggle(cityName, checked as boolean)}
-                      />
-                      <label 
-                        htmlFor={cityName}
-                        className="flex-1 text-sm cursor-pointer"
-                      >
-                        {cityName}
-                      </label>
+              {/* Cidades selecionadas (resumo compacto) */}
+              {selectedCities.length > 0 && (
+                <div className="p-3 bg-muted/30 rounded-lg border">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Badge variant="default" className="text-xs">
+                      Selecionadas: {selectedCities.length}
+                    </Badge>
+                  </div>
+                  <ScrollArea className="h-20">
+                    <div className="flex flex-wrap gap-1">
+                      {selectedCities.map((cityName) => (
+                        <Badge key={cityName} variant="secondary" className="text-xs">
+                          {cityName}
+                          <button
+                            onClick={() => handleRemoveCity(cityName)}
+                            className="ml-1 hover:bg-destructive/20 rounded-full p-0.5"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </Badge>
+                      ))}
                     </div>
-                  ))}
+                  </ScrollArea>
                 </div>
-              </ScrollArea>
+              )}
+
+              {/* Lista de cidades */}
+              <div className="flex-1 border rounded-lg">
+                <ScrollArea className="h-96">
+                  <div className="p-4 space-y-1">
+                    {filteredAvailableCities.length === 0 ? (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <MapPin className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                        <p>Nenhuma cidade encontrada</p>
+                        {citySearchTerm && (
+                          <p className="text-xs">Tente um termo de busca diferente</p>
+                        )}
+                      </div>
+                    ) : (
+                      filteredAvailableCities.map((cityName) => (
+                        <div key={cityName} className="flex items-center space-x-3 p-3 hover:bg-muted/50 rounded-lg transition-colors">
+                          <Checkbox
+                            id={cityName}
+                            checked={selectedCities.includes(cityName)}
+                            onCheckedChange={(checked) => handleCityToggle(cityName, checked as boolean)}
+                          />
+                          <label 
+                            htmlFor={cityName}
+                            className="flex-1 text-sm cursor-pointer font-medium"
+                          >
+                            {cityName}
+                          </label>
+                          {selectedCities.includes(cityName) && (
+                            <Badge variant="default" className="text-xs">
+                              Selecionada
+                            </Badge>
+                          )}
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </ScrollArea>
+              </div>
             </div>
 
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setShowCityModal(false)}>
+            <DialogFooter className="gap-2">
+              <Button variant="outline" onClick={handleCloseModal}>
                 Cancelar
               </Button>
               <Button 
-                onClick={() => setShowCityModal(false)}
+                onClick={handleCloseModal}
                 disabled={selectedCities.length === 0}
+                className="min-w-[140px]"
               >
                 Confirmar ({selectedCities.length} cidades)
               </Button>

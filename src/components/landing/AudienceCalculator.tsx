@@ -3,12 +3,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Calculator, Users, Building2, Loader2, X, CheckSquare, Search, MapPin } from 'lucide-react';
+import { Calculator, Users, Building2, Loader2, X, CheckSquare, Search, MapPin, RefreshCw } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { supabase } from '@/integrations/supabase/client';
+import { useSpecialtiesWithFallback } from '@/hooks/useSpecialties';
+import { useSpecialtiesRealtime } from '@/hooks/useSpecialtiesRealtime';
+import { SpecialtiesService } from '@/lib/specialties-service';
 
 interface AudienceResult {
   clinic_count: number;
@@ -22,11 +25,23 @@ export const AudienceCalculator = () => {
   const [result, setResult] = useState<AudienceResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [specialties, setSpecialties] = useState<string[]>([]);
   const [cities, setCities] = useState<string[]>([]);
   const [availableCities, setAvailableCities] = useState<string[]>([]);
-  const [loadingOptions, setLoadingOptions] = useState(false);
   const [loadingCities, setLoadingCities] = useState(false);
+
+  // Novos hooks para sincronização automática
+  const { 
+    specialties, 
+    isLoading: loadingSpecialties, 
+    error: specialtiesError, 
+    retry: retrySpecialties,
+    isUsingFallback 
+  } = useSpecialtiesWithFallback();
+  
+  // Removido refreshSpecialties não utilizado - usando forceRefresh do realtime
+  
+  // Hook para sincronização em tempo real
+  const { forceRefresh, isConnected } = useSpecialtiesRealtime();
 
   // Novos estados para seleção múltipla (adicionados sem alterar os existentes)
   const [multiCityMode, setMultiCityMode] = useState(false);
@@ -48,62 +63,17 @@ export const AudienceCalculator = () => {
     'ND': 800
   } as Record<string, number>), []);
 
-  // Função para buscar cidades por especialidade
+  // Função para buscar cidades por especialidade (usando serviço centralizado)
   const fetchCitiesBySpecialty = async (selectedSpecialty: string) => {
     console.log('🔍 Buscando cidades para especialidade:', selectedSpecialty);
     setLoadingCities(true);
     try {
-      // Tentar primeiro com a view enriquecida
-      let { data, error } = await supabase
-        .from('v_screens_enriched')
-        .select('city')
-        .contains('specialty', [selectedSpecialty])
-        .not('city', 'is', null)
-        .limit(2000);
-
-      console.log('📊 Query v_screens_enriched result:', { data, error });
-
-      // Se der erro, tentar com a tabela screens
-      if (error) {
-        console.log('🔄 Tentando fallback para tabela screens...');
-        const fallback = await supabase
-          .from('screens')
-          .select('city')
-          .contains('specialty', [selectedSpecialty])
-          .eq('active', true as any)
-          .not('city', 'is', null)
-          .limit(2000);
-        
-        data = fallback.data;
-        error = fallback.error;
-        console.log('📊 Query screens fallback result:', { data, error });
-      }
-
-      if (error) {
-        console.warn('⚠️ Erro na query, usando todas as cidades como fallback');
-        // Fallback final: usar todas as cidades disponíveis
-        setAvailableCities(cities);
-        return;
-      }
-
-      const uniqueCities = Array.from(new Set(
-        (data || [])
-          .map((r: any) => (r.city || '').trim())
-          .filter(Boolean)
-      )).sort((a, b) => a.localeCompare(b, 'pt-BR'));
-
-      console.log('🏙️ Cidades encontradas:', uniqueCities);
-      
-      // Se não encontrou cidades específicas, usar todas como fallback
-      if (uniqueCities.length === 0) {
-        console.log('🔄 Nenhuma cidade encontrada, usando todas as cidades disponíveis');
-        setAvailableCities(cities);
-      } else {
-        setAvailableCities(uniqueCities);
-      }
+      const cities = await SpecialtiesService.getCitiesBySpecialty(selectedSpecialty);
+      setAvailableCities(cities);
+      console.log('🏙️ Cidades encontradas:', cities.length);
     } catch (err) {
       console.error('❌ Erro ao buscar cidades por especialidade:', err);
-      // Fallback final: usar todas as cidades
+      // Fallback: usar todas as cidades disponíveis
       setAvailableCities(cities);
       setError('Erro ao carregar cidades específicas. Mostrando todas as cidades.');
     } finally {
@@ -111,52 +81,10 @@ export const AudienceCalculator = () => {
     }
   };
 
-  // Carregar opções reais de Especialidades e Cidades
+  // Carregar cidades para fallback (mantido para compatibilidade)
   useEffect(() => {
-    const fetchOptions = async () => {
-      setLoadingOptions(true);
+    const fetchCities = async () => {
       try {
-        // Buscar especialidades a partir da view v_screens_enriched (preferida) ou da tabela screens
-        let specialtiesData: any[] | null = null;
-        let specError: any = null;
-        const specView = await supabase
-          .from('v_screens_enriched')
-          .select('specialty, staging_especialidades')
-          .limit(1000);
-        specialtiesData = specView.data;
-        specError = specView.error;
-        if (specError) {
-          const specTbl = await supabase
-            .from('screens')
-            .select('specialty')
-            .limit(1000);
-          specialtiesData = specTbl.data;
-          specError = specTbl.error;
-        }
-        // Extrair e normalizar especialidades
-        const rawSpecs: string[] = (specialtiesData || []).flatMap((row: any) => {
-          const fromArray = Array.isArray(row.specialty) ? row.specialty : [];
-          const fromStaging = row.staging_especialidades
-            ? String(row.staging_especialidades).split(',')
-            : [];
-          return [...fromArray, ...fromStaging];
-        });
-        const cleaned = rawSpecs
-          .flatMap((s) =>
-            String(s)
-              // aceitar vírgula, ponto e vírgula, barra vertical e barra
-              .split(/[,;|\/]+/)
-          )
-          .map((s) => s.trim())
-          .filter(Boolean);
-        const uniqueInsensitive = Array.from(
-          new Map(cleaned.map((s) => [s.toLocaleUpperCase('pt-BR'), s])).values()
-        );
-        const specs = uniqueInsensitive.sort((a, b) => a.localeCompare(b, 'pt-BR'));
-
-        setSpecialties(specs);
-
-        // Buscar cidades distintas (mantido para compatibilidade)
         const { data: citiesRows, error: citiesError } = await supabase
           .from('screens')
           .select('city')
@@ -171,13 +99,10 @@ export const AudienceCalculator = () => {
           .sort((a, b) => a.localeCompare(b, 'pt-BR'));
         setCities(uniqueCities);
       } catch (e: any) {
-        console.error('Erro carregando opções da calculadora:', e);
-        setError('Não foi possível carregar opções. Tente novamente.');
-      } finally {
-        setLoadingOptions(false);
+        console.error('Erro carregando cidades:', e);
       }
     };
-    fetchOptions();
+    fetchCities();
   }, []);
 
   // Handler para mudança de especialidade (lógica existente preservada)
@@ -372,19 +297,71 @@ export const AudienceCalculator = () => {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
-            <label className="text-sm font-medium">Especialidade Médica</label>
-            <Select value={specialty} onValueChange={handleSpecialtyChange}>
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-medium">Especialidade Médica</label>
+              <div className="flex items-center gap-2">
+                {isUsingFallback && (
+                  <Badge variant="secondary" className="text-xs">
+                    Fallback
+                  </Badge>
+                )}
+                {isConnected && (
+                  <Badge variant="default" className="text-xs bg-green-500">
+                    Tempo Real
+                  </Badge>
+                )}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={forceRefresh}
+                  disabled={loadingSpecialties}
+                  className="h-6 w-6 p-0"
+                  title="Forçar atualização"
+                >
+                  <RefreshCw className={`w-3 h-3 ${loadingSpecialties ? 'animate-spin' : ''}`} />
+                </Button>
+              </div>
+            </div>
+            <Select 
+              value={specialty} 
+              onValueChange={handleSpecialtyChange}
+              disabled={loadingSpecialties}
+            >
               <SelectTrigger>
-                <SelectValue placeholder="Selecione uma especialidade" />
+                <SelectValue placeholder={
+                  loadingSpecialties 
+                    ? "Carregando especialidades..." 
+                    : specialtiesError 
+                      ? "Erro ao carregar especialidades" 
+                      : "Selecione uma especialidade"
+                } />
               </SelectTrigger>
               <SelectContent>
                 {specialties.map((spec) => (
-                  <SelectItem key={spec} value={spec}>
-                    {spec}
+                  <SelectItem key={spec.specialty_name} value={spec.specialty_name}>
+                    <div className="flex items-center justify-between w-full">
+                      <span>{spec.specialty_name}</span>
+                      <Badge variant="outline" className="text-xs ml-2">
+                        {spec.total_occurrences}
+                      </Badge>
+                    </div>
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
+            {specialtiesError && (
+              <div className="flex items-center gap-2 text-xs text-destructive">
+                <span>Erro ao carregar especialidades</span>
+                <Button
+                  variant="link"
+                  size="sm"
+                  onClick={retrySpecialties}
+                  className="h-auto p-0 text-xs"
+                >
+                  Tentar novamente
+                </Button>
+              </div>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -453,7 +430,7 @@ export const AudienceCalculator = () => {
 
         <Button 
           onClick={handleCalculate} 
-          disabled={loading || loadingOptions || !specialty || (multiCityMode ? selectedCities.length === 0 : !city)}
+          disabled={loading || loadingSpecialties || !specialty || (multiCityMode ? selectedCities.length === 0 : !city)}
           className="w-full"
         >
           {loading ? (

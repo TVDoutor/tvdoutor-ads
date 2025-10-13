@@ -1070,10 +1070,13 @@ const ProjectManagement = () => {
         console.log('🚀 Iniciando criação/atualização do projeto...');
         console.log('📋 Dados do formulário:', formData);
         
-        // Corrigir deal_id: converter string vazia para null
+        // Corrigir dados: converter strings vazias para null
         const dadosCorrigidos = {
           ...formData,
-          deal_id: formData.deal_id === '' ? null : formData.deal_id
+          deal_id: formData.deal_id === '' ? null : formData.deal_id,
+          data_inicio: formData.data_inicio === '' ? null : formData.data_inicio,
+          data_fim: formData.data_fim === '' ? null : formData.data_fim,
+          responsavel_projeto: formData.responsavel_projeto === '' ? null : formData.responsavel_projeto
         };
         
         console.log('📋 Dados corrigidos:', dadosCorrigidos);
@@ -1678,13 +1681,19 @@ const ProjectManagement = () => {
                         Responsável do Projeto
                       </label>
                       {(() => {
-                        const membrosEquipe = getMembrosEquipeProjeto(formData.id);
-                        if (membrosEquipe.length === 0) {
+                        const membrosEquipe = getMembrosEquipeProjeto(projetoSelecionado?.id || null);
+                        // Se não há membros na equipe, permitir seleção de qualquer profile disponível
+                        const opcoesResponsavel = membrosEquipe.length > 0 ? membrosEquipe : dados.profiles.map(p => ({
+                          pessoa_id: p.id,
+                          nome_pessoa: p.full_name || 'Usuário sem nome'
+                        }));
+                        
+                        if (opcoesResponsavel.length === 0) {
                           return (
                             <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-md">
                               <p className="text-sm text-yellow-800">
                                 <Users className="inline w-4 h-4 mr-1" />
-                                Nenhum membro na equipe. Adicione membros à equipe primeiro para poder selecionar um responsável.
+                                Nenhum usuário disponível para seleção.
                               </p>
                             </div>
                           );
@@ -1701,30 +1710,34 @@ const ProjectManagement = () => {
                                 <div className="h-6 w-6 rounded-full bg-blue-100 flex items-center justify-center">
                                   <span className="text-xs font-medium text-blue-600">
                                     {(() => {
-                                      const nome = getResponsavelNome(formData.responsavel_projeto, formData.id);
+                                      const nome = getResponsavelNome(formData.responsavel_projeto, projetoSelecionado?.id || null);
                                       return nome ? nome.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) : '??';
                                     })()}
                                   </span>
                                 </div>
-                                <span className="truncate font-medium">{getResponsavelNome(formData.responsavel_projeto, formData.id)}</span>
+                                <span className="truncate font-medium">{getResponsavelNome(formData.responsavel_projeto, projetoSelecionado?.id || null)}</span>
                               </div>
                             )}
                           </SelectValue>
                         </SelectTrigger>
                         <SelectContent>
                           {(() => {
-                            const membrosEquipe = getMembrosEquipeProjeto(formData.id);
+                            const membrosEquipe = getMembrosEquipeProjeto(projetoSelecionado?.id || null);
+                            const opcoesResponsavel = membrosEquipe.length > 0 ? membrosEquipe : dados.profiles.map(p => ({
+                              pessoa_id: p.id,
+                              nome_pessoa: p.full_name || 'Usuário sem nome'
+                            }));
                             
-                            if (membrosEquipe.length === 0) {
+                            if (opcoesResponsavel.length === 0) {
                               return (
                                 <div className="flex items-center gap-2 text-muted-foreground p-2">
                                   <Users className="h-4 w-4" />
-                                  <span>Nenhum membro na equipe do projeto</span>
+                                  <span>Nenhum usuário disponível</span>
                                 </div>
                               );
                             }
                             
-                            return membrosEquipe.map(membro => (
+                            return opcoesResponsavel.map(membro => (
                               <SelectItem key={membro.pessoa_id} value={membro.pessoa_id}>
                                 <div className="flex items-center gap-2">
                                   <div className="h-6 w-6 rounded-full bg-blue-100 flex items-center justify-center">

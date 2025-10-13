@@ -1622,11 +1622,15 @@ const ProjectManagement = () => {
                         className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all duration-300"
                       >
                         <option value="">Selecione um deal</option>
-                        {dados.deals.filter(deal => deal.agencia_id === formData.agencia_id).map(deal => (
-                          <option key={deal.id} value={deal.id}>
-                            {deal.nome_deal}
-                          </option>
-                        ))}
+                        {dados.deals.map(deal => {
+                          const agencia = dados.agencias.find(a => a.id === deal.agencia_id);
+                          const agenciaNome = agencia?.nome || 'Agência não encontrada';
+                          return (
+                            <option key={deal.id} value={deal.id}>
+                              {deal.nome_deal} ({agenciaNome})
+                            </option>
+                          );
+                        })}
                       </select>
                     </div>
                     <div>

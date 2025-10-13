@@ -1721,7 +1721,8 @@ const ProjectManagement = () => {
                         // Usar apenas pessoas da tabela pessoas_projeto para evitar erro de foreign key
                         const opcoesResponsavel = membrosEquipe.length > 0 ? membrosEquipe : dados.pessoasProjeto.map(p => ({
                           pessoa_id: p.id,
-                          nome_pessoa: p.nome || 'Pessoa sem nome'
+                          nome_pessoa: p.nome || 'Pessoa sem nome',
+                          email_pessoa: p.email
                         }));
                         
                         if (opcoesResponsavel.length === 0) {
@@ -1761,7 +1762,8 @@ const ProjectManagement = () => {
                             const membrosEquipe = getMembrosEquipeProjeto(projetoSelecionado?.id || null);
                             const opcoesResponsavel = membrosEquipe.length > 0 ? membrosEquipe : dados.pessoasProjeto.map(p => ({
                               pessoa_id: p.id,
-                              nome_pessoa: p.nome || 'Pessoa sem nome'
+                              nome_pessoa: p.nome || 'Pessoa sem nome',
+                              email_pessoa: p.email
                             }));
                             
                             if (opcoesResponsavel.length === 0) {

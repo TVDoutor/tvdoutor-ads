@@ -1040,6 +1040,11 @@ const ProjectManagement = () => {
     });
     const [showDetalhes, setShowDetalhes] = useState<Projeto | null>(null);
 
+    // Monitorar mudanças no estado do modal
+    useEffect(() => {
+      console.log('🔍 Estado showModal alterado:', showModal);
+    }, [showModal]);
+
     const resetForm = () => {
       setFormData({
         nome_projeto: '',
@@ -1065,6 +1070,9 @@ const ProjectManagement = () => {
 
     const handleSubmit = async (e: React.FormEvent) => {
       e.preventDefault();
+      e.stopPropagation();
+      
+      console.log('🎯 handleSubmit chamado - modal deve permanecer aberto');
       
       try {
         console.log('🚀 Iniciando criação/atualização do projeto...');
@@ -1139,6 +1147,7 @@ const ProjectManagement = () => {
     };
 
     const openNewModal = () => {
+      console.log('🚀 openNewModal chamado - abrindo modal de projeto');
       resetForm();
       setShowModal(true);
     };
@@ -1525,14 +1534,27 @@ const ProjectManagement = () => {
 
         {/* Modal de Projeto */}
         {showModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div 
+            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) {
+                console.log('🔄 Modal fechado por clique no backdrop');
+                setShowModal(false);
+                resetForm();
+              }
+            }}
+          >
             <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
               <div className="p-6 border-b">
                 <div className="flex items-center justify-between">
                   <h2 className="text-xl font-semibold">
                     {projetoSelecionado ? 'Editar Projeto' : 'Novo Projeto'}
                   </h2>
-                  <button onClick={() => {setShowModal(false); resetForm();}}>
+                  <button onClick={() => {
+                    console.log('🔄 Modal fechado por clique no X');
+                    setShowModal(false); 
+                    resetForm();
+                  }}>
                     <X className="w-6 h-6" />
                   </button>
                 </div>
@@ -1549,7 +1571,10 @@ const ProjectManagement = () => {
                       <input
                         type="text"
                         value={formData.nome_projeto}
-                        onChange={(e) => setFormData({...formData, nome_projeto: e.target.value})}
+                        onChange={(e) => {
+                          console.log('📝 Input nome_projeto alterado:', e.target.value);
+                          setFormData({...formData, nome_projeto: e.target.value});
+                        }}
                         className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all duration-300"
                         placeholder="Ex: Campanha Digital Verão 2024"
                         required

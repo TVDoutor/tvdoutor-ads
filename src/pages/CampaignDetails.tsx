@@ -248,11 +248,33 @@ export default function CampaignDetails() {
     try {
       console.log('➕ Adicionando telas à campanha...');
       
-      const screenData = Array.from(selectedScreens).map(screenId => ({
+      // Verificar quais telas já estão na campanha para evitar duplicação
+      const existingScreenIds = campaignScreens.map(cs => cs.screen_id);
+      const newScreens = Array.from(selectedScreens).filter(screenId => 
+        !existingScreenIds.includes(screenId)
+      );
+      
+      // Se não há telas novas para adicionar
+      if (newScreens.length === 0) {
+        toast.warning('Todas as telas selecionadas já estão na campanha');
+        setSelectedScreens(new Set());
+        setIsAddScreensDialogOpen(false);
+        return;
+      }
+      
+      // Se apenas algumas telas são novas, mostrar aviso
+      if (newScreens.length < selectedScreens.size) {
+        const duplicateCount = selectedScreens.size - newScreens.length;
+        toast.warning(`${duplicateCount} tela(s) já estavam na campanha e foram ignoradas`);
+      }
+      
+      const screenData = newScreens.map(screenId => ({
         campaign_id: parseInt(id!),
         screen_id: screenId,
         quantity: 1
       }));
+
+      console.log(`📊 Tentando adicionar ${newScreens.length} telas novas (${selectedScreens.size - newScreens.length} duplicadas ignoradas)`);
 
       const { error } = await supabase
         .from('campaign_screens')
@@ -264,7 +286,7 @@ export default function CampaignDetails() {
       }
 
       console.log('✅ Telas adicionadas com sucesso');
-      toast.success(`${selectedScreens.size} telas adicionadas à campanha`);
+      toast.success(`${newScreens.length} telas adicionadas à campanha`);
       
       setSelectedScreens(new Set());
       setIsAddScreensDialogOpen(false);

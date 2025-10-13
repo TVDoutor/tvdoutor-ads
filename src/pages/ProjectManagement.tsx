@@ -1625,7 +1625,14 @@ const ProjectManagement = () => {
                       >
                         <option value="">Selecione um deal</option>
                         {dados.deals.map(deal => {
+                          console.log('🔍 Debug deal-agência:');
+                          console.log('  - Deal ID:', deal.id);
+                          console.log('  - Deal agencia_id:', deal.agencia_id);
+                          console.log('  - Todas as agências:', dados.agencias.map(a => ({ id: a.id, nome: a.nome })));
+                          
                           const agencia = dados.agencias.find(a => a.id === deal.agencia_id);
+                          console.log('  - Agência encontrada:', agencia);
+                          
                           const agenciaNome = agencia?.nome || 'Agência não encontrada';
                           return (
                             <option key={deal.id} value={deal.id}>

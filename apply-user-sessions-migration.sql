@@ -112,7 +112,7 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
 DECLARE
-    session_exists BOOLEAN;
+    rows_affected INTEGER;
 BEGIN
     UPDATE public.user_sessions 
     SET last_seen_at = NOW(), updated_at = NOW()
@@ -120,8 +120,8 @@ BEGIN
     AND expires_at > NOW() 
     AND is_active = TRUE;
     
-    GET DIAGNOSTICS session_exists = FOUND;
-    RETURN session_exists;
+    GET DIAGNOSTICS rows_affected = ROW_COUNT;
+    RETURN rows_affected > 0;
 END;
 $$;
 

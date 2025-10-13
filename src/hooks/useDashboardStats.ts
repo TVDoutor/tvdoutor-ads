@@ -1,160 +1,194 @@
-import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { DashboardService, type DashboardStats, type ProposalsStats } from '@/lib/dashboard-service';
 
-interface DashboardStats {
-  activeScreens: number;
-  activeProposals: number;
-  totalCities: number;
-  totalRevenue: number;
-  screenGrowth: number;
-  proposalGrowth: number;
-  cityGrowth: number;
-  revenueGrowth: number;
-}
-
+/**
+ * Hook principal para estatísticas do dashboard
+ * Carrega todas as estatísticas com cache inteligente
+ */
 export const useDashboardStats = () => {
-  const [stats, setStats] = useState<DashboardStats>({
-    activeScreens: 0,
-    activeProposals: 0,
-    totalCities: 0,
-    totalRevenue: 0,
-    screenGrowth: 0,
-    proposalGrowth: 0,
-    cityGrowth: 0,
-    revenueGrowth: 0,
+  return useQuery({
+    queryKey: ['dashboard-stats'],
+    queryFn: DashboardService.getAllDashboardStats,
+    staleTime: 2 * 60 * 1000, // 2 minutos
+    gcTime: 5 * 60 * 1000, // 5 minutos
+    refetchOnWindowFocus: true,
+    refetchInterval: 60000, // 1 minuto
+    retry: 3,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+    throwOnError: false, // Não quebrar a aplicação se houver erro
   });
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+};
 
-  useEffect(() => {
-    const fetchDashboardStats = async () => {
-      try {
-        setLoading(true);
-        setError(null);
+/**
+ * Hook para estatísticas com fallback
+ * Carrega dados parciais mesmo se algumas consultas falharem
+ */
+export const useDashboardStatsWithFallback = () => {
+  return useQuery({
+    queryKey: ['dashboard-stats-fallback'],
+    queryFn: DashboardService.getDashboardStatsWithFallback,
+    staleTime: 2 * 60 * 1000, // 2 minutos
+    gcTime: 5 * 60 * 1000, // 5 minutos
+    refetchOnWindowFocus: true,
+    refetchInterval: 60000, // 1 minuto
+    retry: 2,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 20000),
+    throwOnError: false, // Não quebrar a aplicação se houver erro
+  });
+};
 
-        // Fetch active screens with better error handling
-        let activeScreensData: any[] = [];
-        try {
-          const { data: screensData, error: screensError } = await supabase
-            .from('screens')
-            .select('id, city, active')
-            .order('display_name');
-          
-          if (screensError) {
-            console.warn('Erro ao buscar screens:', screensError);
-          } else {
-            activeScreensData = (screensData as any)?.filter((screen: any) => Boolean(screen.active)) || [];
-          }
-        } catch (screensFetchError) {
-          console.warn('Falha ao buscar screens, usando dados padrão');
-          activeScreensData = [];
-        }
+/**
+ * Hook específico para estatísticas de propostas
+ */
+export const useProposalsStats = () => {
+  return useQuery({
+    queryKey: ['proposals-stats'],
+    queryFn: DashboardService.getProposalsStats,
+    staleTime: 1 * 60 * 1000, // 1 minuto (propostas mudam mais frequentemente)
+    gcTime: 3 * 60 * 1000, // 3 minutos
+    refetchOnWindowFocus: true,
+    refetchInterval: 30000, // 30 segundos
+    retry: 3,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+    throwOnError: false, // Não quebrar a aplicação se houver erro
+  });
+};
 
-        // Fetch proposals with fallback
-        let proposalsData: any[] = [];
-        let totalRevenue = 0;
-        
-        try {
-          // Try proposal_kpis first
-          const { data: kpisData, error: kpisError } = await supabase
-            .from('proposal_kpis')
-            .select('id, total_value, created_at, status')
-            .eq('status', 'active' as any);
+/**
+ * Hook específico para estatísticas de agências
+ */
+export const useAgenciesStats = () => {
+  return useQuery({
+    queryKey: ['agencies-stats'],
+    queryFn: DashboardService.getAgenciesStats,
+    staleTime: 5 * 60 * 1000, // 5 minutos (agências mudam menos)
+    gcTime: 10 * 60 * 1000, // 10 minutos
+    refetchOnWindowFocus: true,
+    refetchInterval: 5 * 60 * 1000, // 5 minutos
+    retry: 2,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 20000),
+  });
+};
 
-          if (kpisError) {
-            console.warn('proposal_kpis não disponível, tentando proposals diretamente');
-            
-            // Fallback to proposals table with proper status filtering
-            const { data: directProposalsData, error: proposalsError } = await supabase
-              .from('proposals')
-              .select('id, created_at, net_business, gross_business, status')
-              .in('status', ['enviada' as any, 'aceita' as any, 'em_analise' as any])
-              .limit(100);
+/**
+ * Hook específico para estatísticas de projetos
+ */
+export const useProjectsStats = () => {
+  return useQuery({
+    queryKey: ['projects-stats'],
+    queryFn: DashboardService.getProjectsStats,
+    staleTime: 3 * 60 * 1000, // 3 minutos
+    gcTime: 7 * 60 * 1000, // 7 minutos
+    refetchOnWindowFocus: true,
+    refetchInterval: 2 * 60 * 1000, // 2 minutos
+    retry: 2,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 20000),
+  });
+};
 
-            if (proposalsError) {
-              console.warn('Erro ao buscar proposals:', proposalsError);
-            } else {
-              proposalsData = directProposalsData || [];
-              // Calculate total revenue from net_business or gross_business
-              totalRevenue = proposalsData.reduce((sum, proposal) => {
-                const value = proposal.net_business || proposal.gross_business || 0;
-                return sum + value;
-              }, 0);
-            }
-          } else {
-            proposalsData = kpisData || [];
-            totalRevenue = proposalsData.reduce((sum, proposal) => sum + (proposal.total_value || 0), 0);
-          }
-        } catch (proposalsFetchError) {
-          console.warn('Falha ao buscar propostas, usando dados padrão');
-          proposalsData = [];
-        }
+/**
+ * Hook específico para estatísticas de deals
+ */
+export const useDealsStats = () => {
+  return useQuery({
+    queryKey: ['deals-stats'],
+    queryFn: DashboardService.getDealsStats,
+    staleTime: 2 * 60 * 1000, // 2 minutos
+    gcTime: 5 * 60 * 1000, // 5 minutos
+    refetchOnWindowFocus: true,
+    refetchInterval: 90 * 1000, // 1.5 minutos
+    retry: 2,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 20000),
+  });
+};
 
-        // Calculate unique cities from active screens only
-        const uniqueCities = new Set(activeScreensData.map(screen => screen.city).filter(city => city) || []);
-        
-        // Calculate growth rates with safe fallbacks
-        let screenGrowth = 0;
-        let proposalGrowth = 0;
-        
-        try {
-          const currentDate = new Date();
-          const lastMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, currentDate.getDate());
-          
+/**
+ * Hook para refresh manual de todas as estatísticas
+ */
+export const useRefreshDashboardStats = () => {
+  const queryClient = useQueryClient();
 
-          // Try to fetch previous data for growth calculation
-          const { data: prevScreensData } = await supabase
-            .from('screens')
-            .select('id')
-            .eq('active', true as any)
-            .lt('created_at', lastMonth.toISOString())
-            .limit(1000);
+  const refreshAllStats = async () => {
+    
+    try {
+      await DashboardService.refreshAllStats();
+      
+      // Invalidar todas as queries relacionadas
+      await queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
+      await queryClient.invalidateQueries({ queryKey: ['dashboard-stats-fallback'] });
+      await queryClient.invalidateQueries({ queryKey: ['proposals-stats'] });
+      await queryClient.invalidateQueries({ queryKey: ['agencies-stats'] });
+      await queryClient.invalidateQueries({ queryKey: ['projects-stats'] });
+      await queryClient.invalidateQueries({ queryKey: ['deals-stats'] });
+      
+    } catch (error) {
+      console.error('❌ Erro ao refreshar estatísticas do dashboard:', error);
+      throw error;
+    }
+  };
 
-          const currentScreens = activeScreensData.length;
-          const prevScreens = prevScreensData?.length || 0;
-          screenGrowth = prevScreens > 0 ? ((currentScreens - prevScreens) / prevScreens) * 100 : 0;
+  return { refreshAllStats };
+};
 
-          // Similar for proposals
-          const currentProposals = proposalsData.length;
-          proposalGrowth = currentProposals > 0 ? 5 : 0; // Default 5% growth if we have proposals
-        } catch (growthError) {
-          console.warn('Erro ao calcular crescimento, usando valores padrão');
-          screenGrowth = 0;
-          proposalGrowth = 0;
-        }
+/**
+ * Hook para invalidar cache específico
+ */
+export const useInvalidateDashboardCache = () => {
+  const queryClient = useQueryClient();
 
-        setStats({
-          activeScreens: activeScreensData.length,
-          activeProposals: proposalsData.length,
-          totalCities: uniqueCities.size,
-          totalRevenue,
-          screenGrowth: Math.round(screenGrowth),
-          proposalGrowth: Math.round(proposalGrowth),
-          cityGrowth: 5, // Default value
-          revenueGrowth: 12, // Default value
-        });
-      } catch (err) {
-        console.error('Erro geral ao buscar estatísticas:', err);
-        setError('Erro ao carregar estatísticas. Usando valores padrão.');
-        
-        // Set default stats in case of complete failure
-        setStats({
-          activeScreens: 0,
-          activeProposals: 0,
-          totalCities: 0,
-          totalRevenue: 0,
-          screenGrowth: 0,
-          proposalGrowth: 0,
-          cityGrowth: 0,
-          revenueGrowth: 0,
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
+  const invalidateStats = (type?: 'proposals' | 'agencies' | 'projects' | 'deals' | 'all') => {
+    
+    if (!type || type === 'all') {
+      queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-stats-fallback'] });
+      queryClient.invalidateQueries({ queryKey: ['proposals-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['agencies-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['projects-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['deals-stats'] });
+    } else {
+      queryClient.invalidateQueries({ queryKey: [`${type}-stats`] });
+    }
+  };
 
-    fetchDashboardStats();
-  }, []);
+  return { invalidateStats };
+};
 
-  return { stats, loading, error };
+/**
+ * Hook para dados de propostas com cálculos específicos
+ */
+export const useProposalsWithCalculations = () => {
+  const { data: proposalsStats, isLoading, error } = useProposalsStats();
+
+  const calculations = proposalsStats ? {
+    // Taxa de conversão real
+    conversionRate: proposalsStats.conversionRate,
+    
+    // Status da taxa de conversão
+    conversionStatus: proposalsStats.conversionRate >= 70 ? 'excellent' : 
+                     proposalsStats.conversionRate >= 50 ? 'good' : 
+                     proposalsStats.conversionRate >= 30 ? 'average' : 'poor',
+    
+    // Performance vs média
+    performanceVsAverage: proposalsStats.conversionRate >= 60 ? 'above' : 'below',
+    
+    // Tendência (comparação com período anterior - simplificado)
+    trend: 'stable', // TODO: Implementar comparação temporal
+    
+    // Resumo executivo
+    executiveSummary: {
+      totalProposals: proposalsStats.total,
+      successRate: proposalsStats.conversionRate,
+      status: proposalsStats.conversionRate >= 70 ? 'Excelente' : 
+              proposalsStats.conversionRate >= 50 ? 'Bom' : 
+              proposalsStats.conversionRate >= 30 ? 'Médio' : 'Baixo'
+    }
+  } : null;
+
+  return {
+    proposalsStats,
+    calculations,
+    isLoading,
+    error,
+    isLoaded: !!proposalsStats
+  };
 };

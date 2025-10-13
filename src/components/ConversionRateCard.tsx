@@ -1,14 +1,14 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Target, TrendingUp, TrendingDown, Users, CheckCircle, Clock, XCircle } from "lucide-react";
-import { useRevenueData } from "@/hooks/useRevenueData";
+import { useProposalsStats } from "@/hooks/useDashboardStats";
 
 interface ConversionRateCardProps {
   className?: string;
 }
 
 export const ConversionRateCard = ({ className }: ConversionRateCardProps) => {
-  const { data, loading, error } = useRevenueData();
+  const { data: proposalsData, isLoading: loading, error } = useProposalsStats();
 
   const getConversionStatus = (rate: number) => {
     if (rate >= 30) return { status: 'excellent', color: 'text-green-600', bg: 'bg-green-100' };
@@ -64,6 +64,14 @@ export const ConversionRateCard = ({ className }: ConversionRateCardProps) => {
       </Card>
     );
   }
+
+  // Dados das propostas ou fallback
+  const data = proposalsData || {
+    total: 0,
+    accepted: 0,
+    rejected: 0,
+    conversionRate: 0
+  };
 
   const conversionStatus = getConversionStatus(data.conversionRate);
   const conversionLabel = getConversionLabel(data.conversionRate);
@@ -128,7 +136,7 @@ export const ConversionRateCard = ({ className }: ConversionRateCardProps) => {
               <div className="flex items-center justify-center gap-1 mb-1">
                 <CheckCircle className="h-4 w-4 text-green-600" />
                 <span className="text-sm font-medium text-green-600">
-                  {Math.round((data.conversionRate / 100) * data.totalProposals)}
+                  {data.accepted}
                 </span>
               </div>
               <p className="text-xs text-muted-foreground">Aceitas</p>
@@ -138,7 +146,7 @@ export const ConversionRateCard = ({ className }: ConversionRateCardProps) => {
               <div className="flex items-center justify-center gap-1 mb-1">
                 <XCircle className="h-4 w-4 text-red-600" />
                 <span className="text-sm font-medium text-red-600">
-                  {data.totalProposals - Math.round((data.conversionRate / 100) * data.totalProposals)}
+                  {data.rejected}
                 </span>
               </div>
               <p className="text-xs text-muted-foreground">Rejeitadas</p>
@@ -150,7 +158,7 @@ export const ConversionRateCard = ({ className }: ConversionRateCardProps) => {
             <div className="flex items-center justify-center gap-1 mb-1">
               <Users className="h-4 w-4 text-primary" />
               <span className="text-lg font-bold text-primary">
-                {data.totalProposals}
+                {data.total}
               </span>
             </div>
             <p className="text-xs text-muted-foreground">Total de Propostas</p>

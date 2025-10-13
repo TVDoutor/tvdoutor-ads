@@ -18,27 +18,42 @@ export interface SpecialtyUnified {
   usage_count: number;
 }
 
-// Função para buscar especialidades da view unificada
+// Função para buscar especialidades diretamente da tabela screens
 const fetchSpecialties = async (): Promise<Specialty[]> => {
-  console.log('🔍 Buscando especialidades da view unificada...');
   
   const { data, error } = await supabase
-    .from('v_specialties_for_dashboard')
-    .select('*')
-    .order('specialty_name');
+    .from('screens')
+    .select('specialty')
+    .not('specialty', 'is', null)
+    .not('active', 'is', false)
+    .limit(1000);
 
   if (error) {
     console.error('❌ Erro ao buscar especialidades:', error);
     throw new Error(`Erro ao carregar especialidades: ${error.message}`);
   }
 
-  console.log('✅ Especialidades carregadas:', data?.length || 0);
-  return data || [];
+  // Processar especialidades únicas
+  const allSpecialties = (data || [])
+    .flatMap((row: any) => row.specialty || [])
+    .filter(Boolean)
+    .map((s: string) => s.trim())
+    .filter(Boolean);
+
+  const uniqueSpecialties = Array.from(new Set(allSpecialties))
+    .sort((a, b) => a.localeCompare(b, 'pt-BR'))
+    .map(specialty => ({
+      specialty_name: specialty,
+      last_updated: new Date().toISOString(),
+      total_occurrences: allSpecialties.filter(s => s === specialty).length,
+      sources: 'screens'
+    }));
+
+  return uniqueSpecialties;
 };
 
 // Função para buscar especialidades detalhadas (para debug/admin)
 const fetchSpecialtiesDetailed = async (): Promise<SpecialtyUnified[]> => {
-  console.log('🔍 Buscando especialidades detalhadas...');
   
   const { data, error } = await supabase
     .from('v_specialties_unified')
@@ -55,7 +70,6 @@ const fetchSpecialtiesDetailed = async (): Promise<SpecialtyUnified[]> => {
 
 // Função para forçar refresh das views
 const refreshSpecialtiesViews = async (): Promise<string> => {
-  console.log('🔄 Forçando refresh das views de especialidades...');
   
   const { data, error } = await supabase
     .rpc('refresh_specialties_views');
@@ -65,7 +79,6 @@ const refreshSpecialtiesViews = async (): Promise<string> => {
     throw new Error(`Erro ao refreshar views: ${error.message}`);
   }
 
-  console.log('✅ Views atualizadas:', data);
   return data || 'Views atualizadas com sucesso';
 };
 
@@ -105,7 +118,6 @@ export const useRefreshSpecialties = () => {
       // Invalidar e recarregar todas as queries relacionadas
       await queryClient.invalidateQueries({ queryKey: ['specialties'] });
       await queryClient.invalidateQueries({ queryKey: ['specialties-detailed'] });
-      console.log('✅ Cache de especialidades invalidado e recarregado');
     } catch (error) {
       console.error('❌ Erro ao refreshar especialidades:', error);
       throw error;
@@ -123,7 +135,6 @@ export const useSpecialtiesWithFallback = () => {
   const { data: fallbackSpecialties, refetch: refetchFallback } = useQuery({
     queryKey: ['specialties-fallback'],
     queryFn: async (): Promise<string[]> => {
-      console.log('🔄 Tentando fallback para busca direta...');
       
       const { data, error } = await supabase
         .from('screens')
@@ -145,7 +156,6 @@ export const useSpecialtiesWithFallback = () => {
       const uniqueSpecialties = Array.from(new Set(allSpecialties))
         .sort((a, b) => a.localeCompare(b, 'pt-BR'));
 
-      console.log('✅ Fallback carregou:', uniqueSpecialties.length, 'especialidades');
       return uniqueSpecialties;
     },
     enabled: false, // Só executa quando chamado explicitamente

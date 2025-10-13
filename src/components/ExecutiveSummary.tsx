@@ -14,16 +14,37 @@ import {
 } from "lucide-react";
 import { useRevenueData } from "@/hooks/useRevenueData";
 import { useDashboardStats } from "@/hooks/useDashboardStats";
+import { useProposalsStats } from "@/hooks/useDashboardStats";
 
 interface ExecutiveSummaryProps {
   className?: string;
 }
 
 export const ExecutiveSummary = ({ className }: ExecutiveSummaryProps) => {
-  const { data: revenueData, loading: revenueLoading } = useRevenueData();
-  const { stats, loading: statsLoading } = useDashboardStats();
+  const { data: revenueData, loading: revenueLoading, error: revenueError } = useRevenueData();
+  const { data: stats, loading: statsLoading, error: statsError } = useDashboardStats();
+  const { data: proposalsStats, loading: proposalsLoading, error: proposalsError } = useProposalsStats();
 
-  const loading = revenueLoading || statsLoading;
+  const loading = revenueLoading || statsLoading || proposalsLoading;
+  const hasError = revenueError || statsError || proposalsError;
+
+  // Fallback para dados quando há erro
+  const safeRevenueData = revenueData || {
+    currentMonth: 0,
+    conversionRate: 0,
+    growth: 0
+  };
+
+  const safeStats = stats || {
+    activeScreens: 0,
+    activeProposals: 0,
+    screenGrowth: 0,
+    proposalGrowth: 0
+  };
+
+  // Usar taxa de conversão real das propostas em vez da calculada por mês
+  const realConversionRate = proposalsStats?.conversionRate || 0;
+  
 
   const formatCurrency = (value: number) => {
     if (value >= 1000000) {
@@ -82,23 +103,23 @@ export const ExecutiveSummary = ({ className }: ExecutiveSummaryProps) => {
     );
   }
 
-  const revenueStatus = getPerformanceStatus(revenueData.currentMonth, 50000);
-  const conversionStatus = getPerformanceStatus(revenueData.conversionRate, 20);
-  const screensStatus = getPerformanceStatus(stats.activeScreens, 100);
-  const proposalsStatus = getPerformanceStatus(stats.activeProposals, 10);
+  const revenueStatus = getPerformanceStatus(safeRevenueData.currentMonth, 50000);
+  const conversionStatus = getPerformanceStatus(realConversionRate, 20);
+  const screensStatus = getPerformanceStatus(safeStats.activeScreens, 100);
+  const proposalsStatus = getPerformanceStatus(safeStats.activeProposals, 10);
 
   const kpis = [
     {
       title: "Faturamento Mensal",
-      value: formatCurrency(revenueData.currentMonth),
-      change: revenueData.growth,
+      value: formatCurrency(safeRevenueData.currentMonth),
+      change: safeRevenueData.growth,
       status: revenueStatus,
       icon: DollarSign,
       description: "Receita total do mês atual"
     },
     {
       title: "Taxa de Conversão",
-      value: `${revenueData.conversionRate}%`,
+      value: `${realConversionRate}%`,
       change: 0, // Could be calculated vs previous month
       status: conversionStatus,
       icon: Target,
@@ -106,16 +127,16 @@ export const ExecutiveSummary = ({ className }: ExecutiveSummaryProps) => {
     },
     {
       title: "Telas Ativas",
-      value: stats.activeScreens.toLocaleString('pt-BR'),
-      change: stats.screenGrowth,
+      value: safeStats.activeScreens.toLocaleString('pt-BR'),
+      change: safeStats.screenGrowth,
       status: screensStatus,
       icon: MapPin,
       description: "Inventário disponível"
     },
     {
       title: "Propostas Ativas",
-      value: stats.activeProposals.toString(),
-      change: stats.proposalGrowth,
+      value: safeStats.activeProposals.toString(),
+      change: safeStats.proposalGrowth,
       status: proposalsStatus,
       icon: Users,
       description: "Oportunidades em andamento"
@@ -125,16 +146,16 @@ export const ExecutiveSummary = ({ className }: ExecutiveSummaryProps) => {
   const criticalIssues = [];
   const warnings = [];
 
-  if (revenueData.currentMonth < 50000) {
+  if (safeRevenueData.currentMonth < 50000) {
     criticalIssues.push("Faturamento abaixo da meta mensal");
   }
-  if (revenueData.conversionRate < 15) {
+  if (realConversionRate < 15) {
     criticalIssues.push("Taxa de conversão muito baixa");
   }
-  if (stats.activeScreens < 100) {
+  if (safeStats.activeScreens < 100) {
     warnings.push("Inventário de telas limitado");
   }
-  if (stats.activeProposals < 5) {
+  if (safeStats.activeProposals < 5) {
     warnings.push("Poucas propostas em andamento");
   }
 
@@ -264,17 +285,17 @@ export const ExecutiveSummary = ({ className }: ExecutiveSummaryProps) => {
                 • Revisar estratégia de vendas e precificação
               </div>
             )}
-            {revenueData.conversionRate < 20 && (
+            {realConversionRate < 20 && (
               <div className="text-sm text-muted-foreground">
                 • Analisar processo de follow-up com clientes
               </div>
             )}
-            {stats.activeScreens < 100 && (
+            {safeStats.activeScreens < 100 && (
               <div className="text-sm text-muted-foreground">
                 • Expandir inventário de telas disponíveis
               </div>
             )}
-            {stats.activeProposals < 5 && (
+            {safeStats.activeProposals < 5 && (
               <div className="text-sm text-muted-foreground">
                 • Intensificar prospecção de novos clientes
               </div>

@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -34,19 +35,18 @@ import NotFound from "./pages/NotFound";
 const queryClient = new QueryClient();
 
 const App = () => {
-  console.log('🚀 App component loading...');
-  
   // Inicializar sistema de email após o app carregar (não bloquear)
-  setTimeout(() => {
-    try {
-      console.log('📧 Inicializando sistema de email...');
-      startEmailProcessing();
-    } catch (error) {
-      console.error('❌ Erro ao inicializar sistema de email:', error);
-    }
-  }, 2000);
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      try {
+        startEmailProcessing();
+      } catch (error) {
+        console.warn('⚠️ Erro ao inicializar sistema de email (não crítico):', error);
+      }
+    }, 2000);
 
-  console.log('✅ App component rendering...');
+    return () => clearTimeout(timer);
+  }, []);
   return (
     <QueryClientProvider client={queryClient}>
     <TooltipProvider>

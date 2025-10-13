@@ -81,6 +81,20 @@ const Venues = () => {
   // Get unique values for filters
   const availableCities = Array.from(new Set(venues.map(v => v.city).filter(Boolean))).sort();
   const availableTypes = Array.from(new Set(venues.map(v => v.venue_type_parent).filter(Boolean))).sort();
+  
+  // Check if there are venues without city/state/address (Em Branco)
+  const hasVenuesWithoutLocation = venues.some(v => 
+    !v.city || v.city === 'Cidade não informada' || 
+    !v.state || v.state === 'Estado não informado' ||
+    v.city?.trim() === '' || v.state?.trim() === ''
+  );
+  
+  // Count venues without location info
+  const venuesWithoutLocationCount = venues.filter(v => 
+    !v.city || v.city === 'Cidade não informada' || 
+    !v.state || v.state === 'Estado não informado' ||
+    v.city?.trim() === '' || v.state?.trim() === ''
+  ).length;
 
   const fetchVenues = async () => {
     try {
@@ -221,7 +235,16 @@ const Venues = () => {
 
     // City filter
     if (cityFilter !== 'all') {
-      filtered = filtered.filter(venue => venue.city === cityFilter);
+      if (cityFilter === 'blank') {
+        // Filter venues without city/state/address (Em Branco)
+        filtered = filtered.filter(venue => 
+          !venue.city || venue.city === 'Cidade não informada' || 
+          !venue.state || venue.state === 'Estado não informado' ||
+          venue.city?.trim() === '' || venue.state?.trim() === ''
+        );
+      } else {
+        filtered = filtered.filter(venue => venue.city === cityFilter);
+      }
     }
 
     // Status filter
@@ -241,6 +264,11 @@ const Venues = () => {
   };
 
   const getLocationDisplay = (venue: VenueWithScreens) => {
+    if (!venue.city || venue.city === 'Cidade não informada' || 
+        !venue.state || venue.state === 'Estado não informado' ||
+        venue.city?.trim() === '' || venue.state?.trim() === '') {
+      return '📋 Em Branco';
+    }
     return `${venue.city}, ${venue.state}`;
   };
 
@@ -466,6 +494,11 @@ const Venues = () => {
                         {availableCities.map(city => (
                           <SelectItem key={city} value={city}>{city}</SelectItem>
                         ))}
+                        {hasVenuesWithoutLocation && (
+                          <SelectItem value="blank">
+                            📋 Em Branco ({venuesWithoutLocationCount})
+                          </SelectItem>
+                        )}
                       </SelectContent>
                     </Select>
                   </div>

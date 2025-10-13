@@ -196,6 +196,13 @@ export type Database = {
             referencedRelation: "pessoas_projeto"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "agencia_projeto_equipe_projeto_id_fkey"
+            columns: ["projeto_id"]
+            isOneToOne: false
+            referencedRelation: "agencia_projetos"
+            referencedColumns: ["id"]
+          },
         ]
       }
       agencia_projeto_marcos: {
@@ -683,6 +690,7 @@ export type Database = {
       }
       campaigns: {
         Row: {
+          agencia_id: string | null
           budget: number | null
           created_at: string | null
           created_by: string | null
@@ -691,11 +699,13 @@ export type Database = {
           id: number
           name: string
           notes: string | null
+          projeto_id: string | null
           start_date: string | null
           status: string | null
           updated_at: string | null
         }
         Insert: {
+          agencia_id?: string | null
           budget?: number | null
           created_at?: string | null
           created_by?: string | null
@@ -704,11 +714,13 @@ export type Database = {
           id?: number
           name: string
           notes?: string | null
+          projeto_id?: string | null
           start_date?: string | null
           status?: string | null
           updated_at?: string | null
         }
         Update: {
+          agencia_id?: string | null
           budget?: number | null
           created_at?: string | null
           created_by?: string | null
@@ -717,6 +729,7 @@ export type Database = {
           id?: number
           name?: string
           notes?: string | null
+          projeto_id?: string | null
           start_date?: string | null
           status?: string | null
           updated_at?: string | null
@@ -1602,6 +1615,13 @@ export type Database = {
             columns: ["agencia_id"]
             isOneToOne: false
             referencedRelation: "agencias"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proposals_projeto_id_fkey"
+            columns: ["projeto_id"]
+            isOneToOne: false
+            referencedRelation: "agencia_projetos"
             referencedColumns: ["id"]
           },
         ]
@@ -3108,14 +3128,14 @@ export type Database = {
       }
       stg_screens_new: {
         Row: {
-          "ACEITA CONVÊNIO": string | null
-          AUDIÊNCIA: string | null
+          "ACEITA CONV├èNIO": string | null
+          AUDI├èNCIA: string | null
           "CAPITAL/INTERIOR": string | null
           CEP: string | null
           CIDADE: string | null
           CLASSE: string | null
           code_norm: string | null
-          "CÓDIGO DE PONTO": string | null
+          "C├ôDIGO DE PONTO": string | null
           display_name: string | null
           endereco_completo: string | null
           "ESPECIALIDADE 1": string | null
@@ -3127,22 +3147,22 @@ export type Database = {
           LATITUDE: string | null
           LONGITUDE: string | null
           "Nome do Ponto": string | null
-          PROGRAMÁTICA: string | null
+          PROGRAM├üTICA: string | null
           REDE: string | null
-          REGIÃO: string | null
-          RESTRIÇÕES: string | null
-          "Tipo de Espaço": string | null
+          REGI├âO: string | null
+          RESTRI├ç├òES: string | null
+          "Tipo de Espa├ºo": string | null
           UF: string | null
         }
         Insert: {
-          "ACEITA CONVÊNIO"?: string | null
-          AUDIÊNCIA?: string | null
+          "ACEITA CONV├èNIO"?: string | null
+          AUDI├èNCIA?: string | null
           "CAPITAL/INTERIOR"?: string | null
           CEP?: string | null
           CIDADE?: string | null
           CLASSE?: string | null
           code_norm?: string | null
-          "CÓDIGO DE PONTO"?: string | null
+          "C├ôDIGO DE PONTO"?: string | null
           display_name?: string | null
           endereco_completo?: string | null
           "ESPECIALIDADE 1"?: string | null
@@ -3154,22 +3174,22 @@ export type Database = {
           LATITUDE?: string | null
           LONGITUDE?: string | null
           "Nome do Ponto"?: string | null
-          PROGRAMÁTICA?: string | null
+          PROGRAM├üTICA?: string | null
           REDE?: string | null
-          REGIÃO?: string | null
-          RESTRIÇÕES?: string | null
-          "Tipo de Espaço"?: string | null
+          REGI├âO?: string | null
+          RESTRI├ç├òES?: string | null
+          "Tipo de Espa├ºo"?: string | null
           UF?: string | null
         }
         Update: {
-          "ACEITA CONVÊNIO"?: string | null
-          AUDIÊNCIA?: string | null
+          "ACEITA CONV├èNIO"?: string | null
+          AUDI├èNCIA?: string | null
           "CAPITAL/INTERIOR"?: string | null
           CEP?: string | null
           CIDADE?: string | null
           CLASSE?: string | null
           code_norm?: string | null
-          "CÓDIGO DE PONTO"?: string | null
+          "C├ôDIGO DE PONTO"?: string | null
           display_name?: string | null
           endereco_completo?: string | null
           "ESPECIALIDADE 1"?: string | null
@@ -3181,11 +3201,11 @@ export type Database = {
           LATITUDE?: string | null
           LONGITUDE?: string | null
           "Nome do Ponto"?: string | null
-          PROGRAMÁTICA?: string | null
+          PROGRAM├üTICA?: string | null
           REDE?: string | null
-          REGIÃO?: string | null
-          RESTRIÇÕES?: string | null
-          "Tipo de Espaço"?: string | null
+          REGI├âO?: string | null
+          RESTRI├ç├òES?: string | null
+          "Tipo de Espa├ºo"?: string | null
           UF?: string | null
         }
         Relationships: []
@@ -4036,6 +4056,13 @@ export type Database = {
             referencedRelation: "agencias"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "proposals_projeto_id_fkey"
+            columns: ["projeto_id"]
+            isOneToOne: false
+            referencedRelation: "agencia_projetos"
+            referencedColumns: ["id"]
+          },
         ]
       }
       v_proposal_pdf: {
@@ -4739,6 +4766,14 @@ export type Database = {
         Args: { "": unknown } | { "": unknown }
         Returns: string
       }
+      can_delete_other_users: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
+      can_edit_other_users: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
       check_auth: {
         Args: Record<PropertyKey, never>
         Returns: {
@@ -4893,13 +4928,15 @@ export type Database = {
               in_start_date?: string
             }
         Returns: {
+          active: boolean
           city: string
-          class: Database["public"]["Enums"]["class_band"]
-          code: string
+          class: string
+          display_name: string
           distance_m: number
-          id: number
-          name: string
-          state: string
+          lat: number
+          lng: number
+          screen_code: string
+          screen_id: number
         }[]
       }
       find_screens_v3: {
@@ -5536,6 +5573,10 @@ export type Database = {
       }
       is_admin: {
         Args: Record<PropertyKey, never> | { uid: string }
+        Returns: boolean
+      }
+      is_manager: {
+        Args: Record<PropertyKey, never>
         Returns: boolean
       }
       is_manager_or_above: {
@@ -7014,7 +7055,7 @@ export type Database = {
       }
     }
     Enums: {
-      app_role: "super_admin" | "admin" | "manager" | "user"
+      app_role: "super_admin" | "admin" | "user" | "manager"
       class_band:
         | "A"
         | "AB"
@@ -7172,7 +7213,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["super_admin", "admin", "manager", "user"],
+      app_role: ["super_admin", "admin", "user", "manager"],
       class_band: [
         "A",
         "AB",

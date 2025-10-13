@@ -670,8 +670,12 @@ class EmailService {
         });
 
         if (error) {
-          console.warn('⚠️ Edge Function error (não crítico):', error);
-          // Não retornar erro, apenas logar
+          console.warn('⚠️ Edge Function de email falhou (não crítico - sistema continua funcionando):', {
+            error: error.message,
+            status: error.status || 'unknown',
+            details: 'Edge Function process-pending-emails retornou erro, mas não afeta funcionalidade principal'
+          });
+          // Não retornar erro, apenas logar e continuar
           return { processed: 0, successful: 0, failed: 0 };
         }
 

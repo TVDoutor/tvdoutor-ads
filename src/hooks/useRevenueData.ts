@@ -51,6 +51,7 @@ export const useRevenueData = () => {
           .select(`
             id,
             created_at,
+            net_calendar,
             net_business,
             gross_business,
             status
@@ -64,6 +65,7 @@ export const useRevenueData = () => {
         }
 
         const proposals = proposalsData || [];
+        
 
         // Calcular dados mensais
         const monthlyData: RevenueDataPoint[] = [];
@@ -77,7 +79,7 @@ export const useRevenueData = () => {
           });
 
           const monthRevenue = monthProposals.reduce((sum, proposal) => {
-            const value = proposal.net_business || proposal.gross_business || 0;
+            const value = proposal.net_calendar || proposal.net_business || proposal.gross_business || 0;
             return sum + value;
           }, 0);
 
@@ -106,12 +108,12 @@ export const useRevenueData = () => {
         });
 
         const currentMonthRevenue = currentMonthProposals.reduce((sum, proposal) => {
-          const value = proposal.net_business || proposal.gross_business || 0;
+          const value = proposal.net_calendar || proposal.net_business || proposal.gross_business || 0;
           return sum + value;
         }, 0);
 
         const previousMonthRevenue = previousMonthProposals.reduce((sum, proposal) => {
-          const value = proposal.net_business || proposal.gross_business || 0;
+          const value = proposal.net_calendar || proposal.net_business || proposal.gross_business || 0;
           return sum + value;
         }, 0);
 
@@ -128,7 +130,7 @@ export const useRevenueData = () => {
           ? currentMonthRevenue / currentMonthProposals.length 
           : 0;
 
-        setData({
+        const finalData = {
           currentMonth: currentMonthRevenue,
           previousMonth: previousMonthRevenue,
           growth: Math.round(growth * 10) / 10,
@@ -136,7 +138,10 @@ export const useRevenueData = () => {
           totalProposals: currentMonthProposals.length,
           conversionRate: Math.round(currentConversionRate * 10) / 10,
           monthlyData
-        });
+        };
+        
+        
+        setData(finalData);
 
       } catch (err) {
         console.error('Erro ao buscar dados de faturamento:', err);

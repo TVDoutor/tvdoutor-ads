@@ -10,17 +10,36 @@ export class SpecialtiesService {
    * Busca todas as especialidades da view unificada
    */
   static async getAllSpecialties(): Promise<Specialty[]> {
+    // Usar tabela screens diretamente já que a view não existe
     const { data, error } = await supabase
-      .from('v_specialties_for_dashboard')
-      .select('*')
-      .order('specialty_name');
+      .from('screens')
+      .select('specialty')
+      .not('specialty', 'is', null)
+      .not('active', 'is', false)
+      .limit(1000);
 
     if (error) {
       console.error('Erro ao buscar especialidades:', error);
       throw new Error(`Erro ao carregar especialidades: ${error.message}`);
     }
 
-    return data || [];
+    // Processar especialidades únicas
+    const allSpecialties = (data || [])
+      .flatMap((row: any) => row.specialty || [])
+      .filter(Boolean)
+      .map((s: string) => s.trim())
+      .filter(Boolean);
+
+    const uniqueSpecialties = Array.from(new Set(allSpecialties))
+      .sort((a, b) => a.localeCompare(b, 'pt-BR'))
+      .map(specialty => ({
+        specialty_name: specialty,
+        last_updated: new Date().toISOString(),
+        total_occurrences: allSpecialties.filter(s => s === specialty).length,
+        sources: 'screens'
+      }));
+
+    return uniqueSpecialties;
   }
 
   /**
@@ -156,18 +175,27 @@ export class SpecialtiesService {
    * Valida se uma especialidade existe
    */
   static async validateSpecialty(specialty: string): Promise<boolean> {
+    // Usar tabela screens diretamente já que a view não existe
     const { data, error } = await supabase
-      .from('v_specialties_for_dashboard')
-      .select('specialty_name')
-      .eq('specialty_name', specialty)
-      .single();
+      .from('screens')
+      .select('specialty')
+      .not('specialty', 'is', null)
+      .not('active', 'is', false)
+      .limit(1000);
 
-    if (error && error.code !== 'PGRST116') { // PGRST116 = no rows found
+    if (error) {
       console.error('Erro ao validar especialidade:', error);
       return false;
     }
 
-    return !!data;
+    // Verificar se a especialidade existe nos dados
+    const allSpecialties = (data || [])
+      .flatMap((row: any) => row.specialty || [])
+      .filter(Boolean)
+      .map((s: string) => s.trim())
+      .filter(Boolean);
+
+    return allSpecialties.includes(specialty);
   }
 
   /**
@@ -198,18 +226,41 @@ export class SpecialtiesService {
   static async searchSpecialties(query: string): Promise<Specialty[]> {
     if (!query.trim()) return [];
 
+    // Usar tabela screens diretamente já que a view não existe
     const { data, error } = await supabase
-      .from('v_specialties_for_dashboard')
-      .select('*')
-      .ilike('specialty_name', `%${query}%`)
-      .order('total_occurrences', { ascending: false })
-      .limit(20);
+      .from('screens')
+      .select('specialty')
+      .not('specialty', 'is', null)
+      .not('active', 'is', false)
+      .limit(1000);
 
     if (error) {
       console.error('Erro ao buscar especialidades:', error);
       return [];
     }
 
-    return data || [];
+    // Processar especialidades únicas e filtrar por query
+    const allSpecialties = (data || [])
+      .flatMap((row: any) => row.specialty || [])
+      .filter(Boolean)
+      .map((s: string) => s.trim())
+      .filter(Boolean);
+
+    const uniqueSpecialties = Array.from(new Set(allSpecialties))
+      .filter(specialty => specialty.toLowerCase().includes(query.toLowerCase()))
+      .sort((a, b) => {
+        const aCount = allSpecialties.filter(s => s === a).length;
+        const bCount = allSpecialties.filter(s => s === b).length;
+        return bCount - aCount; // Ordenar por frequência
+      })
+      .slice(0, 20)
+      .map(specialty => ({
+        specialty_name: specialty,
+        last_updated: new Date().toISOString(),
+        total_occurrences: allSpecialties.filter(s => s === specialty).length,
+        sources: 'screens'
+      }));
+
+    return uniqueSpecialties;
   }
 }

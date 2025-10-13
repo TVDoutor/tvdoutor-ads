@@ -15,79 +15,73 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AudienceCalculator } from "@/components/landing/AudienceCalculator";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { useDashboardStats } from "../hooks/useDashboardStats";
+import { useDashboardStatsWithFallback } from "@/hooks/useDashboardStats";
 import { type ScreenSearchResult } from "@/lib/search-service";
 import heroBanner from "@/assets/hero-banner.jpg";
 import dashboardPreview from "@/assets/dashboard-preview.jpg";
 
 
 const Index = () => {
-  console.log('📊 Dashboard Index component loading...');
   const navigate = useNavigate();
   const { isAdmin } = useAuth();
-  const { stats, loading, error } = useDashboardStats();
+  const { data: stats, isLoading: loading, error } = useDashboardStatsWithFallback();
   
   // Estado para busca geoespacial
   const [searchResults, setSearchResults] = useState<ScreenSearchResult[]>([]);
   const [searchCenter, setSearchCenter] = useState<{ lat: number; lng: number } | null>(null);
   const [searchRadius, setSearchRadius] = useState<number>(5);
   
-
-  
   // Safe admin check with fallback
   const isAdminUser = () => {
     try {
       return isAdmin && typeof isAdmin === 'function' ? isAdmin() : false;
     } catch (error) {
-      console.warn('Erro ao verificar se usuário é admin:', error);
       return false;
     }
   };
-  
-  console.log('🔐 Auth status:', { isAdmin: isAdminUser() });
-  console.log('📈 Dashboard stats:', { stats, loading, error });
 
-  // Função para formatar valores monetários
-  const formatCurrency = (value: number) => {
-    if (value >= 1000000) {
-      return `R$ ${(value / 1000000).toFixed(1)}M`;
-    } else if (value >= 1000) {
-      return `R$ ${(value / 1000).toFixed(0)}K`;
-    }
-    return `R$ ${value.toLocaleString('pt-BR')}`;
-  };
+  // Função para formatar valores monetários (mantida para compatibilidade)
+  // const formatCurrency = (value: number) => {
+  //   if (value >= 1000000) {
+  //     return `R$ ${(value / 1000000).toFixed(1)}M`;
+  //   } else if (value >= 1000) {
+  //     return `R$ ${(value / 1000).toFixed(0)}K`;
+  //   }
+  //   return `R$ ${value.toLocaleString('pt-BR')}`;
+  // };
 
   const statsData = [
     {
-      title: "Telas Ativas",
-      value: loading ? "..." : stats.activeScreens.toLocaleString('pt-BR'),
-      change: loading ? undefined : { value: stats.screenGrowth, label: "este mês" },
-      icon: Monitor,
-      variant: "primary" as const,
-      onClick: () => navigate("/mapa-interativo")
-    },
-    {
-      title: "Propostas Ativas",
-      value: loading ? "..." : stats.activeProposals,
-      change: loading ? undefined : { value: stats.proposalGrowth, label: "esta semana" },
+      title: "Total de Propostas",
+      value: loading ? "..." : (stats?.proposals?.total || 0).toString(),
+      change: loading ? undefined : { value: stats?.proposals?.conversionRate || 0, label: "% conversão" },
       icon: FileText,
-      variant: "secondary" as const,
-      onClick: () => navigate("/nova-proposta")
+      variant: "primary" as const,
+      onClick: () => navigate("/propostas")
     },
     {
-      title: "Faturamento",
-      value: loading ? "..." : formatCurrency(stats.totalRevenue),
-      change: loading ? undefined : { value: stats.revenueGrowth, label: "este mês" },
+      title: "Propostas Aceitas",
+      value: loading ? "..." : (stats?.proposals?.accepted || 0).toString(),
+      change: loading ? undefined : { value: stats?.proposals?.rejected || 0, label: "rejeitadas" },
       icon: TrendingUp,
-      variant: "accent" as const
+      variant: "secondary" as const,
+      onClick: () => navigate("/propostas")
     },
     {
-      title: "Cidades",
-      value: loading ? "..." : stats.totalCities,
-      change: loading ? undefined : { value: stats.cityGrowth, label: "novas cidades" },
-      icon: MapPin,
+      title: "Agências Ativas",
+      value: loading ? "..." : (stats?.agencies?.active || 0).toString(),
+      change: loading ? undefined : { value: stats?.agencies?.recent || 0, label: "novas este mês" },
+      icon: Users,
+      variant: "accent" as const,
+      onClick: () => navigate("/gerenciamento-projetos")
+    },
+    {
+      title: "Projetos Ativos",
+      value: loading ? "..." : (stats?.projects?.active || 0).toString(),
+      change: loading ? undefined : { value: stats?.projects?.completed || 0, label: "concluídos" },
+      icon: Monitor,
       variant: "default" as const,
-      onClick: () => navigate("/mapa-interativo")
+      onClick: () => navigate("/gerenciamento-projetos")
     }
   ];
 
@@ -110,16 +104,10 @@ const Index = () => {
 
   // Funções para busca geoespacial
   const handleSearchResults = (screens: ScreenSearchResult[], center: { lat: number; lng: number }, radius: number) => {
-    console.log('🔍 Dashboard recebeu resultados:', { screens: screens.length, center, radius });
-    console.log('🔍 Primeira tela:', screens[0]);
     setSearchResults(screens);
     setSearchCenter(center);
     setSearchRadius(radius);
-    console.log('🔍 Estado atualizado - searchResults.length:', screens.length);
   };
-
-  // Debug: log do estado atual
-  console.log('🔍 Dashboard render - searchResults.length:', searchResults.length);
 
   const handleNavigateToMap = () => {
     // Navegar para o mapa com os resultados da busca
@@ -212,10 +200,11 @@ const Index = () => {
           </div>
         </div>
 
+
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {statsData.map((stat, index) => (
-            <div key={index} onClick={stat.onClick} className={stat.onClick ? "cursor-pointer" : ""}>
+            <div key={index} onClick={stat.onClick} className="cursor-pointer">
               <StatsCard
                 title={stat.title}
                 value={stat.value}
@@ -243,7 +232,7 @@ const Index = () => {
         {error && (
           <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4">
             <p className="text-destructive text-sm">
-              ⚠️ Erro ao carregar dados: {error}
+              ⚠️ Erro ao carregar dados: {error?.message || 'Erro desconhecido'}
             </p>
           </div>
         )}

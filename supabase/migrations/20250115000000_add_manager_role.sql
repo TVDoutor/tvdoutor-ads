@@ -66,10 +66,4 @@ COMMENT ON FUNCTION public.is_manager() IS 'Verifica se o usuário é manager, a
 COMMENT ON FUNCTION public.can_delete_other_users() IS 'Verifica se o usuário pode excluir dados de outros usuários (apenas admin e super_admin)';
 COMMENT ON FUNCTION public.can_edit_other_users() IS 'Verifica se o usuário pode editar dados de outros usuários (apenas admin e super_admin)';
 
--- 9. Log da migração
-INSERT INTO public.migration_log (migration_name, applied_at, description) 
-VALUES (
-    '20250115000000_add_manager_role', 
-    now(), 
-    'Adicionada role manager com permissões limitadas: pode ver tudo mas só editar/excluir próprios dados'
-) ON CONFLICT DO NOTHING;
+-- 9. Log da migração (removido - tabela migration_log não existe)

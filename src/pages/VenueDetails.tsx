@@ -110,7 +110,10 @@ const VenueDetails = () => {
       // Usar a função utilitária com fallback automático
       const screensData = await fetchScreensByLocation(city, state, venueName);
 
-      if (!screensData?.length) throw new Error('Ponto de venda não encontrado');
+      if (!screensData?.length) {
+        console.log('⚠️ Nenhuma tela encontrada para:', { city, state, venueName });
+        throw new Error(`Nenhuma tela encontrada para ${venueName} em ${city}, ${state}. Verifique se o ponto de venda existe e possui telas cadastradas.`);
+      }
 
       const first = screensData[0];
       const venueScreens = screensData;
@@ -163,8 +166,8 @@ const VenueDetails = () => {
         });
       } else {
         toast({
-          title: "Erro",
-          description: "Não foi possível carregar os detalhes do ponto de venda.",
+          title: "Ponto de Venda Não Encontrado",
+          description: err.message || "Não foi possível carregar os detalhes do ponto de venda. Verifique se o ponto existe e possui telas cadastradas.",
           variant: "destructive",
         });
       }

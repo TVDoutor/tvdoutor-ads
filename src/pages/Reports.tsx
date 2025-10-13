@@ -164,9 +164,9 @@ const Reports = () => {
 
   const fetchKPIData = async () => {
     try {
-      // Buscar telas ativas com coordenadas válidas
+      // Buscar telas ativas com coordenadas válidas (usar v_screens_enriched para consistência)
       const { data: screens, error: screensError } = await supabase
-        .from('screens')
+        .from('v_screens_enriched')
         .select('id, active, lat, lng')
         .eq('active', true)
         .not('lat', 'is', null)
@@ -269,37 +269,68 @@ const Reports = () => {
 
   const fetchScreensByCity = async () => {
     try {
-      const { data: screens, error } = await supabase
-        .from('screens')
-        .select('city')
+      // Usar v_screens_enriched para consistência com inventário e venues
+      let { data: screens, error } = await supabase
+        .from('v_screens_enriched')
+        .select('city, city_norm, active')
         .eq('active', true);
 
-      if (error) throw error;
+      if (error) {
+        console.warn('⚠️ Erro na view v_screens_enriched, tentando tabela screens diretamente:', error);
+        // Fallback para tabela screens se a view falhar
+        const { data: fallbackScreens, error: fallbackError } = await supabase
+          .from('screens')
+          .select('city, city_norm')
+          .eq('active', true);
+        
+        if (fallbackError) {
+          console.error('❌ Erro também no fallback para tabela screens:', fallbackError);
+          throw fallbackError;
+        }
+        screens = fallbackScreens;
+        console.log('✅ Fallback para tabela screens funcionou, dados:', fallbackScreens?.length || 0);
+      } else {
+        console.log('✅ Dados da view v_screens_enriched carregados:', screens?.length || 0);
+      }
 
-      // Contar por cidade
+      const totalActiveScreens = screens?.length || 0;
+      console.log('📊 Total de telas ativas encontradas:', totalActiveScreens);
+
+      // Contar por cidade normalizada, mas usar city como fallback
       const cityCount: { [key: string]: number } = {};
+      let screensWithCity = 0;
+      
       screens?.forEach(screen => {
-        const city = screen.city || 'Não informado';
-        cityCount[city] = (cityCount[city] || 0) + 1;
+        // Priorizar city_norm, mas usar city como fallback
+        const cityName = screen.city_norm || screen.city;
+        if (cityName && cityName.trim() !== '') {
+          cityCount[cityName] = (cityCount[cityName] || 0) + 1;
+          screensWithCity++;
+        }
       });
 
-      // Ordenar e pegar top 4 + outras
-      const sortedCities = Object.entries(cityCount)
-        .sort(([,a], [,b]) => b - a)
-        .slice(0, 4);
+      const screensWithoutCity = totalActiveScreens - screensWithCity;
 
-      const otherCount = Object.values(cityCount)
-        .slice(4)
-        .reduce((sum, count) => sum + count, 0);
+      // Ordenar todas as cidades por quantidade
+      const allSortedCities = Object.entries(cityCount)
+        .sort(([,a], [,b]) => b - a);
+
+      // Pegar top 4 cidades
+      const top4Cities = allSortedCities.slice(0, 4);
+      
+      // Calcular "Outras" (todas as cidades restantes)
+      const otherCities = allSortedCities.slice(4);
+      const otherCount = otherCities.reduce((sum, [, count]) => sum + count, 0);
 
       const colors = ['#8B5CF6', '#06B6D4', '#10B981', '#F59E0B', '#EF4444'];
       
-      const chartData = sortedCities.map(([city, count], index) => ({
+      const chartData = top4Cities.map(([city, count], index) => ({
         name: city,
         value: count,
         color: colors[index]
       }));
 
+      // Adicionar "Outras" se houver cidades além das top 4
       if (otherCount > 0) {
         chartData.push({
           name: 'Outras',
@@ -308,9 +339,34 @@ const Reports = () => {
         });
       }
 
+      // Adicionar "Não informado" se houver telas sem cidade
+      if (screensWithoutCity > 0) {
+        chartData.push({
+          name: 'Não informado',
+          value: screensWithoutCity,
+          color: '#9CA3AF' // Cor cinza para "Não informado"
+        });
+      }
+
+      // Verificar se a soma está correta (apenas em desenvolvimento)
+      const totalInChart = chartData.reduce((sum, item) => sum + item.value, 0);
+      if (process.env.NODE_ENV === 'development' && totalInChart !== totalActiveScreens) {
+        console.warn('⚠️ ATENÇÃO: A soma dos dados do gráfico não corresponde ao total de telas ativas!');
+      }
+
+      console.log('✅ Dados do gráfico de cidades preparados:', {
+        totalActiveScreens,
+        totalInChart,
+        chartDataLength: chartData.length,
+        chartData: chartData.map(item => `${item.name}: ${item.value}`)
+      });
+
       setScreensByCity(chartData);
     } catch (error) {
       console.error('❌ Erro ao buscar telas por cidade:', error);
+      
+      // Em caso de erro, definir dados vazios para evitar quebra da interface
+      setScreensByCity([]);
     }
   };
 
@@ -357,7 +413,7 @@ const Reports = () => {
         .select(`
           screen_id,
           proposal_id,
-          screens!inner(
+          v_screens_enriched!inner(
             id,
             name,
             city,
@@ -373,7 +429,7 @@ const Reports = () => {
       proposalScreens?.forEach(ps => {
         const screenId = ps.screen_id;
         if (!screenUsage[screenId]) {
-          screenUsage[screenId] = { count: 0, screen: ps.screens };
+          screenUsage[screenId] = { count: 0, screen: ps.v_screens_enriched };
         }
         screenUsage[screenId].count++;
       });
@@ -434,8 +490,9 @@ const Reports = () => {
 
   const fetchInventoryStats = async () => {
     try {
+      // Usar v_screens_enriched para consistência com inventário e venues
       const { data: screens, error } = await supabase
-        .from('screens')
+        .from('v_screens_enriched')
         .select('specialty, city, class, active');
 
       if (error) throw error;

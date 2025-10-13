@@ -16,16 +16,19 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, 
     persistSession: true,
     autoRefreshToken: true,
     detectSessionInUrl: true,
-    flowType: 'pkce' // Use PKCE flow for enhanced security
+    flowType: 'pkce'
+  },
+  realtime: {
+    timeout: 30000, // 30 segundos de timeout
+    heartbeatIntervalMs: 30000, // Heartbeat a cada 30 segundos
+    reconnectAfterMs: (tries) => Math.min(tries * 1000, 30000), // Reconexão progressiva
+    params: {
+      eventsPerSecond: 10 // Rate limit realtime events
+    }
   },
   global: {
     headers: {
       'X-Client-Info': 'tvdoutor-ads-web'
-    }
-  },
-  realtime: {
-    params: {
-      eventsPerSecond: 10 // Rate limit realtime events
     }
   }
 });

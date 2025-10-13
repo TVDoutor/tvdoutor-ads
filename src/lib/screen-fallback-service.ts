@@ -375,6 +375,7 @@ export async function fetchScreensByLocation(city: string, state: string, venueN
           id,
           code,
           name,
+          display_name,
           class,
           city,
           state,
@@ -403,7 +404,7 @@ export async function fetchScreensByLocation(city: string, state: string, venueN
     }
 
     // Filtrar telas que correspondem ao venueName
-    const filteredScreens = screens.filter(screen => {
+    let filteredScreens = screens.filter(screen => {
       const screenName = screen.name || (screen as any).display_name || (screen as any).venue_name || '';
       const normalizedScreenName = screenName.toLowerCase().trim();
       const normalizedVenueName = venueName.toLowerCase().trim();
@@ -413,6 +414,12 @@ export async function fetchScreensByLocation(city: string, state: string, venueN
              normalizedVenueName.includes(normalizedScreenName) ||
              normalizedScreenName === normalizedVenueName;
     });
+
+    // Se não encontrou telas com o nome específico, tentar apenas por cidade/estado
+    if (filteredScreens.length === 0) {
+      console.log('⚠️ Nenhuma tela encontrada com o nome específico, buscando por cidade/estado');
+      filteredScreens = screens;
+    }
 
     console.log(`✅ ${filteredScreens.length} telas encontradas para ${venueName} em ${city}, ${state}`);
     return filteredScreens;

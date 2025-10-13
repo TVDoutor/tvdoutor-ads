@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Calculator, Users, Building2, Loader2, X, CheckSquare, Search, MapPin, RefreshCw } from 'lucide-react';
+import { Calculator, Users, Building2, Loader2, X, CheckSquare, Search, MapPin } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -38,10 +38,7 @@ export const AudienceCalculator = () => {
     isUsingFallback 
   } = useSpecialtiesWithFallback();
   
-  // Removido refreshSpecialties não utilizado - usando forceRefresh do realtime
   
-  // Hook para sincronização em tempo real
-  const { forceRefresh, isConnected } = useSpecialtiesRealtime();
 
   // Novos estados para seleção múltipla (adicionados sem alterar os existentes)
   const [multiCityMode, setMultiCityMode] = useState(false);
@@ -305,21 +302,6 @@ export const AudienceCalculator = () => {
                     Fallback
                   </Badge>
                 )}
-                {isConnected && (
-                  <Badge variant="default" className="text-xs bg-green-500">
-                    Tempo Real
-                  </Badge>
-                )}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={forceRefresh}
-                  disabled={loadingSpecialties}
-                  className="h-6 w-6 p-0"
-                  title="Forçar atualização"
-                >
-                  <RefreshCw className={`w-3 h-3 ${loadingSpecialties ? 'animate-spin' : ''}`} />
-                </Button>
               </div>
             </div>
             <Select 

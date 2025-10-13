@@ -124,8 +124,10 @@ const ProjectManagement = () => {
         agencias: dadosCarregados.agencias?.length || 0,
         deals: dadosCarregados.deals?.length || 0,
         projetos: dadosCarregados.projetos?.length || 0,
-        contatos: dadosCarregados.contatos?.length || 0
+        contatos: dadosCarregados.contatos?.length || 0,
+        pessoasProjeto: dadosCarregados.pessoasProjeto?.length || 0
       });
+      console.log('👥 Pessoas Projeto detalhes:', dadosCarregados.pessoasProjeto);
       
       console.log('🏢 Agências encontradas:', dadosCarregados.agencias);
       console.log('💼 Deals encontrados:', dadosCarregados.deals);
@@ -1721,13 +1723,22 @@ const ProjectManagement = () => {
                         Responsável do Projeto
                       </label>
                       {(() => {
+                        console.log('🔍 Debug seleção responsável:');
+                        console.log('  - Projeto selecionado:', projetoSelecionado?.id);
+                        console.log('  - Dados pessoasProjeto:', dados.pessoasProjeto?.length || 0);
+                        console.log('  - Dados pessoasProjeto detalhes:', dados.pessoasProjeto);
+                        
                         const membrosEquipe = getMembrosEquipeProjeto(projetoSelecionado?.id || null);
+                        console.log('  - Membros equipe:', membrosEquipe.length);
+                        
                         // Usar apenas pessoas da tabela pessoas_projeto para evitar erro de foreign key
                         const opcoesResponsavel = membrosEquipe.length > 0 ? membrosEquipe : dados.pessoasProjeto.map(p => ({
                           pessoa_id: p.id,
                           nome_pessoa: p.nome || 'Pessoa sem nome',
                           email_pessoa: p.email
                         }));
+                        
+                        console.log('  - Opções responsável:', opcoesResponsavel.length);
                         
                         if (opcoesResponsavel.length === 0) {
                           return (

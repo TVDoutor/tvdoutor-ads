@@ -246,50 +246,40 @@ export default function CampaignDetails() {
     }
 
     try {
-      console.log('➕ Adicionando telas à campanha...');
+      console.log(`➕ Adicionando ${selectedScreens.size} telas à campanha...`);
       
-      // Verificar quais telas já estão na campanha para evitar duplicação
-      const existingScreenIds = campaignScreens.map(cs => cs.screen_id);
-      const newScreens = Array.from(selectedScreens).filter(screenId => 
-        !existingScreenIds.includes(screenId)
-      );
-      
-      // Se não há telas novas para adicionar
-      if (newScreens.length === 0) {
-        toast.warning('Todas as telas selecionadas já estão na campanha');
-        setSelectedScreens(new Set());
-        setIsAddScreensDialogOpen(false);
-        return;
-      }
-      
-      // Se apenas algumas telas são novas, mostrar aviso
-      if (newScreens.length < selectedScreens.size) {
-        const duplicateCount = selectedScreens.size - newScreens.length;
-        toast.warning(`${duplicateCount} tela(s) já estavam na campanha e foram ignoradas`);
-      }
-      
-      const screenData = newScreens.map(screenId => ({
+      // Mapeia TODAS as telas selecionadas, sem filtro no cliente
+      // Deixa o PostgreSQL lidar com duplicatas de forma atômica
+      const screenData = Array.from(selectedScreens).map(screenId => ({
         campaign_id: parseInt(id!),
         screen_id: screenId,
         quantity: 1
       }));
 
-      console.log(`📊 Tentando adicionar ${newScreens.length} telas novas (${selectedScreens.size - newScreens.length} duplicadas ignoradas)`);
-
-      const { error } = await supabase
+      // Use .upsert() para deixar o PostgreSQL lidar com os conflitos de forma atômica
+      const { error, count } = await supabase
         .from('campaign_screens')
-        .insert(screenData);
+        .upsert(screenData, {
+          // Identifica a constraint que pode gerar conflito
+          onConflict: 'campaign_id,screen_id', 
+          // Impede que a operação de UPSERT atualize registros existentes
+          // Resultando em um comportamento de "INSERT or IGNORE"
+          ignoreDuplicates: true,
+        });
 
       if (error) {
         console.error('❌ Erro ao adicionar telas:', error);
         throw error;
       }
 
-      console.log('✅ Telas adicionadas com sucesso');
-      toast.success(`${newScreens.length} telas adicionadas à campanha`);
+      // O 'count' pode ser null dependendo da header 'Prefer' de retorno,
+      // então é melhor ter uma mensagem mais genérica
+      console.log('✅ Operação de adição de telas concluída.');
+      toast.success(`${selectedScreens.size} tela(s) processada(s) com sucesso.`);
       
       setSelectedScreens(new Set());
       setIsAddScreensDialogOpen(false);
+      // A chamada para fetchCampaignScreens() continua sendo importante para atualizar a UI
       fetchCampaignScreens();
     } catch (error: any) {
       console.error('💥 Erro ao adicionar telas:', error);

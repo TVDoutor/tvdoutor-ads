@@ -1079,12 +1079,23 @@ const ProjectManagement = () => {
         console.log('📋 Dados do formulário:', formData);
         
         // Corrigir dados: converter strings vazias para null
+        let responsavelCorrigido = formData.responsavel_projeto === '' ? null : formData.responsavel_projeto;
+        
+        // Validar se o responsavel_projeto existe na tabela pessoas_projeto
+        if (responsavelCorrigido) {
+          const pessoaExiste = dados.pessoasProjeto.some(p => p.id === responsavelCorrigido);
+          if (!pessoaExiste) {
+            console.warn('⚠️ Responsável não encontrado na tabela pessoas_projeto, definindo como null:', responsavelCorrigido);
+            responsavelCorrigido = null;
+          }
+        }
+        
         const dadosCorrigidos = {
           ...formData,
           deal_id: formData.deal_id === '' ? null : formData.deal_id,
           data_inicio: formData.data_inicio === '' ? null : formData.data_inicio,
           data_fim: formData.data_fim === '' ? null : formData.data_fim,
-          responsavel_projeto: formData.responsavel_projeto === '' ? null : formData.responsavel_projeto
+          responsavel_projeto: responsavelCorrigido
         };
         
         console.log('📋 Dados corrigidos:', dadosCorrigidos);
@@ -1707,10 +1718,10 @@ const ProjectManagement = () => {
                       </label>
                       {(() => {
                         const membrosEquipe = getMembrosEquipeProjeto(projetoSelecionado?.id || null);
-                        // Se não há membros na equipe, permitir seleção de qualquer profile disponível
-                        const opcoesResponsavel = membrosEquipe.length > 0 ? membrosEquipe : dados.profiles.map(p => ({
+                        // Usar apenas pessoas da tabela pessoas_projeto para evitar erro de foreign key
+                        const opcoesResponsavel = membrosEquipe.length > 0 ? membrosEquipe : dados.pessoasProjeto.map(p => ({
                           pessoa_id: p.id,
-                          nome_pessoa: p.full_name || 'Usuário sem nome'
+                          nome_pessoa: p.nome || 'Pessoa sem nome'
                         }));
                         
                         if (opcoesResponsavel.length === 0) {
@@ -1718,7 +1729,7 @@ const ProjectManagement = () => {
                             <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-md">
                               <p className="text-sm text-yellow-800">
                                 <Users className="inline w-4 h-4 mr-1" />
-                                Nenhum usuário disponível para seleção.
+                                Nenhuma pessoa disponível na tabela pessoas_projeto. Adicione pessoas primeiro.
                               </p>
                             </div>
                           );
@@ -1748,16 +1759,16 @@ const ProjectManagement = () => {
                         <SelectContent>
                           {(() => {
                             const membrosEquipe = getMembrosEquipeProjeto(projetoSelecionado?.id || null);
-                            const opcoesResponsavel = membrosEquipe.length > 0 ? membrosEquipe : dados.profiles.map(p => ({
+                            const opcoesResponsavel = membrosEquipe.length > 0 ? membrosEquipe : dados.pessoasProjeto.map(p => ({
                               pessoa_id: p.id,
-                              nome_pessoa: p.full_name || 'Usuário sem nome'
+                              nome_pessoa: p.nome || 'Pessoa sem nome'
                             }));
                             
                             if (opcoesResponsavel.length === 0) {
                               return (
                                 <div className="flex items-center gap-2 text-muted-foreground p-2">
                                   <Users className="h-4 w-4" />
-                                  <span>Nenhum usuário disponível</span>
+                                  <span>Nenhuma pessoa disponível</span>
                                 </div>
                               );
                             }

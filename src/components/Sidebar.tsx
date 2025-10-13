@@ -12,6 +12,7 @@ import {
   Package,
   Building2,
   UserCheck,
+  Shield,
   ChevronDown,
   ChevronRight,
   ChevronLeft,
@@ -87,6 +88,12 @@ const menuItems = [
     icon: Users,
     href: "/users",
     requiredRole: "admin" as UserRole
+  },
+  {
+    label: "Monitor de Usuários",
+    icon: Shield,
+    href: "/user-management",
+    requiredRole: "super_admin" as UserRole
   },
   // NOTA: "Pessoas do Projeto" agora está integrado em /gerenciamento-projetos
   // Mantendo a rota /pessoas-projeto ativa para acesso direto, mas removida do menu

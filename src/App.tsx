@@ -30,6 +30,7 @@ import AgenciasProjetos from "./pages/AgenciasProjetos";
 import ProjectManagement from "./pages/ProjectManagement";
 import PessoasProjeto from "./pages/PessoasProjeto";
 import HeatmapPage from "./pages/HeatmapPage";
+import UserManagement from "./pages/UserManagement";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -107,6 +108,12 @@ const App = () => {
             <Route path="/inventory" element={
               <ProtectedRoute>
                 <Inventory />
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/user-management" element={
+              <ProtectedRoute requiredRole="super_admin">
+                <UserManagement />
               </ProtectedRoute>
             } />
             

@@ -3,6 +3,7 @@ import { User, AuthError, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { logDebug, logWarn, logError, logAuthSuccess, logAuthError } from '@/utils/secureLogger';
+import { userSessionService } from '@/lib/user-session-service';
 
 // Mapeamento de roles do banco para o frontend
 export type UserRole = 'user' | 'client' | 'manager' | 'admin' | 'super_admin';
@@ -273,6 +274,11 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
               const userProfile = await fetchUserProfile(session.user.id);
               if (mounted) {
                 setProfile(userProfile);
+                
+                // Inicializar rastreamento de sessão para usuário autenticado
+                userSessionService.initializeSession().catch((error) => {
+                  console.error('Erro ao inicializar sessão de usuário:', error);
+                });
               }
             } catch (profileError) {
               logError('Error fetching initial profile', profileError);
@@ -613,6 +619,9 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   const signOut = async () => {
     try {
+      // Finalizar sessão de rastreamento antes do logout
+      await userSessionService.endSession();
+      
       const { error } = await supabase.auth.signOut();
       if (error) {
         toast({

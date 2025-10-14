@@ -359,7 +359,7 @@ export const NewProposalWizardImproved: React.FC<NewProposalWizardProps> = ({
   };
 
   return (
-    <div className="p-6">
+    <div className="px-6 pt-6 pb-4">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="text-center mb-8">
@@ -414,7 +414,7 @@ export const NewProposalWizardImproved: React.FC<NewProposalWizardProps> = ({
               {STEPS[currentStep - 1].title}
             </CardTitle>
           </CardHeader>
-          <CardContent className="p-8">
+          <CardContent className="px-8 pt-8 pb-6">
             {renderStepContent()}
           </CardContent>
         </Card>

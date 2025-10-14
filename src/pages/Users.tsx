@@ -330,6 +330,39 @@ const Users = () => {
         throw error;
       }
 
+      // 5. Se a role foi alterada, atualizar também a tabela user_roles
+      if (currentRole !== newRole && isCurrentUserAdmin) {
+        logDebug('Atualizando user_roles', { userId: editingUser.id, newRole });
+        
+        // Remover role antiga da tabela user_roles (se não for super_admin)
+        if (currentRole && currentRole !== 'super_admin') {
+          await supabase
+            .from('user_roles')
+            .delete()
+            .eq('user_id', editingUser.id)
+            .eq('role', currentRole);
+        }
+        
+        // Adicionar nova role na tabela user_roles
+        const { error: roleError } = await supabase
+          .from('user_roles')
+          .upsert({
+            user_id: editingUser.id,
+            role: newRole,
+            created_at: new Date().toISOString(),
+          }, {
+            onConflict: 'user_id,role'
+          });
+        
+        if (roleError) {
+          logError('Error updating user_roles', roleError);
+          // Não lançar erro fatal, pois o profiles já foi atualizado
+          console.warn('Aviso: Não foi possível atualizar user_roles:', roleError.message);
+        } else {
+          logDebug('user_roles atualizado com sucesso');
+        }
+      }
+
       await fetchUsers();
       setIsEditDialogOpen(false);
       setEditingUser(null);

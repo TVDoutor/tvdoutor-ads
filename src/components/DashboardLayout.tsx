@@ -23,7 +23,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   // Se o usuário estiver logado, usar layout com sidebar ocupando toda a lateral
   if (profile) {
     return (
-      <div className="h-screen bg-background flex overflow-hidden">
+      <div className="min-h-screen bg-background flex">
         {/* Desktop Sidebar - Ocupa toda a lateral esquerda */}
         <div className="hidden lg:block h-full">
           <Sidebar 
@@ -55,7 +55,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
 
   // Layout padrão para usuários não logados
   return (
-    <div className="h-screen bg-background flex flex-col overflow-hidden">
+    <div className="min-h-screen bg-background flex flex-col">
       <Header 
         onMenuClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
       />

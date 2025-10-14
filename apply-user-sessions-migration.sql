@@ -221,3 +221,42 @@ BEGIN
     LIMIT 100;
 END;
 $$;
+
+-- ============================================
+-- CONFIGURAÇÃO DO CRON JOB AUTOMÁTICO
+-- ============================================
+
+-- Habilitar extensão pg_cron (necessário para agendamento)
+CREATE EXTENSION IF NOT EXISTS pg_cron;
+
+-- Remover job anterior se existir
+SELECT cron.unschedule('cleanup-expired-user-sessions') 
+WHERE EXISTS (
+    SELECT 1 FROM cron.job WHERE jobname = 'cleanup-expired-user-sessions'
+);
+
+-- Agendar limpeza automática a cada 5 minutos
+SELECT cron.schedule(
+    'cleanup-expired-user-sessions',           -- Nome do job
+    '*/5 * * * *',                              -- A cada 5 minutos
+    $$SELECT public.cleanup_expired_sessions()$$
+);
+
+-- ============================================
+-- QUERIES ÚTEIS PARA MONITORAMENTO
+-- ============================================
+
+-- Ver todos os jobs agendados:
+-- SELECT * FROM cron.job;
+
+-- Ver histórico de execuções do job:
+-- SELECT * FROM cron.job_run_details 
+-- WHERE jobname = 'cleanup-expired-user-sessions' 
+-- ORDER BY start_time DESC 
+-- LIMIT 10;
+
+-- Ver sessões ativas no momento:
+-- SELECT * FROM get_online_users_stats();
+
+-- Executar limpeza manualmente:
+-- SELECT cleanup_expired_sessions();

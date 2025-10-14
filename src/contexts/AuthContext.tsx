@@ -275,10 +275,10 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
               if (mounted) {
                 setProfile(userProfile);
                 
-                // Inicializar rastreamento de sessão para usuário autenticado
-                userSessionService.initializeSession().catch((error) => {
-                  console.error('Erro ao inicializar sessão de usuário:', error);
-                });
+                // TEMPORÁRIO: Sistema de sessões desabilitado para evitar tela branca
+                // userSessionService.initializeSession().catch((error) => {
+                //   console.error('Erro ao inicializar sessão de usuário:', error);
+                // });
               }
             } catch (profileError) {
               logError('Error fetching initial profile', profileError);
@@ -619,8 +619,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   const signOut = async () => {
     try {
-      // Finalizar sessão de rastreamento antes do logout
-      await userSessionService.endSession();
+      // TEMPORÁRIO: Sistema de sessões desabilitado
+      // await userSessionService.endSession();
       
       const { error } = await supabase.auth.signOut();
       if (error) {

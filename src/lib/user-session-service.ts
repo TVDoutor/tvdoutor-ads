@@ -38,6 +38,10 @@ class UserSessionService {
    * Inicializar sessão do usuário
    */
   async initializeSession(): Promise<boolean> {
+    // TEMPORÁRIO: Sistema de sessões desabilitado para evitar tela branca
+    console.log('👤 Sistema de sessões temporariamente desabilitado');
+    return true;
+    
     try {
       const { data: { user } } = await supabase.auth.getUser();
       
@@ -92,6 +96,9 @@ class UserSessionService {
    * Atualizar última atividade do usuário
    */
   async updateLastSeen(): Promise<boolean> {
+    // TEMPORÁRIO: Sistema de sessões desabilitado
+    return true;
+    
     if (!this.sessionToken) return false;
 
     try {

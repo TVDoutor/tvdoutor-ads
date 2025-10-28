@@ -287,10 +287,10 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
               if (mounted) {
                 setProfile(userProfile);
                 
-                // TEMPORÁRIO: Sistema de sessões desabilitado para evitar tela branca
-                // userSessionService.initializeSession().catch((error) => {
-                //   console.error('Erro ao inicializar sessão de usuário:', error);
-                // });
+                // Inicializar sessão do usuário para monitoramento
+                userSessionService.initializeSession().catch((error) => {
+                  console.error('Erro ao inicializar sessão de usuário:', error);
+                });
               }
             } catch (profileError) {
               logError('Error fetching initial profile', profileError);

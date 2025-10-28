@@ -45,25 +45,37 @@ class UserSessionService {
    */
   async initializeSession(): Promise<boolean> {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      console.log('🔵 [initializeSession] Iniciando...');
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      
+      if (userError) {
+        console.error('❌ [initializeSession] Erro ao obter usuário:', userError);
+        return false;
+      }
       
       if (!user) {
-        console.log('👤 Usuário não autenticado, não criando sessão');
+        console.log('👤 [initializeSession] Usuário não autenticado, não criando sessão');
         return false;
       }
 
+      console.log('✅ [initializeSession] Usuário autenticado:', { userId: user.id, email: user.email });
+
       // Gerar token de sessão único
       this.sessionToken = this.generateSessionToken();
+      console.log('🎫 [initializeSession] Token de sessão gerado:', this.sessionToken);
       
       // Obter informações do navegador
       const userAgent = navigator.userAgent;
       const ipAddress = await this.getClientIP();
+      console.log('🌐 [initializeSession] IP obtido:', ipAddress);
       
       // Calcular tempo de expiração
       const expiresAt = new Date(Date.now() + this.SESSION_TIMEOUT);
+      console.log('⏰ [initializeSession] Expira em:', expiresAt.toISOString());
       
       // Inserir sessão no banco
-      const { error } = await supabase
+      console.log('💾 [initializeSession] Inserindo no banco...');
+      const { data: insertedData, error } = await supabase
         .from('user_sessions')
         .insert({
           user_id: user.id,
@@ -72,24 +84,33 @@ class UserSessionService {
           user_agent: userAgent,
           expires_at: expiresAt.toISOString(),
           is_active: true
-        });
+        })
+        .select();
 
       if (error) {
-        console.error('❌ Erro ao criar sessão:', error);
+        console.error('❌ [initializeSession] Erro ao criar sessão:', {
+          code: error.code,
+          message: error.message,
+          details: error.details,
+          hint: error.hint
+        });
         return false;
       }
 
-      console.log('✅ Sessão de usuário inicializada');
+      console.log('✅ [initializeSession] Sessão criada no banco:', insertedData);
+      console.log('✅ Sessão de usuário inicializada com sucesso!');
       
       // Iniciar heartbeat
       this.startHeartbeat();
+      console.log('💓 [initializeSession] Heartbeat iniciado');
       
       // Limpar sessão ao fechar a página
       this.setupBeforeUnload();
+      console.log('🚪 [initializeSession] BeforeUnload configurado');
       
       return true;
     } catch (error) {
-      console.error('💥 Erro ao inicializar sessão:', error);
+      console.error('💥 [initializeSession] Erro crítico:', error);
       return false;
     }
   }

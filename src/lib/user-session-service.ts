@@ -75,16 +75,24 @@ class UserSessionService {
       
       // Inserir sessão no banco
       console.log('💾 [initializeSession] Inserindo no banco...');
+      const insertData: any = {
+        user_id: user.id,
+        session_token: this.sessionToken,
+        user_agent: userAgent,
+        expires_at: expiresAt.toISOString(),
+        is_active: true
+      };
+      
+      // Adicionar ip_address apenas se for válido (não 'unknown')
+      if (ipAddress && ipAddress !== 'unknown') {
+        insertData.ip_address = ipAddress;
+      }
+      
+      console.log('📦 [initializeSession] Dados para inserir:', insertData);
+      
       const { data: insertedData, error } = await supabase
         .from('user_sessions')
-        .insert({
-          user_id: user.id,
-          session_token: this.sessionToken,
-          ip_address: ipAddress,
-          user_agent: userAgent,
-          expires_at: expiresAt.toISOString(),
-          is_active: true
-        })
+        .insert(insertData)
         .select();
 
       if (error) {

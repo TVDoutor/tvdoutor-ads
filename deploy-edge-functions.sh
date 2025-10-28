@@ -67,6 +67,16 @@ else
     exit 1
 fi
 
+echo "📦 Fazendo deploy da Edge Function: user-sessions"
+supabase functions deploy user-sessions
+
+if [ $? -eq 0 ]; then
+    echo "✅ user-sessions deployada com sucesso!"
+else
+    echo "❌ Erro ao fazer deploy de user-sessions"
+    exit 1
+fi
+
 echo "🎉 Todas as Edge Functions foram deployadas com sucesso!"
 echo ""
 echo "📋 Próximos passos:"

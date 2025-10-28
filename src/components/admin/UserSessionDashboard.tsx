@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -7,25 +7,24 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { 
   Users, 
   Clock, 
-  Monitor, 
-  MapPin, 
-  RefreshCw, 
-  Shield,
   Activity,
   History,
-  UserCheck,
-  AlertTriangle,
-  Filter
+  RefreshCw,
+  TrendingUp,
+  CalendarDays,
+  Search,
+  User,
+  MapPin,
+  Monitor,
+  Zap
 } from 'lucide-react';
 import { userSessionService, type OnlineUsersStats, type SessionHistory } from '@/lib/user-session-service';
 import { toast } from 'sonner';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Calendar } from '@/components/ui/calendar';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { CalendarIcon } from 'lucide-react';
 
 interface UserSessionDashboardProps {
   className?: string;
@@ -34,18 +33,9 @@ interface UserSessionDashboardProps {
 export const UserSessionDashboard: React.FC<UserSessionDashboardProps> = ({ className }) => {
   const [onlineStats, setOnlineStats] = useState<OnlineUsersStats | null>(null);
   const [sessionHistory, setSessionHistory] = useState<SessionHistory[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
-  
-  // Filtros de data
-  const [dateFilter, setDateFilter] = useState<{
-    startDate: Date | undefined;
-    endDate: Date | undefined;
-  }>({
-    startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), // 30 dias atrás
-    endDate: new Date() // hoje
-  });
   const [searchTerm, setSearchTerm] = useState('');
 
   // Verificar permissões e carregar dados
@@ -70,6 +60,7 @@ export const UserSessionDashboard: React.FC<UserSessionDashboardProps> = ({ clas
       await loadOnlineStats();
       await loadSessionHistory();
     }
+    setIsLoading(false);
   };
 
   const loadOnlineStats = async () => {
@@ -85,8 +76,6 @@ export const UserSessionDashboard: React.FC<UserSessionDashboardProps> = ({ clas
   const loadSessionHistory = async () => {
     try {
       const history = await userSessionService.getSessionHistory({
-        startDate: dateFilter.startDate?.toISOString(),
-        endDate: dateFilter.endDate?.toISOString(),
         searchTerm: searchTerm.trim() || undefined
       });
       setSessionHistory(history);
@@ -98,10 +87,7 @@ export const UserSessionDashboard: React.FC<UserSessionDashboardProps> = ({ clas
   const handleRefresh = async () => {
     setIsLoading(true);
     try {
-      await Promise.all([
-        loadOnlineStats(),
-        loadSessionHistory()
-      ]);
+      await Promise.all([loadOnlineStats(), loadSessionHistory()]);
       toast.success('Dados atualizados com sucesso!');
     } catch (error) {
       toast.error('Erro ao atualizar dados');
@@ -110,446 +96,303 @@ export const UserSessionDashboard: React.FC<UserSessionDashboardProps> = ({ clas
     }
   };
 
-  const handleCleanupExpired = async () => {
-    try {
-      const cleanedCount = await userSessionService.cleanupExpiredSessions();
-      toast.success(`${cleanedCount} sessões expiradas foram limpas`);
-      await handleRefresh();
-    } catch (error) {
-      toast.error('Erro ao limpar sessões expiradas');
-    }
-  };
-
-  const handleApplyFilters = async () => {
-    setIsLoading(true);
-    try {
-      await loadSessionHistory();
-      toast.success('Filtros aplicados com sucesso!');
-    } catch (error) {
-      toast.error('Erro ao aplicar filtros');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleResetFilters = () => {
-    setDateFilter({
-      startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
-      endDate: new Date()
-    });
-    setSearchTerm('');
-  };
-
-  const formatDuration = (minutes: number): string => {
-    if (minutes < 60) {
-      return `${Math.round(minutes)} min`;
-    }
+  const formatDuration = (minutes: number) => {
+    if (minutes < 1) return '< 1 min';
+    if (minutes < 60) return `${Math.round(minutes)} min`;
     const hours = Math.floor(minutes / 60);
-    const remainingMinutes = Math.round(minutes % 60);
-    return `${hours}h ${remainingMinutes}min`;
+    const mins = Math.round(minutes % 60);
+    return `${hours}h ${mins}min`;
   };
 
-  const formatDateTime = (dateString: string): string => {
-    const date = new Date(dateString);
-    return date.toLocaleString('pt-BR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+  const getAverageDuration = () => {
+    if (!onlineStats || onlineStats.sessions_data.length === 0) return 0;
+    const total = onlineStats.sessions_data.reduce((sum, session) => sum + (session.duration_minutes || 0), 0);
+    return Math.round(total / onlineStats.sessions_data.length);
   };
 
-  const getStatusColor = (endedBy?: string): string => {
-    switch (endedBy) {
-      case 'logout': return 'bg-green-100 text-green-800';
-      case 'timeout': return 'bg-yellow-100 text-yellow-800';
-      case 'forced': return 'bg-red-100 text-red-800';
-      case 'system': return 'bg-blue-100 text-blue-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
+  const filteredSessions = onlineStats?.sessions_data.filter(session =>
+    searchTerm === '' || 
+    session.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    session.full_name?.toLowerCase().includes(searchTerm.toLowerCase())
+  ) || [];
 
-  const getStatusText = (endedBy?: string): string => {
-    switch (endedBy) {
-      case 'logout': return 'Logout Normal';
-      case 'timeout': return 'Timeout';
-      case 'forced': return 'Forçado';
-      case 'system': return 'Sistema';
-      default: return 'Ativo';
-    }
-  };
-
-  // Se não for super admin, mostrar aviso
   if (!isSuperAdmin) {
-    return (
-      <Alert className="border-orange-200 bg-orange-50">
-        <Shield className="h-4 w-4 text-orange-600" />
-        <AlertDescription className="text-orange-800">
-          <strong>Acesso Restrito:</strong> Esta funcionalidade está disponível apenas para Super Administradores.
-        </AlertDescription>
-      </Alert>
-    );
+    return null;
   }
 
   return (
-    <div className={`space-y-6 ${className}`}>
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900">Monitor de Usuários</h2>
-          <p className="text-gray-600">Acompanhe usuários online e histórico de sessões</p>
-        </div>
-        <div className="flex items-center gap-2">
-          {lastUpdate && (
-            <span className="text-sm text-gray-500">
-              Última atualização: {formatDateTime(lastUpdate.toISOString())}
-            </span>
-          )}
-          <Button 
-            onClick={handleRefresh} 
-            disabled={isLoading}
-            variant="outline"
-            size="sm"
-          >
-            <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-            Atualizar
-          </Button>
-          <Button 
-            onClick={handleCleanupExpired}
-            variant="outline"
-            size="sm"
-          >
-            <Activity className="h-4 w-4 mr-2" />
-            Limpar Expiradas
-          </Button>
-        </div>
-      </div>
-
-      {/* Estatísticas Gerais */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Usuários Online</CardTitle>
-            <Users className="h-4 w-4 text-blue-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-blue-600">
-              {onlineStats?.total_online || 0}
+    <div className={`h-full flex flex-col space-y-6 ${className || ''}`}>
+      {/* Monitor Header */}
+      <Card className="border-2 border-primary/20 shadow-lg">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg">
+                <Activity className="h-6 w-6 text-white" />
+              </div>
+              <div>
+                <CardTitle className="text-xl">Monitor de Usuários</CardTitle>
+                <CardDescription>Acompanhe usuários online e histórico de sessões</CardDescription>
+              </div>
             </div>
-            <p className="text-xs text-muted-foreground">
-              Sessões ativas no momento
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Tempo Médio Online</CardTitle>
-            <Clock className="h-4 w-4 text-green-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">
-              {onlineStats?.sessions_data.length ? 
-                formatDuration(
-                  onlineStats.sessions_data.reduce((acc, session) => 
-                    acc + session.duration_minutes, 0
-                  ) / onlineStats.sessions_data.length
-                ) : 
-                '0 min'
-              }
+            <div className="flex items-center gap-3">
+              {lastUpdate && (
+                <div className="text-xs text-muted-foreground">
+                  Última atualização: {format(lastUpdate, "HH:mm:ss", { locale: ptBR })}
+                </div>
+              )}
+              <Button
+                onClick={handleRefresh}
+                disabled={isLoading}
+                size="sm"
+                variant="outline"
+                className="gap-2"
+              >
+                <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+                Atualizar
+              </Button>
             </div>
-            <p className="text-xs text-muted-foreground">
-              Duração média das sessões
-            </p>
-          </CardContent>
-        </Card>
+          </div>
+        </CardHeader>
+      </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Sessões Hoje</CardTitle>
-            <History className="h-4 w-4 text-purple-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-purple-600">
-              {sessionHistory.filter(session => {
-                const today = new Date();
-                const sessionDate = new Date(session.started_at);
-                return sessionDate.toDateString() === today.toDateString();
-              }).length}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Total de sessões iniciadas hoje
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Tabs para Usuários Online e Histórico */}
-      <Tabs defaultValue="online" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="online" className="flex items-center gap-2">
-            <UserCheck className="h-4 w-4" />
-            Usuários Online ({onlineStats?.total_online || 0})
-          </TabsTrigger>
-          <TabsTrigger value="history" className="flex items-center gap-2">
-            <History className="h-4 w-4" />
-            Histórico de Sessões
-          </TabsTrigger>
-        </TabsList>
-
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* Usuários Online */}
-        <TabsContent value="online" className="space-y-4">
-          {onlineStats?.sessions_data.length === 0 ? (
-            <Card>
-              <CardContent className="flex flex-col items-center justify-center py-8">
-                <Users className="h-12 w-12 text-gray-400 mb-4" />
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                  Nenhum usuário online
-                </h3>
-                <p className="text-gray-500 text-center">
-                  Não há usuários conectados no momento.
-                </p>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="grid gap-4">
-              {onlineStats?.sessions_data.map((session, index) => (
-                <Card key={index}>
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-4">
-                        <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                          <Users className="h-5 w-5 text-blue-600" />
-                        </div>
-                        <div>
-                          <h4 className="font-semibold text-gray-900">
-                            {session.full_name || session.email}
-                          </h4>
-                          <p className="text-sm text-gray-500">{session.email}</p>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <Badge variant="secondary" className="bg-green-100 text-green-800">
-                          Online
-                        </Badge>
-                        <p className="text-sm text-gray-500 mt-1">
-                          {formatDuration(session.duration_minutes)}
-                        </p>
-                      </div>
-                    </div>
-                    
-                    <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                      <div className="flex items-center gap-2">
-                        <Clock className="h-4 w-4 text-gray-400" />
-                        <span className="text-gray-600">
-                          Iniciou: {formatDateTime(session.started_at)}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Activity className="h-4 w-4 text-gray-400" />
-                        <span className="text-gray-600">
-                          Última atividade: {formatDateTime(session.last_seen_at)}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <MapPin className="h-4 w-4 text-gray-400" />
-                        <span className="text-gray-600">
-                          IP: {session.ip_address || 'Desconhecido'}
-                        </span>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
-        </TabsContent>
-
-        {/* Histórico de Sessões */}
-        <TabsContent value="history" className="space-y-4">
-          {/* Filtros */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Filter className="h-5 w-5" />
-                Filtros de Busca
+        <Card className="border-green-200 bg-gradient-to-br from-green-50 to-emerald-50">
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-medium text-green-900">
+                Usuários Online
               </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {/* Data Inicial */}
-                <div className="space-y-2">
-                  <Label>Data Inicial</Label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className="w-full justify-start text-left font-normal"
-                      >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {dateFilter.startDate ? format(dateFilter.startDate, 'dd/MM/yyyy', { locale: ptBR }) : 'Selecionar data'}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={dateFilter.startDate}
-                        onSelect={(date) => setDateFilter(prev => ({ ...prev, startDate: date }))}
-                        initialFocus
-                        locale={ptBR}
-                      />
-                    </PopoverContent>
-                  </Popover>
-                </div>
-
-                {/* Data Final */}
-                <div className="space-y-2">
-                  <Label>Data Final</Label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className="w-full justify-start text-left font-normal"
-                      >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {dateFilter.endDate ? format(dateFilter.endDate, 'dd/MM/yyyy', { locale: ptBR }) : 'Selecionar data'}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={dateFilter.endDate}
-                        onSelect={(date) => setDateFilter(prev => ({ ...prev, endDate: date }))}
-                        initialFocus
-                        locale={ptBR}
-                        disabled={(date) => dateFilter.startDate ? date < dateFilter.startDate : false}
-                      />
-                    </PopoverContent>
-                  </Popover>
-                </div>
-
-                {/* Busca por Usuário */}
-                <div className="space-y-2">
-                  <Label>Buscar Usuário</Label>
-                  <Input
-                    placeholder="Nome ou email..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                  />
-                </div>
-              </div>
-
-              {/* Botões de Ação */}
-              <div className="flex gap-2">
-                <Button 
-                  onClick={handleApplyFilters}
-                  disabled={isLoading}
-                  className="flex-1"
-                >
-                  {isLoading ? (
-                    <>
-                      <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                      Aplicando...
-                    </>
-                  ) : (
-                    <>
-                      <Filter className="h-4 w-4 mr-2" />
-                      Aplicar Filtros
-                    </>
-                  )}
-                </Button>
-                <Button 
-                  variant="outline" 
-                  onClick={handleResetFilters}
-                  disabled={isLoading}
-                >
-                  Limpar Filtros
-                </Button>
-              </div>
-
-              {/* Resumo dos Filtros */}
-              <div className="text-sm text-gray-600 bg-gray-50 p-3 rounded-lg">
-                <strong>Período:</strong> {dateFilter.startDate && dateFilter.endDate ? 
-                  `${format(dateFilter.startDate, 'dd/MM/yyyy', { locale: ptBR })} até ${format(dateFilter.endDate, 'dd/MM/yyyy', { locale: ptBR })}` : 
-                  'Período não selecionado'
-                }
-                {searchTerm && (
-                  <>
-                    <br />
-                    <strong>Busca:</strong> "{searchTerm}"
-                  </>
-                )}
-                <br />
-                <strong>Resultados:</strong> {sessionHistory.length} sessões encontradas
-              </div>
-            </CardContent>
-          </Card>
-
-          {sessionHistory.length === 0 ? (
-            <Card>
-              <CardContent className="flex flex-col items-center justify-center py-8">
-                <History className="h-12 w-12 text-gray-400 mb-4" />
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                  Nenhum histórico disponível
-                </h3>
-                <p className="text-gray-500 text-center">
-                  Não há histórico de sessões para exibir.
-                </p>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="grid gap-4">
-              {sessionHistory.map((session, index) => (
-                <Card key={index}>
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-4">
-                        <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center">
-                          <Monitor className="h-5 w-5 text-gray-600" />
-                        </div>
-                        <div>
-                          <h4 className="font-semibold text-gray-900">
-                            {session.full_name || session.email}
-                          </h4>
-                          <p className="text-sm text-gray-500">{session.email}</p>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <Badge className={getStatusColor(session.ended_by)}>
-                          {getStatusText(session.ended_by)}
-                        </Badge>
-                        {session.duration_minutes && (
-                          <p className="text-sm text-gray-500 mt-1">
-                            {formatDuration(session.duration_minutes)}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                    
-                    <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                      <div className="flex items-center gap-2">
-                        <Clock className="h-4 w-4 text-gray-400" />
-                        <span className="text-gray-600">
-                          Iniciou: {formatDateTime(session.started_at)}
-                        </span>
-                      </div>
-                      {session.ended_at && (
-                        <div className="flex items-center gap-2">
-                          <Activity className="h-4 w-4 text-gray-400" />
-                          <span className="text-gray-600">
-                            Finalizou: {formatDateTime(session.ended_at)}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+              <Users className="h-4 w-4 text-green-600" />
             </div>
-          )}
-        </TabsContent>
-      </Tabs>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold text-green-700">
+              {isLoading ? <Skeleton className="h-9 w-16" /> : (onlineStats?.total_online || 0)}
+            </div>
+            <p className="text-xs text-green-600 mt-1">Sessões ativas no momento</p>
+          </CardContent>
+        </Card>
+
+        {/* Tempo Médio Online */}
+        <Card className="border-blue-200 bg-gradient-to-br from-blue-50 to-cyan-50">
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-medium text-blue-900">
+                Tempo Médio Online
+              </CardTitle>
+              <Clock className="h-4 w-4 text-blue-600" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold text-blue-700">
+              {isLoading ? <Skeleton className="h-9 w-20" /> : formatDuration(getAverageDuration())}
+            </div>
+            <p className="text-xs text-blue-600 mt-1">Duração média das sessões</p>
+          </CardContent>
+        </Card>
+
+        {/* Sessões Hoje */}
+        <Card className="border-purple-200 bg-gradient-to-br from-purple-50 to-pink-50">
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-medium text-purple-900">
+                Sessões Hoje
+              </CardTitle>
+              <CalendarDays className="h-4 w-4 text-purple-600" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold text-purple-700">
+              {isLoading ? <Skeleton className="h-9 w-12" /> : 0}
+            </div>
+            <p className="text-xs text-purple-600 mt-1">Total de sessões iniciadas hoje</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Main Content Tabs */}
+      <Card className="flex-1 min-h-0 flex flex-col">
+        <Tabs defaultValue="online" className="h-full flex flex-col">
+          <CardHeader className="pb-3 border-b">
+            <div className="flex items-center justify-between">
+              <TabsList className="grid w-[400px] grid-cols-2">
+                <TabsTrigger value="online" className="gap-2">
+                  <Zap className="h-4 w-4" />
+                  Usuários Online ({filteredSessions.length})
+                </TabsTrigger>
+                <TabsTrigger value="history" className="gap-2">
+                  <History className="h-4 w-4" />
+                  Histórico de Sessões
+                </TabsTrigger>
+              </TabsList>
+              
+              {/* Search Bar */}
+              <div className="relative w-72">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar por nome ou email..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
+            </div>
+          </CardHeader>
+
+          <CardContent className="flex-1 min-h-0 pt-6">
+            {/* Tab: Usuários Online */}
+            <TabsContent value="online" className="h-full mt-0">
+              {isLoading ? (
+                <div className="space-y-4">
+                  {[1, 2, 3].map(i => (
+                    <Skeleton key={i} className="h-24 w-full" />
+                  ))}
+                </div>
+              ) : filteredSessions.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-full text-center space-y-4">
+                  <div className="p-4 bg-muted rounded-full">
+                    <Users className="h-12 w-12 text-muted-foreground" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold">Nenhum usuário online</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Não há usuários conectados no momento.
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <ScrollArea className="h-full pr-4">
+                  <div className="space-y-3">
+                    {filteredSessions.map((session, index) => (
+                      <Card key={session.user_id + index} className="hover:shadow-md transition-shadow">
+                        <CardContent className="p-4">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-4 flex-1">
+                              {/* Avatar */}
+                              <div className="flex items-center justify-center w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full text-white font-semibold text-lg">
+                                {session.full_name ? session.full_name[0].toUpperCase() : session.email[0].toUpperCase()}
+                              </div>
+                              
+                              {/* User Info */}
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2">
+                                  <h4 className="font-semibold text-base">
+                                    {session.full_name || session.email.split('@')[0]}
+                                  </h4>
+                                  <Badge variant="outline" className="bg-green-50 text-green-700 border-green-300">
+                                    <div className="h-2 w-2 bg-green-500 rounded-full mr-1 animate-pulse" />
+                                    Online
+                                  </Badge>
+                                </div>
+                                <p className="text-sm text-muted-foreground">{session.email}</p>
+                              </div>
+                            </div>
+
+                            {/* Session Details */}
+                            <div className="flex items-center gap-6 text-sm">
+                              <div className="flex items-center gap-2 text-muted-foreground">
+                                <Clock className="h-4 w-4" />
+                                <span>{formatDuration(session.duration_minutes || 0)}</span>
+                              </div>
+                              
+                              {session.ip_address && (
+                                <div className="flex items-center gap-2 text-muted-foreground">
+                                  <MapPin className="h-4 w-4" />
+                                  <span className="font-mono text-xs">{session.ip_address}</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Additional Info */}
+                          <div className="mt-3 pt-3 border-t flex items-center justify-between text-xs text-muted-foreground">
+                            <div className="flex items-center gap-2">
+                              <Monitor className="h-3 w-3" />
+                              <span className="truncate max-w-md">
+                                {session.user_agent?.split(' ')[0] || 'Navegador desconhecido'}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-4">
+                              <span>Iniciou: {format(new Date(session.started_at), "HH:mm:ss", { locale: ptBR })}</span>
+                              <span>Última atividade: {format(new Date(session.last_seen_at), "HH:mm:ss", { locale: ptBR })}</span>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                </ScrollArea>
+              )}
+            </TabsContent>
+
+            {/* Tab: Histórico de Sessões */}
+            <TabsContent value="history" className="h-full mt-0">
+              {isLoading ? (
+                <div className="space-y-4">
+                  {[1, 2, 3].map(i => (
+                    <Skeleton key={i} className="h-20 w-full" />
+                  ))}
+                </div>
+              ) : sessionHistory.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-full text-center space-y-4">
+                  <div className="p-4 bg-muted rounded-full">
+                    <History className="h-12 w-12 text-muted-foreground" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold">Nenhum histórico disponível</h3>
+                    <p className="text-sm text-muted-foreground">
+                      O histórico de sessões aparecerá aqui quando houver dados.
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <ScrollArea className="h-full pr-4">
+                  <div className="space-y-3">
+                    {sessionHistory.map((session, index) => (
+                      <Card key={session.user_id + session.started_at + index} className="hover:shadow-sm transition-shadow">
+                        <CardContent className="p-4">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <div className="flex items-center justify-center w-10 h-10 bg-muted rounded-full text-sm font-medium">
+                                {session.full_name ? session.full_name[0].toUpperCase() : session.email[0].toUpperCase()}
+                              </div>
+                              <div>
+                                <h4 className="font-medium text-sm">
+                                  {session.full_name || session.email.split('@')[0]}
+                                </h4>
+                                <p className="text-xs text-muted-foreground">{session.email}</p>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-6 text-xs text-muted-foreground">
+                              <div className="flex items-center gap-1">
+                                <CalendarDays className="h-3 w-3" />
+                                <span>{format(new Date(session.started_at), "dd/MM/yyyy", { locale: ptBR })}</span>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <Clock className="h-3 w-3" />
+                                <span>{formatDuration(session.duration_minutes || 0)}</span>
+                              </div>
+                              {session.ended_by && (
+                                <Badge variant="secondary" className="text-xs">
+                                  {session.ended_by}
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                </ScrollArea>
+              )}
+            </TabsContent>
+          </CardContent>
+        </Tabs>
+      </Card>
     </div>
   );
 };

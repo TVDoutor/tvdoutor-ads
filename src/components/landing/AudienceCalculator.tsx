@@ -10,7 +10,6 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { supabase } from '@/integrations/supabase/client';
 import { useSpecialtiesWithFallback } from '@/hooks/useSpecialties';
-import { useSpecialtiesRealtime } from '@/hooks/useSpecialtiesRealtime';
 import { SpecialtiesService } from '@/lib/specialties-service';
 
 interface AudienceResult {

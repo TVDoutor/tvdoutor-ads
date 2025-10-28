@@ -14,10 +14,18 @@ import {
   Activity,
   History,
   UserCheck,
-  AlertTriangle
+  AlertTriangle,
+  Filter
 } from 'lucide-react';
 import { userSessionService, type OnlineUsersStats, type SessionHistory } from '@/lib/user-session-service';
 import { toast } from 'sonner';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import { CalendarIcon } from 'lucide-react';
 
 interface UserSessionDashboardProps {
   className?: string;
@@ -29,6 +37,16 @@ export const UserSessionDashboard: React.FC<UserSessionDashboardProps> = ({ clas
   const [isLoading, setIsLoading] = useState(false);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  
+  // Filtros de data
+  const [dateFilter, setDateFilter] = useState<{
+    startDate: Date | undefined;
+    endDate: Date | undefined;
+  }>({
+    startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), // 30 dias atrás
+    endDate: new Date() // hoje
+  });
+  const [searchTerm, setSearchTerm] = useState('');
 
   // Verificar permissões e carregar dados
   useEffect(() => {
@@ -66,7 +84,11 @@ export const UserSessionDashboard: React.FC<UserSessionDashboardProps> = ({ clas
 
   const loadSessionHistory = async () => {
     try {
-      const history = await userSessionService.getSessionHistory();
+      const history = await userSessionService.getSessionHistory({
+        startDate: dateFilter.startDate?.toISOString(),
+        endDate: dateFilter.endDate?.toISOString(),
+        searchTerm: searchTerm.trim() || undefined
+      });
       setSessionHistory(history);
     } catch (error) {
       console.error('Erro ao carregar histórico de sessões:', error);
@@ -96,6 +118,26 @@ export const UserSessionDashboard: React.FC<UserSessionDashboardProps> = ({ clas
     } catch (error) {
       toast.error('Erro ao limpar sessões expiradas');
     }
+  };
+
+  const handleApplyFilters = async () => {
+    setIsLoading(true);
+    try {
+      await loadSessionHistory();
+      toast.success('Filtros aplicados com sucesso!');
+    } catch (error) {
+      toast.error('Erro ao aplicar filtros');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleResetFilters = () => {
+    setDateFilter({
+      startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
+      endDate: new Date()
+    });
+    setSearchTerm('');
   };
 
   const formatDuration = (minutes: number): string => {
@@ -326,6 +368,124 @@ export const UserSessionDashboard: React.FC<UserSessionDashboardProps> = ({ clas
 
         {/* Histórico de Sessões */}
         <TabsContent value="history" className="space-y-4">
+          {/* Filtros */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Filter className="h-5 w-5" />
+                Filtros de Busca
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* Data Inicial */}
+                <div className="space-y-2">
+                  <Label>Data Inicial</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className="w-full justify-start text-left font-normal"
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {dateFilter.startDate ? format(dateFilter.startDate, 'dd/MM/yyyy', { locale: ptBR }) : 'Selecionar data'}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={dateFilter.startDate}
+                        onSelect={(date) => setDateFilter(prev => ({ ...prev, startDate: date }))}
+                        initialFocus
+                        locale={ptBR}
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+
+                {/* Data Final */}
+                <div className="space-y-2">
+                  <Label>Data Final</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className="w-full justify-start text-left font-normal"
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {dateFilter.endDate ? format(dateFilter.endDate, 'dd/MM/yyyy', { locale: ptBR }) : 'Selecionar data'}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={dateFilter.endDate}
+                        onSelect={(date) => setDateFilter(prev => ({ ...prev, endDate: date }))}
+                        initialFocus
+                        locale={ptBR}
+                        disabled={(date) => dateFilter.startDate ? date < dateFilter.startDate : false}
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+
+                {/* Busca por Usuário */}
+                <div className="space-y-2">
+                  <Label>Buscar Usuário</Label>
+                  <Input
+                    placeholder="Nome ou email..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              {/* Botões de Ação */}
+              <div className="flex gap-2">
+                <Button 
+                  onClick={handleApplyFilters}
+                  disabled={isLoading}
+                  className="flex-1"
+                >
+                  {isLoading ? (
+                    <>
+                      <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                      Aplicando...
+                    </>
+                  ) : (
+                    <>
+                      <Filter className="h-4 w-4 mr-2" />
+                      Aplicar Filtros
+                    </>
+                  )}
+                </Button>
+                <Button 
+                  variant="outline" 
+                  onClick={handleResetFilters}
+                  disabled={isLoading}
+                >
+                  Limpar Filtros
+                </Button>
+              </div>
+
+              {/* Resumo dos Filtros */}
+              <div className="text-sm text-gray-600 bg-gray-50 p-3 rounded-lg">
+                <strong>Período:</strong> {dateFilter.startDate && dateFilter.endDate ? 
+                  `${format(dateFilter.startDate, 'dd/MM/yyyy', { locale: ptBR })} até ${format(dateFilter.endDate, 'dd/MM/yyyy', { locale: ptBR })}` : 
+                  'Período não selecionado'
+                }
+                {searchTerm && (
+                  <>
+                    <br />
+                    <strong>Busca:</strong> "{searchTerm}"
+                  </>
+                )}
+                <br />
+                <strong>Resultados:</strong> {sessionHistory.length} sessões encontradas
+              </div>
+            </CardContent>
+          </Card>
+
           {sessionHistory.length === 0 ? (
             <Card>
               <CardContent className="flex flex-col items-center justify-center py-8">

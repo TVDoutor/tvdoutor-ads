@@ -99,9 +99,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         .from('user_roles')
         .select('role')
         .eq('user_id', userId as any)
-        .order('role', { ascending: true })
-        .limit(1)
-        .maybeSingle();
+        .order('role', { ascending: false }); // Buscar todas as roles, ordenadas por hierarquia
 
       // Timeout de 15 segundos para as consultas (aumentado)
       const timeoutPromise = new Promise((_, reject) => {
@@ -190,9 +188,23 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         userRole = 'super_admin';
         logDebug('Usuário identificado como super_admin via campo booleano');
       } else if (roleData && !roleError) {
-        // Usar role da tabela user_roles
-        userRole = mapDatabaseRoleToUserRole(roleData.role || 'user');
-        logDebug('Role obtido da tabela user_roles', { role: roleData.role, mappedRole: userRole });
+        // Se há múltiplas roles, usar a mais alta na hierarquia
+        const roles = Array.isArray(roleData) ? roleData : [roleData];
+        const highestRole = roles.reduce((highest, current) => {
+          const currentRole = mapDatabaseRoleToUserRole(current.role || 'user');
+          const highestRole = mapDatabaseRoleToUserRole(highest.role || 'user');
+          
+          // Hierarquia: super_admin > admin > manager > client > user
+          const hierarchy = { super_admin: 5, admin: 4, manager: 3, client: 2, user: 1 };
+          return hierarchy[currentRole] > hierarchy[highestRole] ? current : highest;
+        });
+        
+        userRole = mapDatabaseRoleToUserRole(highestRole.role || 'user');
+        logDebug('Role obtido da tabela user_roles', { 
+          allRoles: roles.map(r => r.role), 
+          selectedRole: highestRole.role, 
+          mappedRole: userRole 
+        });
       }
       
       // Fallback especial para hildebrando e outros super_admins

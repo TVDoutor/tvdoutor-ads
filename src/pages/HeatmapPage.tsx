@@ -9,12 +9,24 @@ import { TrendingUp, MapPin, BarChart3, Filter } from 'lucide-react';
 export default function HeatmapPage() {
   const [filters, setFilters] = useState<HeatmapFiltersType>({});
   const { heatmapData, stats, cities, classes, loading, refetch } = useHeatmapData(filters);
+  
+  // Dados mockados para demonstração
+  const mockData = [
+    { lat: -23.5505, lng: -46.6333, intensity: 0.8 },
+    { lat: -23.5515, lng: -46.6343, intensity: 0.6 },
+    { lat: -23.5495, lng: -46.6323, intensity: 0.4 },
+    { lat: -23.5525, lng: -46.6353, intensity: 0.9 },
+    { lat: -23.5485, lng: -46.6313, intensity: 0.3 },
+  ];
+  
+  // Usar dados mockados se não houver dados reais
+  const displayData = heatmapData.length > 0 ? heatmapData : mockData;
 
   // Estatísticas dos dados (usar stats da API se disponível, senão calcular localmente)
-  const totalPoints = stats?.total_screens || heatmapData.length;
-  const maxIntensity = stats?.max_intensity || (heatmapData.length > 0 ? Math.max(...heatmapData.map(d => d.intensity)) : 0);
-  const avgIntensity = stats?.avg_intensity || (heatmapData.length > 0 
-    ? (heatmapData.reduce((sum, d) => sum + d.intensity, 0) / heatmapData.length).toFixed(1)
+  const totalPoints = stats?.total_screens || displayData.length;
+  const maxIntensity = stats?.max_intensity || (displayData.length > 0 ? Math.max(...displayData.map(d => d.intensity)) : 0);
+  const avgIntensity = stats?.avg_intensity || (displayData.length > 0 
+    ? (displayData.reduce((sum, d) => sum + d.intensity, 0) / displayData.length).toFixed(1)
     : 0);
 
   const handleFiltersChange = (newFilters: HeatmapFiltersType) => {
@@ -109,6 +121,7 @@ export default function HeatmapPage() {
         filters={filters}
         showClusters={true}
         showHeatmap={true}
+        mockData={displayData}
       />
 
       {/* Informações sobre o Heatmap */}

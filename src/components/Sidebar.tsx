@@ -116,6 +116,18 @@ export const Sidebar = ({ isCollapsed = false, className, onToggle }: SidebarPro
   const { hasRole, profile, signOut } = useAuth();
   const [expandedMenus, setExpandedMenus] = useState<string[]>([]);
 
+  // Debug: Log do perfil e roles
+  console.log('Sidebar Debug:', {
+    profile: profile ? {
+      id: profile.id,
+      email: profile.email,
+      role: profile.role
+    } : null,
+    hasRoleManager: hasRole('manager'),
+    hasRoleAdmin: hasRole('admin'),
+    hasRoleSuperAdmin: hasRole('super_admin')
+  });
+
   const handleLogout = async () => {
     await signOut();
     navigate('/');
@@ -166,8 +178,19 @@ export const Sidebar = ({ isCollapsed = false, className, onToggle }: SidebarPro
 
         {/* Navigation */}
         <nav className="flex-1 p-4 space-y-2">
-          {menuItems
-            .filter((item) => !item.requiredRole || hasRole(item.requiredRole))
+          {(() => {
+            const filteredItems = menuItems.filter((item) => !item.requiredRole || hasRole(item.requiredRole));
+            console.log('Menu Items Filtered:', {
+              totalItems: menuItems.length,
+              filteredItems: filteredItems.length,
+              items: filteredItems.map(item => ({
+                label: item.label,
+                requiredRole: item.requiredRole,
+                hasAccess: !item.requiredRole || hasRole(item.requiredRole)
+              }))
+            });
+            return filteredItems;
+          })()
             .map((item) => {
               const isActive = location.pathname === item.href;
               const hasSubItems = item.subItems && item.subItems.length > 0;

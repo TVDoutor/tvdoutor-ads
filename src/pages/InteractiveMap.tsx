@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { MapPin, Search, Zap, ZapOff, AlertCircle, RefreshCw, MousePointer, Navigation, Loader2, Target } from 'lucide-react';
+import { MapPin, Search, Zap, ZapOff, AlertCircle, RefreshCw, MousePointer, Navigation, Loader2, Target, Layers, Flame } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { geocodeAddress } from '@/lib/geocoding';
@@ -24,6 +24,8 @@ interface Screen {
   active: boolean;
   lat: number | null;
   lng: number | null;
+  proposal_count?: number;
+  heat_intensity?: number;
 }
 
 // Custom debounce hook for auto-search
@@ -48,6 +50,8 @@ export default function InteractiveMap() {
   const [filteredScreens, setFilteredScreens] = useState<Screen[]>([]);
   const [loading, setLoading] = useState(true);
   const [mapError, setMapError] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<'markers' | 'heatmap'>('markers');
+  const [heatmapData, setHeatmapData] = useState<[number, number, number][]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [cityFilter, setCityFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -72,16 +76,47 @@ export default function InteractiveMap() {
       setLoading(true);
       console.log('📊 Buscando telas...');
       
+      // Buscar telas com dados de propostas para calcular calor
       const { data, error } = await supabase
         .from('screens')
-        .select('id, code, name, city, state, class, active, lat, lng')
+        .select(`
+          id, code, name, city, state, class, active, lat, lng,
+          proposal_screens(count)
+        `)
         .order('code');
 
       if (error) throw error;
 
-      console.log('✅ Telas carregadas:', data?.length || 0);
-      setScreens(data || []);
-      setFilteredScreens(data || []);
+      if (data) {
+        // Calcular intensidade de calor baseada no número de propostas
+        const screensWithHeat = data.map(screen => {
+          const proposalCount = screen.proposal_screens?.[0]?.count || 0;
+          // Normalizar intensidade (0-1) baseada no número de propostas
+          const maxProposals = Math.max(...data.map(s => s.proposal_screens?.[0]?.count || 0));
+          const heatIntensity = maxProposals > 0 ? proposalCount / maxProposals : 0;
+          
+          return {
+            ...screen,
+            proposal_count: proposalCount,
+            heat_intensity: heatIntensity
+          };
+        });
+
+        setScreens(screensWithHeat);
+        setFilteredScreens(screensWithHeat);
+        
+        // Preparar dados para heatmap - apenas telas com coordenadas válidas
+        const heatData: [number, number, number][] = screensWithHeat
+          .filter(screen => screen.lat !== null && screen.lng !== null)
+          .map(screen => [
+            screen.lat!,
+            screen.lng!,
+            screen.heat_intensity || 0
+          ]);
+        setHeatmapData(heatData);
+        
+        console.log(`✅ ${screensWithHeat.length} telas carregadas com dados de calor (${heatData.length} com coordenadas válidas)`);
+      }
       
     } catch (error: any) {
       console.error('💥 Erro ao carregar telas:', error);
@@ -569,35 +604,81 @@ export default function InteractiveMap() {
     console.log('🔄 updateMarkers called:', {
       screensTotal: screens.length,
       addressSearchResults: addressSearchResults.length,
-      hasMap: !!mapInstance.current
+      hasMap: !!mapInstance.current,
+      viewMode
     });
 
     const map = mapInstance.current;
     
-    // Clear existing markers except search center marker and search result markers
+    // Clear existing markers and heatmap layers except search center marker and search result markers
     map.eachLayer((layer: any) => {
       if (layer instanceof L.Marker && !layer.options.isSearchCenter && !layer.options.isSearchResult && !layer.options.isMainSearchResult) {
         map.removeLayer(layer);
       }
+      // Remove heatmap layers
+      if (layer.options && layer.options.isHeatmap) {
+        map.removeLayer(layer);
+      }
     });
 
-    // Always show ALL screens from database (all 1000 screens)
-    const validScreens = screens
-      .filter(s => s.lat && s.lng); // Show ALL screens without limit
-    
-    console.log('🎯 Telas válidas para mostrar no mapa:', validScreens.length);
+    // Add heatmap layer if in heatmap mode
+    if (viewMode === 'heatmap' && heatmapData.length > 0) {
+      try {
+        // Import leaflet.heat
+        await import('leaflet.heat');
+        
+        const heatLayer = (L as any).heatLayer(heatmapData, {
+          radius: 30,
+          blur: 20,
+          maxZoom: 15,
+          max: 1.0,
+          gradient: {
+            0.0: 'blue',
+            0.3: 'cyan', 
+            0.5: 'lime',
+            0.7: 'yellow',
+            1.0: 'red'
+          }
+        });
+        
+        heatLayer.options.isHeatmap = true;
+        map.addLayer(heatLayer);
+        console.log('🔥 Heatmap layer added with', heatmapData.length, 'points');
+      } catch (error) {
+        console.error('❌ Erro ao adicionar heatmap:', error);
+        toast.error('Erro ao carregar heatmap');
+      }
+    }
 
-    const markers: any[] = [];
-
-    validScreens.forEach(screen => {
-      const lat = Number(screen.lat);
-      const lng = Number(screen.lng);
+    // Show markers only in marker mode
+    if (viewMode === 'markers') {
+      // Always show ALL screens from database (all 1000 screens)
+      const validScreens = screens
+        .filter(s => s.lat && s.lng); // Show ALL screens without limit
       
-      if (isNaN(lat) || isNaN(lng)) return;
+      console.log('🎯 Telas válidas para mostrar no mapa:', validScreens.length);
 
-      // Use heart icon with cyan background for all screens (search results have separate markers)
-      let backgroundColor = screen.active ? '#06b6d4' : '#6b7280'; // Cyan for active, gray for inactive
-      let size = 20; // Slightly larger for heart icon
+      const markers: any[] = [];
+
+      validScreens.forEach(screen => {
+        const lat = Number(screen.lat);
+        const lng = Number(screen.lng);
+        
+        if (isNaN(lat) || isNaN(lng)) return;
+
+        // Use heart icon with color based on heat intensity
+        let backgroundColor = '#06b6d4'; // Default cyan
+        if (screen.heat_intensity !== undefined) {
+          // Color based on heat intensity
+          if (screen.heat_intensity > 0.7) backgroundColor = '#ef4444'; // Red - high intensity
+          else if (screen.heat_intensity > 0.5) backgroundColor = '#f59e0b'; // Yellow - medium-high
+          else if (screen.heat_intensity > 0.3) backgroundColor = '#10b981'; // Green - medium
+          else backgroundColor = '#3b82f6'; // Blue - low intensity
+        }
+        
+        if (!screen.active) backgroundColor = '#6b7280'; // Gray for inactive
+        
+        let size = 20; // Slightly larger for heart icon
 
       const icon = L.divIcon({
         className: 'custom-marker',
@@ -636,6 +717,8 @@ export default function InteractiveMap() {
             <div style="font-size: 11px; color: #374151;">
               <div><strong>Cidade:</strong> ${screen.city}, ${screen.state}</div>
               <div><strong>Status:</strong> ${screen.active ? '🟢 Ativa' : '🔴 Inativa'}</div>
+              ${screen.proposal_count !== undefined ? `<div><strong>Propostas:</strong> ${screen.proposal_count}</div>` : ''}
+              ${screen.heat_intensity !== undefined ? `<div><strong>Popularidade:</strong> ${(screen.heat_intensity * 100).toFixed(0)}%</div>` : ''}
             </div>
           </div>
 
@@ -668,17 +751,18 @@ export default function InteractiveMap() {
       markers.push(marker);
     });
 
-    // Only fit bounds if no search is active (to preserve search center view)
-    if (!centerCoordinates && markers.length > 0) {
-      const group = L.featureGroup(markers);
-      map.fitBounds(group.getBounds().pad(0.1));
-    }
+      // Only fit bounds if no search is active (to preserve search center view)
+      if (!centerCoordinates && markers.length > 0) {
+        const group = L.featureGroup(markers);
+        map.fitBounds(group.getBounds().pad(0.1));
+      }
 
-    console.log('✅ Marcadores adicionados ao mapa:', {
-      total: markers.length,
-      searchResultsCount: addressSearchResults.length,
-      searchActive: addressSearchResults.length > 0
-    });
+      console.log('✅ Marcadores adicionados ao mapa:', {
+        total: markers.length,
+        searchResultsCount: addressSearchResults.length,
+        searchActive: addressSearchResults.length > 0
+      });
+    }
   };
 
   // Apply filters with performance data
@@ -729,8 +813,10 @@ export default function InteractiveMap() {
               }
             });
             
-            const firstTargetScreen = targetScreens[0];
-            mapInstance.current.setView([firstTargetScreen.lat!, firstTargetScreen.lng!], 12);
+            const firstTargetScreen = targetScreens.find(s => s.lat !== null && s.lng !== null);
+            if (firstTargetScreen) {
+              mapInstance.current.setView([firstTargetScreen.lat!, firstTargetScreen.lng!], 12);
+            }
             
             // Add markers for ALL target screens with performance data
             const filteredWithPerformance = targetScreens.map(screen => ({
@@ -967,7 +1053,7 @@ export default function InteractiveMap() {
     if (mapInstance.current && screens.length > 0) {
       import('leaflet').then(L => updateMarkers(L));
     }
-  }, [screens, addressSearchResults]);
+  }, [screens, addressSearchResults, viewMode]);
 
   // Auto-search for regular search field
   useEffect(() => {
@@ -1089,10 +1175,30 @@ export default function InteractiveMap() {
             <h1 className="text-2xl font-bold">Mapa Interativo</h1>
             <p className="text-muted-foreground">Visualize a rede de telas</p>
                 </div>
-          <Button onClick={fetchScreens} variant="outline" size="sm">
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Atualizar
-                  </Button>
+          <div className="flex gap-2">
+            <Button onClick={fetchScreens} variant="outline" size="sm">
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Atualizar
+            </Button>
+            <div className="flex gap-1">
+              <Button 
+                onClick={() => setViewMode('markers')} 
+                variant={viewMode === 'markers' ? 'default' : 'outline'} 
+                size="sm"
+              >
+                <MapPin className="h-4 w-4 mr-1" />
+                Marcadores
+              </Button>
+              <Button 
+                onClick={() => setViewMode('heatmap')} 
+                variant={viewMode === 'heatmap' ? 'default' : 'outline'} 
+                size="sm"
+              >
+                <Flame className="h-4 w-4 mr-1" />
+                Heatmap
+              </Button>
+            </div>
+          </div>
         </div>
 
         {/* Stats */}
@@ -1289,8 +1395,8 @@ export default function InteractiveMap() {
           </Card>
 
                 {/* Map */}
-        <div className="grid grid-cols-1 lg:grid-cols-10 gap-4">
-          <div className="lg:col-span-7">
+        <div className={`grid grid-cols-1 gap-4 ${(addressSearchResults.length > 0 || (mainSearchResults.length > 0 && (searchTerm || cityFilter !== 'all' || statusFilter !== 'all' || classFilter !== 'all'))) ? 'lg:grid-cols-10' : ''}`}>
+          <div className={`${(addressSearchResults.length > 0 || (mainSearchResults.length > 0 && (searchTerm || cityFilter !== 'all' || statusFilter !== 'all' || classFilter !== 'all'))) ? 'lg:col-span-7' : ''}`}>
             <Card>
               <CardHeader>
                 <CardTitle>Mapa das Telas</CardTitle>
@@ -1308,23 +1414,22 @@ export default function InteractiveMap() {
                   </Card>
                 </div>
 
-          <div className="lg:col-span-3" data-sidebar="results">
-                  <Card>
-                    <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <MousePointer className="h-4 w-4" />
-                  {addressSearchResults.length > 0 ? 'Resultados da Busca' : 
-                   (searchTerm || cityFilter !== 'all' || statusFilter !== 'all' || classFilter !== 'all') ? 'Resultados dos Filtros' : 'Telas Próximas'}
-                </CardTitle>
-                <p className="text-xs text-muted-foreground">
-                  {addressSearchResults.length > 0 
-                    ? `${addressSearchResults.length} telas encontradas na busca`
-                    : (searchTerm || cityFilter !== 'all' || statusFilter !== 'all' || classFilter !== 'all')
-                    ? `${mainSearchResults.length} telas encontradas nos filtros`
-                    : 'Clique em uma tela para visualizá-la no mapa'
-                  }
-                </p>
-                    </CardHeader>
+          {/* Sidebar com resultados - só aparece quando há busca ativa */}
+          {(addressSearchResults.length > 0 || (mainSearchResults.length > 0 && (searchTerm || cityFilter !== 'all' || statusFilter !== 'all' || classFilter !== 'all'))) && (
+            <div className="lg:col-span-3" data-sidebar="results">
+                    <Card>
+                      <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <MousePointer className="h-4 w-4" />
+                    {addressSearchResults.length > 0 ? 'Resultados da Busca' : 'Resultados dos Filtros'}
+                  </CardTitle>
+                  <p className="text-xs text-muted-foreground">
+                    {addressSearchResults.length > 0 
+                      ? `${addressSearchResults.length} telas encontradas na busca`
+                      : `${mainSearchResults.length} telas encontradas nos filtros`
+                    }
+                  </p>
+                      </CardHeader>
               <CardContent>
                 {/* Show search results when available */}
                 {addressSearchResults.length > 0 ? (
@@ -1476,9 +1581,10 @@ export default function InteractiveMap() {
                 )}
               </CardContent>
             </Card>
+            </div>
+          )}
         </div>
       </div>
-      </div>
     </DashboardLayout>
-    );
+  );
   }

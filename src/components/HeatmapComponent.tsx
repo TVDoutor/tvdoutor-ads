@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import MarkerClusterGroup from 'react-leaflet-cluster';
-import { HeatmapLayer } from 'react-leaflet-heatmap-layer-v3';
 import { useHeatmapData, HeatmapFilters } from '@/hooks/useHeatmapData';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { RefreshCw, MapPin, AlertCircle, Layers } from 'lucide-react';
 import L from 'leaflet';
+import 'leaflet.heat';
 
 // Importe os estilos do Leaflet
 import 'leaflet/dist/leaflet.css';
@@ -19,26 +19,62 @@ interface HeatmapComponentProps {
   filters?: HeatmapFilters;
   showClusters?: boolean;
   showHeatmap?: boolean;
+  mockData?: Array<{ lat: number; lng: number; intensity: number }>;
 }
+
+// Componente para adicionar heatmap ao mapa
+const HeatmapLayer: React.FC<{ data: HeatmapData }> = ({ data }) => {
+  const map = useMap();
+
+  useEffect(() => {
+    if (data && data.length > 0) {
+      // Criar camada de heatmap usando leaflet.heat
+      const heatLayer = (L as any).heatLayer(data, {
+        radius: 25,
+        blur: 15,
+        maxZoom: 18,
+        max: 1.0,
+        gradient: {
+          0.0: 'blue',
+          0.3: 'cyan',
+          0.5: 'lime',
+          0.7: 'yellow',
+          1.0: 'red'
+        }
+      }).addTo(map);
+
+      // Cleanup
+      return () => {
+        map.removeLayer(heatLayer);
+      };
+    }
+  }, [data, map]);
+
+  return null;
+};
 
 export const HeatmapComponent: React.FC<HeatmapComponentProps> = ({
   filters = {},
   showClusters = true,
-  showHeatmap = true
+  showHeatmap = true,
+  mockData = []
 }) => {
   const { heatmapData, loading, error, refetch } = useHeatmapData(filters);
   const [data, setData] = useState<HeatmapData>([]);
   const [mapView, setMapView] = useState<'heatmap' | 'clusters'>('heatmap');
 
   useEffect(() => {
-    // Converter os dados do hook para o formato esperado pelo HeatmapLayer
-    const formattedData: HeatmapData = heatmapData.map(point => [
+    // Usar dados mockados se não houver dados reais
+    const sourceData = heatmapData.length > 0 ? heatmapData : mockData;
+    
+    // Converter os dados para o formato esperado pelo HeatmapLayer
+    const formattedData: HeatmapData = sourceData.map(point => [
       point.lat,
       point.lng,
       point.intensity
     ]);
     setData(formattedData);
-  }, [heatmapData]);
+  }, [heatmapData, mockData]);
 
   // Criar ícones customizados para os clusters
   const createCustomIcon = (count: number) => {
@@ -72,13 +108,14 @@ export const HeatmapComponent: React.FC<HeatmapComponentProps> = ({
 
   // Preparar dados para clusters
   const clusterData = useMemo(() => {
-    return heatmapData.map((point, index) => ({
+    const sourceData = heatmapData.length > 0 ? heatmapData : mockData;
+    return sourceData.map((point, index) => ({
       id: index,
       position: [point.lat, point.lng] as [number, number],
       intensity: point.intensity,
       popup: `Intensidade: ${point.intensity}`
     }));
-  }, [heatmapData]);
+  }, [heatmapData, mockData]);
 
   if (loading) {
     return (
@@ -152,9 +189,14 @@ export const HeatmapComponent: React.FC<HeatmapComponentProps> = ({
               Dados Normalizados
             </span>
           )}
-          {data.length > 0 && (
-            <span className="ml-2 px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded">
-              Dados de Fallback
+          {heatmapData.length === 0 && mockData.length > 0 && (
+            <span className="ml-2 px-2 py-1 bg-yellow-100 text-yellow-800 text-xs rounded">
+              Dados de Demonstração
+            </span>
+          )}
+          {heatmapData.length > 0 && (
+            <span className="ml-2 px-2 py-1 bg-green-100 text-green-800 text-xs rounded">
+              Dados Reais
             </span>
           )}
         </div>
@@ -175,15 +217,7 @@ export const HeatmapComponent: React.FC<HeatmapComponentProps> = ({
             
             {/* Camada de Heatmap */}
             {showHeatmap && mapView === 'heatmap' && data.length > 0 && (
-              <HeatmapLayer
-                points={data}
-                longitudeExtractor={(p: number[]) => p[1]}
-                latitudeExtractor={(p: number[]) => p[0]}
-                intensityExtractor={(p: number[]) => p[2]}
-                radius={25} // Raio de influência de cada ponto
-                blur={15}   // Nível de "borrão" para mesclar os pontos
-                max={1.0}   // Valor máximo de intensidade (ajuste se necessário)
-              />
+              <HeatmapLayer data={data} />
             )}
 
             {/* Camada de Clusters */}

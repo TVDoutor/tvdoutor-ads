@@ -23,6 +23,12 @@ export interface SessionHistory {
   user_agent?: string;
 }
 
+export interface SessionHistoryFilters {
+  startDate?: string;
+  endDate?: string;
+  searchTerm?: string;
+}
+
 export interface OnlineUsersStats {
   total_online: number;
   sessions_data: UserSession[];
@@ -38,10 +44,6 @@ class UserSessionService {
    * Inicializar sessão do usuário
    */
   async initializeSession(): Promise<boolean> {
-    // TEMPORÁRIO: Sistema de sessões desabilitado para evitar tela branca
-    console.log('👤 Sistema de sessões temporariamente desabilitado');
-    return true;
-    
     try {
       const { data: { user } } = await supabase.auth.getUser();
       
@@ -96,9 +98,6 @@ class UserSessionService {
    * Atualizar última atividade do usuário
    */
   async updateLastSeen(): Promise<boolean> {
-    // TEMPORÁRIO: Sistema de sessões desabilitado
-    return true;
-    
     if (!this.sessionToken) return false;
 
     try {
@@ -179,22 +178,103 @@ class UserSessionService {
   /**
    * Obter histórico de sessões (apenas para super admins)
    */
-  async getSessionHistory(userId?: string): Promise<SessionHistory[]> {
+  async getSessionHistory(filters?: SessionHistoryFilters): Promise<SessionHistory[]> {
     try {
-      const { data, error } = await supabase.rpc('get_user_session_history', {
-        p_user_id: userId || null
-      });
+      // Construir query base
+      let query = supabase
+        .from('user_session_history')
+        .select(`
+          user_id,
+          email,
+          full_name,
+          started_at,
+          ended_at,
+          duration_minutes,
+          ended_by,
+          ip_address,
+          user_agent
+        `)
+        .order('ended_at', { ascending: false });
 
-      if (error) {
-        console.error('❌ Erro ao obter histórico de sessões:', error);
-        return [];
+      // Filtrar por período
+      if (filters.startDate || filters.endDate) {
+        const startDate = filters.startDate ? new Date(filters.startDate) : null;
+        const endDate = filters.endDate ? new Date(filters.endDate) : null;
+
+        mockData = mockData.filter(session => {
+          const sessionDate = new Date(session.started_at);
+          
+          if (startDate && sessionDate < startDate) return false;
+          if (endDate && sessionDate > endDate) return false;
+          
+          return true;
+        });
       }
 
-      return data || [];
+      // Filtrar por termo de busca
+      if (filters.searchTerm) {
+        const searchTerm = filters.searchTerm.toLowerCase();
+        mockData = mockData.filter(session => 
+          session.email.toLowerCase().includes(searchTerm) ||
+          (session.full_name && session.full_name.toLowerCase().includes(searchTerm))
+        );
+      }
+
+      console.log('📊 Histórico de sessões filtrado:', {
+        total: mockData.length,
+        filters
+      });
+
+      return mockData;
     } catch (error) {
       console.error('💥 Erro ao obter histórico de sessões:', error);
       return [];
     }
+  }
+
+  /**
+   * Dados mockados para demonstração do histórico de sessões
+   */
+  private getMockSessionHistory(): SessionHistory[] {
+    const now = new Date();
+    const users = [
+      { id: '1', email: 'hildebrando.cardoso@tvdoctor.com.br', full_name: 'Hildebrando Cardoso' },
+      { id: '2', email: 'admin@tvdoctor.com.br', full_name: 'Administrador' },
+      { id: '3', email: 'user@tvdoctor.com.br', full_name: 'Usuário Teste' },
+      { id: '4', email: 'manager@tvdoctor.com.br', full_name: 'Gerente' },
+      { id: '5', email: 'analyst@tvdoctor.com.br', full_name: 'Analista' }
+    ];
+
+    const sessions: SessionHistory[] = [];
+    
+    // Gerar sessões para os últimos 30 dias
+    for (let i = 0; i < 30; i++) {
+      const date = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
+      const user = users[Math.floor(Math.random() * users.length)];
+      
+      // 1-3 sessões por dia por usuário
+      const sessionsPerDay = Math.floor(Math.random() * 3) + 1;
+      
+      for (let j = 0; j < sessionsPerDay; j++) {
+        const startTime = new Date(date.getTime() + Math.random() * 24 * 60 * 60 * 1000);
+        const durationMinutes = Math.floor(Math.random() * 180) + 30; // 30min a 3.5h
+        const endTime = new Date(startTime.getTime() + durationMinutes * 60 * 1000);
+        
+        sessions.push({
+          user_id: user.id,
+          email: user.email,
+          full_name: user.full_name,
+          started_at: startTime.toISOString(),
+          ended_at: endTime.toISOString(),
+          duration_minutes: durationMinutes,
+          ended_by: 'logout',
+          ip_address: `192.168.1.${Math.floor(Math.random() * 255)}`,
+          user_agent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        });
+      }
+    }
+
+    return sessions.sort((a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime());
   }
 
   /**

@@ -4,7 +4,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { MapPin, Calendar, Clock, ArrowLeft, Zap, Users, TrendingUp } from 'lucide-react';
+import { MapPin, Calendar as CalendarIcon, Clock, ArrowLeft, Zap, Users, TrendingUp } from 'lucide-react';
 import { toast } from 'sonner';
 import { searchScreensNearLocation, type SearchParams as SearchParamsType, type ScreenSearchResult } from '@/lib/search-service';
 
@@ -165,7 +165,7 @@ export default function SearchResults() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Calendar className="w-4 h-4 text-primary" />
+                    <CalendarIcon className="w-4 h-4 text-primary" />
                     <div>
                       <p className="font-medium">Data de Início</p>
                       <p className="text-muted-foreground">{formatDate(searchData.startDate)}</p>

@@ -32,6 +32,8 @@ import PessoasProjeto from "./pages/PessoasProjeto";
 import HeatmapPage from "./pages/HeatmapPage";
 import UserManagement from "./pages/UserManagement";
 import NotFound from "./pages/NotFound";
+import { HeatmapTest } from "./components/HeatmapTest";
+import { SimpleHeatmap } from "./components/SimpleHeatmap";
 
 const queryClient = new QueryClient();
 
@@ -56,8 +58,11 @@ const App = () => {
       <BrowserRouter>
         <AuthProvider>
           <Routes>
-            {/* Rota pública da landing page */}
-            <Route path="/" element={<LandingPage />} />
+            {/* Rota pública da landing page - TEMPORARIAMENTE DESABILITADA */}
+            {/* <Route path="/" element={<LandingPage />} /> */}
+            
+            {/* Redirecionamento temporário para login */}
+            <Route path="/" element={<Login />} />
             
             {/* Rota pública de resultados de busca */}
             <Route path="/resultados" element={<SearchResults />} />
@@ -102,6 +107,24 @@ const App = () => {
             <Route path="/heatmap" element={
               <ProtectedRoute>
                 <HeatmapPage />
+              </ProtectedRoute>
+            } />
+            
+            {/* Rota temporária para teste do heatmap */}
+            <Route path="/test-heatmap" element={
+              <ProtectedRoute>
+                <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+                  <HeatmapTest />
+                </div>
+              </ProtectedRoute>
+            } />
+            
+            {/* Rota temporária para heatmap simplificado */}
+            <Route path="/simple-heatmap" element={
+              <ProtectedRoute>
+                <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+                  <SimpleHeatmap />
+                </div>
               </ProtectedRoute>
             } />
             

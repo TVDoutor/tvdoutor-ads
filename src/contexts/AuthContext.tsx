@@ -287,10 +287,10 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
               if (mounted) {
                 setProfile(userProfile);
                 
-                // Inicializar sessão do usuário para monitoramento
-                userSessionService.initializeSession().catch((error) => {
-                  console.error('Erro ao inicializar sessão de usuário:', error);
-                });
+                // DESABILITADO TEMPORARIAMENTE: Sistema de sessões causando instabilidade
+                // userSessionService.initializeSession().catch((error) => {
+                //   console.error('Erro ao inicializar sessão de usuário:', error);
+                // });
               }
             } catch (profileError) {
               logError('Error fetching initial profile', profileError);

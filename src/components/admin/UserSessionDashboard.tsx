@@ -42,25 +42,33 @@ export const UserSessionDashboard: React.FC<UserSessionDashboardProps> = ({ clas
   useEffect(() => {
     checkPermissionsAndLoadData();
     
-    // Atualizar dados a cada 30 segundos
-    const interval = setInterval(() => {
-      if (isSuperAdmin) {
-        loadOnlineStats();
-      }
-    }, 30000);
+    // DESABILITADO: Auto-refresh causando sobrecarga
+    // const interval = setInterval(() => {
+    //   if (isSuperAdmin) {
+    //     loadOnlineStats();
+    //   }
+    // }, 30000);
 
-    return () => clearInterval(interval);
+    // return () => clearInterval(interval);
   }, [isSuperAdmin]);
 
   const checkPermissionsAndLoadData = async () => {
-    const hasPermission = await userSessionService.isSuperAdmin();
-    setIsSuperAdmin(hasPermission);
-    
-    if (hasPermission) {
-      await loadOnlineStats();
-      await loadSessionHistory();
+    try {
+      const hasPermission = await userSessionService.isSuperAdmin();
+      setIsSuperAdmin(hasPermission);
+      
+      if (hasPermission) {
+        await Promise.allSettled([
+          loadOnlineStats(),
+          loadSessionHistory()
+        ]);
+      }
+    } catch (error) {
+      console.error('Erro ao verificar permissões:', error);
+      toast.error('Erro ao carregar dados do monitor');
+    } finally {
+      setIsLoading(false);
     }
-    setIsLoading(false);
   };
 
   const loadOnlineStats = async () => {

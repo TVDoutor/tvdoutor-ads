@@ -156,7 +156,7 @@ const Index = () => {
             </div>
 
             {/* V2.0 Interactive Tools */}
-            <Tabs defaultValue="calculator" className="w-full">
+            <Tabs defaultValue="calculator" className="w-full h-full">
               <TabsList className="bg-white/10 backdrop-blur-sm">
                 <TabsTrigger value="calculator" className="data-[state=active]:bg-white/20">
                   <Calculator className="w-4 h-4 mr-2" />
@@ -168,8 +168,8 @@ const Index = () => {
                 </TabsTrigger>
               </TabsList>
               
-              <TabsContent value="calculator" className="mt-6">
-                <div className="bg-white/5 backdrop-blur-sm rounded-lg p-6">
+              <TabsContent value="calculator" className="mt-6 h-full flex">
+                <div className="bg-white/5 backdrop-blur-sm rounded-lg p-6 h-full w-full flex">
                   <AudienceCalculator />
                 </div>
               </TabsContent>

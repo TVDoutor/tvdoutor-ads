@@ -152,7 +152,7 @@ export const Sidebar = ({ isCollapsed = false, className, onToggle }: SidebarPro
   return (
     <TooltipProvider>
       <aside className={cn(
-        "bg-slate-900 flex flex-col transition-all duration-300 h-screen",
+        "bg-slate-900 flex flex-col transition-all duration-300 h-screen fixed left-0 top-0 z-40",
         isCollapsed ? "w-16" : "w-64",
         className
       )}>
@@ -184,7 +184,7 @@ export const Sidebar = ({ isCollapsed = false, className, onToggle }: SidebarPro
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 p-4 space-y-2">
+        <nav className="flex-1 p-4 space-y-2 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-slate-800">
           {(() => {
             const filteredItems = menuItems.filter((item) => !item.requiredRole || hasRole(item.requiredRole));
             console.log('Menu Items Filtered:', {

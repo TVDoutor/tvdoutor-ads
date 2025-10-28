@@ -156,7 +156,8 @@ const NewProposal = () => {
 
   return (
     <DashboardLayout>
-      <div className="bg-gradient-to-br from-slate-50 to-blue-50/30">
+      {/* Wrapper ocupa 100% da viewport considerando sidebar fixo */}
+      <div className="bg-gradient-to-br from-slate-50 to-blue-50/30 min-h-screen flex flex-col">
         {/* Header */}
         <div className="bg-white border-b border-gray-200 shadow-sm">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
@@ -255,8 +256,8 @@ const NewProposal = () => {
           </div>
         </div>
 
-        {/* Main Content */}
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-4">
+        {/* Main Content - cresce para ocupar o espaço restante e permitir scroll interno */}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-6 flex-1 w-full">
           {loading ? (
             <Card>
               <CardContent className="p-12">

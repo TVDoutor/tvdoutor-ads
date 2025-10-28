@@ -359,8 +359,8 @@ export const NewProposalWizardImproved: React.FC<NewProposalWizardProps> = ({
   };
 
   return (
-    <div className="px-6 pt-6 pb-4">
-      <div className="max-w-6xl mx-auto">
+    <div className="px-6 pt-6 pb-4 h-full flex flex-col">
+      <div className="max-w-6xl mx-auto w-full flex-1 flex flex-col">
         {/* Header */}
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Nova Proposta</h1>
@@ -407,14 +407,14 @@ export const NewProposalWizardImproved: React.FC<NewProposalWizardProps> = ({
         </div>
 
         {/* Main Content */}
-        <Card className="shadow-xl border-0">
+        <Card className="shadow-xl border-0 flex flex-1 min-h-0">
           <CardHeader className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-t-lg">
             <CardTitle className="flex items-center gap-3">
               {React.createElement(STEPS[currentStep - 1].icon, { className: "w-6 h-6" })}
               {STEPS[currentStep - 1].title}
             </CardTitle>
           </CardHeader>
-          <CardContent className="px-8 pt-8 pb-6">
+          <CardContent className="px-8 pt-8 pb-6 flex-1 overflow-auto min-h-0">
             {renderStepContent()}
           </CardContent>
         </Card>

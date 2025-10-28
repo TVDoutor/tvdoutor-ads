@@ -1,6 +1,0 @@
-code,display_name,address_raw,city,state,class,specialty,lat,lng,base_daily_traffic,category,venue_type_parent,venue_type_child,venue_type_grandchildren,active
-P2000.1,"Shopping Iguatemi - Hall Principal","Av. Brigadeiro Luiz Antonio, 2232","São Paulo","SP","A","{""Shopping"",""Varejo""}",-23.550520,-46.633308,50000,"Shopping","Shopping","Hall Principal","Recepção",true
-P2000.2,"Hospital Sírio-Libanês - Recepção","R. Dona Adma Jafet, 91","São Paulo","SP","A","{""Saúde"",""Hospital""}",-23.550520,-46.633308,25000,"Hospital","Hospital","Recepção","Hall Principal",true
-P2000.3,"Farmácia Popular - Entrada","R. Augusta, 1000","São Paulo","SP","C","{""Farmácia"",""Saúde""}",-23.550520,-46.633308,15000,"Farmácia","Farmácia","Entrada","Balcão",true
-P2000.4,"Aeroporto Guarulhos - Terminal 1","Rod. Hélio Smidt, s/n","Guarulhos","SP","A","{""Aeroporto"",""Transporte""}",-23.432075,-46.469511,85000,"Aeroporto","Aeroporto","Terminal 1","Check-in",true
-P2000.5,"Shopping Center Norte - Praça Central","Av. Paulista, 1500","São Paulo","SP","AB","{""Shopping"",""Varejo""}",-23.550520,-46.633308,35000,"Shopping","Shopping","Praça Central","Food Court",true

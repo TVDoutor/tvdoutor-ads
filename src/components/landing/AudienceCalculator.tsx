@@ -261,7 +261,7 @@ export const AudienceCalculator = () => {
   };
 
   return (
-    <Card className="w-full max-w-2xl mx-auto">
+    <Card className="w-full h-full max-w-none mx-auto flex flex-col">
       <CardHeader>
         <div className="flex items-center gap-2">
           <Calculator className="w-5 h-5 text-primary" />
@@ -271,7 +271,7 @@ export const AudienceCalculator = () => {
           Descubra quantos pacientes você pode alcançar com mídia digital segmentada
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-6">
+      <CardContent className="space-y-6 flex-1 overflow-auto min-h-0">
         {/* Toggle para seleção múltipla */}
         <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
           <div className="flex items-center space-x-2">

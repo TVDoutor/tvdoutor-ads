@@ -23,9 +23,9 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   // Se o usuário estiver logado, usar layout com sidebar ocupando toda a lateral
   if (profile) {
     return (
-      <div className="h-screen bg-background flex overflow-hidden">
-        {/* Desktop Sidebar - Ocupa toda a lateral esquerda com altura fixa */}
-        <div className="hidden lg:block h-screen">
+      <div className="h-screen bg-background">
+        {/* Desktop Sidebar - Fixo na lateral esquerda */}
+        <div className="hidden lg:block">
           <Sidebar 
             isCollapsed={isSidebarCollapsed} 
             onToggle={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
@@ -45,8 +45,8 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
           </div>
         )}
         
-        {/* Main Content */}
-        <main className="flex-1 h-screen overflow-auto">
+        {/* Main Content - Com margem para compensar o sidebar fixo */}
+        <main className={`h-screen overflow-auto transition-all duration-300 ${isSidebarCollapsed ? 'lg:ml-16' : 'lg:ml-64'} flex flex-col`}>
           {children}
         </main>
       </div>

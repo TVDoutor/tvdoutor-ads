@@ -180,13 +180,18 @@ class UserSessionService {
    */
   async getSessionHistory(filters?: SessionHistoryFilters): Promise<SessionHistory[]> {
     try {
-      // Construir query base
+      // Intervalo padrão: últimos 30 dias
+      const defaultStart = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+      const defaultEnd = new Date().toISOString();
+
+      const startISO = filters?.startDate ?? defaultStart;
+      const endISO = filters?.endDate ?? defaultEnd;
+
+      // 1) Buscar histórico de sessões real no banco
       let query = supabase
         .from('user_session_history')
         .select(`
           user_id,
-          email,
-          full_name,
           started_at,
           ended_at,
           duration_minutes,
@@ -194,88 +199,79 @@ class UserSessionService {
           ip_address,
           user_agent
         `)
-        .order('ended_at', { ascending: false });
+        .gte('started_at', startISO)
+        .lte('started_at', endISO)
+        .order('started_at', { ascending: false });
 
-      // Filtrar por período
-      if (filters.startDate || filters.endDate) {
-        const startDate = filters.startDate ? new Date(filters.startDate) : null;
-        const endDate = filters.endDate ? new Date(filters.endDate) : null;
-
-        mockData = mockData.filter(session => {
-          const sessionDate = new Date(session.started_at);
-          
-          if (startDate && sessionDate < startDate) return false;
-          if (endDate && sessionDate > endDate) return false;
-          
-          return true;
-        });
+      const { data: historyRows, error } = await query as any;
+      if (error) {
+        console.error('❌ Erro ao consultar user_session_history:', error);
+        return [];
       }
 
-      // Filtrar por termo de busca
-      if (filters.searchTerm) {
-        const searchTerm = filters.searchTerm.toLowerCase();
-        mockData = mockData.filter(session => 
-          session.email.toLowerCase().includes(searchTerm) ||
-          (session.full_name && session.full_name.toLowerCase().includes(searchTerm))
+      const rows = (historyRows || []) as Array<{
+        user_id: string;
+        started_at: string;
+        ended_at?: string;
+        duration_minutes?: number;
+        ended_by?: string;
+        ip_address?: string;
+        user_agent?: string;
+      }>;
+
+      if (rows.length === 0) return [];
+
+      // 2) Enriquecer com email e nome do usuário via tabela profiles
+      const uniqueUserIds = Array.from(new Set(rows.map(r => r.user_id).filter(Boolean)));
+      let profilesMap = new Map<string, { email: string; full_name: string }>();
+      if (uniqueUserIds.length > 0) {
+        const { data: profiles, error: pErr } = await supabase
+          .from('profiles')
+          .select('id, email, full_name')
+          .in('id', uniqueUserIds);
+
+        if (pErr) {
+          console.warn('⚠️ Erro ao buscar perfis para histórico de sessões:', pErr);
+        } else {
+          for (const p of profiles || []) {
+            profilesMap.set(p.id, { email: p.email, full_name: p.full_name });
+          }
+        }
+      }
+
+      // 3) Montar retorno com filtros de busca (se houver)
+      let result: SessionHistory[] = rows.map(r => {
+        const profile = profilesMap.get(r.user_id) || { email: '', full_name: '' };
+        return {
+          user_id: r.user_id,
+          email: profile.email,
+          full_name: profile.full_name,
+          started_at: r.started_at,
+          ended_at: r.ended_at,
+          duration_minutes: r.duration_minutes,
+          ended_by: r.ended_by,
+          ip_address: r.ip_address,
+          user_agent: r.user_agent,
+        } as SessionHistory;
+      });
+
+      const term = filters?.searchTerm?.trim().toLowerCase();
+      if (term) {
+        result = result.filter(s =>
+          (s.email && s.email.toLowerCase().includes(term)) ||
+          (s.full_name && s.full_name.toLowerCase().includes(term))
         );
       }
 
-      console.log('📊 Histórico de sessões filtrado:', {
-        total: mockData.length,
-        filters
-      });
-
-      return mockData;
+      console.log('📊 Histórico de sessões (real):', { total: result.length, startISO, endISO });
+      return result;
     } catch (error) {
       console.error('💥 Erro ao obter histórico de sessões:', error);
       return [];
     }
   }
 
-  /**
-   * Dados mockados para demonstração do histórico de sessões
-   */
-  private getMockSessionHistory(): SessionHistory[] {
-    const now = new Date();
-    const users = [
-      { id: '1', email: 'hildebrando.cardoso@tvdoctor.com.br', full_name: 'Hildebrando Cardoso' },
-      { id: '2', email: 'admin@tvdoctor.com.br', full_name: 'Administrador' },
-      { id: '3', email: 'user@tvdoctor.com.br', full_name: 'Usuário Teste' },
-      { id: '4', email: 'manager@tvdoctor.com.br', full_name: 'Gerente' },
-      { id: '5', email: 'analyst@tvdoctor.com.br', full_name: 'Analista' }
-    ];
-
-    const sessions: SessionHistory[] = [];
-    
-    // Gerar sessões para os últimos 30 dias
-    for (let i = 0; i < 30; i++) {
-      const date = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
-      const user = users[Math.floor(Math.random() * users.length)];
-      
-      // 1-3 sessões por dia por usuário
-      const sessionsPerDay = Math.floor(Math.random() * 3) + 1;
-      
-      for (let j = 0; j < sessionsPerDay; j++) {
-        const startTime = new Date(date.getTime() + Math.random() * 24 * 60 * 60 * 1000);
-        const durationMinutes = Math.floor(Math.random() * 180) + 30; // 30min a 3.5h
-        const endTime = new Date(startTime.getTime() + durationMinutes * 60 * 1000);
-        
-        sessions.push({
-          user_id: user.id,
-          email: user.email,
-          full_name: user.full_name,
-          started_at: startTime.toISOString(),
-          ended_at: endTime.toISOString(),
-          duration_minutes: durationMinutes,
-          ended_by: 'logout',
-          ip_address: `192.168.1.${Math.floor(Math.random() * 255)}`,
-          user_agent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-        });
-      }
-    }
-
-    return sessions.sort((a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime());
-  }
+  // Removidos dados mockados: somente dados reais do banco
 
   /**
    * Limpar sessões expiradas

@@ -18,13 +18,13 @@ interface AudienceResult {
 }
 
 export const AudienceCalculator = () => {
-  // Estados existentes (mantidos intactos)
-  const [specialty, setSpecialty] = useState('');
+  // Estados para seleção de cidade única (modo single)
   const [city, setCity] = useState('');
+  
+  // Estados para resultados e controle
   const [result, setResult] = useState<AudienceResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [cities, setCities] = useState<string[]>([]);
   const [availableCities, setAvailableCities] = useState<string[]>([]);
   const [loadingCities, setLoadingCities] = useState(false);
 
@@ -39,11 +39,16 @@ export const AudienceCalculator = () => {
   
   
 
-  // Novos estados para seleção múltipla (adicionados sem alterar os existentes)
+  // Novos estados para seleção múltipla de cidades (adicionados sem alterar os existentes)
   const [multiCityMode, setMultiCityMode] = useState(false);
   const [selectedCities, setSelectedCities] = useState<string[]>([]);
   const [showCityModal, setShowCityModal] = useState(false);
   const [citySearchTerm, setCitySearchTerm] = useState('');
+
+  // Novos estados para seleção múltipla de especialidades e busca por palavra-chave
+  const [selectedSpecialties, setSelectedSpecialties] = useState<string[]>([]);
+  const [showSpecialtyModal, setShowSpecialtyModal] = useState(false);
+  const [specialtySearchTerm, setSpecialtySearchTerm] = useState('');
 
   // Map simples de alcance por classe (mantém compatibilidade com a base atual)
   const reachByClass = useMemo(() => ({
@@ -59,58 +64,38 @@ export const AudienceCalculator = () => {
     'ND': 400
   } as Record<string, number>), []);
 
-  // Função para buscar cidades por especialidade (usando serviço centralizado)
-  const fetchCitiesBySpecialty = async (selectedSpecialty: string) => {
-    console.log('🔍 Buscando cidades para especialidade:', selectedSpecialty);
-    setLoadingCities(true);
-    try {
-      const cities = await SpecialtiesService.getCitiesBySpecialty(selectedSpecialty);
-      setAvailableCities(cities);
-      console.log('🏙️ Cidades encontradas:', cities.length);
-    } catch (err) {
-      console.error('❌ Erro ao buscar cidades por especialidade:', err);
-      // Fallback: usar todas as cidades disponíveis
-      setAvailableCities(cities);
-      setError('Erro ao carregar cidades específicas. Mostrando todas as cidades.');
-    } finally {
-      setLoadingCities(false);
-    }
-  };
-
-  // Carregar cidades para fallback (mantido para compatibilidade)
+  // Carregar cidades quando especialidades são selecionadas
   useEffect(() => {
-    const fetchCities = async () => {
-      try {
-        const { data: citiesRows, error: citiesError } = await supabase
-          .from('screens')
-          .select('city')
-          .not('city', 'is', null)
-          .eq('active', true as any)
-          .limit(2000);
+    const fetchCitiesForSelectedSpecialties = async () => {
+      if (selectedSpecialties.length === 0) {
+        setAvailableCities([]);
+        return;
+      }
 
-        if (citiesError) throw citiesError;
-        const uniqueCities = Array.from(new Set((citiesRows || [])
-          .map((r: any) => (r.city || '').trim())
-          .filter(Boolean)))
-          .sort((a, b) => a.localeCompare(b, 'pt-BR'));
-        setCities(uniqueCities);
-      } catch (e: any) {
-        console.error('Erro carregando cidades:', e);
+      console.log('🔍 Buscando cidades para especialidades:', selectedSpecialties);
+      setLoadingCities(true);
+      try {
+        // Buscar cidades para todas as especialidades selecionadas
+        const citiesSet = new Set<string>();
+        
+        for (const specialty of selectedSpecialties) {
+          const cities = await SpecialtiesService.getCitiesBySpecialty(specialty);
+          cities.forEach(city => citiesSet.add(city));
+        }
+        
+        const allCities = Array.from(citiesSet).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+        setAvailableCities(allCities);
+        console.log('🏙️ Cidades encontradas:', allCities.length);
+      } catch (err) {
+        console.error('❌ Erro ao buscar cidades:', err);
+        setError('Erro ao carregar cidades. Tente novamente.');
+      } finally {
+        setLoadingCities(false);
       }
     };
-    fetchCities();
-  }, []);
-
-  // Handler para mudança de especialidade (lógica existente preservada)
-  const handleSpecialtyChange = (newSpecialty: string) => {
-    console.log('🎯 Especialidade alterada para:', newSpecialty);
-    setSpecialty(newSpecialty);
-    setCity(''); // Reset cidade única
-    setSelectedCities([]); // Reset cidades múltiplas
-    setResult(null); // Reset resultado
-    setError(''); // Limpar erros
-    fetchCitiesBySpecialty(newSpecialty);
-  };
+    
+    fetchCitiesForSelectedSpecialties();
+  }, [selectedSpecialties]);
 
   // Novas funções para seleção múltipla (adicionadas sem alterar as existentes)
   const handleMultiCityToggle = (enabled: boolean) => {
@@ -157,22 +142,56 @@ export const AudienceCalculator = () => {
     );
   }, [availableCities, citySearchTerm]);
 
-  // Reset busca quando modal é fechado
-  const handleCloseModal = () => {
+  // Funções para gerenciar múltiplas especialidades
+  const handleSpecialtyToggle = (specialtyName: string, checked: boolean) => {
+    if (checked) {
+      setSelectedSpecialties(prev => [...prev, specialtyName]);
+    } else {
+      setSelectedSpecialties(prev => prev.filter(s => s !== specialtyName));
+    }
+  };
+
+  const handleSelectAllSpecialties = () => {
+    const specialtiesToSelect = filteredSpecialties.filter(
+      spec => !selectedSpecialties.includes(spec.specialty_name)
+    );
+    setSelectedSpecialties(prev => [...prev, ...specialtiesToSelect.map(s => s.specialty_name)]);
+  };
+
+  const handleClearAllSpecialties = () => {
+    setSelectedSpecialties([]);
+  };
+
+  const handleRemoveSpecialty = (specialtyName: string) => {
+    setSelectedSpecialties(prev => prev.filter(s => s !== specialtyName));
+  };
+
+  // Filtrar especialidades baseado no termo de busca (busca por palavra-chave)
+  const filteredSpecialties = useMemo(() => {
+    if (!specialtySearchTerm.trim()) return specialties;
+    const searchLower = specialtySearchTerm.toLowerCase();
+    return specialties.filter(spec => 
+      spec.specialty_name.toLowerCase().includes(searchLower)
+    );
+  }, [specialties, specialtySearchTerm]);
+
+  // Reset busca quando modals são fechados
+  const handleCloseCityModal = () => {
     setShowCityModal(false);
     setCitySearchTerm('');
   };
 
-  const handleCalculate = async () => {
-    // Validação adaptada para ambos os modos
-    const hasValidSelection = multiCityMode 
-      ? (selectedCities.length > 0)
-      : (city.length > 0);
+  const handleCloseSpecialtyModal = () => {
+    setShowSpecialtyModal(false);
+    setSpecialtySearchTerm('');
+  };
 
-    if (!specialty || !hasValidSelection) {
-      setError(multiCityMode 
-        ? 'Por favor, selecione uma especialidade e pelo menos uma cidade'
-        : 'Por favor, selecione uma especialidade e uma cidade');
+  const handleCalculate = async () => {
+    // Validação - apenas especialidades são obrigatórias
+    const hasValidSpecialties = selectedSpecialties.length > 0;
+
+    if (!hasValidSpecialties) {
+      setError('Por favor, selecione pelo menos uma especialidade');
       return;
     }
 
@@ -181,68 +200,95 @@ export const AudienceCalculator = () => {
 
     try {
       console.log('🧮 Calculando alcance:', {
-        specialty,
+        specialties: selectedSpecialties,
         mode: multiCityMode ? 'multiple' : 'single',
-        cities: multiCityMode ? selectedCities : [city]
+        cities: multiCityMode ? selectedCities : (city ? [city] : 'todas'),
+        hasCityFilter: multiCityMode ? selectedCities.length > 0 : city.length > 0
       });
 
-      // Preferir view enriquecida; se der erro, usar tabela screens
-      let query = supabase
-        .from('v_screens_enriched')
-        .select('id, class, city, specialty, venue_name, display_name, name')
-        .not('class', 'is', null);
+      // Acumular resultados de todas as especialidades selecionadas
+      let allRows: Array<{ id: string; class?: string | null; specialty?: string[] | null; venue_name?: string | null; display_name?: string | null; name?: string | null; city?: string | null }> = [];
 
-      // Filtrar por cidade(s) - ADAPTAÇÃO PARA MODO MÚLTIPLO
-      if (multiCityMode) {
-        // Modo múltiplo: usar operador .in() para array de cidades
-        query = (query as any).in('city', selectedCities);
-      } else {
-        // Modo único: usar .ilike() como antes (lógica existente preservada)
-        query = (query as any).ilike('city', `%${city}%`);
-      }
+      // Buscar dados para cada especialidade
+      for (const selectedSpecialty of selectedSpecialties) {
+        console.log('🔍 Buscando telas para especialidade:', selectedSpecialty);
+        
+        // Preferir view enriquecida; se der erro, usar tabela screens
+        // Buscar TODAS as telas primeiro e filtrar no cliente para ter busca parcial
+        let query = supabase
+          .from('v_screens_enriched')
+          .select('id, class, city, specialty, venue_name, display_name, name')
+          .not('class', 'is', null)
+          .not('specialty', 'is', null);
 
-      // Filtrar especialidade (array text[]) - LÓGICA EXISTENTE PRESERVADA
-      // Supabase suporta contains para arrays
-      // Ex.: .contains('specialty', ['Dermatologia'])
-      query = (query as any).contains('specialty', [specialty]);
-
-      let { data, error: qError } = await query as any;
-
-      if (qError) {
-        // Fallback para screens - LÓGICA EXISTENTE PRESERVADA COM ADAPTAÇÃO
-        let fbQuery = supabase
-          .from('screens')
-          .select('id, class, city, specialty, display_name, name')
-          .contains('specialty', [specialty]);
-
-        // Aplicar filtro de cidade no fallback também
-        if (multiCityMode) {
-          fbQuery = (fbQuery as any).in('city', selectedCities);
-        } else {
-          fbQuery = (fbQuery as any).ilike('city', `%${city}%`);
+        // Aplicar filtro de cidade se houver
+        const hasCityFilter = multiCityMode ? selectedCities.length > 0 : city.length > 0;
+        
+        if (hasCityFilter) {
+          if (multiCityMode) {
+            query = (query as any).in('city', selectedCities);
+          } else {
+            query = (query as any).ilike('city', `%${city}%`);
+          }
         }
 
-        const fb = await fbQuery;
-        data = fb.data as any[] | null;
-        qError = fb.error as any;
+        let { data, error: qError } = await query as any;
+
+        if (qError) {
+          console.log('⚠️ Erro na view enriquecida, usando fallback para screens');
+          // Fallback para screens
+          let fbQuery = supabase
+            .from('screens')
+            .select('id, class, city, specialty, display_name, name')
+            .not('specialty', 'is', null);
+
+          // Aplicar filtro de cidade no fallback
+          if (hasCityFilter) {
+            if (multiCityMode) {
+              fbQuery = (fbQuery as any).in('city', selectedCities);
+            } else {
+              fbQuery = (fbQuery as any).ilike('city', `%${city}%`);
+            }
+          }
+
+          const fb = await fbQuery;
+          data = fb.data as any[] | null;
+          qError = fb.error as any;
+        }
+
+        if (!qError && data) {
+          // Filtrar no cliente para fazer busca parcial (como no inventário)
+          const filteredData = data.filter((row: any) => {
+            if (!row.specialty || !Array.isArray(row.specialty)) return false;
+            
+            // Verificar se QUALQUER especialidade no array CONTÉM a palavra-chave selecionada
+            return row.specialty.some((spec: string) => 
+              spec.toLowerCase().includes(selectedSpecialty.toLowerCase())
+            );
+          });
+          
+          console.log(`✅ Encontradas ${filteredData.length} telas para "${selectedSpecialty}"`);
+          allRows = [...allRows, ...filteredData];
+        } else {
+          console.log(`⚠️ Nenhuma tela encontrada para "${selectedSpecialty}"`);
+        }
       }
 
-      if (qError) throw qError;
-      const rows = (data || []) as Array<{ id: string; class?: string | null; specialty?: string[] | null; venue_name?: string | null; display_name?: string | null; name?: string | null }>;
-
       console.log('📊 Dados obtidos:', {
-        totalRows: rows.length,
+        totalRows: allRows.length,
+        specialties: selectedSpecialties,
         cities: multiCityMode ? selectedCities : [city]
       });
 
       // Contabilizar "clínicas" por nome do local (venue/display/name) para evitar duplicidade por múltiplas telas
-      // LÓGICA EXISTENTE PRESERVADA
+      // Usamos Set para evitar contagem duplicada quando uma clínica tem múltiplas especialidades
       const venueKey = (r: any) => (r.venue_name || r.display_name || r.name || r.id || '').toString();
-      const uniqueVenueCount = Array.from(new Set(rows.map(venueKey))).length;
+      const uniqueVenueCount = Array.from(new Set(allRows.map(venueKey))).length;
 
       // Estimar pacientes/mês somando alcance estimado por classe
-      // LÓGICA EXISTENTE PRESERVADA
-      const estimatedPatients = rows.reduce((sum, r) => {
+      // Remove duplicatas por ID antes de calcular para evitar contar a mesma tela múltiplas vezes
+      const uniqueRows = Array.from(new Map(allRows.map(r => [r.id, r])).values());
+      const estimatedPatients = uniqueRows.reduce((sum, r) => {
         const key = (r.class || 'ND').toUpperCase();
         const reach = reachByClass[key] ?? reachByClass['ND'];
         return sum + reach;
@@ -272,29 +318,12 @@ export const AudienceCalculator = () => {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6 flex-1 overflow-auto min-h-0">
-        {/* Toggle para seleção múltipla */}
-        <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
-          <div className="flex items-center space-x-2">
-            <CheckSquare className="w-4 h-4 text-primary" />
-            <span className="text-sm font-medium">Selecionar mais de uma cidade</span>
-          </div>
-          <div className="flex items-center space-x-2">
-            <span className="text-xs text-muted-foreground">Não</span>
-            <Button
-              variant={multiCityMode ? "default" : "outline"}
-              size="sm"
-              onClick={() => handleMultiCityToggle(!multiCityMode)}
-              disabled={!specialty}
-            >
-              Sim
-            </Button>
-          </div>
-        </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4">
+          {/* Seção de Especialidades - Agora com seleção múltipla e busca */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <label className="text-sm font-medium">Especialidade Médica</label>
+              <label className="text-sm font-medium">Especialidades Médicas</label>
               <div className="flex items-center gap-2">
                 {isUsingFallback && (
                   <Badge variant="secondary" className="text-xs">
@@ -303,33 +332,44 @@ export const AudienceCalculator = () => {
                 )}
               </div>
             </div>
-            <Select 
-              value={specialty} 
-              onValueChange={handleSpecialtyChange}
+            
+            <Button
+              variant="outline"
+              className="w-full justify-between h-auto min-h-[40px] py-2"
+              onClick={() => setShowSpecialtyModal(true)}
               disabled={loadingSpecialties}
             >
-              <SelectTrigger>
-                <SelectValue placeholder={
-                  loadingSpecialties 
-                    ? "Carregando especialidades..." 
-                    : specialtiesError 
-                      ? "Erro ao carregar especialidades" 
-                      : "Selecione uma especialidade"
-                } />
-              </SelectTrigger>
-              <SelectContent>
-                {specialties.map((spec) => (
-                  <SelectItem key={spec.specialty_name} value={spec.specialty_name}>
-                    <div className="flex items-center justify-between w-full">
-                      <span>{spec.specialty_name}</span>
-                      <Badge variant="outline" className="text-xs ml-2">
-                        {spec.total_occurrences}
-                      </Badge>
+              <div className="flex items-center gap-2 flex-wrap">
+                <Search className="w-4 h-4 shrink-0" />
+                {selectedSpecialties.length === 0 
+                  ? (loadingSpecialties 
+                      ? "Carregando especialidades..." 
+                      : "Buscar especialidades (ex: Cardio, Pediatria)")
+                  : (
+                    <div className="flex flex-wrap gap-1">
+                      {selectedSpecialties.slice(0, 2).map((spec) => (
+                        <Badge key={spec} variant="secondary" className="text-xs">
+                          {spec}
+                        </Badge>
+                      ))}
+                      {selectedSpecialties.length > 2 && (
+                        <Badge variant="secondary" className="text-xs">
+                          +{selectedSpecialties.length - 2} mais
+                        </Badge>
+                      )}
                     </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+                  )
+                }
+              </div>
+              <CheckSquare className="w-4 h-4 shrink-0" />
+            </Button>
+            
+            {selectedSpecialties.length > 0 && (
+              <div className="text-xs text-muted-foreground">
+                {selectedSpecialties.length} especialidade(s) selecionada(s)
+              </div>
+            )}
+            
             {specialtiesError && (
               <div className="flex items-center gap-2 text-xs text-destructive">
                 <span>Erro ao carregar especialidades</span>
@@ -345,24 +385,46 @@ export const AudienceCalculator = () => {
             )}
           </div>
 
+          {/* Toggle de múltiplas cidades */}
+          <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+            <div className="flex items-center space-x-2">
+              <CheckSquare className="w-4 h-4 text-primary" />
+              <span className="text-sm font-medium">Selecionar mais de uma cidade</span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <span className="text-xs text-muted-foreground">Não</span>
+              <Button
+                variant={multiCityMode ? "default" : "outline"}
+                size="sm"
+                onClick={() => handleMultiCityToggle(!multiCityMode)}
+                disabled={selectedSpecialties.length === 0}
+              >
+                Sim
+              </Button>
+            </div>
+          </div>
+
+          {/* Seção de Cidades */}
           <div className="space-y-2">
-            <label className="text-sm font-medium">Cidade</label>
+            <label className="text-sm font-medium">
+              Cidade <span className="text-xs text-muted-foreground">(Opcional)</span>
+            </label>
             {!multiCityMode ? (
               // Modo único (lógica existente preservada)
               <Select 
                 value={city} 
                 onValueChange={setCity}
-                disabled={!specialty || loadingCities}
+                disabled={selectedSpecialties.length === 0 || loadingCities}
               >
                 <SelectTrigger>
                   <SelectValue placeholder={
-                    !specialty 
-                      ? "Selecione uma especialidade primeiro" 
+                    selectedSpecialties.length === 0
+                      ? "Selecione especialidades primeiro" 
                       : loadingCities 
                         ? "Carregando cidades..." 
                         : availableCities.length === 0
                           ? "Nenhuma cidade encontrada"
-                          : "Selecione uma cidade"
+                          : "Todas as cidades (ou selecione uma)"
                   } />
                 </SelectTrigger>
                 <SelectContent>
@@ -380,12 +442,12 @@ export const AudienceCalculator = () => {
                   variant="outline"
                   className="w-full justify-between h-10"
                   onClick={() => setShowCityModal(true)}
-                  disabled={!specialty || loadingCities}
+                  disabled={selectedSpecialties.length === 0 || loadingCities}
                 >
                   <div className="flex items-center gap-2">
                     <MapPin className="w-4 h-4" />
                     {selectedCities.length === 0 
-                      ? (loadingCities ? "Carregando cidades..." : "Selecionar cidades")
+                      ? (loadingCities ? "Carregando cidades..." : "Todas as cidades (ou selecione)")
                       : `${selectedCities.length} cidade(s) selecionada(s)`
                     }
                   </div>
@@ -393,17 +455,24 @@ export const AudienceCalculator = () => {
                 </Button>
                 
                 {/* Indicador compacto de cidades selecionadas */}
-                {selectedCities.length > 0 && (
+                {selectedCities.length > 0 ? (
                   <div className="text-xs text-muted-foreground">
                     Clique para gerenciar seleção ({selectedCities.length} cidades)
+                  </div>
+                ) : (
+                  <div className="text-xs text-muted-foreground">
+                    Clique para filtrar por cidades específicas (opcional)
                   </div>
                 )}
               </div>
             )}
             
-            {specialty && availableCities.length === 0 && !loadingCities && (
-              <p className="text-xs text-muted-foreground">
-                Nenhuma cidade encontrada com a especialidade "{specialty}"
+            {selectedSpecialties.length > 0 && (
+              <p className="text-xs text-muted-foreground mt-2">
+                {availableCities.length === 0 && !loadingCities
+                  ? "Nenhuma cidade encontrada com as especialidades selecionadas"
+                  : "Deixe em branco para buscar em todas as cidades disponíveis"
+                }
               </p>
             )}
           </div>
@@ -411,7 +480,7 @@ export const AudienceCalculator = () => {
 
         <Button 
           onClick={handleCalculate} 
-          disabled={loading || loadingSpecialties || !specialty || (multiCityMode ? selectedCities.length === 0 : !city)}
+          disabled={loading || loadingSpecialties || selectedSpecialties.length === 0}
           className="w-full"
         >
           {loading ? (
@@ -443,7 +512,9 @@ export const AudienceCalculator = () => {
                 </div>
                 <div>
                   <p className="text-2xl font-bold text-primary">{result.clinic_count}</p>
-                  <p className="text-sm text-muted-foreground">Clínicas de {specialty}</p>
+                  <p className="text-sm text-muted-foreground">
+                    Clínicas {selectedSpecialties.length > 1 ? 'encontradas' : `de ${selectedSpecialties[0]}`}
+                  </p>
                 </div>
               </div>
 
@@ -464,31 +535,196 @@ export const AudienceCalculator = () => {
               <div className="flex items-start gap-2">
                 <Badge variant="secondary" className="shrink-0">💡 Insight</Badge>
                 <p className="text-sm">
-                  {multiCityMode ? (
-                    <>
-                      Em {selectedCities.length} cidade(s) selecionada(s), você pode alcançar até <strong>{result.estimated_patients_monthly.toLocaleString('pt-BR')} pacientes</strong> por mês 
-                      através de telas estrategicamente posicionadas em {result.clinic_count} clínicas especializadas em {specialty}.
-                    </>
-                  ) : (
-                    <>
-                      Em {city}, você pode alcançar até <strong>{result.estimated_patients_monthly.toLocaleString('pt-BR')} pacientes</strong> por mês 
-                      através de telas estrategicamente posicionadas em {result.clinic_count} clínicas especializadas em {specialty}.
-                    </>
-                  )}
+                  {(() => {
+                    const specialtyText = selectedSpecialties.length === 1 
+                      ? selectedSpecialties[0]
+                      : `${selectedSpecialties.length} especialidades (${selectedSpecialties.slice(0, 2).join(', ')}${selectedSpecialties.length > 2 ? '...' : ''})`;
+                    
+                    const hasCityFilter = multiCityMode ? selectedCities.length > 0 : city.length > 0;
+                    
+                    if (!hasCityFilter) {
+                      return (
+                        <>
+                          Em <strong>todas as cidades disponíveis</strong>, você pode alcançar até <strong>{result.estimated_patients_monthly.toLocaleString('pt-BR')} pacientes</strong> por mês 
+                          através de telas estrategicamente posicionadas em {result.clinic_count} clínicas especializadas em {specialtyText}.
+                        </>
+                      );
+                    }
+                    
+                    if (multiCityMode && selectedCities.length > 0) {
+                      return (
+                        <>
+                          Em {selectedCities.length} cidade(s) selecionada(s), você pode alcançar até <strong>{result.estimated_patients_monthly.toLocaleString('pt-BR')} pacientes</strong> por mês 
+                          através de telas estrategicamente posicionadas em {result.clinic_count} clínicas especializadas em {specialtyText}.
+                        </>
+                      );
+                    }
+                    
+                    return (
+                      <>
+                        Em {city}, você pode alcançar até <strong>{result.estimated_patients_monthly.toLocaleString('pt-BR')} pacientes</strong> por mês 
+                        através de telas estrategicamente posicionadas em {result.clinic_count} clínicas especializadas em {specialtyText}.
+                      </>
+                    );
+                  })()}
                 </p>
               </div>
             </div>
           </div>
         )}
 
-        {/* Modal de seleção múltipla de cidades - OTIMIZADO */}
-        <Dialog open={showCityModal} onOpenChange={handleCloseModal}>
+        {/* Modal de seleção múltipla de especialidades */}
+        <Dialog open={showSpecialtyModal} onOpenChange={handleCloseSpecialtyModal}>
+          <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Search className="w-5 h-5 text-primary" />
+                Buscar Especialidades Médicas
+              </DialogTitle>
+            </DialogHeader>
+            
+            <div className="flex-1 space-y-4 flex flex-col">
+              {/* Barra de busca por palavra-chave */}
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  placeholder="Digite palavra-chave (ex: Cardio, Pediatria)..."
+                  value={specialtySearchTerm}
+                  onChange={(e) => setSpecialtySearchTerm(e.target.value)}
+                  className="pl-10"
+                  autoFocus
+                />
+              </div>
+
+              {/* Controles de seleção */}
+              <div className="flex items-center justify-between p-4 bg-gradient-to-r from-primary/5 to-secondary/5 rounded-lg border">
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <CheckSquare className="w-4 h-4 text-primary" />
+                    <span className="text-sm font-medium">
+                      {selectedSpecialties.length} de {specialties.length} especialidades selecionadas
+                    </span>
+                  </div>
+                  {specialtySearchTerm && (
+                    <Badge variant="secondary" className="text-xs">
+                      {filteredSpecialties.length} encontradas
+                    </Badge>
+                  )}
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleSelectAllSpecialties}
+                    disabled={filteredSpecialties.length === 0}
+                  >
+                    Selecionar Todas
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleClearAllSpecialties}
+                    disabled={selectedSpecialties.length === 0}
+                  >
+                    Limpar Seleção
+                  </Button>
+                </div>
+              </div>
+
+              {/* Especialidades selecionadas (resumo compacto) */}
+              {selectedSpecialties.length > 0 && (
+                <div className="p-3 bg-muted/30 rounded-lg border">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Badge variant="default" className="text-xs">
+                      Selecionadas: {selectedSpecialties.length}
+                    </Badge>
+                  </div>
+                  <ScrollArea className="h-20">
+                    <div className="flex flex-wrap gap-1">
+                      {selectedSpecialties.map((specName) => (
+                        <Badge key={specName} variant="secondary" className="text-xs">
+                          {specName}
+                          <button
+                            onClick={() => handleRemoveSpecialty(specName)}
+                            className="ml-1 hover:bg-destructive/20 rounded-full p-0.5"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </Badge>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                </div>
+              )}
+
+              {/* Lista de especialidades */}
+              <div className="flex-1 border rounded-lg">
+                <ScrollArea className="h-96">
+                  <div className="p-4 space-y-1">
+                    {filteredSpecialties.length === 0 ? (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <Search className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                        <p>Nenhuma especialidade encontrada</p>
+                        {specialtySearchTerm && (
+                          <p className="text-xs">Tente um termo de busca diferente</p>
+                        )}
+                      </div>
+                    ) : (
+                      filteredSpecialties.map((spec) => (
+                        <div key={spec.specialty_name} className="flex items-center space-x-3 p-3 hover:bg-muted/50 rounded-lg transition-colors">
+                          <Checkbox
+                            id={spec.specialty_name}
+                            checked={selectedSpecialties.includes(spec.specialty_name)}
+                            onCheckedChange={(checked) => handleSpecialtyToggle(spec.specialty_name, checked as boolean)}
+                          />
+                          <label 
+                            htmlFor={spec.specialty_name}
+                            className="flex-1 text-sm cursor-pointer font-medium"
+                          >
+                            {spec.specialty_name}
+                          </label>
+                          <Badge variant="outline" className="text-xs">
+                            {spec.total_occurrences}
+                          </Badge>
+                          {selectedSpecialties.includes(spec.specialty_name) && (
+                            <Badge variant="default" className="text-xs">
+                              ✓
+                            </Badge>
+                          )}
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </ScrollArea>
+              </div>
+            </div>
+
+            <DialogFooter className="gap-2">
+              <Button variant="outline" onClick={handleCloseSpecialtyModal}>
+                Cancelar
+              </Button>
+              <Button 
+                onClick={handleCloseSpecialtyModal}
+                disabled={selectedSpecialties.length === 0}
+                className="min-w-[180px]"
+              >
+                Confirmar ({selectedSpecialties.length} especialidades)
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Modal de seleção múltipla de cidades */}
+        <Dialog open={showCityModal} onOpenChange={handleCloseCityModal}>
           <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <MapPin className="w-5 h-5 text-primary" />
-                Selecionar Cidades para {specialty}
+                Selecionar Cidades (Opcional)
               </DialogTitle>
+              <p className="text-sm text-muted-foreground">
+                Filtre por cidades específicas ou deixe em branco para buscar em todas as cidades disponíveis
+              </p>
             </DialogHeader>
             
             <div className="flex-1 space-y-4 flex flex-col">
@@ -604,15 +840,17 @@ export const AudienceCalculator = () => {
             </div>
 
             <DialogFooter className="gap-2">
-              <Button variant="outline" onClick={handleCloseModal}>
+              <Button variant="outline" onClick={handleCloseCityModal}>
                 Cancelar
               </Button>
               <Button 
-                onClick={handleCloseModal}
-                disabled={selectedCities.length === 0}
+                onClick={handleCloseCityModal}
                 className="min-w-[140px]"
               >
-                Confirmar ({selectedCities.length} cidades)
+                {selectedCities.length === 0 
+                  ? "Confirmar (Todas as cidades)"
+                  : `Confirmar (${selectedCities.length} cidades)`
+                }
               </Button>
             </DialogFooter>
           </DialogContent>

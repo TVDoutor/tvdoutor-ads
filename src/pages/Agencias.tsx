@@ -176,20 +176,52 @@ export default function Agencias() {
     e.preventDefault();
     
     try {
+      // Validar campos obrigatórios
+      if (!formData.nome_agencia || !formData.codigo_agencia) {
+        toast.error('Nome da agência e código são obrigatórios!');
+        return;
+      }
+
       if (editingAgencia) {
         const { error } = await supabase
           .from('agencias')
           .update(formData)
           .eq('id', editingAgencia.id);
 
-        if (error) throw error;
+        if (error) {
+          if (error.code === '23505') {
+            toast.error('Já existe uma agência com este código ou CNPJ!');
+          } else {
+            throw error;
+          }
+          return;
+        }
         toast.success('Agência atualizada com sucesso!');
       } else {
+        // Verificar se o código já existe antes de inserir
+        const { data: existing } = await supabase
+          .from('agencias')
+          .select('id')
+          .eq('codigo_agencia', formData.codigo_agencia)
+          .single();
+
+        if (existing) {
+          toast.error(`Já existe uma agência com o código ${formData.codigo_agencia}!`);
+          return;
+        }
+
         const { error } = await supabase
           .from('agencias')
           .insert([formData]);
 
-        if (error) throw error;
+        if (error) {
+          if (error.code === '23505') {
+            toast.error('Já existe uma agência com este código ou CNPJ!');
+          } else {
+            throw error;
+          }
+          return;
+        }
         toast.success('Agência criada com sucesso!');
       }
 
@@ -198,7 +230,7 @@ export default function Agencias() {
       loadAgencias();
     } catch (error: any) {
       console.error('Erro ao salvar agência:', error);
-      toast.error(`Erro ao salvar agência: ${error.message}`);
+      toast.error(`Erro ao salvar agência: ${error.message || 'Erro desconhecido'}`);
     }
   };
 

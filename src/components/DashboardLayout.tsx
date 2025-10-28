@@ -3,6 +3,7 @@ import { Header } from "@/components/Header";
 import { Sidebar } from "@/components/Sidebar";
 import { TVDoutorFooter } from "@/components/Footer";
 import { useAuth } from "@/contexts/AuthContext";
+import { useUserSession } from "@/hooks/useUserSession";
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -10,6 +11,8 @@ interface DashboardLayoutProps {
 
 export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   const { profile } = useAuth();
+  // Inicializa rastreamento de sessão (usa supabase.auth internamente)
+  useUserSession();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
     const saved = localStorage.getItem('sidebar-collapsed');
     return saved ? JSON.parse(saved) : false;

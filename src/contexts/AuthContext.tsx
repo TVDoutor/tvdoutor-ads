@@ -631,8 +631,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   const signOut = async () => {
     try {
-      // TEMPORÁRIO: Sistema de sessões desabilitado
-      // await userSessionService.endSession();
+      // Finaliza sessão ativa no monitoramento antes do logout
+      await userSessionService.endSession();
       
       const { error } = await supabase.auth.signOut();
       if (error) {

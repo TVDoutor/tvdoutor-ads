@@ -171,7 +171,15 @@ class UserSessionService {
 
       if (error) {
         console.error('❌ Erro ao consultar user_sessions:', error);
-        return { total_online: 0, sessions_data: [] };
+        // Fallback: Edge Function com Service Role
+        const { data: efData, error: efError } = await supabase.functions.invoke('user-sessions', {
+          body: { action: 'online' }
+        });
+        if (efError) {
+          console.error('❌ Fallback edge function (online) falhou:', efError);
+          return { total_online: 0, sessions_data: [] };
+        }
+        return efData as OnlineUsersStats;
       }
 
       const rows = sessions || [];
@@ -248,7 +256,15 @@ class UserSessionService {
       const { data: historyRows, error } = await query as any;
       if (error) {
         console.error('❌ Erro ao consultar user_session_history:', error);
-        return [];
+        // Fallback: Edge Function com Service Role
+        const { data: efData, error: efError } = await supabase.functions.invoke('user-sessions', {
+          body: { action: 'history', startDate: startISO, endDate: endISO, searchTerm: filters?.searchTerm }
+        });
+        if (efError) {
+          console.error('❌ Fallback edge function (history) falhou:', efError);
+          return [];
+        }
+        return efData as SessionHistory[];
       }
 
       const rows = (historyRows || []) as Array<{

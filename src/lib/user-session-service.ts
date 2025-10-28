@@ -441,8 +441,10 @@ class UserSessionService {
    */
   private generateSessionToken(): string {
     const timestamp = Date.now().toString(36);
-    const random = Math.random().toString(36).substring(2);
-    return `sess_${timestamp}_${random}`;
+    const random1 = Math.random().toString(36).substring(2, 15);
+    const random2 = Math.random().toString(36).substring(2, 15);
+    const random3 = crypto.randomUUID ? crypto.randomUUID().split('-')[0] : Math.random().toString(36).substring(2, 10);
+    return `sess_${timestamp}_${random1}${random2}_${random3}`;
   }
 
   /**

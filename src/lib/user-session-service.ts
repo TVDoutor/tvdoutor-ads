@@ -45,6 +45,12 @@ class UserSessionService {
    */
   async initializeSession(): Promise<boolean> {
     try {
+      // Evitar múltiplas inicializações
+      if (this.sessionToken) {
+        console.log('⚠️ [initializeSession] Sessão já inicializada, ignorando...');
+        return true;
+      }
+
       console.log('🔵 [initializeSession] Iniciando...');
       const { data: { user }, error: userError } = await supabase.auth.getUser();
       
@@ -59,6 +65,14 @@ class UserSessionService {
       }
 
       console.log('✅ [initializeSession] Usuário autenticado:', { userId: user.id, email: user.email });
+
+      // Limpar sessões antigas do mesmo usuário (evitar duplicatas)
+      console.log('🧹 [initializeSession] Limpando sessões antigas...');
+      await supabase
+        .from('user_sessions')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('is_active', true);
 
       // Gerar token de sessão único
       this.sessionToken = this.generateSessionToken();

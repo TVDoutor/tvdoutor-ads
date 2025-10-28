@@ -39,19 +39,19 @@ export const ImpactFormulaRadioGroup: React.FC<ImpactFormulaRadioGroupProps> = (
       className="grid grid-cols-1 md:grid-cols-3 gap-4"
     >
       {models.map((model) => (
-        <div key={model.id}>
+        <div key={model.id} className="h-full">
           <RadioGroupItem value={model.name} id={`formula-${model.id}`} className="peer sr-only" />
           <Label
             htmlFor={`formula-${model.id}`}
             className={`
-              flex flex-col rounded-lg border-2 p-6 cursor-pointer transition-all duration-200 hover:shadow-lg
+              flex flex-col h-full rounded-lg border-2 p-5 cursor-pointer transition-all duration-200 hover:shadow-lg
               ${value === model.name 
                 ? `border-blue-500 bg-blue-50 shadow-md` 
                 : `border-gray-200 bg-white hover:border-gray-300`
               }
             `}
           >
-            <div className="text-center mb-4">
+            <div className="text-center mb-3">
               <div className={`text-2xl font-bold mb-1 ${
                 value === model.name ? 'text-blue-600' : 'text-gray-700'
               }`}>
@@ -69,7 +69,7 @@ export const ImpactFormulaRadioGroup: React.FC<ImpactFormulaRadioGroupProps> = (
               </div>
             </div>
             
-            <div className="text-center mb-4">
+            <div className="text-center mb-3">
               <p className={`text-sm ${
                 value === model.name ? 'text-blue-700' : 'text-gray-600'
               }`}>
@@ -77,7 +77,7 @@ export const ImpactFormulaRadioGroup: React.FC<ImpactFormulaRadioGroupProps> = (
               </p>
             </div>
             
-            <div className={`${model.color_scheme.bgColor} ${model.color_scheme.borderColor} border rounded-lg p-3`}>
+            <div className={`flex-grow ${model.color_scheme.bgColor} ${model.color_scheme.borderColor} border rounded-lg p-3`}>
               <p className={`text-xs font-semibold ${model.color_scheme.textColor} mb-2`}>
                 Exemplos de locais:
               </p>
@@ -92,7 +92,7 @@ export const ImpactFormulaRadioGroup: React.FC<ImpactFormulaRadioGroupProps> = (
             </div>
             
             {value === model.name && (
-              <div className="mt-4 flex items-center justify-center">
+              <div className="mt-3 flex items-center justify-center">
                 <div className="flex items-center gap-2 text-blue-600">
                   <div className="w-2 h-2 bg-blue-600 rounded-full"></div>
                   <span className="text-sm font-medium">Selecionado</span>

@@ -770,8 +770,8 @@ export const ConfigurationStep: React.FC<StepProps> = ({ data, onUpdate }) => {
     </div>
 
     {/* Fórmula de Impacto */}
-    <Card>
-      <CardHeader>
+    <Card className="mb-6">
+      <CardHeader className="pb-4">
         <CardTitle className="flex items-center gap-2">
           <Target className="w-5 h-5" />
           Modelo de Impacto
@@ -780,7 +780,7 @@ export const ConfigurationStep: React.FC<StepProps> = ({ data, onUpdate }) => {
           Escolha o modelo de cálculo de impacto baseado no perfil de tráfego esperado para sua campanha.
         </p>
       </CardHeader>
-      <CardContent>
+      <CardContent className="pb-6">
         <ImpactFormulaRadioGroup 
           value={data.impact_formula}
           onValueChange={(value) => onUpdate({ impact_formula: value })}

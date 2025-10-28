@@ -31,6 +31,7 @@ import ProjectManagement from "./pages/ProjectManagement";
 import PessoasProjeto from "./pages/PessoasProjeto";
 import HeatmapPage from "./pages/HeatmapPage";
 import UserManagement from "./pages/UserManagement";
+import ImpactModelsAdmin from "./pages/ImpactModelsAdmin";
 import NotFound from "./pages/NotFound";
 import { HeatmapTest } from "./components/HeatmapTest";
 import { SimpleHeatmap } from "./components/SimpleHeatmap";
@@ -137,6 +138,12 @@ const App = () => {
             <Route path="/user-management" element={
               <ProtectedRoute requiredRole="super_admin">
                 <UserManagement />
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/impact-models" element={
+              <ProtectedRoute requiredRole="admin">
+                <ImpactModelsAdmin />
               </ProtectedRoute>
             } />
             

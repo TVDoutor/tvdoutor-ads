@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { ProposalData } from '../NewProposalWizardImproved';
 import { ScreenFilters, type ScreenFilters as IScreenFilters } from '../ScreenFilters';
+import { ImpactFormulaRadioGroup } from './ImpactFormulaRadioGroup';
 
 interface StepProps {
   data: ProposalData;
@@ -780,120 +781,10 @@ export const ConfigurationStep: React.FC<StepProps> = ({ data, onUpdate }) => {
         </p>
       </CardHeader>
       <CardContent>
-        <RadioGroup
+        <ImpactFormulaRadioGroup 
           value={data.impact_formula}
           onValueChange={(value) => onUpdate({ impact_formula: value })}
-          className="grid grid-cols-1 md:grid-cols-3 gap-4"
-        >
-          {[
-            {
-              id: 'A',
-              title: 'Fórmula A',
-              subtitle: 'Tráfego Alto',
-              description: 'Para locais com grande movimento de pessoas',
-              details: [
-                'Shopping centers movimentados',
-                'Aeroportos e terminais',
-                'Hospitais de grande porte',
-                'Centros comerciais principais'
-              ],
-              color: 'from-green-500 to-emerald-600',
-              bgColor: 'bg-green-50',
-              borderColor: 'border-green-200',
-              textColor: 'text-green-700'
-            },
-            {
-              id: 'B',
-              title: 'Fórmula B',
-              subtitle: 'Tráfego Médio',
-              description: 'Para locais com movimento moderado de pessoas',
-              details: [
-                'Farmácias de bairro',
-                'Clínicas médicas',
-                'Postos de saúde',
-                'Centros comerciais menores'
-              ],
-              color: 'from-blue-500 to-cyan-600',
-              bgColor: 'bg-blue-50',
-              borderColor: 'border-blue-200',
-              textColor: 'text-blue-700'
-            },
-            {
-              id: 'C',
-              title: 'Fórmula C',
-              subtitle: 'Tráfego Baixo',
-              description: 'Para locais com menor movimento de pessoas',
-              details: [
-                'Consultórios médicos',
-                'Clínicas especializadas',
-                'Locais de baixo movimento',
-                'Ambientes corporativos'
-              ],
-              color: 'from-orange-500 to-red-500',
-              bgColor: 'bg-orange-50',
-              borderColor: 'border-orange-200',
-              textColor: 'text-orange-700'
-            }
-          ].map((formula) => (
-            <div key={formula.id}>
-              <RadioGroupItem value={formula.id} id={`formula-${formula.id}`} className="peer sr-only" />
-              <Label
-                htmlFor={`formula-${formula.id}`}
-                className={`
-                  flex flex-col rounded-lg border-2 p-6 cursor-pointer transition-all duration-200 hover:shadow-lg
-                  ${data.impact_formula === formula.id 
-                    ? `border-blue-500 bg-blue-50 shadow-md` 
-                    : `border-gray-200 bg-white hover:border-gray-300`
-                  }
-                `}
-              >
-                <div className="text-center mb-4">
-                  <div className={`text-2xl font-bold mb-1 ${
-                    data.impact_formula === formula.id ? 'text-blue-600' : 'text-gray-700'
-                  }`}>
-                    {formula.title}
-                  </div>
-                  <div className={`text-lg font-semibold ${
-                    data.impact_formula === formula.id ? 'text-blue-600' : 'text-gray-600'
-                  }`}>
-                    {formula.subtitle}
-                  </div>
-                </div>
-                
-                <div className="text-center mb-4">
-                  <p className={`text-sm ${
-                    data.impact_formula === formula.id ? 'text-blue-700' : 'text-gray-600'
-                  }`}>
-                    {formula.description}
-                  </p>
-                </div>
-                
-                <div className={`${formula.bgColor} ${formula.borderColor} border rounded-lg p-3`}>
-                  <p className={`text-xs font-semibold ${formula.textColor} mb-2`}>
-                    Exemplos de locais:
-                  </p>
-                  <ul className={`text-xs ${formula.textColor} space-y-1`}>
-                    {formula.details.map((detail, index) => (
-                      <li key={index} className="flex items-start">
-                        <span className="mr-1">•</span>
-                        <span>{detail}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-                
-                {data.impact_formula === formula.id && (
-                  <div className="mt-4 flex items-center justify-center">
-                    <div className="flex items-center gap-2 text-blue-600">
-                      <div className="w-2 h-2 bg-blue-600 rounded-full"></div>
-                      <span className="text-sm font-medium">Selecionado</span>
-                    </div>
-                  </div>
-                )}
-              </Label>
-            </div>
-          ))}
-        </RadioGroup>
+        />
         
         <div className="mt-6 p-4 bg-gray-50 rounded-lg">
           <h4 className="font-semibold text-gray-900 mb-2">Como funciona o cálculo de impacto?</h4>

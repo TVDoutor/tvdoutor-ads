@@ -47,16 +47,16 @@ export const AudienceCalculator = () => {
 
   // Map simples de alcance por classe (mantém compatibilidade com a base atual)
   const reachByClass = useMemo(() => ({
-    'A': 2000,
-    'AB': 1800,
-    'ABC': 1700,
-    'B': 1500,
-    'BC': 1300,
-    'C': 1200,
-    'CD': 1100,
-    'D': 1000,
-    'E': 900,
-    'ND': 800
+    'A': 12.000,
+    'AB': 10.000,
+    'ABC': 8.000,
+    'B': 8.000,
+    'BC': 6.000,
+    'C': 4.000,
+    'CD': 3.000,
+    'D': 2.000,
+    'E': 1.000,
+    'ND': 400
   } as Record<string, number>), []);
 
   // Função para buscar cidades por especialidade (usando serviço centralizado)

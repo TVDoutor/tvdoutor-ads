@@ -90,6 +90,12 @@ const menuItems = [
     requiredRole: "admin" as UserRole
   },
   {
+    label: "Fórmulas de Impacto",
+    icon: Target,
+    href: "/impact-models",
+    requiredRole: "admin" as UserRole
+  },
+  {
     label: "Monitor de Usuários",
     icon: Shield,
     href: "/user-management",

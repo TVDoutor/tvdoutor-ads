@@ -107,8 +107,9 @@ export const AudienceCalculator = () => {
 
 
   // Filtrar especialidades baseado no termo de busca
+  // Só mostra especialidades quando o usuário está buscando
   const filteredSpecialties = useMemo(() => {
-    if (!specialtySearchTerm.trim()) return specialties;
+    if (!specialtySearchTerm.trim()) return [];
     return specialties.filter(spec => 
       spec.specialty_name.toLowerCase().includes(specialtySearchTerm.toLowerCase())
     );
@@ -290,8 +291,8 @@ export const AudienceCalculator = () => {
                 {selectedSpecialties.length} especialidade(s) selecionada(s)
                 {specialtySearchTerm && ` • ${filteredSpecialties.length} encontrada(s)`}
               </div>
-              {filteredSpecialties.length > 0 && (
-                <div className="flex gap-2">
+              <div className="flex gap-2">
+                {specialtySearchTerm && filteredSpecialties.length > 0 && (
                   <Button
                     variant="ghost"
                     size="sm"
@@ -306,18 +307,18 @@ export const AudienceCalculator = () => {
                   >
                     Selecionar Todas
                   </Button>
-                  {selectedSpecialties.length > 0 && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 text-xs"
-                      onClick={() => setSelectedSpecialties([])}
-                    >
-                      Limpar
-                    </Button>
-                  )}
-                </div>
-              )}
+                )}
+                {selectedSpecialties.length > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 text-xs"
+                    onClick={() => setSelectedSpecialties([])}
+                  >
+                    Limpar
+                  </Button>
+                )}
+              </div>
             </div>
             
             {/* Badges clicáveis de especialidades */}
@@ -325,7 +326,11 @@ export const AudienceCalculator = () => {
               <div className="flex flex-wrap gap-1">
                 {filteredSpecialties.length === 0 ? (
                   <p className="text-xs text-muted-foreground">
-                    {loadingSpecialties ? "Carregando..." : "Nenhuma especialidade encontrada"}
+                    {loadingSpecialties 
+                      ? "Carregando..." 
+                      : specialtySearchTerm.trim() 
+                        ? "Nenhuma especialidade encontrada" 
+                        : "Digite para buscar especialidades"}
                   </p>
                 ) : (
                   filteredSpecialties.map((spec) => {

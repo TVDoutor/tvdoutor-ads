@@ -26,6 +26,8 @@ import {
 import { ProposalData } from '../NewProposalWizardImproved';
 import { ScreenFilters, type ScreenFilters as IScreenFilters } from '../ScreenFilters';
 import { ImpactFormulaRadioGroup } from './ImpactFormulaRadioGroup';
+import { toast } from 'sonner';
+import { combineIds } from '@/utils/ids';
 
 interface StepProps {
   data: ProposalData;
@@ -34,10 +36,9 @@ interface StepProps {
 
 // Step 1: Proposal Type Selection
 export const ProposalTypeStep: React.FC<StepProps> = ({ data, onUpdate }) => {
-  console.log('🎯 ProposalTypeStep render:', { proposal_type: data.proposal_type });
+  
 
   const handleTypeToggle = (type: 'avulsa' | 'projeto', checked: boolean) => {
-    console.log('📝 Toggling proposal type:', type, checked);
     const currentTypes = data.proposal_type || [];
     let newTypes: ('avulsa' | 'projeto')[];
     
@@ -48,8 +49,6 @@ export const ProposalTypeStep: React.FC<StepProps> = ({ data, onUpdate }) => {
       // Remove o tipo
       newTypes = currentTypes.filter(t => t !== type);
     }
-    
-    console.log('✅ New proposal types:', newTypes);
     onUpdate({ proposal_type: newTypes });
   };
 
@@ -128,19 +127,16 @@ export const ProposalTypeStep: React.FC<StepProps> = ({ data, onUpdate }) => {
         </Card>
       </div>
 
-      {/* Debug info */}
-      <div className="bg-gray-100 p-3 rounded text-xs">
-        <strong>Debug:</strong> proposal_type = {JSON.stringify(data.proposal_type)}
-      </div>
+      
     </div>
   );
 };
 
 // Step 2: Client Information
 export const ClientInfoStep: React.FC<StepProps> = ({ data, onUpdate }) => (
-  <div className="space-y-8">
+  <div className="space-y-8 pdf-dense-text">
     <div className="text-center">
-      <h3 className="text-xl font-semibold text-gray-900 mb-2">Informações do Cliente</h3>
+      <h3 className="text-xl font-semibold text-gray-900 mb-2 pdf-compact-title">Informações do Cliente</h3>
       <p className="text-gray-600">Insira os dados do cliente para identificar projetos relacionados</p>
     </div>
 
@@ -175,13 +171,13 @@ export const ClientInfoStep: React.FC<StepProps> = ({ data, onUpdate }) => (
       </div>
     </div>
 
-    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 max-w-2xl mx-auto">
+    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 max-w-2xl mx-auto pdf-dense-text">
       <div className="flex items-start gap-3">
         <div className="p-2 bg-blue-100 rounded-full">
           <Briefcase className="w-5 h-5 text-blue-600" />
         </div>
         <div>
-          <h4 className="font-semibold text-blue-900 mb-1">Verificação de Projetos</h4>
+          <h4 className="font-semibold text-blue-900 mb-1 pdf-compact-title">Verificação de Projetos</h4>
           <p className="text-sm text-blue-700">
             Com base no nome do cliente, o sistema buscará automaticamente por projetos existentes na próxima etapa.
           </p>
@@ -213,11 +209,11 @@ export const ProjectSelectionStep: React.FC<ProjectSelectionStepProps> = ({
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 pdf-dense-text">
       <div className="text-center">
-        <h3 className="text-xl font-semibold text-gray-900 mb-2">Selecione um Projeto</h3>
+        <h3 className="text-xl font-semibold text-gray-900 mb-2 pdf-compact-title">Selecione um Projeto</h3>
         <p className="text-gray-600">Toda proposta deve estar vinculada a um projeto</p>
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mt-4 max-w-2xl mx-auto">
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mt-4 max-w-2xl mx-auto pdf-dense-text">
           <p className="text-sm text-blue-700">
             <strong>Todos os projetos ativos</strong> estão listados abaixo. 
             Selecione aquele que melhor se adequa à sua proposta comercial.
@@ -322,11 +318,7 @@ export const ScreenSelectionStep: React.FC<ScreenSelectionStepProps> = ({
   loading,
   onApplyFilters
 }) => {
-  console.log('🖥️ ScreenSelectionStep render:', { 
-    screens: screens?.length || 0, 
-    loading,
-    selectedScreens: data.selectedScreens 
-  });
+  
 
   const [filters, setFilters] = useState<IScreenFilters>({
     nameOrCode: '',
@@ -342,16 +334,15 @@ export const ScreenSelectionStep: React.FC<ScreenSelectionStepProps> = ({
   });
 
   const [hasSearched, setHasSearched] = useState(false);
+  // Seleção temporária para permitir múltiplas buscas e adicionar pontos incrementalmente
+  const [tempSelectedScreens, setTempSelectedScreens] = useState<number[]>([]);
 
   const toggleScreen = (screenId: number) => {
-    console.log('🔄 Toggling screen:', screenId);
-    const isSelected = data.selectedScreens.includes(screenId);
-    const newSelected = isSelected
-      ? data.selectedScreens.filter(id => id !== screenId)
-      : [...data.selectedScreens, screenId];
-    
-    console.log('✅ New selected screens:', newSelected);
-    onUpdate({ selectedScreens: newSelected });
+    const isSelected = tempSelectedScreens.includes(screenId);
+    const newTempSelected = isSelected
+      ? tempSelectedScreens.filter(id => id !== screenId)
+      : [...tempSelectedScreens, screenId];
+    setTempSelectedScreens(newTempSelected);
   };
 
   const handleFiltersChange = (newFilters: IScreenFilters) => {
@@ -359,12 +350,13 @@ export const ScreenSelectionStep: React.FC<ScreenSelectionStepProps> = ({
   };
 
   const handleApplyFilters = () => {
-    console.log('🔍 Aplicando filtros:', filters);
     if (onApplyFilters) {
       onApplyFilters(filters);
     }
     // Marcar como pesquisado após a busca ser iniciada
     setHasSearched(true);
+    // Ao aplicar novos filtros, limpamos a seleção temporária
+    setTempSelectedScreens([]);
   };
 
   const handleClearFilters = () => {
@@ -384,15 +376,34 @@ export const ScreenSelectionStep: React.FC<ScreenSelectionStepProps> = ({
     if (onApplyFilters) {
       onApplyFilters(emptyFilters);
     }
+    // Limpar apenas a seleção temporária
+    setTempSelectedScreens([]);
   };
 
   const handleSelectAll = () => {
     const allScreenIds = screens.map(screen => screen.id);
-    onUpdate({ selectedScreens: allScreenIds });
+    // Seleciona temporariamente todas as telas disponíveis (sem alterar a proposta ainda)
+    setTempSelectedScreens(prev => combineIds<number>(prev, allScreenIds));
+    toast.success(`${allScreenIds.length} telas selecionadas! Clique em "Adicionar Ponto" para incluir na proposta.`);
   };
 
   const handleDeselectAll = () => {
-    onUpdate({ selectedScreens: [] });
+    // Limpa apenas a seleção temporária da busca atual
+    setTempSelectedScreens([]);
+    toast.info('Seleção temporária limpa');
+  };
+
+  // Adiciona os pontos selecionados temporariamente à proposta de forma incremental (sem duplicar)
+  const handleAddPoints = () => {
+    if (tempSelectedScreens.length === 0) {
+      toast.error('Selecione pelo menos uma tela para adicionar');
+      return;
+    }
+    const combined = combineIds<number>(data.selectedScreens as number[], tempSelectedScreens);
+    onUpdate({ selectedScreens: combined });
+    // Limpar a seleção temporária para permitir nova busca/seleção
+    setTempSelectedScreens([]);
+    toast.success(`${tempSelectedScreens.length} ponto(s) adicionado(s) à proposta!`);
   };
 
   const getUniqueLocations = () => {
@@ -456,6 +467,15 @@ export const ScreenSelectionStep: React.FC<ScreenSelectionStepProps> = ({
               <Button
                 variant="outline"
                 size="sm"
+                onClick={handleAddPoints}
+                disabled={tempSelectedScreens.length === 0}
+                className="flex items-center gap-2"
+              >
+                Adicionar Ponto
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
                 onClick={handleDeselectAll}
                 className="flex items-center gap-2"
               >
@@ -463,7 +483,7 @@ export const ScreenSelectionStep: React.FC<ScreenSelectionStepProps> = ({
               </Button>
             </div>
             <div className="text-sm text-gray-600">
-              {data.selectedScreens.length} de {screens.length} selecionadas
+              {tempSelectedScreens.length} de {screens.length} selecionadas
             </div>
           </div>
 
@@ -480,7 +500,7 @@ export const ScreenSelectionStep: React.FC<ScreenSelectionStepProps> = ({
                 <Card
                   key={screen.id}
                   className={`cursor-pointer transition-all duration-200 hover:shadow-lg ${
-                    data.selectedScreens.includes(screen.id) ? 'ring-2 ring-blue-600 bg-blue-50' : ''
+                    tempSelectedScreens.includes(screen.id) ? 'ring-2 ring-blue-600 bg-blue-50' : ''
                   }`}
                   onClick={() => toggleScreen(screen.id)}
                 >
@@ -488,7 +508,11 @@ export const ScreenSelectionStep: React.FC<ScreenSelectionStepProps> = ({
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex-1">
                         <h4 className="font-semibold text-gray-900 mb-1 text-sm leading-tight">{screen.name}</h4>
-                        <p className="text-xs text-gray-600 mb-2">{screen.venues?.name || screen.venue_name}</p>
+                        <p className="text-xs text-gray-600 mb-2">{screen.venues?.name || screen.venue_name}
+                          {data.selectedScreens.includes(screen.id) && (
+                            <Badge variant="outline" className="ml-2">Já adicionado</Badge>
+                          )}
+                        </p>
                         <div className="text-xs text-gray-500">
                           <p>{screen.city}, {screen.state}</p>
                           {hasDistance && (
@@ -501,12 +525,12 @@ export const ScreenSelectionStep: React.FC<ScreenSelectionStepProps> = ({
                       
                       <div className={`
                         w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all duration-200
-                        ${data.selectedScreens.includes(screen.id) 
+                        ${tempSelectedScreens.includes(screen.id) 
                           ? 'bg-blue-600 border-blue-600' 
                           : 'border-gray-300'
                         }
                       `}>
-                        {data.selectedScreens.includes(screen.id) && (
+                        {tempSelectedScreens.includes(screen.id) && (
                           <div className="w-2 h-2 bg-white rounded-full"></div>
                         )}
                       </div>
@@ -551,6 +575,53 @@ export const ScreenSelectionStep: React.FC<ScreenSelectionStepProps> = ({
               );
             })}
           </div>
+
+          {/* Resumo por praça/cidade dos pontos adicionados (com base nas telas carregadas) */}
+          {data.selectedScreens.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Building2 className="w-5 h-5" />
+                  Pontos adicionados por praça
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {(() => {
+                  const selectedScreensByLocation: Record<string, any[]> = {};
+                  screens.filter(s => data.selectedScreens.includes(s.id)).forEach(s => {
+                    const key = `${s.city}, ${s.state}`;
+                    if (!selectedScreensByLocation[key]) selectedScreensByLocation[key] = [];
+                    selectedScreensByLocation[key].push(s);
+                  });
+                  const entries = Object.entries(selectedScreensByLocation);
+                  if (entries.length === 0) {
+                    return (
+                      <p className="text-sm text-gray-600">Nenhum ponto adicionado nas telas atualmente carregadas.</p>
+                    );
+                  }
+                  return (
+                    <div className="space-y-3">
+                      {entries.map(([location, locationScreens]) => (
+                        <div key={location} className="p-3 border rounded-lg">
+                          <div className="flex items-center justify-between">
+                            <p className="font-medium">{location}</p>
+                            <Badge variant="outline">{locationScreens.length} ponto(s)</Badge>
+                          </div>
+                          <div className="mt-2 text-xs text-gray-600">
+                            {locationScreens.map(s => (
+                              <span key={s.id} className="inline-block mr-2 mb-1">
+                                • {s.display_name || s.name} (#{s.code || s.id})
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
+              </CardContent>
+            </Card>
+          )}
         </div>
       ) : hasSearched ? (
         <div className="text-center py-12">
@@ -593,14 +664,7 @@ export const ScreenSelectionStep: React.FC<ScreenSelectionStepProps> = ({
         </div>
       )}
 
-      {/* Debug info */}
-      <div className="bg-gray-100 p-3 rounded text-xs">
-        <strong>Debug:</strong> {screens.length} telas disponíveis, {data.selectedScreens.length} selecionadas, hasSearched: {hasSearched ? 'true' : 'false'}, loading: {loading ? 'true' : 'false'}
-        <br />
-        <strong>Selecionadas:</strong> {JSON.stringify(data.selectedScreens)}
-        <br />
-        <strong>Primeiras 2 telas:</strong> {JSON.stringify(screens.slice(0, 2).map(s => ({ id: s.id, name: s.name, distance: s.distance })))}
-      </div>
+      
     </div>
   );
 };
@@ -647,9 +711,9 @@ export const ConfigurationStep: React.FC<StepProps> = ({ data, onUpdate }) => {
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 pdf-dense-text">
       <div className="text-center">
-        <h3 className="text-xl font-semibold text-gray-900 mb-2">Configurações da Campanha</h3>
+        <h3 className="text-xl font-semibold text-gray-900 mb-2 pdf-compact-title--tight">Configurações da Campanha</h3>
         <p className="text-gray-600">Defina os parâmetros técnicos e comerciais</p>
       </div>
 
@@ -827,17 +891,17 @@ export const ConfigurationStep: React.FC<StepProps> = ({ data, onUpdate }) => {
     </div>
 
     {/* Fórmula de Impacto */}
-    <Card className="mb-6">
+    <Card className="mb-6 pdf-tight-card">
       <CardHeader className="pb-4">
-        <CardTitle className="flex items-center gap-2">
+        <CardTitle className="flex items-center gap-2 pdf-compact-title">
           <Target className="w-5 h-5" />
           Modelo de Impacto
         </CardTitle>
-        <p className="text-sm text-gray-600 mt-2">
+        <p className="text-sm text-gray-600 mt-2 pdf-dense-text">
           Escolha o modelo de cálculo de impacto baseado no perfil de tráfego esperado para sua campanha.
         </p>
       </CardHeader>
-      <CardContent className="pb-6">
+      <CardContent className="pb-6 pdf-dense-text">
         <ImpactFormulaRadioGroup 
           value={data.impact_formula}
           onValueChange={(value) => onUpdate({ impact_formula: value })}
@@ -898,22 +962,22 @@ export const SummaryStep: React.FC<{ data: ProposalData }> = ({ data }) => {
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 pdf-dense-text">
       <div className="text-center">
-        <h3 className="text-xl font-semibold text-gray-900 mb-2">Resumo da Proposta</h3>
+        <h3 className="text-xl font-semibold text-gray-900 mb-2 pdf-compact-title">Resumo da Proposta</h3>
         <p className="text-gray-600">Revise todos os dados antes de finalizar</p>
       </div>
 
       {/* Informações do Cliente e Projeto */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card>
+        <Card className="pdf-tight-card">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
+            <CardTitle className="flex items-center gap-2 pdf-compact-title">
               <User className="w-5 h-5" />
               Informações do Cliente
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent className="space-y-3 pdf-dense-text">
             <div className="flex justify-between">
               <span className="text-gray-600">Nome:</span>
               <span className="font-semibold">{data.customer_name}</span>
@@ -936,14 +1000,14 @@ export const SummaryStep: React.FC<{ data: ProposalData }> = ({ data }) => {
         </Card>
 
         {data.selected_project && (
-          <Card>
+          <Card className="pdf-tight-card">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+              <CardTitle className="flex items-center gap-2 pdf-compact-title">
                 <Briefcase className="w-5 h-5" />
                 Projeto Selecionado
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3">
+            <CardContent className="space-y-3 pdf-dense-text">
             <div className="flex justify-between">
               <span className="text-gray-600">Nome:</span>
               <span className="font-semibold">{data.selected_project.nome_projeto}</span>
@@ -976,14 +1040,14 @@ export const SummaryStep: React.FC<{ data: ProposalData }> = ({ data }) => {
       </div>
 
       {/* Configurações da Campanha */}
-      <Card>
+      <Card className="pdf-tight-card">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
+          <CardTitle className="flex items-center gap-2 pdf-compact-title">
             <Settings className="w-5 h-5" />
             Configurações da Campanha
           </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pdf-dense-text">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
             <div className="text-center">
               <div className="text-2xl font-bold text-blue-600">{data.film_seconds[0]}s</div>
@@ -1008,14 +1072,14 @@ export const SummaryStep: React.FC<{ data: ProposalData }> = ({ data }) => {
       </Card>
 
       {/* Métricas Calculadas */}
-      <Card>
+      <Card className="pdf-tight-card">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
+          <CardTitle className="flex items-center gap-2 pdf-compact-title">
             <BarChart3 className="w-5 h-5" />
             Métricas da Campanha
           </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pdf-dense-text">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="text-center p-4 bg-blue-50 rounded-lg">
               <Clock className="w-8 h-8 text-blue-600 mx-auto mb-2" />
@@ -1043,14 +1107,14 @@ export const SummaryStep: React.FC<{ data: ProposalData }> = ({ data }) => {
       </Card>
 
       {/* Resumo Financeiro */}
-      <Card>
+      <Card className="pdf-tight-card">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
+          <CardTitle className="flex items-center gap-2 pdf-compact-title">
             <DollarSign className="w-5 h-5" />
             Resumo Financeiro
           </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pdf-dense-text">
           <div className="space-y-4">
             <div className="flex justify-between items-center py-2">
               <span className="text-gray-600">Valor Bruto:</span>

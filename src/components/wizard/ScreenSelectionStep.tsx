@@ -40,16 +40,14 @@ export const ScreenSelectionStep = ({ data, onUpdate }: ScreenSelectionStepProps
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
 
+  // NOVO: Separar telas temporárias (busca atual) de telas adicionadas (permanentes na proposta)
+  const [tempSelectedScreens, setTempSelectedScreens] = useState<number[]>([]);
+  const [searchCounter, setSearchCounter] = useState(0); // Contador de buscas realizadas
+
   const handleSearchTermChange = (value: string) => {
     setSearchTerm(value);
-    
-    // Se há termo de busca, limpar telas selecionadas para forçar nova busca
-    if (value.trim().length > 0) {
-      console.log('🧹 Termo de busca digitado, limpando telas selecionadas');
-      onUpdate({ selectedScreens: [] });
-      toast.info('Selecione "Buscar Telas Próximas" para ver as telas encontradas');
-    }
   };
+  
   const [selectedCity, setSelectedCity] = useState<string>("");
   const [isCityModalOpen, setIsCityModalOpen] = useState(false);
   const [availableSpecialties, setAvailableSpecialties] = useState<{ value: string; label: string; count: number }[]>([]);
@@ -252,13 +250,53 @@ export const ScreenSelectionStep = ({ data, onUpdate }: ScreenSelectionStepProps
     }
   });
 
+  // ATUALIZADO: Agora trabalha com seleção temporária
   const toggleScreenSelection = (screenId: number) => {
-    const currentSelected = data.selectedScreens;
-    const newSelected = currentSelected.includes(screenId)
-      ? currentSelected.filter(id => id !== screenId)
-      : [...currentSelected, screenId];
+    setTempSelectedScreens(prev => 
+      prev.includes(screenId)
+        ? prev.filter(id => id !== screenId)
+        : [...prev, screenId]
+    );
+  };
+
+  // NOVO: Adicionar pontos selecionados à proposta
+  const handleAddPointsToProposal = () => {
+    if (tempSelectedScreens.length === 0) {
+      toast.error('Selecione pelo menos uma tela para adicionar');
+      return;
+    }
+
+    // Combinar telas já adicionadas com as novas (sem duplicatas)
+    const combined = [...new Set([...data.selectedScreens, ...tempSelectedScreens])];
+    onUpdate({ selectedScreens: combined });
     
-    onUpdate({ selectedScreens: newSelected });
+    // Incrementar contador de buscas
+    setSearchCounter(prev => prev + 1);
+    
+    toast.success(`${tempSelectedScreens.length} ponto(s) adicionado(s) à proposta!`);
+    
+    // Limpar seleção temporária
+    setTempSelectedScreens([]);
+  };
+
+  // NOVO: Iniciar nova busca
+  const handleNewSearch = () => {
+    // Limpar apenas a busca atual (não as telas já adicionadas)
+    setTempSelectedScreens([]);
+    setRadiusSearchActive(false);
+    setRadiusSearchResults([]);
+    setSearchTerm("");
+    onUpdate({ selectedSpecialties: [], selectedCities: [] });
+    setSelectedCity("all");
+    
+    toast.info('Faça uma nova busca para adicionar mais pontos');
+  };
+
+  // NOVO: Remover um ponto já adicionado
+  const handleRemoveAddedPoint = (screenId: number) => {
+    const updated = data.selectedScreens.filter(id => id !== screenId);
+    onUpdate({ selectedScreens: updated });
+    toast.info('Ponto removido da proposta');
   };
 
   const handleSpecialtyChange = (specialtyId: string) => {
@@ -267,21 +305,19 @@ export const ScreenSelectionStep = ({ data, onUpdate }: ScreenSelectionStepProps
     } else {
       onUpdate({ selectedSpecialties: [specialtyId] });
       
-      // Se há especialidade selecionada, limpar telas selecionadas para forçar nova busca
-      console.log('🧹 Especialidade selecionada, limpando telas selecionadas');
-      onUpdate({ selectedScreens: [] });
-      toast.info('Selecione "Buscar Telas Próximas" para ver as telas da especialidade escolhida');
+      // ATUALIZADO: Apenas limpar seleção temporária
+      console.log('🧹 Especialidade selecionada, limpando seleção temporária');
+      setTempSelectedScreens([]);
     }
   };
 
   const handleCitySelection = (selectedCities: string[]) => {
     onUpdate({ selectedCities });
     
-    // Se há cidades selecionadas, limpar telas selecionadas para forçar nova busca
+    // ATUALIZADO: Apenas limpar seleção temporária
     if (selectedCities.length > 0) {
-      console.log('🧹 Cidades selecionadas, limpando telas selecionadas');
-      onUpdate({ selectedScreens: [] });
-      toast.info('Selecione "Buscar Telas Próximas" para ver as telas das cidades escolhidas');
+      console.log('🧹 Cidades selecionadas, limpando seleção temporária');
+      setTempSelectedScreens([]);
     }
   };
 
@@ -291,22 +327,25 @@ export const ScreenSelectionStep = ({ data, onUpdate }: ScreenSelectionStepProps
     // Converter os resultados para o formato esperado
     const screenIds = screens.map(screen => parseInt(screen.id));
     
-    // Limpar telas selecionadas anteriores e selecionar apenas as encontradas na busca
+    // ATUALIZADO: Selecionar temporariamente (não adicionar diretamente à proposta)
     setRadiusSearchResults(screens);
     setRadiusSearchActive(true);
-    onUpdate({ selectedScreens: screenIds });
+    setTempSelectedScreens(screenIds);
     
-    toast.success(`${screens.length} telas encontradas e selecionadas automaticamente!`);
+    toast.success(`${screens.length} telas encontradas! Clique em "Adicionar Pontos" para incluir na proposta.`);
   };
 
 
   const handleSelectAllScreens = () => {
     const allScreenIds = filteredScreens.map(screen => screen.id);
-    const currentSelected = data.selectedScreens;
-    const newSelected = [...new Set([...currentSelected, ...allScreenIds])];
     
-    onUpdate({ selectedScreens: newSelected });
-    toast.success(`${allScreenIds.length} telas selecionadas!`);
+    // ATUALIZADO: Selecionar temporariamente
+    setTempSelectedScreens(prev => {
+      const combined = [...new Set([...prev, ...allScreenIds])];
+      return combined;
+    });
+    
+    toast.success(`${allScreenIds.length} telas selecionadas! Clique em "Adicionar Pontos" para incluir na proposta.`);
   };
 
   const getAvailableCitiesWithCount = () => {
@@ -482,10 +521,10 @@ export const ScreenSelectionStep = ({ data, onUpdate }: ScreenSelectionStepProps
                   setRadiusSearchActive(false);
                   setRadiusSearchResults([]);
                   
-                  // Limpar todas as telas selecionadas
-                  onUpdate({ selectedScreens: [] });
+                  // ATUALIZADO: Limpar apenas seleção temporária
+                  setTempSelectedScreens([]);
                   
-                  toast.success("Filtros e telas selecionadas foram limpos");
+                  toast.success("Filtros e seleção temporária foram limpos");
                 }}
                 className="text-blue-600 hover:text-blue-800"
               >
@@ -568,7 +607,7 @@ export const ScreenSelectionStep = ({ data, onUpdate }: ScreenSelectionStepProps
                     onClick={() => {
                       setRadiusSearchActive(false);
                       setRadiusSearchResults([]);
-                      onUpdate({ selectedScreens: [] });
+                      setTempSelectedScreens([]);
                     }}
                   >
                     <X className="w-3 h-3" />
@@ -589,6 +628,50 @@ export const ScreenSelectionStep = ({ data, onUpdate }: ScreenSelectionStepProps
             Telas Disponíveis ({filteredScreens.length})
           </CardTitle>
         </CardHeader>
+
+        {/* NOVO: Botões de Ação ACIMA do grid */}
+        {filteredScreens.length > 0 && (
+          <div className="px-6 pb-4 space-y-3">
+            {/* Linha de Botões de Ação */}
+            <div className="flex flex-wrap items-center gap-3">
+              <Button 
+                onClick={handleSelectAllScreens}
+                variant="outline"
+                size="default"
+                disabled={loading}
+              >
+                <CheckCircle2 className="w-4 h-4 mr-2" />
+                Selecionar Todas ({filteredScreens.length})
+              </Button>
+              
+              <Button
+                onClick={handleAddPointsToProposal}
+                variant="default"
+                size="default"
+                disabled={tempSelectedScreens.length === 0}
+                className="bg-primary hover:bg-primary/90"
+              >
+                <CheckCircle2 className="w-4 h-4 mr-2" />
+                Adicionar pontos
+              </Button>
+
+              <Button
+                onClick={handleNewSearch}
+                variant="outline"
+                size="default"
+              >
+                Limpar Seleção
+              </Button>
+
+              <div className="ml-auto">
+                <Badge variant="secondary" className="text-sm px-3 py-1">
+                  {tempSelectedScreens.length} de {filteredScreens.length} selecionadas
+                </Badge>
+              </div>
+            </div>
+          </div>
+        )}
+
         <CardContent>
           {filteredScreens.length === 0 ? (
             <div className="text-center py-8">
@@ -598,17 +681,21 @@ export const ScreenSelectionStep = ({ data, onUpdate }: ScreenSelectionStepProps
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-96 overflow-y-auto">
               {filteredScreens.map(screen => {
-                const isSelected = data.selectedScreens.includes(screen.id);
+                // ATUALIZADO: Verificar se está selecionada temporariamente OU já adicionada à proposta
+                const isSelected = tempSelectedScreens.includes(screen.id);
+                const isAlreadyAdded = data.selectedScreens.includes(screen.id);
                 
                 return (
                   <Card
                     key={screen.id}
                     className={`cursor-pointer transition-all hover:shadow-md ${
-                      isSelected 
-                        ? 'ring-2 ring-primary border-primary bg-primary/5' 
-                        : 'border-border hover:border-primary/50'
+                      isAlreadyAdded
+                        ? 'ring-2 ring-green-500 border-green-500 bg-green-50 opacity-60 cursor-not-allowed'
+                        : isSelected 
+                          ? 'ring-2 ring-primary border-primary bg-primary/5' 
+                          : 'border-border hover:border-primary/50'
                     }`}
-                    onClick={() => toggleScreenSelection(screen.id)}
+                    onClick={() => !isAlreadyAdded && toggleScreenSelection(screen.id)}
                   >
                     <CardContent className="p-4">
                       <div className="flex items-start justify-between mb-2">
@@ -621,7 +708,11 @@ export const ScreenSelectionStep = ({ data, onUpdate }: ScreenSelectionStepProps
                             <span>{screen.city}, {screen.state}</span>
                           </div>
                         </div>
-                        {isSelected && (
+                        {isAlreadyAdded ? (
+                          <Badge variant="default" className="bg-green-600 flex-shrink-0">
+                            ✓ Adicionado
+                          </Badge>
+                        ) : isSelected && (
                           <CheckCircle2 className="w-5 h-5 text-primary flex-shrink-0" />
                         )}
                       </div>
@@ -644,44 +735,37 @@ export const ScreenSelectionStep = ({ data, onUpdate }: ScreenSelectionStepProps
             </div>
           )}
         </CardContent>
-        
-        {/* Botão Selecionar Todas as Telas */}
-        {filteredScreens.length > 0 && (
-          <div className="p-4 border-t bg-muted/30">
-            <Button 
-              onClick={handleSelectAllScreens}
-              variant="outline"
-              className="w-full"
-              disabled={loading}
-            >
-              <CheckCircle2 className="w-4 h-4 mr-2" />
-              Selecionar todas as telas ({filteredScreens.length})
-            </Button>
-          </div>
-        )}
       </Card>
 
-      {/* Resumo da Seleção */}
+      {/* NOVO: Pontos Adicionados à Proposta (Permanentes) */}
       {data.selectedScreens.length > 0 && (
         <Card className="bg-green-50 border-green-200">
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle className="text-lg flex items-center gap-2 text-green-700">
                 <CheckCircle2 className="w-5 h-5" />
-                Telas Selecionadas ({data.selectedScreens.length})
+                Pontos Adicionados à Proposta ({data.selectedScreens.length})
               </CardTitle>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  onUpdate({ selectedScreens: [] });
-                  toast.success("Todas as telas selecionadas foram removidas");
-                }}
-                className="text-red-600 border-red-200 hover:bg-red-50"
-              >
-                <X className="w-4 h-4 mr-1" />
-                Limpar todas
-              </Button>
+              <div className="flex items-center gap-2">
+                {searchCounter > 0 && (
+                  <Badge variant="secondary" className="bg-green-100 text-green-800">
+                    {searchCounter} busca(s) realizadas
+                  </Badge>
+                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    onUpdate({ selectedScreens: [] });
+                    setSearchCounter(0);
+                    toast.success("Todos os pontos foram removidos da proposta");
+                  }}
+                  className="text-red-600 border-red-200 hover:bg-red-50"
+                >
+                  <X className="w-4 h-4 mr-1" />
+                  Limpar todos
+                </Button>
+              </div>
             </div>
           </CardHeader>
           <CardContent>
@@ -712,7 +796,7 @@ export const ScreenSelectionStep = ({ data, onUpdate }: ScreenSelectionStepProps
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => toggleScreenSelection(screen.id)}
+                          onClick={() => handleRemoveAddedPoint(screen.id)}
                           className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50 shrink-0 ml-2"
                         >
                           <X className="w-4 h-4" />

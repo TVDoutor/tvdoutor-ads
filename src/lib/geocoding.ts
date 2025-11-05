@@ -1,10 +1,40 @@
 // Serviço para integração com Google Geocoding API
 import { ssrfProtection } from '@/lib/ssrf-protection';
+import { getAddressByCEP, formatAddressForGeocoding, type ViaCEPAddress } from '@/lib/viacep-service';
+
 interface GoogleGeocodingResult {
   lat: number;
   lng: number;
   google_place_id: string;
   google_formatted_address: string;
+}
+
+/**
+ * Valida e normaliza CEP brasileiro
+ * @param cep - CEP para validar (com ou sem hífen)
+ * @returns CEP normalizado (com hífen) ou null se inválido
+ */
+export function normalizeCEP(cep: string): string | null {
+  // Remove espaços e caracteres especiais
+  const cleanCEP = cep.replace(/[^\d]/g, '');
+  
+  // CEP deve ter exatamente 8 dígitos
+  if (cleanCEP.length !== 8) {
+    return null;
+  }
+  
+  // Formata com hífen (XXXXX-XXX)
+  return `${cleanCEP.substring(0, 5)}-${cleanCEP.substring(5)}`;
+}
+
+/**
+ * Verifica se o texto parece ser um CEP
+ * @param text - Texto para verificar
+ * @returns true se parece ser um CEP
+ */
+export function isCEP(text: string): boolean {
+  const cleanText = text.replace(/[^\d]/g, '');
+  return cleanText.length === 8 && /^\d+$/.test(cleanText);
 }
 
 interface GoogleGeocodingResponse {
@@ -38,16 +68,46 @@ export async function geocodeAddress(address: string): Promise<GoogleGeocodingRe
     throw new Error('Google Maps API Key não configurada. Configure VITE_GOOGLE_MAPS_API_KEY no .env');
   }
 
-  // Adicionar "Brasil" ao final do endereço se não estiver presente
-  const normalizedAddress = address.toLowerCase().includes('brasil') || 
-                           address.toLowerCase().includes('brazil') ? 
-                           address : `${address}, Brasil`;
+  // Verificar se é CEP e buscar endereço completo via ViaCEP
+  let normalizedAddress = address;
+  let viaCEPData: ViaCEPAddress | null = null;
+  
+  if (isCEP(address)) {
+    const formattedCEP = normalizeCEP(address);
+    if (formattedCEP) {
+      console.log('📮 CEP detectado:', formattedCEP);
+      
+      try {
+        // Tentar buscar endereço completo via ViaCEP primeiro
+        viaCEPData = await getAddressByCEP(formattedCEP);
+        
+        if (viaCEPData) {
+          // Usar endereço completo da ViaCEP para melhor precisão
+          normalizedAddress = formatAddressForGeocoding(viaCEPData);
+          console.log('✅ Endereço ViaCEP:', normalizedAddress);
+        } else {
+          // Fallback: usar apenas o CEP
+          normalizedAddress = `${formattedCEP}, Brasil`;
+          console.log('⚠️ ViaCEP não retornou dados, usando CEP direto');
+        }
+      } catch (error) {
+        // Se ViaCEP falhar, usar apenas o CEP
+        normalizedAddress = `${formattedCEP}, Brasil`;
+        console.warn('⚠️ Erro ao buscar ViaCEP, usando CEP direto:', error);
+      }
+    }
+  } else {
+    // Adicionar "Brasil" ao final do endereço se não estiver presente
+    normalizedAddress = address.toLowerCase().includes('brasil') || 
+                       address.toLowerCase().includes('brazil') ? 
+                       address : `${address}, Brasil`;
+  }
 
   const encodedAddress = encodeURIComponent(normalizedAddress);
   const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodedAddress}&key=${apiKey}&region=br&language=pt-BR`;
 
   try {
-    console.log('🌍 Geocodificando endereço:', normalizedAddress);
+    console.log('🌍 Geocodificando:', isCEP(address) ? 'CEP' : 'endereço', '-', normalizedAddress);
     
     // Usar fetch seguro com proteção SSRF
     const response = await ssrfProtection.secureFetch(url);

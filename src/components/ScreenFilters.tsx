@@ -5,16 +5,21 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { Slider } from '@/components/ui/slider';
+import { Switch } from '@/components/ui/switch';
 import { 
   Search, 
   MapPin, 
   Star, 
   Filter,
   RefreshCw,
-  X
+  X,
+  Navigation,
+  Loader2
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { SpecialtySearch } from './SpecialtySearch';
+import { toast } from 'sonner';
 
 export interface ScreenFilters {
   nameOrCode: string;
@@ -23,6 +28,10 @@ export interface ScreenFilters {
   state: string;
   selectedClasses: string[];
   selectedSpecialties: string[];
+  // Novos campos para busca por raio
+  radiusSearchAddress: string;
+  radiusKm: number;
+  useRadiusSearch: boolean;
 }
 
 interface ScreenFiltersProps {
@@ -99,7 +108,8 @@ export const ScreenFilters: React.FC<ScreenFiltersProps> = ({
            filters.city.trim() !== '' ||
            filters.state.trim() !== '' ||
            filters.selectedClasses.length > 0 ||
-           filters.selectedSpecialties.length > 0;
+           filters.selectedSpecialties.length > 0 ||
+           filters.radiusSearchAddress.trim() !== '';
   };
 
   return (
@@ -111,6 +121,55 @@ export const ScreenFilters: React.FC<ScreenFiltersProps> = ({
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
+        {/* Busca por Raio - Layout do Mapa Interativo */}
+        <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+          <h3 className="font-semibold text-blue-900 mb-3 flex items-center gap-2">
+            <Navigation className="h-4 w-4" />
+            Busca por Endereço e Raio
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-blue-800 flex items-center gap-2">
+                <MapPin className="w-4 h-4" />
+                Localização
+              </label>
+              <Input
+                placeholder="Ex: Av Paulista, 1000 ou CEP 01310-100 (ENTER para buscar)"
+                value={filters.radiusSearchAddress}
+                onChange={(e) => updateFilters({ radiusSearchAddress: e.target.value })}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    onApplyFilters();
+                  }
+                }}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-blue-800 flex items-center gap-2">
+                <Navigation className="w-4 h-4" />
+                Raio de Busca
+              </label>
+              <div className="flex items-center gap-2">
+                <Input
+                  type="number"
+                  min="1"
+                  max="100"
+                  value={filters.radiusKm}
+                  onChange={(e) => updateFilters({ radiusKm: parseInt(e.target.value) || 5 })}
+                  className="flex-1"
+                />
+                <span className="text-sm text-blue-600">km</span>
+              </div>
+            </div>
+          </div>
+          <div className="mt-3 text-xs text-blue-600">
+            💡 <strong>Dica:</strong> Busque por Endereço, Bairro, Cidade ou CEP (com ou sem hífen)
+          </div>
+        </div>
+
+        <Separator />
+
         {/* Busca por Nome/Código */}
         <div className="space-y-2">
           <Label className="flex items-center gap-2">
@@ -132,9 +191,9 @@ export const ScreenFilters: React.FC<ScreenFiltersProps> = ({
           </Label>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <Label className="text-sm text-gray-600">Endereço/Rua/Avenida/Bairro</Label>
+              <Label className="text-sm text-gray-600">Endereço/Rua/Avenida/Bairro/CEP</Label>
               <Input
-                placeholder="Ex: Rua Augusta, Avenida Paulista..."
+                placeholder="Ex: Rua Augusta ou CEP 01305-000..."
                 value={filters.address}
                 onChange={(e) => updateFilters({ address: e.target.value })}
               />
@@ -250,6 +309,12 @@ export const ScreenFilters: React.FC<ScreenFiltersProps> = ({
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
             <p className="text-sm text-blue-800 font-medium">Filtros Ativos:</p>
             <div className="mt-2 space-y-1 text-xs text-blue-700">
+              {filters.radiusSearchAddress && (
+                <>
+                  <p>• <strong>Busca por Raio:</strong> "{filters.radiusSearchAddress}"</p>
+                  <p>• Raio: {filters.radiusKm} km</p>
+                </>
+              )}
               {filters.nameOrCode && <p>• Nome/Código: "{filters.nameOrCode}"</p>}
               {filters.address && <p>• Endereço: "{filters.address}"</p>}
               {filters.city && <p>• Cidade: "{filters.city}"</p>}

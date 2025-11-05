@@ -3,11 +3,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { 
   User, 
   Briefcase, 
@@ -36,28 +36,50 @@ interface StepProps {
 export const ProposalTypeStep: React.FC<StepProps> = ({ data, onUpdate }) => {
   console.log('🎯 ProposalTypeStep render:', { proposal_type: data.proposal_type });
 
-  const handleValueChange = (value: string) => {
-    console.log('📝 Changing proposal type to:', value);
-    onUpdate({ proposal_type: value as 'avulsa' | 'projeto' });
+  const handleTypeToggle = (type: 'avulsa' | 'projeto', checked: boolean) => {
+    console.log('📝 Toggling proposal type:', type, checked);
+    const currentTypes = data.proposal_type || [];
+    let newTypes: ('avulsa' | 'projeto')[];
+    
+    if (checked) {
+      // Adiciona o tipo se não estiver presente
+      newTypes = currentTypes.includes(type) ? currentTypes : [...currentTypes, type];
+    } else {
+      // Remove o tipo
+      newTypes = currentTypes.filter(t => t !== type);
+    }
+    
+    console.log('✅ New proposal types:', newTypes);
+    onUpdate({ proposal_type: newTypes });
+  };
+
+  const isTypeSelected = (type: 'avulsa' | 'projeto') => {
+    return data.proposal_type?.includes(type) || false;
   };
 
   return (
     <div className="space-y-8">
       <div className="text-center">
         <h3 className="text-xl font-semibold text-gray-900 mb-2">Que tipo de proposta você deseja criar?</h3>
-        <p className="text-gray-600">Selecione o tipo de campanha que melhor atende às necessidades do seu cliente</p>
+        <p className="text-gray-600">Selecione um ou ambos os tipos de campanha que atendem às necessidades do seu cliente</p>
       </div>
 
-      <RadioGroup
-        value={data.proposal_type}
-        onValueChange={handleValueChange}
-        className="grid grid-cols-1 md:grid-cols-2 gap-6"
-      >
-        <Card className={`cursor-pointer transition-all duration-200 hover:shadow-md ${
-          data.proposal_type === 'avulsa' ? 'ring-2 ring-blue-500 border-blue-500' : ''
-        }`}>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <Card 
+          className={`cursor-pointer transition-all duration-200 hover:shadow-md ${
+            isTypeSelected('avulsa') ? 'ring-2 ring-blue-500 border-blue-500' : ''
+          }`}
+          onClick={() => handleTypeToggle('avulsa', !isTypeSelected('avulsa'))}
+        >
           <CardContent className="p-6">
-            <RadioGroupItem value="avulsa" id="avulsa" className="mb-4" />
+            <div className="flex items-start justify-between mb-4">
+              <Checkbox
+                id="avulsa"
+                checked={isTypeSelected('avulsa')}
+                onCheckedChange={(checked) => handleTypeToggle('avulsa', checked as boolean)}
+                onClick={(e) => e.stopPropagation()}
+              />
+            </div>
             <Label htmlFor="avulsa" className="cursor-pointer">
               <div className="flex flex-col items-center text-center space-y-4">
                 <div className="p-3 bg-blue-100 rounded-full">
@@ -74,11 +96,21 @@ export const ProposalTypeStep: React.FC<StepProps> = ({ data, onUpdate }) => {
           </CardContent>
         </Card>
 
-        <Card className={`cursor-pointer transition-all duration-200 hover:shadow-md ${
-          data.proposal_type === 'projeto' ? 'ring-2 ring-green-500 border-green-500' : ''
-        }`}>
+        <Card 
+          className={`cursor-pointer transition-all duration-200 hover:shadow-md ${
+            isTypeSelected('projeto') ? 'ring-2 ring-green-500 border-green-500' : ''
+          }`}
+          onClick={() => handleTypeToggle('projeto', !isTypeSelected('projeto'))}
+        >
           <CardContent className="p-6">
-            <RadioGroupItem value="projeto" id="projeto" className="mb-4" />
+            <div className="flex items-start justify-between mb-4">
+              <Checkbox
+                id="projeto"
+                checked={isTypeSelected('projeto')}
+                onCheckedChange={(checked) => handleTypeToggle('projeto', checked as boolean)}
+                onClick={(e) => e.stopPropagation()}
+              />
+            </div>
             <Label htmlFor="projeto" className="cursor-pointer">
               <div className="flex flex-col items-center text-center space-y-4">
                 <div className="p-3 bg-green-100 rounded-full">
@@ -94,11 +126,11 @@ export const ProposalTypeStep: React.FC<StepProps> = ({ data, onUpdate }) => {
             </Label>
           </CardContent>
         </Card>
-      </RadioGroup>
+      </div>
 
       {/* Debug info */}
       <div className="bg-gray-100 p-3 rounded text-xs">
-        <strong>Debug:</strong> proposal_type = "{data.proposal_type}"
+        <strong>Debug:</strong> proposal_type = {JSON.stringify(data.proposal_type)}
       </div>
     </div>
   );
@@ -172,6 +204,14 @@ export const ProjectSelectionStep: React.FC<ProjectSelectionStepProps> = ({
   loading 
 }) => {
 
+  const getProposalTypeLabel = () => {
+    if (!data.proposal_type || data.proposal_type.length === 0) return 'Nenhum tipo selecionado';
+    const types = data.proposal_type.map(type => 
+      type === 'avulsa' ? 'Veiculação Avulsa' : 'Projeto Especial de Conteúdo'
+    );
+    return types.join(' + ');
+  };
+
   return (
     <div className="space-y-8">
       <div className="text-center">
@@ -183,7 +223,7 @@ export const ProjectSelectionStep: React.FC<ProjectSelectionStepProps> = ({
             Selecione aquele que melhor se adequa à sua proposta comercial.
             <br />
             <span className="text-blue-600 font-medium">
-              Tipo de proposta: {data.proposal_type === 'avulsa' ? 'Veiculação Avulsa' : 'Projeto Especial de Conteúdo'}
+              Tipo de proposta: {getProposalTypeLabel()}
             </span>
           </p>
         </div>
@@ -294,7 +334,11 @@ export const ScreenSelectionStep: React.FC<ScreenSelectionStepProps> = ({
     city: '',
     state: '',
     selectedClasses: [],
-    selectedSpecialties: []
+    selectedSpecialties: [],
+    // Campos para busca por raio
+    radiusSearchAddress: '',
+    radiusKm: 5,
+    useRadiusSearch: false // Mantido para compatibilidade, mas não usado
   });
 
   const [hasSearched, setHasSearched] = useState(false);
@@ -316,10 +360,11 @@ export const ScreenSelectionStep: React.FC<ScreenSelectionStepProps> = ({
 
   const handleApplyFilters = () => {
     console.log('🔍 Aplicando filtros:', filters);
-    setHasSearched(true);
     if (onApplyFilters) {
       onApplyFilters(filters);
     }
+    // Marcar como pesquisado após a busca ser iniciada
+    setHasSearched(true);
   };
 
   const handleClearFilters = () => {
@@ -329,7 +374,10 @@ export const ScreenSelectionStep: React.FC<ScreenSelectionStepProps> = ({
       city: '',
       state: '',
       selectedClasses: [],
-      selectedSpecialties: []
+      selectedSpecialties: [],
+      radiusSearchAddress: '',
+      radiusKm: 5,
+      useRadiusSearch: false
     };
     setFilters(emptyFilters);
     setHasSearched(false);
@@ -386,32 +434,7 @@ export const ScreenSelectionStep: React.FC<ScreenSelectionStepProps> = ({
         loading={loading}
       />
 
-      {!hasSearched ? (
-        <div className="text-center py-12">
-          <Monitor className="w-16 h-16 text-gray-400 mx-auto mb-6" />
-          <h4 className="text-xl font-semibold text-gray-900 mb-4">Seleção de Telas</h4>
-          <p className="text-gray-600 mb-6 max-w-md mx-auto">
-            Use os filtros acima para buscar e encontrar as telas desejadas. 
-            Após aplicar os filtros, você poderá selecionar as telas que melhor atendem à sua proposta.
-          </p>
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 max-w-lg mx-auto">
-            <div className="flex items-start gap-3">
-              <div className="p-2 bg-blue-100 rounded-full">
-                <Monitor className="w-5 h-5 text-blue-600" />
-              </div>
-              <div className="text-left">
-                <h5 className="font-semibold text-blue-900 mb-2">Como funciona:</h5>
-                <ul className="text-sm text-blue-700 space-y-1">
-                  <li>• Preencha os filtros de busca</li>
-                  <li>• Clique em "Buscar Telas"</li>
-                  <li>• Selecione as telas desejadas</li>
-                  <li>• Use "Selecionar Todas" se necessário</li>
-                </ul>
-              </div>
-            </div>
-          </div>
-        </div>
-      ) : loading ? (
+      {loading ? (
         <div className="text-center py-12">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
           <p className="text-gray-500 mt-4">Carregando telas...</p>
@@ -451,6 +474,7 @@ export const ScreenSelectionStep: React.FC<ScreenSelectionStepProps> = ({
               const audience = screen.audience || Math.floor(Math.random() * 2000) + 500; // Alcance simulado
               const weeklyRate = screen.weekly_rate || Math.floor(Math.random() * 200) + 50; // Taxa semanal
               const cpm = screen.cpm || Math.floor((weeklyRate / audience) * 1000); // CPM calculado
+              const hasDistance = screen.distance !== undefined && screen.distance !== null;
               
               return (
                 <Card
@@ -464,9 +488,14 @@ export const ScreenSelectionStep: React.FC<ScreenSelectionStepProps> = ({
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex-1">
                         <h4 className="font-semibold text-gray-900 mb-1 text-sm leading-tight">{screen.name}</h4>
-                        <p className="text-xs text-gray-600 mb-2">{screen.venues?.name}</p>
+                        <p className="text-xs text-gray-600 mb-2">{screen.venues?.name || screen.venue_name}</p>
                         <div className="text-xs text-gray-500">
                           <p>{screen.city}, {screen.state}</p>
+                          {hasDistance && (
+                            <p className="text-blue-600 font-medium mt-1">
+                              📍 {screen.distance.toFixed(1)} km de distância
+                            </p>
+                          )}
                         </div>
                       </div>
                       
@@ -523,7 +552,7 @@ export const ScreenSelectionStep: React.FC<ScreenSelectionStepProps> = ({
             })}
           </div>
         </div>
-      ) : (
+      ) : hasSearched ? (
         <div className="text-center py-12">
           <Monitor className="w-12 h-12 text-gray-400 mx-auto mb-4" />
           <h4 className="text-lg font-semibold text-gray-900 mb-2">Nenhuma tela encontrada</h4>
@@ -536,13 +565,41 @@ export const ScreenSelectionStep: React.FC<ScreenSelectionStepProps> = ({
             </p>
           </div>
         </div>
+      ) : (
+        <div className="text-center py-12">
+          <Monitor className="w-16 h-16 text-gray-400 mx-auto mb-6" />
+          <h4 className="text-xl font-semibold text-gray-900 mb-4">Seleção de Telas</h4>
+          <p className="text-gray-600 mb-6 max-w-md mx-auto">
+            Use os filtros acima para buscar e encontrar as telas desejadas. 
+            Após aplicar os filtros, você poderá selecionar as telas que melhor atendem à sua proposta.
+          </p>
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 max-w-lg mx-auto">
+            <div className="flex items-start gap-3">
+              <div className="p-2 bg-blue-100 rounded-full">
+                <Monitor className="w-5 h-5 text-blue-600" />
+              </div>
+              <div className="text-left">
+                <h5 className="font-semibold text-blue-900 mb-2">Como funciona:</h5>
+                <ul className="text-sm text-blue-700 space-y-1">
+                  <li>• Ative a busca por raio ou use filtros tradicionais</li>
+                  <li>• Para busca por raio: digite o endereço e ajuste o raio</li>
+                  <li>• Clique em "Buscar Telas"</li>
+                  <li>• Selecione as telas desejadas</li>
+                  <li>• Use "Selecionar Todas" se necessário</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Debug info */}
       <div className="bg-gray-100 p-3 rounded text-xs">
-        <strong>Debug:</strong> {screens.length} telas disponíveis, {data.selectedScreens.length} selecionadas
+        <strong>Debug:</strong> {screens.length} telas disponíveis, {data.selectedScreens.length} selecionadas, hasSearched: {hasSearched ? 'true' : 'false'}, loading: {loading ? 'true' : 'false'}
         <br />
         <strong>Selecionadas:</strong> {JSON.stringify(data.selectedScreens)}
+        <br />
+        <strong>Primeiras 2 telas:</strong> {JSON.stringify(screens.slice(0, 2).map(s => ({ id: s.id, name: s.name, distance: s.distance })))}
       </div>
     </div>
   );
@@ -865,9 +922,15 @@ export const SummaryStep: React.FC<{ data: ProposalData }> = ({ data }) => {
               <span className="text-gray-600">Email:</span>
               <span className="font-semibold">{data.customer_email}</span>
             </div>
-            <div className="flex justify-between">
+            <div className="flex justify-between items-center">
               <span className="text-gray-600">Tipo:</span>
-              <Badge>{data.proposal_type === 'avulsa' ? 'Veiculação Avulsa' : 'Projeto Especial'}</Badge>
+              <div className="flex gap-2 flex-wrap">
+                {data.proposal_type.map(type => (
+                  <Badge key={type}>
+                    {type === 'avulsa' ? 'Veiculação Avulsa' : 'Projeto Especial'}
+                  </Badge>
+                ))}
+              </div>
             </div>
           </CardContent>
         </Card>

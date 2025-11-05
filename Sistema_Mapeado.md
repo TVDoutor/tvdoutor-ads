@@ -1,7 +1,8 @@
 # Mapeamento Completo do Sistema - TV Doutor ADS
 
 **Data de Criação**: 10/10/2025  
-**Versão do Sistema**: 1.1.0  
+**Última Atualização**: 05/11/2025  
+**Versão do Sistema**: 1.2.0  
 **Tipo de Projeto**: Plataforma de Gestão de Publicidade Digital Out-of-Home (DOOH)
 
 ---
@@ -46,6 +47,9 @@ O sistema possui um modelo hierárquico de roles:
    - Integração com Google Maps para visualização
    - Busca avançada por localização e filtros
    - Heatmap de densidade de telas
+   - **NOVO:** Importação em massa via CSV/Excel
+   - **NOVO:** Exportação de inventário para Excel
+   - **NOVO:** Normalização automática de especialidades médicas
 
 4. **Mapa Interativo**
    - Visualização geoespacial de telas
@@ -53,6 +57,10 @@ O sistema possui um modelo hierárquico de roles:
    - Busca por especialidade médica
    - Cálculo de audiência e alcance
    - Clustering de marcadores
+   - **NOVO:** Modo heatmap de popularidade de telas
+   - **NOVO:** Busca geoespacial por raio (km)
+   - **NOVO:** Auto-complete de endereços
+   - **NOVO:** Busca por CEP (com/sem hífen)
 
 5. **Sistema de Notificações por Email**
    - Fila de emails pendentes
@@ -65,12 +73,48 @@ O sistema possui um modelo hierárquico de roles:
    - KPIs de propostas (taxa de conversão, valor médio)
    - Estatísticas de emails
    - Relatórios de desempenho de telas
+   - **NOVO:** Relatórios avançados com múltiplas visualizações
+   - **NOVO:** Análise de performance por região/classe
+   - **NOVO:** Exportação de relatórios em múltiplos formatos
+   - **NOVO:** Centro de Alertas e Notificações
 
 7. **Gestão de Usuários**
    - Controle de acesso baseado em roles
    - Autenticação JWT via Supabase Auth
    - Perfis de usuário com avatar
    - Auditoria de ações
+   - **NOVO:** Monitor de sessões de usuários online
+   - **NOVO:** Dashboard de atividades de usuários
+
+8. **Campanhas Publicitárias (NOVO)**
+   - Criação e gestão de campanhas
+   - Vinculação de campanhas a agências e projetos
+   - Tracking de orçamento e progresso
+   - Status workflow (rascunho, ativa, pausada, concluída, cancelada)
+   - Vinculação de múltiplas telas por campanha
+   - Métricas e analytics por campanha
+
+9. **Modelos de Impacto (NOVO)**
+   - Administração de fórmulas de cálculo de impacto
+   - Modelos personalizados por tipo de audiência
+   - Multiplicadores customizáveis
+   - Exemplos e documentação inline
+   - Esquemas de cores para identificação visual
+   - Estatísticas de uso por modelo
+
+10. **Gerenciamento de Venues (NOVO)**
+    - Cadastro de locais/pontos físicos
+    - Hierarquia de tipos (parent, child, grandchildren)
+    - Agrupamento de telas por venue
+    - Estatísticas por local
+    - Visualização em mapa por venue
+    - Filtros avançados por tipo de local
+
+11. **Página Dedicada de Heatmap (NOVO)**
+    - Visualização isolada do mapa de calor
+    - Filtros específicos para análise de densidade
+    - Estatísticas de intensidade
+    - Análise de popularidade de telas por região
 
 ---
 
@@ -174,6 +218,16 @@ tvdoutor-ads/
 - `ProjectManagement`: Gestão de projetos
 - `Users`: Administração de usuários
 - `Settings`: Configurações do sistema
+- **NOVO:** `Campaigns`: Gerenciamento de campanhas publicitárias
+- **NOVO:** `CampaignDetails`: Detalhes de uma campanha
+- **NOVO:** `ImpactModelsAdmin`: Administração de modelos de impacto
+- **NOVO:** `Venues`: Gerenciamento de venues/locais
+- **NOVO:** `VenueDetails`: Detalhes de um venue
+- **NOVO:** `HeatmapPage`: Página dedicada para visualização de heatmap
+- **NOVO:** `Reports`: Relatórios avançados e analytics
+- **NOVO:** `ScreenManagement`: Gerenciamento avançado de telas
+- **NOVO:** `SearchResults`: Resultados de busca geoespacial
+- **NOVO:** `PessoasProjeto`: Gestão de pessoas em projetos
 
 **Componentes Chave:**
 - `DashboardLayout`: Layout padrão com sidebar e header
@@ -182,6 +236,13 @@ tvdoutor-ads/
 - `HeatmapComponent`: Visualização de densidade de telas
 - `LocationSelection`: Seleção de telas com mapa
 - `PDFDownloadButton`: Geração e download de PDF
+- **NOVO:** `AlertsCenter`: Centro de alertas e notificações
+- **NOVO:** `ExecutiveSummary`: Resumo executivo no dashboard
+- **NOVO:** `GeospatialSearch`: Busca geoespacial avançada
+- **NOVO:** `AudienceCalculator`: Calculadora de audiência
+- **NOVO:** `ConversionRateCard`: Card de taxa de conversão
+- **NOVO:** `UserSessionDashboard`: Monitor de sessões de usuários
+- **NOVO:** `address-radius-search`: Componente de busca por raio
 
 #### Backend (Supabase)
 
@@ -194,6 +255,9 @@ tvdoutor-ads/
 6. `maps-heatmap`: Dados para heatmap
 7. `project-milestones`: Gerencia marcos de projeto
 8. `send-proposal-email`: Envia email de proposta
+9. **NOVO:** `user-sessions`: Gerencia sessões de usuários online
+10. **NOVO:** `marco-templates`: Templates de marcos de projeto
+11. **NOVO:** `generate-pdf-proposal`: Variante de geração de PDF
 
 ### 2.4 Fluxos de Integração
 
@@ -233,6 +297,345 @@ tvdoutor-ads/
 7. Edge Function → Retorna PDF buffer
 8. Frontend → Cria blob → Download automático
 ```
+
+---
+
+## 2.5 Novas Funcionalidades (v1.2.0)
+
+### 2.5.1 Sistema de Campanhas Publicitárias
+
+**Descrição**: Módulo completo para gerenciamento de campanhas de publicidade, separado de propostas.
+
+**Estrutura de Dados (Campaigns):**
+```typescript
+interface Campaign {
+  id: number;
+  name: string;
+  customer_name: string | null;
+  status: 'draft' | 'active' | 'paused' | 'completed' | 'cancelled';
+  start_date: string | null;
+  end_date: string | null;
+  budget: number | null;
+  spent: number | null;
+  notes: string | null;
+  agencia_id: UUID | null;
+  projeto_id: UUID | null;
+  created_at: string;
+  created_by: string;
+}
+```
+
+**Funcionalidades:**
+- Criação de campanhas com wizard intuitivo
+- Vinculação a agências e projetos existentes
+- Gerenciamento de orçamento (budget vs. spent)
+- Workflow de status (draft → active → paused/completed/cancelled)
+- Vinculação de múltiplas telas à campanha
+- Dashboard de métricas por campanha
+- Filtros avançados (status, data, agência)
+- Tabs organizadas: Ativas, Concluídas, Todas
+
+**Permissões:**
+- **Manager+**: Pode criar e gerenciar campanhas
+- **User**: Visualização limitada
+- **Client**: Somente campanhas atribuídas
+
+### 2.5.2 Modelos de Impacto (Impact Models)
+
+**Descrição**: Sistema de administração de fórmulas de cálculo de impacto para propostas.
+
+**Estrutura de Dados (Impact Models):**
+```typescript
+interface ImpactModel {
+  id: number;
+  name: string;
+  description: string;
+  traffic_level: 'Baixo' | 'Médio' | 'Alto' | 'Muito Alto';
+  multiplier: number;
+  examples: string[];
+  color_scheme: {
+    background: string;
+    text: string;
+    border: string;
+  };
+  is_default: boolean;
+  is_active: boolean;
+  usage_count?: number;
+}
+```
+
+**Funcionalidades:**
+- CRUD completo de modelos de impacto
+- Multiplicadores customizáveis por tipo de tráfego
+- Exemplos e documentação inline
+- Esquemas de cores para identificação visual
+- Ativação/desativação de modelos
+- Definição de modelo padrão
+- Estatísticas de uso (quantas propostas usam cada modelo)
+- Proteção: Não permite deletar modelos em uso
+
+**Permissões:**
+- **Admin+**: Acesso total
+- **Manager/User**: Somente leitura
+
+### 2.5.3 Importação em Massa de Inventário (CSV/Excel)
+
+**Descrição**: Sistema de importação de telas através de arquivos CSV ou Excel.
+
+**Formato do Template (`template-inventario.csv`):**
+```csv
+Código,Nome de Exibição,Cidade,Estado,Endereço,Classe,Ativo,Especialidade,Latitude,Longitude
+```
+
+**Funcionalidades:**
+- Upload de arquivos CSV, XLSX, XLS (máx. 10MB)
+- Download de template pré-formatado
+- Validação automática de dados:
+  - Classes permitidas: A, AB, ABC, B, BC, C, CD, D, E, ND
+  - Coordenadas válidas (latitude/longitude)
+  - Campos obrigatórios (código, nome, cidade, estado)
+- Normalização automática de especialidades médicas
+  - Separa especialidades grudadas (ex: "CARDIOLOGIANEUROLOGIA")
+  - Lista de 30+ especialidades conhecidas
+  - Algoritmo inteligente de separação
+- Preview de dados antes da importação
+- Processamento em lote com feedback de progresso
+- Detecção de duplicatas por código
+- Criação de venues automaticamente se não existir
+
+**Fluxo de Importação:**
+```
+1. Admin seleciona arquivo CSV/Excel
+2. Sistema valida formato
+3. Sistema processa e normaliza dados
+4. Preview mostra dados a serem importados
+5. Admin confirma
+6. Sistema insere telas no banco
+7. Relatório de sucesso/erros
+```
+
+**Tratamento de Erros:**
+- Classe inválida → substituída por 'ND'
+- Coordenadas inválidas → mantidas vazias
+- Código duplicado → registro ignorado
+- Especialidades complexas → tentativa de normalização
+
+### 2.5.4 Gerenciamento de Venues (Locais)
+
+**Descrição**: Sistema hierárquico de gerenciamento de locais físicos.
+
+**Hierarquia de Tipos:**
+```
+venue_type_parent (ex: "Clínica Médica")
+  └── venue_type_child (ex: "Cardiologia")
+       └── venue_type_grandchildren (ex: "Consultório Privado")
+```
+
+**Funcionalidades:**
+- Listagem de venues com telas agrupadas
+- Filtros por cidade, estado, tipo
+- Visualização de estatísticas por venue:
+  - Total de telas
+  - Telas ativas/inativas
+  - Distribuição de classes
+  - Especialidades
+- Modo de visualização: Grid ou Lista
+- Busca por nome de venue
+- Tabs: Todos, Clínicas, Hospitais, Outros
+- Navegação para detalhes do venue
+- Visualização em mapa de telas do venue
+
+### 2.5.5 Relatórios Avançados
+
+**Descrição**: Sistema completo de relatórios e analytics com múltiplas visualizações.
+
+**Categorias de Relatórios:**
+
+1. **Performance de Propostas**
+   - Taxa de conversão ao longo do tempo
+   - Valor médio por proposta
+   - Comparativo aceitas vs. rejeitadas
+   - Top agências por volume
+
+2. **Analytics de Telas**
+   - Distribuição por classe (A, B, C, D)
+   - Telas mais populares (por propostas)
+   - Análise geográfica (por cidade/estado)
+   - Heatmap de densidade
+
+3. **Performance de Emails**
+   - Taxa de entrega
+   - Emails pendentes vs. enviados
+   - Histórico de falhas
+   - Tempo médio de processamento
+
+4. **Análise Financeira**
+   - Receita por período
+   - Ticket médio
+   - Projeções de receita
+   - ROI por campanha
+
+**Visualizações:**
+- Gráficos de barras (BarChart)
+- Gráficos de linhas (LineChart)
+- Gráficos de pizza (PieChart)
+- Tabelas interativas
+- Cards de métricas
+- Progress bars
+- Badges de status
+
+**Exportação:**
+- PDF (relatórios completos)
+- Excel (dados brutos)
+- CSV (dados filtrados)
+- PNG (gráficos)
+
+**Filtros:**
+- Período (últimos 7/30/90 dias, personalizado)
+- Status (rascunho, enviada, aceita, rejeitada)
+- Agência específica
+- Classe de tela
+- Região geográfica
+
+### 2.5.6 Página Dedicada de Heatmap
+
+**Descrição**: Visualização isolada e aprimorada do mapa de calor de telas.
+
+**Funcionalidades:**
+- Visualização full-screen do heatmap
+- Filtros específicos:
+  - Cidade
+  - Estado
+  - Classe de tela
+  - Status (ativa/inativa)
+- Estatísticas em cards:
+  - Total de pontos
+  - Intensidade máxima
+  - Intensidade média
+  - Distribuição por região
+- Modo de exibição: Heatmap vs. Markers
+- Dados mockados para demonstração (fallback)
+- Integração com API de heatmap
+- Atualização em tempo real
+
+**Métricas de Intensidade:**
+- Baseada no número de propostas por tela
+- Normalização 0-1
+- Gradient de cores (azul → verde → amarelo → vermelho)
+- Raio de influência customizável
+
+### 2.5.7 Monitor de Sessões de Usuários
+
+**Descrição**: Dashboard administrativo para monitorar usuários online e atividades.
+
+**Funcionalidades:**
+- Lista de usuários online em tempo real
+- Histórico de sessões
+- Tempo de sessão ativa
+- Última atividade
+- Navegador e dispositivo
+- IP e localização geográfica
+- Filtros por status (online/offline)
+- Refresh manual (auto-refresh desabilitado por estabilidade)
+
+**Permissões:**
+- **Super Admin**: Acesso exclusivo
+
+**Status Atual:**
+- ⚠️ **Sistema Temporariamente Desabilitado**
+- Motivo: Causava instabilidade (loops infinitos)
+- Referência: `RESUMO_CORRECOES_EMERGENCIAIS.md`
+- Aguardando refatoração com:
+  - Rate limiting
+  - Circuit breaker
+  - WebSockets (substituir polling)
+
+### 2.5.8 Busca Geoespacial Avançada
+
+**Descrição**: Sistema de busca de telas por localização geográfica com raio.
+
+**Funcionalidades:**
+- Busca por endereço completo (auto-complete)
+- **Busca por CEP** (Código de Endereçamento Postal)
+- Busca por bairro
+- Busca por cidade
+- Seleção de raio (1-50 km)
+- Geocoding automático via Google Maps API
+- Validação e normalização de CEP
+- Cálculo de distância Haversine
+- Visualização em mapa dos resultados
+- Marcador de centro de busca
+- Círculo de raio visual
+- Lista de telas encontradas com distâncias
+- Filtros adicionais (classe, status)
+
+**Formatos Aceitos:**
+- Endereço completo: "Av. Paulista, 1000, São Paulo"
+- CEP com hífen: "01310-100"
+- CEP sem hífen: "01310100"
+- Bairro + Cidade: "Bela Vista, São Paulo"
+- Apenas Cidade: "São Paulo, SP"
+
+**Integração com API ViaCEP:**
+- Validação automática de CEP em tempo real
+- Auto-complete de endereço ao digitar CEP
+- Normalização automática de CEP (adiciona hífen)
+- Sugestão visual com dados do endereço
+- Fallback para Google Maps caso ViaCEP falhe
+
+**Componentes:**
+- `CEPInput`: Input especializado com validação visual
+- `GeospatialSearch`: Componente principal de busca
+- `address-radius-search`: Componente UI com tabs (Endereço/CEP)
+- `SearchResults`: Página de resultados
+- Integração com `InteractiveMap`
+
+**Hooks e Serviços:**
+- `useCEPValidation`: Hook para validação de CEP
+- `viacep-service`: Serviço de integração com API ViaCEP
+- `geocoding`: Serviço aprimorado com suporte a ViaCEP
+
+**Algoritmo:**
+```javascript
+// Haversine formula para calcular distância
+function calculateDistance(lat1, lng1, lat2, lng2) {
+  const R = 6371; // Raio da Terra em km
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+            Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+            Math.sin(dLng/2) * Math.sin(dLng/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c;
+}
+```
+
+### 2.5.9 Centro de Alertas e Notificações
+
+**Descrição**: Sistema centralizado de alertas e notificações no dashboard.
+
+**Tipos de Alertas:**
+- 📧 Emails pendentes
+- 📝 Propostas em rascunho
+- ⏰ Propostas próximas do vencimento
+- 💰 Orçamento de campanha estourando
+- 🚨 Telas offline
+- ✅ Milestones concluídos
+- 🎯 Metas atingidas
+
+**Funcionalidades:**
+- Lista priorizada de alertas
+- Badges de quantidade
+- Ações rápidas (visualizar, resolver)
+- Categorização por tipo
+- Filtros por prioridade
+- Histórico de alertas
+- Notificações em tempo real (planejado)
+
+**Níveis de Prioridade:**
+- 🔴 Crítico (ação imediata)
+- 🟡 Importante (ação em breve)
+- 🟢 Informativo (apenas FYI)
 
 ---
 
@@ -404,6 +807,70 @@ CREATE TABLE venues (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 ```
+
+#### Campanhas Publicitárias (NOVO - v1.2.0)
+
+**campaigns** (Campanhas)
+```sql
+CREATE TABLE campaigns (
+  id BIGSERIAL PRIMARY KEY,
+  name TEXT NOT NULL,
+  customer_name TEXT,
+  status TEXT DEFAULT 'draft' CHECK (status IN ('draft', 'active', 'paused', 'completed', 'cancelled')),
+  start_date DATE,
+  end_date DATE,
+  budget NUMERIC(12,2),
+  spent NUMERIC(12,2) DEFAULT 0,
+  notes TEXT,
+  agencia_id UUID REFERENCES agencias(id),
+  projeto_id UUID REFERENCES agencia_projetos(id),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  created_by UUID REFERENCES auth.users(id),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+```
+- Gerenciamento de campanhas publicitárias
+- Workflow: draft → active → paused/completed/cancelled
+- Tracking de orçamento (budget vs. spent)
+- Vinculação opcional com agências e projetos
+
+**campaign_screens** (Telas da Campanha)
+```sql
+CREATE TABLE campaign_screens (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  campaign_id BIGINT REFERENCES campaigns(id) ON DELETE CASCADE NOT NULL,
+  screen_id UUID REFERENCES screens(id) ON DELETE CASCADE NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE (campaign_id, screen_id)
+);
+```
+- Relacionamento N:N entre campaigns e screens
+- Permite múltiplas telas por campanha
+
+#### Modelos de Impacto (NOVO - v1.2.0)
+
+**impact_models** (Modelos de Cálculo de Impacto)
+```sql
+CREATE TABLE impact_models (
+  id BIGSERIAL PRIMARY KEY,
+  name TEXT NOT NULL UNIQUE,
+  description TEXT,
+  traffic_level TEXT CHECK (traffic_level IN ('Baixo', 'Médio', 'Alto', 'Muito Alto')),
+  multiplier NUMERIC(5,2) DEFAULT 1.0,
+  examples TEXT[],
+  color_scheme JSONB DEFAULT '{"background": "#ffffff", "text": "#000000", "border": "#cccccc"}'::jsonb,
+  is_default BOOLEAN DEFAULT FALSE,
+  is_active BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  created_by UUID REFERENCES auth.users(id)
+);
+```
+- Fórmulas customizáveis de cálculo de impacto
+- Multiplicadores por nível de tráfego
+- Esquemas de cores para identificação
+- Sistema de modelo padrão (is_default)
+- Ativação/desativação sem deletar
 
 #### Agências e Projetos
 
@@ -925,7 +1392,79 @@ POST https://api.resend.com/emails
 - Plano gratuito: 100 emails/dia
 - Timeout: 30 segundos
 
-### 5.4 Mapbox (Tokens e Mapas)
+### 5.4 ViaCEP (NOVO - v1.2.0)
+
+**Uso**: Consulta e validação de CEP brasileiro
+
+**Configuração:**
+- API pública e gratuita (sem necessidade de chave)
+- Limite: sem limite oficial documentado
+- Timeout: 10 segundos
+
+**Endpoints Utilizados:**
+
+1. **Consulta por CEP:**
+```
+GET https://viacep.com.br/ws/{CEP}/json/
+```
+
+**Resposta de Sucesso:**
+```json
+{
+  "cep": "01310-100",
+  "logradouro": "Avenida Paulista",
+  "complemento": "lado ímpar",
+  "bairro": "Bela Vista",
+  "localidade": "São Paulo",
+  "uf": "SP",
+  "ibge": "3550308",
+  "gia": "1004",
+  "ddd": "11",
+  "siafi": "7107"
+}
+```
+
+**Resposta de Erro:**
+```json
+{
+  "erro": true
+}
+```
+
+2. **Busca por Endereço (Auto-complete):**
+```
+GET https://viacep.com.br/ws/{UF}/{Cidade}/{Logradouro}/json/
+```
+
+**Exemplo:**
+```
+GET https://viacep.com.br/ws/SP/Sao Paulo/Paulista/json/
+```
+
+**Funcionalidades Implementadas:**
+- Validação de CEP em tempo real
+- Auto-formatação (adiciona hífen automaticamente)
+- Detecção automática de CEP vs. endereço
+- Cache de resultados para melhor performance
+- Integração com Google Geocoding para coordenadas
+
+**Fluxo de Validação:**
+```
+1. Usuário digita CEP → Auto-formata (XXXXX-XXX)
+2. Valida formato (8 dígitos) → Indicador visual
+3. Consulta ViaCEP → Busca endereço completo
+4. Exibe sugestão com endereço encontrado
+5. Usa endereço completo no Google Geocoding
+6. Retorna coordenadas precisas
+```
+
+**Tratamento de Erros:**
+- CEP inválido → Indicador vermelho + mensagem
+- CEP não encontrado → Fallback para Google Maps direto
+- ViaCEP offline → Fallback para Google Maps direto
+- Timeout → Fallback silencioso
+
+### 5.5 Mapbox (Tokens e Mapas)
 
 **Uso**: Visualização de mapas (alternativa ao Google Maps)
 
@@ -1209,35 +1748,76 @@ SUPABASE_SERVICE_ROLE_KEY=<SERVICE_KEY>
 
 ### 8.1 Débitos Técnicos Conhecidos
 
-1. **Geração de PDF**
+1. **Sistema de Sessões de Usuários** ⚠️ **CRÍTICO**
+   - Status: **TEMPORARIAMENTE DESABILITADO**
+   - Motivo: Causava loops infinitos e instabilidade no sistema
+   - Data do Incidente: 28/10/2025
+   - Problemas Identificados:
+     - Inicialização automática em loops
+     - Auto-refresh a cada 30 segundos sobrecarregando edge functions
+     - Falta de rate limiting
+     - Erros 400/403 repetidos
+   - Solução Aplicada:
+     - Desabilitado em `AuthContext.tsx`
+     - Auto-refresh desabilitado em `UserSessionDashboard.tsx`
+   - Próximos Passos:
+     - Implementar rate limiting
+     - Adicionar circuit breaker
+     - Migrar para WebSockets (substituir polling)
+     - Testes de carga antes de reabilitar
+   - Prioridade: ALTA
+   - Referência: `RESUMO_CORRECOES_EMERGENCIAIS.md`
+
+2. **Políticas RLS de Pessoas do Projeto** ✅ **CORRIGIDO**
+   - Problema: Política `FOR ALL` muito restritiva bloqueava admins
+   - Data: 28/10/2025
+   - Solução: Políticas específicas por operação (INSERT, UPDATE, DELETE)
+   - Status: Resolvido
+   - Referência: `APLICAR_FIX_PESSOAS_PROJETO.md`
+
+3. **Geração de PDF**
    - Atual: Edge Function com PDF básico (placeholder)
    - Ideal: Puppeteer ou jsPDF para PDFs profissionais
    - Impacto: Clientes recebem PDF simples sem layout adequado
    - Prioridade: ALTA
 
-2. **Processamento de Emails**
+4. **Processamento de Emails**
    - Atual: Simulado (não envia emails reais em dev)
    - Ideal: Integração completa com SendGrid/Resend em todos ambientes
    - Impacto: Emails não são enviados automaticamente
    - Prioridade: ALTA
 
-3. **Testes Automatizados**
+5. **Testes Automatizados**
    - Atual: Nenhum teste unitário ou E2E
    - Ideal: Jest + React Testing Library + Cypress
    - Impacto: Bugs podem chegar em produção
-   - Prioridade: MÉDIA
+   - Observação: Incidentes recentes evidenciam necessidade urgente
+   - Prioridade: **CRÍTICA** (elevada de MÉDIA)
 
-4. **Documentação de API**
+6. **Documentação de API**
    - Atual: Documentação inline nos arquivos
    - Ideal: Swagger/OpenAPI para Edge Functions
    - Impacto: Dificuldade para novos desenvolvedores
    - Prioridade: BAIXA
 
-5. **Cache de Dados**
+7. **Cache de Dados**
    - Atual: React Query com cache padrão (5 minutos)
    - Ideal: Redis para cache de telas e propostas
    - Impacto: Queries repetidas sobrecarregam DB
+   - Observação: Edge Functions sobrecarregadas em incidentes recentes
+   - Prioridade: ALTA (elevada de MÉDIA)
+
+8. **Validação de Dados no CSV Import**
+   - Atual: Validação básica com fallbacks
+   - Ideal: Validação rigorosa com relatório detalhado de erros
+   - Impacto: Dados inconsistentes podem ser importados
    - Prioridade: MÉDIA
+
+9. **Normalização de Especialidades**
+   - Atual: Algoritmo heurístico para separar especialidades grudadas
+   - Ideal: Base de dados de sinônimos e variações
+   - Impacto: Algumas especialidades podem não ser reconhecidas
+   - Prioridade: BAIXA
 
 ### 8.2 Gargalos de Performance
 
@@ -1278,21 +1858,64 @@ SUPABASE_SERVICE_ROLE_KEY=<SERVICE_KEY>
 
 ### 8.4 Sugestões de Melhorias
 
+#### Implementadas na v1.2.0 ✅
+
+1. ✅ **Sistema de Campanhas** (COMPLETO)
+   - Implementado: Gestão completa de campanhas publicitárias
+   - Impacto: ALTO - Nova funcionalidade core
+
+2. ✅ **Modelos de Impacto Customizáveis** (COMPLETO)
+   - Implementado: Administração de fórmulas de cálculo
+   - Impacto: MÉDIO - Maior flexibilidade nas propostas
+
+3. ✅ **Importação em Massa de Inventário** (COMPLETO)
+   - Implementado: Upload CSV/Excel com validação
+   - Impacto: ALTO - Produtividade na gestão de telas
+
+4. ✅ **Sistema de Venues Hierárquico** (COMPLETO)
+   - Implementado: Gerenciamento de locais físicos
+   - Impacto: MÉDIO - Melhor organização
+
+5. ✅ **Relatórios Avançados** (COMPLETO)
+   - Implementado: Dashboard analytics completo
+   - Impacto: ALTO - Tomada de decisão baseada em dados
+
+6. ✅ **Página Dedicada de Heatmap** (COMPLETO)
+   - Implementado: Visualização isolada de mapa de calor
+   - Impacto: MÉDIO - Análise de densidade
+
+7. ✅ **Busca Geoespacial** (COMPLETO)
+   - Implementado: Busca por raio com geocoding
+   - Impacto: ALTO - Facilita seleção de telas
+
+8. ✅ **Centro de Alertas** (COMPLETO)
+   - Implementado: Sistema centralizado de notificações
+   - Impacto: MÉDIO - Melhor visibilidade
+
 #### Curto Prazo (1-2 meses)
 
-1. **Implementar PDF profissional com Puppeteer**
+1. **Reabilitar Sistema de Sessões com Melhorias**
+   - Esforço: 5 dias
+   - Impacto: ALTO (monitoramento de usuários)
+   - Requisitos:
+     - Implementar rate limiting
+     - Circuit breaker pattern
+     - Migrar para WebSockets
+     - Testes de carga completos
+
+2. **Implementar PDF profissional com Puppeteer**
    - Esforço: 3 dias
    - Impacto: ALTO (satisfação do cliente)
 
-2. **Adicionar testes E2E críticos (login, criar proposta)**
+3. **Adicionar testes E2E críticos (login, criar proposta)**
    - Esforço: 5 dias
-   - Impacto: ALTO (redução de bugs)
+   - Impacto: CRÍTICO (redução de bugs em produção)
 
-3. **Otimizar queries de propostas (view materializada)**
+4. **Otimizar queries de propostas (view materializada)**
    - Esforço: 2 dias
    - Impacto: MÉDIO (performance)
 
-4. **Implementar monitoramento com Sentry**
+5. **Implementar monitoramento com Sentry**
    - Esforço: 1 dia
    - Impacto: ALTO (visibilidade de erros)
 
@@ -1356,6 +1979,68 @@ SUPABASE_SERVICE_ROLE_KEY=<SERVICE_KEY>
 ---
 
 ## Histórico de Atualizações
+
+### 05/11/2025 - v1.2.0 (Atualização)
+- **Melhorias**: Sistema avançado de busca por CEP
+- **Responsável**: Assistente IA
+- **Escopo**:
+  - ✅ Integração com API ViaCEP
+  - ✅ Componente CEPInput com validação visual em tempo real
+  - ✅ Auto-formatação de CEP (adiciona hífen automaticamente)
+  - ✅ Validação com ícones (✓ válido, ✗ inválido, ⟳ validando)
+  - ✅ Sugestão visual de endereço ao digitar CEP
+  - ✅ Hook customizado useCEPValidation
+  - ✅ Serviço viacep-service completo
+  - ✅ Tabs em address-radius-search (Endereço/CEP)
+  - ✅ Geocoding aprimorado com ViaCEP primeiro
+  - ✅ Fallback automático para Google Maps
+- **Observações**:
+  - API ViaCEP é gratuita e sem limite
+  - CEP automaticamente consultado ao digitar 8 dígitos
+  - Endereço completo exibido em tempo real
+  - Maior precisão na geocodificação com dados da ViaCEP
+
+### 05/11/2025 - v1.2.0
+- **Atualização**: Documentação de novas funcionalidades implementadas
+- **Responsável**: Assistente IA
+- **Escopo**: 
+  - ✅ Adicionado Sistema de Campanhas Publicitárias
+  - ✅ Adicionado Modelos de Impacto Customizáveis
+  - ✅ Adicionado Importação em Massa CSV/Excel
+  - ✅ Adicionado Gerenciamento de Venues
+  - ✅ Adicionado Relatórios Avançados
+  - ✅ Adicionado Página Dedicada de Heatmap
+  - ✅ Adicionado Busca Geoespacial por Raio
+  - ✅ Adicionado Centro de Alertas e Notificações
+  - ✅ Adicionado Monitor de Sessões (temporariamente desabilitado)
+  - ✅ Documentado correções emergenciais (28/10/2025)
+  - ✅ Atualizada seção de Débitos Técnicos
+  - ✅ Adicionadas 12 novas páginas ao sistema
+  - ✅ Adicionadas 3 novas Edge Functions
+  - ✅ Adicionados 7 novos componentes principais
+- **Observações**:
+  - Sistema em produção estável após correções emergenciais
+  - Sistema de sessões temporariamente desabilitado por estabilidade
+  - Políticas RLS de pessoas_projeto corrigidas
+  - Template CSV de inventário disponível
+  - 11 funcionalidades principais no sistema (vs. 7 anteriores)
+  - Deploy em Vercel + Supabase mantido
+
+### 28/10/2025 - Correções Emergenciais
+- **Hotfix**: Sistema de Sessões causando instabilidade
+- **Responsável**: Equipe de Desenvolvimento
+- **Problemas Resolvidos**:
+  - ❌ Loops infinitos de requisições
+  - ❌ Edge Functions sobrecarregadas
+  - ❌ Erros 400/403 repetidos
+  - ❌ RLS bloqueando criação de pessoas_projeto
+- **Soluções Aplicadas**:
+  - Desabilitado inicialização automática de sessões
+  - Desabilitado auto-refresh do monitor
+  - Corrigidas políticas RLS específicas
+  - Melhorado tratamento de erros
+- **Resultado**: Sistema 100% estável e funcional
+- **Referência**: `RESUMO_CORRECOES_EMERGENCIAIS.md`
 
 ### 10/10/2025 - v1.0.0
 - **Criação**: Mapeamento inicial completo do sistema

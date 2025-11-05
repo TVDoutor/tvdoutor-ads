@@ -94,10 +94,13 @@ export function SearchInterface({ onSearchResults, onLocationChange, onRadiusCha
               </Label>
               <Input
                 id="location"
-                placeholder="Ex: Av Paulista, 1000, Bela Vista, São Paulo"
+                placeholder="Ex: Av Paulista, 1000 ou CEP 01310-100 ou Bela Vista, SP"
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
               />
+              <p className="text-xs text-muted-foreground">
+                💡 Busque por: Endereço, Bairro, Cidade ou CEP
+              </p>
             </div>
 
             <div className="space-y-2">

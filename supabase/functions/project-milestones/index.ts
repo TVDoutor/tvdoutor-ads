@@ -309,3 +309,10 @@ serve(async (req) => {
 })
 
 
+// @ts-nocheck
+// Observação: Este arquivo é uma Edge Function que roda em Deno.
+// O VSCode/TypeScript local não reconhece imports por URL nem tipos globais de Deno,
+// gerando diagnósticos como "Cannot find module" e "Cannot find name 'Deno'".
+// O supabase CLI e o runtime de produção resolvem corretamente.
+// Para manter a simplicidade e evitar ruído no editor, desabilitamos a checagem TS aqui.
+// Alternativas: instalar a extensão Deno no VSCode e/ou adicionar um deno.json com lib "deno.ns".

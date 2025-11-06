@@ -41,10 +41,10 @@ export const useUserSession = () => {
   useEffect(() => {
     const handleBeforeUnload = () => {
       if (isInitialized.current) {
-        // Usar sendBeacon para garantir que a requisição seja enviada
-        userSessionService.endSession().catch(() => {
-          // Ignorar erros no beforeunload
-        });
+        // Usar Beacon/keepalive leve para evitar aborts no unload
+        try {
+          userSessionService.endSessionBeacon('page_close');
+        } catch {}
       }
     };
 

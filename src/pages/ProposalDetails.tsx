@@ -4,6 +4,8 @@ import { useParams, useNavigate } from "react-router-dom";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ProposalStatusBadge, type ProposalStatus } from "@/components/ProposalStatusBadge";
@@ -28,6 +30,9 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { downloadVisibleProposalPDF } from "@/lib/pdf-service";
+import { InventoryPreview, FinancialSummaryCard, ProjectInfoCard, StatusActionsCard, InventoryCard } from "@/components/proposal";
+import { useProposalFilters } from "@/hooks/useProposalFilters";
+import { normalizeProposal } from "@/utils/validations/proposal";
 
 // helper local para abrir PDF a partir de Blob OU URL
 function openPDFFromAny(input: { blob?: Blob; pdfBase64?: string; arrayBuffer?: ArrayBuffer; url?: string; filename?: string }) {
@@ -109,6 +114,9 @@ interface ProposalDetails {
     screens: {
       id: number;
       name: string;
+      display_name?: string;
+      screen_type?: string;
+      formatted_address?: string;
       city: string;
       state: string;
       class: string;
@@ -119,13 +127,34 @@ interface ProposalDetails {
       };
     };
   }>;
-}
+} 
 
 const ProposalDetails = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [proposal, setProposal] = useState<ProposalDetails | null>(null);
   const [loading, setLoading] = useState(true);
+  // Filtros e opções de visualização (client-side) extraídos para hook reutilizável
+  const {
+    viewMode,
+    setViewMode,
+    filterCity,
+    setFilterCity,
+    filterState,
+    setFilterState,
+    filterClass,
+    setFilterClass,
+    searchQuery,
+    setSearchQuery,
+    showAddress,
+    setShowAddress,
+    showScreenId,
+    setShowScreenId,
+    showScreenType,
+    setShowScreenType,
+    filteredScreens,
+    groupedByCityState,
+  } = useProposalFilters(proposal?.proposal_screens || []);
 
   useEffect(() => {
     if (id) {
@@ -154,6 +183,9 @@ const ProposalDetails = () => {
             screens (
               id,
               name,
+              display_name,
+              category,
+              google_formatted_address,
               city,
               state,
               class,
@@ -170,6 +202,8 @@ const ProposalDetails = () => {
 
       if (error) throw error;
       if (!data) throw new Error('Proposta não encontrada');
+
+      // Normalização com Zod para reduzir duplicação de mapeamentos
 
       // Buscar dados do projeto se houver projeto_id
       let projectData = null;
@@ -188,10 +222,11 @@ const ProposalDetails = () => {
       // Combinar dados da proposta com dados do projeto
       const proposalWithProject = {
         ...data,
-        agencia_projetos: projectData
+        agencia_projetos: projectData,
       };
-
-      setProposal(proposalWithProject);
+      // Normalização segura — em caso de falha, retorna fallback sem quebrar a UI
+      const normalized = normalizeProposal(proposalWithProject);
+      setProposal(normalized as any);
     } catch (error: any) {
       console.error('Erro ao buscar proposta:', error);
       toast.error('Erro ao carregar proposta');
@@ -263,6 +298,8 @@ const ProposalDetails = () => {
       currency: 'BRL'
     }).format(value);
   };
+
+  // filteredScreens e groupedByCityState já são calculados via hook useProposalFilters
 
   // Calcular valores dinâmicos se não estiverem salvos
   const calculateEstimatedValues = (proposal: any) => {
@@ -395,35 +432,35 @@ const ProposalDetails = () => {
 
         {/* Container principal */}
         <div className="px-6 py-8 space-y-8">
-          {/* Cards de métricas principais */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-            <Card className="border-0 shadow-lg bg-gradient-to-br from-orange-500 to-orange-600 text-white">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-orange-100 text-sm font-medium">Valor Total</p>
-                    <p className="text-3xl font-bold">{formatCurrency(estimatedValues?.netValue)}</p>
-                  </div>
-                  <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
-                    <DollarSign className="h-6 w-6" />
-                  </div>
+        {/* Cards de métricas principais */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 pdf-kpis-grid pdf-section-kpis">
+          <Card className="kpi-card border-0 shadow-lg bg-gradient-to-br from-orange-500 to-orange-600 text-white">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-orange-100 text-sm font-medium">Valor Total</p>
+                  <p className="text-3xl font-bold">{formatCurrency(estimatedValues?.netValue)}</p>
                 </div>
-              </CardContent>
-            </Card>
+                <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
+                  <DollarSign className="h-6 w-6" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
-            <Card className="border-0 shadow-lg bg-gradient-to-br from-orange-500 to-orange-600 text-white">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-orange-100 text-sm font-medium">Telas Selecionadas</p>
-                    <p className="text-3xl font-bold">{proposal.proposal_screens?.length || 0}</p>
-                  </div>
-                  <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
-                    <Monitor className="h-6 w-6" />
-                  </div>
+          <Card className="kpi-card border-0 shadow-lg bg-gradient-to-br from-orange-500 to-orange-600 text-white">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-orange-100 text-sm font-medium">Telas Selecionadas</p>
+                  <p className="text-3xl font-bold">{proposal.proposal_screens?.length || 0}</p>
                 </div>
-              </CardContent>
-            </Card>
+                <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
+                  <Monitor className="h-6 w-6" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
             <Card className="border-0 shadow-lg bg-gradient-to-br from-orange-500 to-orange-600 text-white">
               <CardContent className="p-6">
@@ -461,200 +498,50 @@ const ProposalDetails = () => {
           </div>
 
           {/* Grid principal de conteúdo */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Informações do Cliente - Card expandido */}
-            <Card className="avoid-break-inside lg:col-span-2 border-0 shadow-xl">
-              <CardHeader className="pb-4">
-                <CardTitle className="flex items-center gap-3 text-xl">
-                  <div className="w-10 h-10 bg-orange-500 rounded-full flex items-center justify-center">
-                    <User className="h-5 w-5 text-white" />
-                  </div>
-                  Informações do Projeto
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-2">
-                    <label className="text-sm font-semibold text-slate-600 uppercase tracking-wide">Nome do Projeto</label>
-                    <p className="text-2xl font-bold text-slate-900">
-                      {proposal.agencia_projetos?.nome_projeto || proposal.customer_name || 'Projeto não definido'}
-                    </p>
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-semibold text-slate-600 uppercase tracking-wide">Cliente Final</label>
-                    <p className="text-lg font-medium text-slate-700">
-                      {proposal.agencia_projetos?.cliente_final || proposal.customer_name}
-                    </p>
-                  </div>
-                </div>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 pdf-two-column pdf-gap-6">
+            {/* Informações do Projeto - Componentizado */}
+            <div className="avoid-break-inside lg:col-span-2 pdf-project-info pdf-section-project">
+              <ProjectInfoCard
+                proposal={{
+                  project_name: proposal.agencia_projetos?.nome_projeto || proposal.customer_name || 'Projeto não definido',
+                  client_name: proposal.agencia_projetos?.cliente_final || proposal.customer_name,
+                  agency: {
+                    name: proposal.agencias?.nome_agencia,
+                    email: proposal.agencias?.email_empresa || proposal.customer_email,
+                  },
+                  proposal_type: proposal.proposal_type === 'avulsa' ? 'Campanha Avulsa' : 'Projeto Especial',
+                  status: proposal.status,
+                }}
+                filteredScreens={filteredScreens}
+                showAddress={showAddress}
+                showScreenType={showScreenType}
+              />
+            </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-2">
-                    <label className="text-sm font-semibold text-slate-600 uppercase tracking-wide">Agência</label>
-                    <div className="flex items-center gap-3 p-3 bg-orange-50 rounded-lg border border-orange-200">
-                      <Building className="h-5 w-5 text-orange-600" />
-                      <p className="text-lg font-medium text-slate-700">
-                        {proposal.agencias?.nome_agencia || 'Agência não definida'}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-semibold text-slate-600 uppercase tracking-wide">Email da Agência</label>
-                    <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
-                      <Mail className="h-5 w-5 text-slate-500" />
-                      <p className="text-lg font-medium text-slate-700">
-                        {proposal.agencias?.email_empresa || proposal.customer_email}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-2">
-                    <label className="text-sm font-semibold text-slate-600 uppercase tracking-wide">Tipo de Proposta</label>
-                    <Badge className="text-sm py-1 px-3 bg-orange-100 text-orange-800 border border-orange-200">
-                      {proposal.proposal_type === 'avulsa' ? 'Campanha Avulsa' : 'Projeto Especial'}
-                    </Badge>
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-semibold text-slate-600 uppercase tracking-wide">Status Atual</label>
-                    <ProposalStatusBadge status={proposal.status} className="hide-on-pdf" />
-                  </div>
-                </div>
-                
-                {proposal.notes && (
-                  <div className="space-y-2">
-                    <label className="text-sm font-semibold text-slate-600 uppercase tracking-wide">Observações</label>
-                    <div className="p-4 bg-orange-50 rounded-lg border-l-4 border-orange-500">
-                      <p className="text-slate-700 leading-relaxed">{proposal.notes}</p>
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Resumo Financeiro - Card destacado */}
-            <Card className="avoid-break-inside border-0 shadow-xl bg-gradient-to-b from-orange-50 to-white">
-              <CardHeader className="pb-4">
-                <CardTitle className="flex items-center gap-3 text-xl">
-                  <div className="w-10 h-10 bg-orange-500 rounded-full flex items-center justify-center">
-                    <TrendingUp className="h-5 w-5 text-white" />
-                  </div>
-                  Resumo Financeiro
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="text-center p-6 bg-gradient-to-r from-orange-500 to-orange-600 rounded-xl text-white">
-                  <p className="text-orange-100 text-sm font-medium mb-1">Investimento Total</p>
-                  <p className="text-4xl font-black">{formatCurrency(estimatedValues?.netValue)}</p>
-                </div>
-                
-                {/* Detalhes do tipo de veiculação */}
-                <div className="space-y-4">
-                  <h4 className="font-semibold text-slate-900 text-lg border-b border-orange-200 pb-2">
-                    Detalhes da Veiculação
-                  </h4>
-                  
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="p-3 bg-orange-50 rounded-lg border border-orange-200">
-                      <p className="text-sm font-medium text-orange-700">Tempo do Filme</p>
-                      <p className="text-lg font-bold text-orange-900">{proposal.film_seconds || 0}"</p>
-                    </div>
-                    
-                    <div className="p-3 bg-orange-50 rounded-lg border border-orange-200">
-                      <p className="text-sm font-medium text-orange-700">Inserções/Hora</p>
-                      <p className="text-lg font-bold text-orange-900">{proposal.insertions_per_hour || 0}</p>
-                    </div>
-                    
-                    <div className="p-3 bg-orange-50 rounded-lg border border-orange-200">
-                      <p className="text-sm font-medium text-orange-700">Audiência/Mês</p>
-                      <p className="text-lg font-bold text-orange-900">
-                        {estimatedValues ? Math.round(estimatedValues.impacts / (estimatedValues.days / 30)) : 0}
-                      </p>
-                    </div>
-                    
-                    <div className="p-3 bg-orange-50 rounded-lg border border-orange-200">
-                      <p className="text-sm font-medium text-orange-700">Impactos</p>
-                      <p className="text-lg font-bold text-orange-900">
-                        {estimatedValues ? Math.round(estimatedValues.impacts).toLocaleString('pt-BR') : 0}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center p-3 bg-slate-50 rounded-lg">
-                    <span className="text-slate-600 font-medium">Valor Bruto</span>
-                    <span className="text-xl font-bold text-slate-900">{formatCurrency(estimatedValues?.grossValue)}</span>
-                  </div>
-                  
-                  {proposal.discount_pct && proposal.discount_pct > 0 && (
-                    <div className="flex justify-between items-center p-3 bg-yellow-50 rounded-lg border border-yellow-200">
-                      <span className="text-yellow-700 font-medium">Desconto ({proposal.discount_pct}%)</span>
-                      <span className="text-xl font-bold text-yellow-800">
-                        -{formatCurrency((estimatedValues?.grossValue || 0) * (proposal.discount_pct / 100))}
-                      </span>
-                    </div>
-                  )}
-                  
-                  {proposal.discount_fixed && proposal.discount_fixed > 0 && (
-                    <div className="flex justify-between items-center p-3 bg-yellow-50 rounded-lg border border-yellow-200">
-                      <span className="text-yellow-700 font-medium">Desconto Fixo</span>
-                      <span className="text-xl font-bold text-yellow-800">
-                        -{formatCurrency(proposal.discount_fixed)}
-                      </span>
-                    </div>
-                  )}
-                  
-                  <div className="flex justify-between items-center p-3 bg-orange-50 rounded-lg border border-orange-200">
-                    <span className="text-orange-700 font-medium">Valor Líquido</span>
-                    <span className="text-xl font-bold text-orange-800">{formatCurrency(estimatedValues?.netValue)}</span>
-                  </div>
-                  
-                  <div className="flex justify-between items-center p-3 bg-orange-50 rounded-lg border border-orange-200">
-                    <span className="text-orange-700 font-medium">Investimento/Tela</span>
-                    <span className="text-xl font-bold text-orange-800">
-                      {formatCurrency(estimatedValues?.netValue / (proposal.proposal_screens?.length || 1))}
-                    </span>
-                  </div>
-                  
-                  <div className="flex justify-between items-center p-3 bg-orange-50 rounded-lg border border-orange-200">
-                    <span className="text-orange-700 font-medium">CPM/Impacto</span>
-                    <span className="text-xl font-bold text-orange-800">
-                      {formatCurrency((estimatedValues?.netValue || 0) / ((estimatedValues?.impacts || 1) / 1000))}
-                    </span>
-                  </div>
-                </div>
-                
-                <Separator />
-                
-                <div className="space-y-3">
-                  <div className="flex items-center gap-3">
-                    <Calendar className="h-5 w-5 text-orange-500" />
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-slate-600">Período de Execução</p>
-                      <p className="text-lg font-semibold text-slate-900">
-                        {formatDate(proposal.start_date)} - {formatDate(proposal.end_date)}
-                      </p>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center gap-3">
-                    <Clock className="h-5 w-5 text-orange-500" />
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-slate-600">Duração Estimada</p>
-                      <p className="text-lg font-semibold text-slate-900">{estimatedValues?.days || 0} dias</p>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            {/* Resumo Financeiro - Componentizado */}
+            <div className="avoid-break-inside pdf-financial pdf-section-financial">
+              <FinancialSummaryCard
+                investmentTotal={estimatedValues?.netValue || 0}
+                filmSeconds={proposal.film_seconds}
+                insertionsPerHour={proposal.insertions_per_hour}
+                audiencePerMonth={estimatedValues ? Math.round(estimatedValues.impacts / Math.max(estimatedValues.days || 1, 1) * 30) : undefined}
+                impacts={estimatedValues?.impacts}
+                grossValue={estimatedValues?.grossValue}
+                netValue={estimatedValues?.netValue}
+                startDate={formatDate(proposal.start_date)}
+                endDate={formatDate(proposal.end_date)}
+                formatCurrency={formatCurrency}
+              />
+            </div>
           </div>
 
-          {/* Ações de Status - Card moderno */}
+        {/* Forçar quebra de página antes das ações e inventário no PDF para evitar acúmulo visual */}
+        <div className="page-break-before" aria-hidden="true" />
+
+          {/* Ações de Status - Componentizado */}
           <Card className="avoid-break-inside border-0 shadow-xl">
             <CardHeader>
-              <CardTitle className="flex items-center gap-3 text-xl">
+              <CardTitle className="flex items-center gap-3 text-xl pdf-compact-title">
                 <div className="w-10 h-10 bg-orange-500 rounded-full flex items-center justify-center">
                   <Target className="h-5 w-5 text-white" />
                 </div>
@@ -662,38 +549,18 @@ const ProposalDetails = () => {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="flex flex-wrap gap-3">
-                {[
-                  { status: 'rascunho', label: 'Rascunho', color: 'bg-orange-500 hover:bg-orange-600' },
-                  { status: 'enviada', label: 'Enviada', color: 'bg-orange-500 hover:bg-orange-600' },
-                  { status: 'em_analise', label: 'Em Análise', color: 'bg-orange-500 hover:bg-orange-600' },
-                  { status: 'aceita', label: 'Aceita', color: 'bg-orange-500 hover:bg-orange-600' },
-                  { status: 'rejeitada', label: 'Rejeitada', color: 'bg-orange-500 hover:bg-orange-600' }
-                ].map(({ status, label, color }) => (
-                  <Button
-                    key={status}
-                    variant={proposal.status === status ? 'default' : 'outline'}
-                    onClick={() => handleStatusChange(status as ProposalStatus)}
-                    className={`
-                      px-6 py-2 font-semibold transition-all duration-200 
-                      ${proposal.status === status 
-                        ? `${color} text-white shadow-lg transform scale-105` 
-                        : 'hover:scale-105 border-orange-200 text-orange-600 hover:bg-orange-50'
-                      }
-                    `}
-                  >
-                    {proposal.status === status && <Zap className="h-4 w-4 mr-2" />}
-                    {label}
-                  </Button>
-                ))}
-              </div>
+              <StatusActionsCard
+                currentStatus={proposal.status}
+                availableStatuses={["rascunho","enviada","em_analise","aceita","rejeitada"]}
+                onChange={(next) => handleStatusChange(next as ProposalStatus)}
+              />
             </CardContent>
           </Card>
 
-          {/* Detalhes das Telas - Card expansivo */}
-          <Card className="avoid-break-inside border-0 shadow-xl">
+          {/* Detalhes das Telas - Componentizado */}
+          <Card className="avoid-break-inside border-0 shadow-xl pdf-section-inventory">
             <CardHeader>
-              <CardTitle className="flex items-center gap-3 text-xl">
+              <CardTitle className="flex items-center gap-3 text-xl pdf-compact-title">
                 <div className="w-10 h-10 bg-orange-500 rounded-full flex items-center justify-center">
                   <Monitor className="h-5 w-5 text-white" />
                 </div>
@@ -701,80 +568,30 @@ const ProposalDetails = () => {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {/* Grid de estatísticas das telas */}
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
-                <div className="text-center p-4 bg-orange-50 rounded-xl border border-orange-200">
-                  <div className="w-16 h-16 bg-orange-500 rounded-full flex items-center justify-center mx-auto mb-3">
-                    <Monitor className="h-8 w-8 text-white" />
-                  </div>
-                  <div className="text-3xl font-bold text-orange-600">{proposal.proposal_screens?.length || 0}</div>
-                  <div className="text-sm font-semibold text-orange-700">Total de Telas</div>
-                </div>
-                
-                <div className="text-center p-4 bg-orange-50 rounded-xl border border-orange-200">
-                  <div className="w-16 h-16 bg-orange-500 rounded-full flex items-center justify-center mx-auto mb-3">
-                    <MapPin className="h-8 w-8 text-white" />
-                  </div>
-                  <div className="text-3xl font-bold text-orange-600">
-                    {proposal.proposal_screens ? 
-                      new Set(proposal.proposal_screens.map(ps => ps.screens.city)).size : 0}
-                  </div>
-                  <div className="text-sm font-semibold text-orange-700">Cidades</div>
-                </div>
-                
-                <div className="text-center p-4 bg-orange-50 rounded-xl border border-orange-200">
-                  <div className="w-16 h-16 bg-orange-500 rounded-full flex items-center justify-center mx-auto mb-3">
-                    <Building className="h-8 w-8 text-white" />
-                  </div>
-                  <div className="text-3xl font-bold text-orange-600">
-                    {proposal.proposal_screens ? 
-                      new Set(proposal.proposal_screens.map(ps => ps.screens.state)).size : 0}
-                  </div>
-                  <div className="text-sm font-semibold text-orange-700">Estados</div>
-                </div>
-                
-                <div className="text-center p-4 bg-orange-50 rounded-xl border border-orange-200">
-                  <div className="w-16 h-16 bg-orange-500 rounded-full flex items-center justify-center mx-auto mb-3">
-                    <BarChart3 className="h-8 w-8 text-white" />
-                  </div>
-                  <div className="text-3xl font-bold text-orange-600">
-                    {formatCurrency(estimatedValues?.grossValue / (estimatedValues?.days || 1) / (proposal.proposal_screens?.length || 1) || 0)}
-                  </div>
-                  <div className="text-sm font-semibold text-orange-700">Valor Médio/Tela/Dia</div>
-                </div>
-              </div>
-
-              {/* Resumo por cidade/estado */}
-              {proposal.proposal_screens && proposal.proposal_screens.length > 0 && (
-                <div className="mb-6">
-                  <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
-                    <MapPin className="h-5 w-5 text-orange-600" />
-                    Resumo por Cidade/Estado
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {Array.from(new Set(proposal.proposal_screens.map(ps => `${ps.screens.city}/${ps.screens.state}`)))
-                      .map(cityState => {
-                        const [city, state] = cityState.split('/');
-                        const screensInCity = proposal.proposal_screens?.filter(ps => 
-                          ps.screens.city === city && ps.screens.state === state
-                        ).length || 0;
-                        
-                        return (
-                          <div key={cityState} className="p-4 bg-orange-50 rounded-lg border border-orange-200">
-                            <div className="flex items-center justify-between">
-                              <span className="font-medium text-slate-900">{city}</span>
-                              <span className="text-orange-600 font-bold">{screensInCity} Telas</span>
-                            </div>
-                            <div className="text-sm text-slate-600">{state}</div>
-                          </div>
-                        );
-                      })}
-                  </div>
-                </div>
-              )}
+              <InventoryCard
+                filteredScreens={filteredScreens}
+                groupedByCityState={groupedByCityState}
+                viewMode={viewMode}
+                setViewMode={setViewMode}
+                showAddress={showAddress}
+                setShowAddress={setShowAddress}
+                showScreenId={showScreenId}
+                setShowScreenId={setShowScreenId}
+                showScreenType={showScreenType}
+                setShowScreenType={setShowScreenType}
+                filterCity={filterCity}
+                setFilterCity={setFilterCity}
+                filterState={filterState}
+                setFilterState={setFilterState}
+                filterClass={filterClass}
+                setFilterClass={setFilterClass}
+                searchQuery={searchQuery}
+                setSearchQuery={setSearchQuery}
+                formatCurrency={formatCurrency}
+              />
 
               {/* Indicação de que há mais detalhes no PDF */}
-              <div className="text-center p-6 bg-gradient-to-r from-orange-50 to-orange-100 rounded-xl border border-orange-200">
+              <div className="text-center p-6 mt-6 bg-gradient-to-r from-orange-50 to-orange-100 rounded-xl border border-orange-200">
                 <Eye className="h-12 w-12 text-orange-500 mx-auto mb-3" />
                 <h3 className="text-lg font-semibold text-orange-900 mb-2">Detalhes Completos no PDF</h3>
                 <p className="text-orange-700 mb-4">

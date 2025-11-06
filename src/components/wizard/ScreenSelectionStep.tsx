@@ -10,6 +10,7 @@ import type { ProposalData } from "../NewProposalWizard";
 import { toast } from "sonner";
 import { CitySelectionModal } from "@/components/ui/city-selection-modal";
 import { AddressRadiusSearch } from "@/components/ui/address-radius-search";
+import { combineIds } from "@/utils/ids";
 
 interface Screen {
   id: number;
@@ -62,7 +63,6 @@ export const ScreenSelectionStep = ({ data, onUpdate }: ScreenSelectionStepProps
     try {
       setLoading(true);
       // 1) Tentar buscar via view enriquecida para obter a classe pronta
-      console.log('🔍 Buscando telas via v_screens_enriched...');
       let { data: enriched, error: enrichedError } = await supabase
         .from('v_screens_enriched')
         .select(`
@@ -108,7 +108,6 @@ export const ScreenSelectionStep = ({ data, onUpdate }: ScreenSelectionStepProps
         }));
       } else {
         // 2) Fallback para a tabela screens mantendo o comportamento antigo
-        console.log('⚠️ v_screens_enriched indisponível. Usando tabela screens. Detalhe:', enrichedError?.message);
         let { data: fromScreens, error } = await supabase
           .from('screens')
           .select(`
@@ -180,9 +179,7 @@ export const ScreenSelectionStep = ({ data, onUpdate }: ScreenSelectionStepProps
       // Aplicar no estado
       setScreens(screensData as any);
 
-      // Debug
-      console.log('📊 Telas carregadas:', screensData.length);
-      console.log('📊 Exemplo:', screensData[0]);
+      // Debug removido
 
       // 3) Calcular especialidades disponíveis (arrays)
       const specialtyCounts: { [key: string]: number } = {};
@@ -267,7 +264,7 @@ export const ScreenSelectionStep = ({ data, onUpdate }: ScreenSelectionStepProps
     }
 
     // Combinar telas já adicionadas com as novas (sem duplicatas)
-    const combined = [...new Set([...data.selectedScreens, ...tempSelectedScreens])];
+    const combined = combineIds<number>(data.selectedScreens as number[], tempSelectedScreens);
     onUpdate({ selectedScreens: combined });
     
     // Incrementar contador de buscas
@@ -306,7 +303,6 @@ export const ScreenSelectionStep = ({ data, onUpdate }: ScreenSelectionStepProps
       onUpdate({ selectedSpecialties: [specialtyId] });
       
       // ATUALIZADO: Apenas limpar seleção temporária
-      console.log('🧹 Especialidade selecionada, limpando seleção temporária');
       setTempSelectedScreens([]);
     }
   };
@@ -316,13 +312,11 @@ export const ScreenSelectionStep = ({ data, onUpdate }: ScreenSelectionStepProps
     
     // ATUALIZADO: Apenas limpar seleção temporária
     if (selectedCities.length > 0) {
-      console.log('🧹 Cidades selecionadas, limpando seleção temporária');
       setTempSelectedScreens([]);
     }
   };
 
   const handleRadiusSearchResults = (screens: any[], center: { lat: number; lng: number }, radius: number) => {
-    console.log('📍 Resultados da busca por raio:', { screens: screens.length, center, radius });
     
     // Converter os resultados para o formato esperado
     const screenIds = screens.map(screen => parseInt(screen.id));
@@ -340,10 +334,7 @@ export const ScreenSelectionStep = ({ data, onUpdate }: ScreenSelectionStepProps
     const allScreenIds = filteredScreens.map(screen => screen.id);
     
     // ATUALIZADO: Selecionar temporariamente
-    setTempSelectedScreens(prev => {
-      const combined = [...new Set([...prev, ...allScreenIds])];
-      return combined;
-    });
+    setTempSelectedScreens(prev => combineIds<number>(prev, allScreenIds));
     
     toast.success(`${allScreenIds.length} telas selecionadas! Clique em "Adicionar Pontos" para incluir na proposta.`);
   };

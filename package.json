@@ -21,7 +21,8 @@
     "deploy:auto:preview": "node scripts/deploy.js --preview",
     "lint": "eslint .",
     "preview": "vite preview",
-    "postbuild": "echo 'Build completed successfully!'"
+    "postbuild": "echo 'Build completed successfully!'",
+    "test:e2e": "node tests/e2e/pdf.e2e.js"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

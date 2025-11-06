@@ -59,7 +59,6 @@ export const ProposalSummaryStep = ({ data }: ProposalSummaryStepProps) => {
 
       // Se a coluna class não existir, buscar novamente sem ela
       if (error && error.code === '42703' && error.message.includes('column screens.class does not exist')) {
-        console.log('⚠️ Coluna class não existe, buscando sem ela...');
         const { data: screensWithoutClass, error: errorWithoutClass } = await supabase
           .from('screens')
           .select('id, name, city, state')
@@ -137,14 +136,14 @@ export const ProposalSummaryStep = ({ data }: ProposalSummaryStepProps) => {
   return (
     <div className="space-y-6">
       {/* Informações da Proposta */}
-      <Card>
+      <Card className="pdf-tight-card">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
+          <CardTitle className="flex items-center gap-2 pdf-compact-title">
             <FileText className="w-5 h-5 text-primary" />
             Informações da Proposta
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-4 pdf-dense-text">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <p className="text-sm font-medium text-muted-foreground">Cliente</p>
@@ -164,14 +163,14 @@ export const ProposalSummaryStep = ({ data }: ProposalSummaryStepProps) => {
       </Card>
 
       {/* Telas e Localizações */}
-      <Card>
+      <Card className="pdf-tight-card">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
+          <CardTitle className="flex items-center gap-2 pdf-compact-title">
             <MapPin className="w-5 h-5 text-secondary" />
             Telas e Localizações
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-4 pdf-dense-text">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <div className="flex items-center gap-2 mb-3">
@@ -219,20 +218,20 @@ export const ProposalSummaryStep = ({ data }: ProposalSummaryStepProps) => {
           {/* Título da Seção para esta duração */}
           <div className="flex items-center gap-2 p-3 bg-primary/5 rounded-lg border border-primary/20">
             <Calendar className="w-5 h-5 text-primary" />
-            <h3 className="text-lg font-semibold text-primary">
+            <h3 className="text-lg font-semibold text-primary pdf-compact-title">
               Configurações para Filme de {filmDuration} segundos
             </h3>
           </div>
 
           {/* Configurações da Campanha */}
-          <Card>
+          <Card className="pdf-tight-card">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+              <CardTitle className="flex items-center gap-2 pdf-compact-title">
                 <Calendar className="w-5 h-5 text-accent" />
                 Configurações da Campanha
               </CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="pdf-dense-text">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="space-y-1">
                   <p className="text-sm font-medium text-muted-foreground">Período</p>

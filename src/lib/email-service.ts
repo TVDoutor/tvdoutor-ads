@@ -47,14 +47,28 @@ class EmailService {
         return [];
       }
       
-      const { data, error } = await supabase.functions.invoke('process-pending-emails', {
-        method: 'GET',
-        body: {},
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json'
-        }
-      });
+      // Nota: supabase.functions.invoke tipicamente usa POST; alguns ambientes não suportam GET com body.
+      // Para listar pendentes, preferimos usar GET sem corpo. Caso o ambiente não aceite GET, iremos fallback para POST.
+      let data: any = null; let error: any = null;
+      try {
+        ({ data, error } = await supabase.functions.invoke('process-pending-emails', {
+          method: 'GET',
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json'
+          }
+        }));
+      } catch (invokeGetError) {
+        logWarn('Falha ao usar GET para listar emails pendentes, tentando POST como fallback');
+        ({ data, error } = await supabase.functions.invoke('process-pending-emails', {
+          method: 'POST',
+          body: { action: 'process' }, // fallback processa diretamente
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json'
+          }
+        }));
+      }
 
       if (error) {
         logError('Erro na Edge Function de emails pendentes', error);
@@ -969,6 +983,11 @@ export const stopEmailProcessing = () => {
 export const processEmailQueue = async () => {
   try {
     logDebug('📧 Iniciando processamento da fila de emails...');
+    // Usar sessão se existir para autorização explícita (melhor compatibilidade com RLS/CORS)
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    if (sessionError) {
+      logWarn('Não foi possível obter sessão antes de processar emails (seguirá sem Authorization)', sessionError);
+    }
     
     const { data, error } = await supabase.functions.invoke(
       'process-pending-emails',
@@ -976,14 +995,19 @@ export const processEmailQueue = async () => {
         method: 'POST',
         body: { action: 'process' },
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {})
         }
       }
     );
     
     if (error) {
       console.warn('⚠️ Edge Function error (não crítico):', error);
-      logDebug('Erro ao processar emails (não crítico)', { error: error.message });
+      logDebug('Erro ao processar emails (não crítico)', { 
+        error: error.message,
+        status: (error as any)?.status,
+        name: (error as any)?.name
+      });
     } else {
       console.log('✅ Emails processados com sucesso');
       logDebug('✅ Emails processados com sucesso', { 

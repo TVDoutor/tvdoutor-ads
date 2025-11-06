@@ -417,23 +417,56 @@ class UserSessionService {
    */
   private setupBeforeUnload(): void {
     const handleBeforeUnload = () => {
-      // Usar sendBeacon para garantir que a requisição seja enviada
-      if (this.sessionToken && navigator.sendBeacon) {
-        const data = new FormData();
-        data.append('session_token', this.sessionToken);
-        data.append('ended_by', 'page_close');
-        
-        // Enviar requisição de finalização de sessão
-        fetch('/api/end-session', {
-          method: 'POST',
-          body: data,
-          keepalive: true
-        }).catch(console.error);
-      }
+      this.sendEndSessionBeacon('page_close');
     };
 
     window.addEventListener('beforeunload', handleBeforeUnload);
     window.addEventListener('pagehide', handleBeforeUnload);
+  }
+
+  /**
+   * Enviar finalização de sessão via Beacon/keepalive (uso em beforeunload/pagehide)
+   */
+  private sendEndSessionBeacon(endedBy: string = 'page_close'): void {
+    if (!this.sessionToken) return;
+
+    const url = '/api/end-session';
+    const form = new URLSearchParams({
+      session_token: this.sessionToken,
+      ended_by: endedBy
+    });
+
+    if (typeof navigator !== 'undefined' && 'sendBeacon' in navigator) {
+      try {
+        navigator.sendBeacon(url, form);
+        return;
+      } catch {}
+    }
+
+    // Fallback para fetch com keepalive
+    try {
+      fetch(url, {
+        method: 'POST',
+        body: form,
+        keepalive: true
+      }).catch((error) => {
+        const isAbort = (error && (error.name === 'AbortError' || String(error).includes('aborted')));
+        if (isAbort) {
+          if ((import.meta as any)?.env?.MODE !== 'production') {
+            console.warn('end-session abortado durante unload; ignorando em dev');
+          }
+        } else {
+          console.error('Erro ao finalizar sessão (fallback fetch):', error);
+        }
+      });
+    } catch {}
+  }
+
+  /**
+   * API pública para enviar end-session via Beacon
+   */
+  public endSessionBeacon(endedBy: string = 'page_close'): void {
+    this.sendEndSessionBeacon(endedBy);
   }
 
   /**

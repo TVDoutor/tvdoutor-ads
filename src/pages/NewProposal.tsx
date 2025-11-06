@@ -8,6 +8,7 @@ import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { supabase } from "@/integrations/supabase/client";
 import { emailService } from "@/lib/email-service";
+import { normalizeProposalPayload } from "@/lib/proposal-normalizer";
 import { toast } from "sonner";
 import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -45,49 +46,35 @@ const NewProposal = () => {
         insertions_per_hour: data.insertions_per_hour
       });
 
-      // Preparar valores numéricos com parsing seguro
-      const insertionsPerHour = parseInt(String(data.insertions_per_hour), 10) || 0;
-      const filmSecondsValue = Array.isArray(data.film_seconds)
-        ? parseInt(String(data.film_seconds[0]), 10) || 0
-        : parseInt(String(data.film_seconds as unknown as number), 10) || 0;
-      const cpmValue = data.cpm_value !== undefined && data.cpm_value !== null
-        ? parseFloat(String(data.cpm_value)) || 0
-        : 0;
-      const discountPct = parseFloat(String(data.discount_pct)) || 0;
-      const discountFixed = parseFloat(String(data.discount_fixed)) || 0;
-
-      // Payload final para o banco (sem salvar telas no JSON para evitar duplicidade)
-      const payload = {
-        customer_name: data.customer_name,
-        customer_email: data.customer_email,
-        proposal_type: data.proposal_type,
-        start_date: data.start_date,
-        end_date: data.end_date,
-        impact_formula: data.impact_formula,
-        status: 'rascunho' as const,
-        filters: {},
-        quote: {},
-        insertions_per_hour: insertionsPerHour,
-        film_seconds: filmSecondsValue,
-        cpm_mode: data.cpm_mode,
-        cpm_value: cpmValue,
-        discount_pct: discountPct,
-        discount_fixed: discountFixed,
-        created_by: user?.id, // Adicionar o campo created_by para as políticas RLS
-      } as const;
+      // Centralizar normalização do payload para evitar regressões
+      const payload = normalizeProposalPayload(data, user.id);
 
       console.log('✅ Payload pronto para inserir:', payload);
+      // Logs adicionais úteis durante transição do wizard
+      if (Array.isArray(data.proposal_type)) {
+        console.warn('[Normalização] proposal_type veio como array, usando primeiro valor:', data.proposal_type);
+      }
 
-      // Create proposal in database
-      const { data: proposalData, error } = await supabase
+      // Create proposal in database (sem .single() para evitar edge cases de 400)
+      const insertQuery = supabase
         .from('proposals')
         .insert(payload)
-        .select('id')
-        .single();
+        .select('id');
 
-      if (error) throw error;
+      const { data: insertedRows, error } = await insertQuery;
 
-      const proposalId = proposalData?.id;
+      if (error) {
+        // Logs detalhados para depuração
+        console.error('[Proposta][Insert][Erro]', {
+          message: error.message,
+          code: (error as any)?.code,
+          details: (error as any)?.details,
+          hint: (error as any)?.hint,
+        });
+        throw error;
+      }
+
+      const proposalId = Array.isArray(insertedRows) ? insertedRows[0]?.id : (insertedRows as any)?.id;
       
       // Inserir telas associadas na tabela de junção
       const selected = Array.isArray(data.selectedScreens) ? data.selectedScreens : [];
@@ -358,4 +345,3 @@ const NewProposal = () => {
 };
 
 export default NewProposal;
-

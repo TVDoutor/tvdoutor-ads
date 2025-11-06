@@ -30,11 +30,14 @@ export class PDFService {
       height: contentHeight
     });
 
-    // 3. Elementos a serem escondidos apenas durante a captura
+    // 3. Aplicar classe de contexto para estilos específicos de PDF
+    document.body.classList.add('pdf-export');
+
+    // 4. Elementos a serem escondidos apenas durante a captura
     const elementsToHide = document.querySelectorAll('.hide-on-pdf, .pdf-download-button');
     console.log(`🔍 Encontrados ${elementsToHide.length} elementos para esconder`);
 
-    // 4. Esconde elementos indesejados temporariamente
+    // 5. Esconde elementos indesejados temporariamente
     const originalDisplays: string[] = [];
     elementsToHide.forEach((el, index) => {
       const element = el as HTMLElement;
@@ -44,56 +47,47 @@ export class PDFService {
     });
 
     try {
-      // 5. Configurações otimizadas para formato customizado
-        const options = {
-        margin: 0, // A margem será controlada pelo CSS do printArea
-          filename: filename,
-          image: { 
-            type: 'jpeg', 
-          quality: 1.0 // Qualidade máxima
-          },
-          html2canvas: { 
-          scale: 2, // Mantenha a alta resolução
-            useCORS: true,
-            letterRendering: true,
-            backgroundColor: '#ffffff',
+      // 6. Configurações otimizadas para A4 paginado (UX mais limpo e previsível)
+      const options = {
+        margin: [10, 10, 10, 10],
+        filename: filename,
+        image: { type: 'jpeg', quality: 0.95 },
+        html2canvas: {
+          scale: 2,
+          useCORS: true,
+          letterRendering: true,
+          backgroundColor: '#ffffff',
           logging: false,
-          width: contentWidth,
-          height: contentHeight,
-            scrollX: 0,
-            scrollY: 0
-          },
-        // --- A MUDANÇA PRINCIPAL ESTÁ AQUI ---
-          jsPDF: { 
-          unit: 'px', // Trabalhar com pixels para correspondência 1:1
-          format: [contentWidth, contentHeight], // Cria uma página com o tamanho exato do conteúdo
-          orientation: 'portrait'
-        }
-      };
+        },
+        pagebreak: { mode: ['css', 'legacy'], before: '.page-break-before', avoid: ['.avoid-break-inside'] },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' },
+      } as const;
 
       console.log('📐 Configurações do PDF customizado:', {
         scale: options.html2canvas.scale,
         contentWidth: contentWidth,
         contentHeight: contentHeight,
         format: options.jsPDF.format,
-        unit: options.jsPDF.unit
+        unit: options.jsPDF.unit,
+        orientation: options.jsPDF.orientation
       });
 
-      // 6. Gera o PDF a partir do elemento visível
-      console.log('📄 Iniciando conversão para PDF com formato customizado...');
+      // 7. Gera o PDF a partir do elemento visível
+      console.log('📄 Iniciando conversão para PDF (A4 paginado)...');
       await html2pdf().set(options).from(printArea).save();
       
-      console.log('✅ PDF gerado com sucesso usando formato customizado!');
+      console.log('✅ PDF gerado com sucesso no formato A4!');
 
     } catch (error) {
       console.error('❌ Erro durante a geração do PDF:', error);
       throw error;
     } finally {
-      // 7. Restaura a visibilidade dos elementos
+      // 8. Restaura a visibilidade dos elementos
       elementsToHide.forEach((el, index) => {
         const element = el as HTMLElement;
         element.style.display = originalDisplays[index];
       });
+      document.body.classList.remove('pdf-export');
       console.log('🔄 Elementos restaurados à visibilidade original');
     }
   }

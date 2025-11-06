@@ -161,16 +161,29 @@ serve(async (req) => {
 
     if (method === 'POST') {
       // Processar emails pendentes
+      const contentType = req.headers.get('Content-Type') || req.headers.get('content-type') || ''
+      const authHeader = req.headers.get('Authorization') || req.headers.get('authorization') || ''
+      console.log('📥 POST recebido na função', { contentType, hasAuth: !!authHeader })
+
+      // Ler corpo cru para diagnosticar eventuais 400 ao parsear JSON
+      let rawBody = ''
+      try {
+        rawBody = await req.text()
+      } catch (e) {
+        console.warn('⚠️ Falha ao ler corpo como texto:', e)
+      }
+
       let requestBody: any = {}
       try {
-        requestBody = await req.json()
+        requestBody = rawBody ? JSON.parse(rawBody) : {}
       } catch (e) {
-        console.error('❌ Erro ao parsear JSON do corpo da requisição:', e)
+        console.error('❌ JSON inválido no corpo da requisição', { rawSnippet: rawBody?.slice(0, 200) })
         return new Response(
           JSON.stringify({ 
             success: false, 
             error: 'JSON inválido no corpo da requisição',
-            details: e instanceof Error ? e.message : 'Erro desconhecido ao parsear JSON'
+            details: e instanceof Error ? e.message : 'Erro desconhecido ao parsear JSON',
+            snippet: rawBody?.slice(0, 200) || ''
           }),
           { 
             status: 400, 

@@ -85,14 +85,14 @@ export const ExecutiveSummary = ({ className }: ExecutiveSummaryProps) => {
 
   if (loading) {
     return (
-      <Card className={className}>
+      <Card className={className ? `${className} pdf-tight-card` : 'pdf-tight-card'}>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
+          <CardTitle className="flex items-center gap-2 pdf-compact-title">
             <TrendingUp className="h-5 w-5 text-primary" />
             Resumo Executivo
           </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pdf-dense-text">
           <div className="animate-pulse space-y-4">
             {[...Array(4)].map((_, i) => (
               <div key={i} className="h-16 bg-gray-200 rounded-lg"></div>
@@ -160,9 +160,9 @@ export const ExecutiveSummary = ({ className }: ExecutiveSummaryProps) => {
   }
 
   return (
-    <Card className={className}>
+    <Card className={className ? `${className} pdf-tight-card` : 'pdf-tight-card'}>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
+        <CardTitle className="flex items-center gap-2 pdf-compact-title">
           <TrendingUp className="h-5 w-5 text-primary" />
           Resumo Executivo
         </CardTitle>
@@ -171,7 +171,7 @@ export const ExecutiveSummary = ({ className }: ExecutiveSummaryProps) => {
         </p>
       </CardHeader>
       
-      <CardContent className="space-y-6">
+      <CardContent className="space-y-6 pdf-dense-text">
         {/* KPIs Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {kpis.map((kpi, index) => {

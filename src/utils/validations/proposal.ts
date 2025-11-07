@@ -62,6 +62,12 @@ export const ProposalDetailsSchema = z.object({
   cpm_value: z.coerce.number().optional().nullable(),
   discount_pct: z.coerce.number().optional().nullable(),
   discount_fixed: z.coerce.number().optional().nullable(),
+  horas_operacao_dia: z.coerce.number().optional().nullable(),
+  dias_uteis_mes_base: z.coerce.number().optional().nullable(),
+  period_unit: z.string().optional().nullable(),
+  months_period: z.coerce.number().optional().nullable(),
+  days_period: z.coerce.number().optional().nullable(),
+  quote: z.any().optional().nullable(),
   // campos financeiros
   gross_value: z.coerce.number().optional().nullable(),
   net_value: z.coerce.number().optional().nullable(),
@@ -87,8 +93,24 @@ export function normalizeProposal(input: unknown): ProposalDetailsParsed {
     };
   }
   const parsed = result.data;
+  let normalizedQuote: any = parsed.quote ?? null;
+
+  if (typeof normalizedQuote === 'string') {
+    try {
+      normalizedQuote = JSON.parse(normalizedQuote);
+    } catch (error) {
+      console.warn('[normalizeProposal] Falha ao converter quote string para objeto:', error);
+      normalizedQuote = null;
+    }
+  }
+
+  if (normalizedQuote && typeof normalizedQuote !== 'object') {
+    normalizedQuote = null;
+  }
+
   return {
     ...parsed,
     proposal_screens: parsed.proposal_screens ?? [],
+    quote: normalizedQuote,
   };
 }

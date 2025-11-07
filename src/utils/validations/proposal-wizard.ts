@@ -33,6 +33,7 @@ export const Step5Schema = z.object({
   period_unit: z.enum(['months', 'days']).optional(),
   horas_operacao_dia: z.number().positive('Horas de operação/dia deve ser > 0'),
   dias_uteis_mes_base: z.number().positive('Dias úteis/mês base deve ser > 0'),
+  avg_audience_per_insertion: z.number().nonnegative('Audiência média por inserção deve ser >= 0').optional(),
   insertion_prices: z.object({
     // As chaves de objetos em JS são strings; usamos z.string() para garantir compatibilidade
     avulsa: z.record(z.string(), z.number()),

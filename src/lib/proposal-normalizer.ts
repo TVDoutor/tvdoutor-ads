@@ -17,10 +17,12 @@ export interface NormalizedProposalPayload {
   quote: Record<string, unknown>;
   insertions_per_hour: number;
   film_seconds: number;
-  cpm_mode: 'manual' | 'blended';
+  cpm_mode: 'manual' | 'blended' | 'valor_insercao';
   cpm_value: number;
   discount_pct: number;
   discount_fixed: number;
+  horas_operacao_dia: number | null;
+  dias_uteis_mes_base: number | null;
   created_by: string;
 }
 
@@ -64,6 +66,9 @@ export function normalizeProposalPayload(data: ProposalData, userId: string): No
     : 0;
   const discountPct = parseFloat(String(data.discount_pct));
   const discountFixed = parseFloat(String(data.discount_fixed));
+  const horasOperacaoDia = data.horas_operacao_dia ?? 10;
+  const diasUteisMesBase = data.dias_uteis_mes_base ?? 22;
+  const pricingMode = data.cpm_mode === 'valor_insercao' ? 'insertion' : (data.pricing_mode ?? 'cpm');
 
   const payload: NormalizedProposalPayload = {
     customer_name: data.customer_name,
@@ -74,13 +79,27 @@ export function normalizeProposalPayload(data: ProposalData, userId: string): No
     impact_formula: data.impact_formula,
     status: 'rascunho',
     filters: {},
-    quote: {},
+    quote: {
+      pricing_mode: pricingMode,
+      pricing_variant: data.pricing_variant ?? 'avulsa',
+      insertion_prices: data.insertion_prices ?? {},
+      discounts_per_insertion: data.discounts_per_insertion ?? {},
+      period_unit: data.period_unit ?? 'months',
+      months_period: data.months_period ?? 1,
+      days_period: data.days_period ?? null,
+      horas_operacao_dia: horasOperacaoDia,
+      dias_uteis_mes_base: diasUteisMesBase,
+      avg_audience_per_insertion: data.avg_audience_per_insertion ?? null,
+      valor_insercao_config: data.valor_insercao_config ?? null,
+    },
     insertions_per_hour: isNaN(insertionsPerHour) ? 0 : insertionsPerHour,
     film_seconds: normalizeFilmSeconds(data),
     cpm_mode: data.cpm_mode || 'manual',
     cpm_value: isNaN(cpmValue) ? 0 : cpmValue,
     discount_pct: isNaN(discountPct) ? 0 : discountPct,
     discount_fixed: isNaN(discountFixed) ? 0 : discountFixed,
+    horas_operacao_dia: typeof horasOperacaoDia === 'number' ? horasOperacaoDia : null,
+    dias_uteis_mes_base: typeof diasUteisMesBase === 'number' ? diasUteisMesBase : null,
     created_by: userId,
   };
 
@@ -94,4 +113,3 @@ export function normalizeProposalPayload(data: ProposalData, userId: string): No
 
   return payload;
 }
-

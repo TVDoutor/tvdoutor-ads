@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -33,6 +33,7 @@ import { downloadVisibleProposalPDF } from "@/lib/pdf-service";
 import { InventoryPreview, FinancialSummaryCard, ProjectInfoCard, StatusActionsCard, InventoryCard } from "@/components/proposal";
 import { useProposalFilters } from "@/hooks/useProposalFilters";
 import { normalizeProposal } from "@/utils/validations/proposal";
+import { calculateProposalMetrics, getSelectedDurations } from "@/lib/pricing";
 
 // helper local para abrir PDF a partir de Blob OU URL
 function openPDFFromAny(input: { blob?: Blob; pdfBase64?: string; arrayBuffer?: ArrayBuffer; url?: string; filename?: string }) {
@@ -301,39 +302,142 @@ const ProposalDetails = () => {
 
   // filteredScreens e groupedByCityState já são calculados via hook useProposalFilters
 
-  // Calcular valores dinâmicos se não estiverem salvos
-  const calculateEstimatedValues = (proposal: any) => {
-    if (!proposal) return { grossValue: 0, netValue: 0, days: 0, impacts: 0 };
-
-    const screens = proposal.proposal_screens?.length || 0;
-    const startDate = proposal.start_date ? new Date(proposal.start_date) : null;
-    const endDate = proposal.end_date ? new Date(proposal.end_date) : null;
-    const days = startDate && endDate ? 
-      Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1 : 0;
-    
-    const insertionsPerHour = proposal.insertions_per_hour || 0;
-    const hoursPerDay = 10; // Assumindo 10 horas operacionais por dia
-    const totalInsertions = insertionsPerHour * hoursPerDay * days * screens;
-    
-    const avgAudiencePerScreen = 100; // Audiência média estimada
-    const impacts = totalInsertions * avgAudiencePerScreen;
-    
-    const cpm = proposal.cpm_value || 25; // CPM padrão
-    const grossValue = (impacts / 1000) * cpm;
-    
-    const discountPct = proposal.discount_pct || 0;
-    const discountFixed = proposal.discount_fixed || 0;
-    const netValue = grossValue - (grossValue * discountPct / 100) - discountFixed;
-
-    return {
-      grossValue: proposal.gross_calendar || grossValue,
-      netValue: proposal.net_calendar || netValue,
-      days: proposal.days_calendar || days,
-      impacts: proposal.impacts_calendar || impacts
-    };
+  const computeCalendarDays = (startDate?: string, endDate?: string) => {
+    if (!startDate || !endDate) return null;
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return null;
+    return Math.max(Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1, 0);
   };
 
-  const estimatedValues = proposal ? calculateEstimatedValues(proposal) : null;
+  const pricingSummary = useMemo(() => {
+    if (!proposal) return null;
+
+    try {
+      const quote = proposal.quote && typeof proposal.quote === 'object' ? proposal.quote : {};
+      const toPositiveNumber = (value: any) => {
+        const num = Number(value);
+        return Number.isFinite(num) && num > 0 ? num : undefined;
+      };
+      const toNumber = (value: any) => {
+        const num = Number(value);
+        return Number.isFinite(num) ? num : undefined;
+      };
+      const toPriceRecord = (table: Record<string, any> | undefined) => {
+        if (!table || typeof table !== 'object') return {} as Record<number, number>;
+        return Object.entries(table).reduce((acc, [key, value]) => {
+          const sec = toPositiveNumber(key);
+          const price = toNumber(value);
+          if (sec && typeof price === 'number') {
+            acc[sec] = price;
+          }
+          return acc;
+        }, {} as Record<number, number>);
+      };
+      const toDiscountRecord = (table: Record<string, any> | undefined) => {
+        if (!table || typeof table !== 'object') return {} as Record<number, { pct?: number; fixed?: number }>;
+        return Object.entries(table).reduce((acc, [key, value]) => {
+          const sec = toPositiveNumber(key);
+          if (!sec) return acc;
+          const pct = toNumber(value?.pct);
+          const fixed = toNumber(value?.fixed);
+          acc[sec] = {
+            ...(typeof pct === 'number' ? { pct } : {}),
+            ...(typeof fixed === 'number' ? { fixed } : {}),
+          };
+          return acc;
+        }, {} as Record<number, { pct?: number; fixed?: number }>);
+      };
+
+      const variantDurations = Array.isArray(quote.selected_durations) ? quote.selected_durations : [];
+      const quoteDurations = Array.isArray(quote.film_seconds) ? quote.film_seconds : [];
+      const priceDurations = Object.keys({
+        ...(quote.insertion_prices?.avulsa ?? {}),
+        ...(quote.insertion_prices?.especial ?? {}),
+      }).map((key) => toPositiveNumber(key)).filter(Boolean) as number[];
+
+      const baseDurations: number[] = [
+        ...quoteDurations,
+        ...variantDurations,
+        ...priceDurations,
+      ]
+        .map((value) => toPositiveNumber(value))
+        .filter(Boolean) as number[];
+
+      const normalizedFilmSeconds = toPositiveNumber(proposal.film_seconds);
+      if (normalizedFilmSeconds) {
+        baseDurations.push(normalizedFilmSeconds);
+      }
+
+      const customFilmSeconds = toPositiveNumber(quote.custom_film_seconds ?? quote.customFilmSeconds);
+      const durations = getSelectedDurations(baseDurations as number[], customFilmSeconds);
+
+      const pricingInput = {
+        screens_count: proposal.proposal_screens?.length ?? quote.qtd_telas ?? quote.valor_insercao_config?.qtd_telas ?? 0,
+        film_seconds: durations,
+        custom_film_seconds: customFilmSeconds,
+        insertions_per_hour: toNumber(proposal.insertions_per_hour ?? quote.insertions_per_hour) ?? 0,
+        hours_per_day: toNumber(quote.horas_operacao_dia ?? proposal.horas_operacao_dia) ?? 10,
+        business_days_per_month: toNumber(quote.dias_uteis_mes_base ?? proposal.dias_uteis_mes_base) ?? 22,
+        period_unit: quote.period_unit ?? proposal.period_unit ?? 'months',
+        months_period: toNumber(quote.months_period ?? proposal.months_period),
+        days_period: toNumber(quote.days_period ?? proposal.days_period),
+        avg_audience_per_insertion: toNumber(quote.avg_audience_per_insertion ?? quote.audience_per_insertion ?? proposal.avg_audience_per_insertion),
+        pricing_mode: quote.pricing_mode ?? proposal.pricing_mode ?? (proposal.cpm_mode === 'valor_insercao' ? 'insertion' : 'cpm'),
+        pricing_variant: quote.pricing_variant ?? proposal.pricing_variant ?? 'avulsa',
+        insertion_prices: {
+          avulsa: toPriceRecord(quote.insertion_prices?.avulsa),
+          especial: toPriceRecord(quote.insertion_prices?.especial),
+        },
+        discounts_per_insertion: {
+          avulsa: toDiscountRecord(quote.discounts_per_insertion?.avulsa),
+          especial: toDiscountRecord(quote.discounts_per_insertion?.especial),
+        },
+        cpm_value: toNumber(proposal.cpm_value ?? quote.cpm_value),
+        discount_pct: toNumber(proposal.discount_pct ?? quote.discount_pct),
+        discount_fixed: toNumber(proposal.discount_fixed ?? quote.discount_fixed),
+      };
+
+      const metrics = calculateProposalMetrics(pricingInput);
+
+      return {
+        metrics,
+        pricingInput,
+        durations,
+        quote,
+      };
+    } catch (error) {
+      console.error('[ProposalDetails] Falha ao calcular métricas de precificação', error);
+      return null;
+    }
+  }, [proposal]);
+
+  const pricingMetrics = pricingSummary?.metrics;
+  const pricingInput = pricingSummary?.pricingInput;
+  const durationsForDisplay = pricingSummary?.durations;
+  const netValueCalculated = pricingMetrics?.netValue ?? proposal?.net_calendar ?? proposal?.net_value ?? 0;
+  const grossValueCalculated = pricingMetrics?.grossValue ?? proposal?.gross_calendar ?? proposal?.gross_value ?? 0;
+  const calendarDays = computeCalendarDays(proposal?.start_date, proposal?.end_date);
+  const inferredDays = (() => {
+    if (calendarDays && calendarDays > 0) return calendarDays;
+    if (!pricingMetrics) return null;
+
+    if (pricingMetrics.periodUnit === 'months') {
+      const months = pricingMetrics.monthsPeriod ?? 0;
+      const businessDays = pricingInput?.business_days_per_month ?? 22;
+      return months > 0 ? months * businessDays : null;
+    }
+
+    if (pricingMetrics.periodUnit === 'days') {
+      return pricingMetrics.daysPeriod ?? null;
+    }
+
+    return null;
+  })();
+
+  const audiencePerMonth = pricingMetrics?.impacts && inferredDays
+    ? Math.round((pricingMetrics.impacts / Math.max(inferredDays, 1)) * 30)
+    : undefined;
 
   const formatDate = (dateString?: string) => {
     if (!dateString) return 'Não informado';
@@ -439,7 +543,7 @@ const ProposalDetails = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-orange-100 text-sm font-medium">Valor Total</p>
-                  <p className="text-3xl font-bold">{formatCurrency(estimatedValues?.netValue)}</p>
+                  <p className="text-3xl font-bold">{formatCurrency(netValueCalculated)}</p>
                 </div>
                 <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
                   <DollarSign className="h-6 w-6" />
@@ -521,16 +625,20 @@ const ProposalDetails = () => {
             {/* Resumo Financeiro - Componentizado */}
             <div className="avoid-break-inside pdf-financial pdf-section-financial">
               <FinancialSummaryCard
-                investmentTotal={estimatedValues?.netValue || 0}
-                filmSeconds={proposal.film_seconds}
+                investmentTotal={netValueCalculated || 0}
+                filmSeconds={durationsForDisplay && durationsForDisplay.length > 0 ? durationsForDisplay : proposal.film_seconds}
                 insertionsPerHour={proposal.insertions_per_hour}
-                audiencePerMonth={estimatedValues ? Math.round(estimatedValues.impacts / Math.max(estimatedValues.days || 1, 1) * 30) : undefined}
-                impacts={estimatedValues?.impacts}
-                grossValue={estimatedValues?.grossValue}
-                netValue={estimatedValues?.netValue}
+                totalInsertions={pricingMetrics?.totalInsertions}
+                audiencePerMonth={audiencePerMonth}
+                avgAudiencePerInsertion={pricingInput?.avg_audience_per_insertion}
+                impacts={pricingMetrics?.impacts}
+                grossValue={grossValueCalculated}
+                netValue={netValueCalculated}
                 startDate={formatDate(proposal.start_date)}
                 endDate={formatDate(proposal.end_date)}
                 formatCurrency={formatCurrency}
+                quote={pricingSummary?.quote ?? proposal.quote}
+                missingPriceFor={pricingMetrics?.missingPriceFor}
               />
             </div>
           </div>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -21,7 +21,9 @@ import {
   Users,
   MapPin,
   Clock,
-  Play
+  Play,
+  Calculator,
+  AlertCircle
 } from 'lucide-react';
 import { ProposalData } from '../NewProposalWizardImproved';
 import { ScreenFilters, type ScreenFilters as IScreenFilters } from '../ScreenFilters';
@@ -720,6 +722,78 @@ export const ConfigurationStep: React.FC<StepProps> = ({ data, onUpdate }) => {
     });
   };
 
+  const derivedPricingMode = data.cpm_mode === 'valor_insercao' ? 'insertion' : (data.pricing_mode ?? 'cpm');
+
+  const pricingSummary = useMemo(() => {
+    try {
+      const metrics = calculateProposalMetrics({
+        screens_count: data.selectedScreens?.length ?? 0,
+        film_seconds: Array.isArray(data.film_seconds) ? data.film_seconds : [],
+        custom_film_seconds: data.custom_film_seconds,
+        insertions_per_hour: data.insertions_per_hour ?? 0,
+        hours_per_day: data.horas_operacao_dia ?? 10,
+        business_days_per_month: data.dias_uteis_mes_base ?? 22,
+        period_unit: data.period_unit ?? 'months',
+        months_period: data.months_period,
+        days_period: data.days_period,
+        pricing_mode: derivedPricingMode,
+        pricing_variant: data.pricing_variant ?? 'avulsa',
+        insertion_prices: data.insertion_prices,
+        discounts_per_insertion: data.discounts_per_insertion,
+        cpm_value: data.cpm_value,
+        discount_pct: data.discount_pct,
+        discount_fixed: data.discount_fixed,
+        avg_audience_per_insertion: data.avg_audience_per_insertion,
+      });
+
+      const variant = data.pricing_variant ?? 'avulsa';
+      const durations = Array.from(new Set([
+        ...(Array.isArray(data.film_seconds) ? data.film_seconds : []),
+        ...(data.custom_film_seconds ? [data.custom_film_seconds] : []),
+      ]))
+        .filter((sec): sec is number => typeof sec === 'number' && !Number.isNaN(sec) && sec > 0)
+        .sort((a, b) => a - b);
+
+      const breakdown = derivedPricingMode === 'insertion' && metrics
+        ? durations.map((sec) => {
+            const price = data.insertion_prices?.[variant]?.[sec];
+            const discount = data.discounts_per_insertion?.[variant]?.[sec];
+            const pct = discount?.pct ?? 0;
+            const fixed = discount?.fixed ?? 0;
+            const effective = typeof price === 'number'
+              ? Math.max(price - (price * pct / 100) - fixed, 0)
+              : undefined;
+            const subtotal = typeof effective === 'number'
+              ? effective * metrics.totalInsertions
+              : undefined;
+            return { duration: sec, unitPrice: effective, subtotal };
+          })
+        : [];
+
+      return { metrics, breakdown };
+    } catch (error) {
+      console.warn('[ConfigurationStep] Falha ao calcular métricas da proposta:', error);
+      return { metrics: null, breakdown: [] };
+    }
+  }, [data, derivedPricingMode]);
+
+  const pricingMetrics = pricingSummary.metrics;
+  const pricingBreakdown = pricingSummary.breakdown;
+  const missingDurations = derivedPricingMode === 'insertion' ? (pricingMetrics?.missingPriceFor ?? []) : [];
+
+  const formatCurrency = (value?: number | null) => {
+    if (typeof value !== 'number' || Number.isNaN(value)) return 'R$ 0,00';
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
+    }).format(value);
+  };
+
+  const formatNumber = (value?: number | null) => {
+    if (typeof value !== 'number' || Number.isNaN(value)) return '0';
+    return value.toLocaleString('pt-BR');
+  };
+
   return (
     <div className="space-y-8 pdf-dense-text">
       <div className="text-center">
@@ -1138,12 +1212,29 @@ export const ConfigurationStep: React.FC<StepProps> = ({ data, onUpdate }) => {
               </div>
             </>
           )}
+
+          <div className="pt-2">
+            <Label htmlFor="avg-audience">Audiência Média por Inserção</Label>
+            <Input
+              id="avg-audience"
+              type="number"
+              min="0"
+              step="1"
+              value={data.avg_audience_per_insertion ?? 0}
+              onChange={(e) => onUpdate({ avg_audience_per_insertion: parseFloat(e.target.value) || 0 })}
+              className="mt-2"
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Informe a média de pessoas impactadas a cada inserção (ex.: 100).
+            </p>
+          </div>
+
           {/* Tabela de Preços por Inserção - valores manuais */}
           {data.cpm_mode === 'valor_insercao' && (
             <div className="space-y-3 mt-6">
-            <Label className="font-semibold">Tabela de Preços por Inserção (valores manuais)</Label>
-            <p className="text-xs text-gray-500">Preencha os valores por duração para Avulsa e Especial. Os valores serão usados nos cálculos.</p>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Label className="font-semibold">Tabela de Preços por Inserção (valores manuais)</Label>
+              <p className="text-xs text-gray-500">Preencha os valores por duração para Avulsa e Especial. Os valores serão usados nos cálculos.</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Avulsa */}
               <div className="p-3 border rounded-lg">
                 <div className="font-medium mb-2">Veiculação Avulsa</div>
@@ -1197,9 +1288,74 @@ export const ConfigurationStep: React.FC<StepProps> = ({ data, onUpdate }) => {
                 </div>
               </div>
             </div>
+            </div>
           )}
         </CardContent>
       </Card>
+
+      {pricingMetrics && (
+        <div className="lg:col-span-2">
+          <div className="rounded-xl bg-gradient-to-r from-orange-500 to-orange-600 text-white p-6 shadow-lg">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="p-2 bg-white/20 rounded-full">
+                <Calculator className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="text-xl font-semibold">Resumo Calculado</h3>
+                <p className="text-sm text-orange-100">
+                  Valores estimados com base nas configurações atuais da campanha
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="bg-white/10 rounded-lg p-4">
+                <p className="text-orange-100 text-xs uppercase tracking-wide">Total de Inserções</p>
+                <p className="text-2xl font-bold">{formatNumber(pricingMetrics.totalInsertions)}</p>
+              </div>
+              <div className="bg-white/10 rounded-lg p-4">
+                <p className="text-orange-100 text-xs uppercase tracking-wide">Impactos Estimados</p>
+                <p className="text-2xl font-bold">{formatNumber(pricingMetrics.impacts)}</p>
+              </div>
+              <div className="bg-white/10 rounded-lg p-4">
+                <p className="text-orange-100 text-xs uppercase tracking-wide">Valor Bruto</p>
+                <p className="text-2xl font-bold">{formatCurrency(pricingMetrics.grossValue)}</p>
+              </div>
+              <div className="bg-white/10 rounded-lg p-4">
+                <p className="text-orange-100 text-xs uppercase tracking-wide">Valor Líquido</p>
+                <p className="text-2xl font-bold">{formatCurrency(pricingMetrics.netValue)}</p>
+              </div>
+            </div>
+
+            {derivedPricingMode === 'insertion' && pricingBreakdown.length > 0 && (
+              <div className="mt-6 bg-white/15 rounded-lg p-4">
+                <p className="font-semibold mb-3">Detalhamento por Duração</p>
+                <div className="space-y-2 text-sm">
+                  {pricingBreakdown.map((item) => (
+                    <div key={item.duration} className="flex items-center justify-between">
+                      <span className="text-orange-100">
+                        {item.duration}" → {item.unitPrice !== undefined ? `${formatCurrency(item.unitPrice)} / inserção` : 'Preço não configurado'}
+                      </span>
+                      <span className="font-semibold">
+                        {item.subtotal !== undefined ? formatCurrency(item.subtotal) : '-'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {missingDurations.length > 0 && (
+              <div className="mt-6 flex items-center gap-2 bg-red-500/20 border border-red-200 rounded-lg p-3 text-sm">
+                <AlertCircle className="h-4 w-4" />
+                <p>
+                  <strong>Atenção:</strong> Preencha os preços para as durações {missingDurations.map((sec) => `${sec}"`).join(', ')} para liberar o cálculo completo.
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
 
     {/* Fórmula de Impacto */}
@@ -1253,6 +1409,7 @@ export const SummaryStep: React.FC<{ data: ProposalData }> = ({ data }) => {
       cpm_value: data.cpm_value,
       discount_pct: data.discount_pct,
       discount_fixed: data.discount_fixed,
+      avg_audience_per_insertion: data.avg_audience_per_insertion,
     });
   };
 

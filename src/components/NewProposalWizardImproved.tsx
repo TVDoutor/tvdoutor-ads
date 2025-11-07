@@ -41,6 +41,7 @@ export interface ProposalData {
   impact_formula: string;
   discount_pct: number;
   discount_fixed: number;
+  avg_audience_per_insertion?: number;
   start_date?: string;
   end_date?: string;
   // --- Novos campos para cálculos solicitados ---
@@ -110,6 +111,7 @@ export const NewProposalWizardImproved: React.FC<NewProposalWizardProps> = ({
     impact_formula: 'A',
     discount_pct: 0,
     discount_fixed: 0,
+    avg_audience_per_insertion: 100,
     // Defaults seguros (não alteram comportamento atual)
     horas_operacao_dia: 10,
     dias_uteis_mes_base: 22,

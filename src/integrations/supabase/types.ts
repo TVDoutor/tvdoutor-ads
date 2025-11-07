@@ -1495,6 +1495,7 @@ export type Database = {
           days_calendar: number | null
           discount_fixed: number | null
           discount_pct: number | null
+          dias_uteis_mes_base: number | null
           email_sent_at: string | null
           end_date: string | null
           film_seconds: number | null
@@ -1505,6 +1506,7 @@ export type Database = {
           impact_formula: string | null
           impacts_business: number | null
           impacts_calendar: number | null
+          horas_operacao_dia: number | null
           insertions_per_hour: number | null
           net_business: number | null
           net_calendar: number | null
@@ -1536,6 +1538,7 @@ export type Database = {
           days_calendar?: number | null
           discount_fixed?: number | null
           discount_pct?: number | null
+          dias_uteis_mes_base?: number | null
           email_sent_at?: string | null
           end_date?: string | null
           film_seconds?: number | null
@@ -1546,6 +1549,7 @@ export type Database = {
           impact_formula?: string | null
           impacts_business?: number | null
           impacts_calendar?: number | null
+          horas_operacao_dia?: number | null
           insertions_per_hour?: number | null
           net_business?: number | null
           net_calendar?: number | null
@@ -1577,6 +1581,7 @@ export type Database = {
           days_calendar?: number | null
           discount_fixed?: number | null
           discount_pct?: number | null
+          dias_uteis_mes_base?: number | null
           email_sent_at?: string | null
           end_date?: string | null
           film_seconds?: number | null
@@ -1587,6 +1592,7 @@ export type Database = {
           impact_formula?: string | null
           impacts_business?: number | null
           impacts_calendar?: number | null
+          horas_operacao_dia?: number | null
           insertions_per_hour?: number | null
           net_business?: number | null
           net_calendar?: number | null
@@ -1629,36 +1635,57 @@ export type Database = {
       proposta_servicos_especiais: {
         Row: {
           acao_id: string | null
+          audiencia_mes_base: number | null
+          desconto_percentual: number | null
           created_at: string | null
           id: string
           observacoes: string | null
           preco_total: number
+          insercoes_hora_linha: number | null
           preco_unitario: number
           proposta_id: number
           quantidade: number | null
+          qtd_telas: number | null
           servico_id: string
+          tipo_servico_proposta: string | null
+          valor_manual_insercao_avulsa: number | null
+          valor_manual_insercao_especial: number | null
         }
         Insert: {
           acao_id?: string | null
+          audiencia_mes_base?: number | null
+          desconto_percentual?: number | null
           created_at?: string | null
           id?: string
           observacoes?: string | null
           preco_total: number
+          insercoes_hora_linha?: number | null
           preco_unitario: number
           proposta_id: number
           quantidade?: number | null
+          qtd_telas?: number | null
           servico_id: string
+          tipo_servico_proposta?: string | null
+          valor_manual_insercao_avulsa?: number | null
+          valor_manual_insercao_especial?: number | null
         }
         Update: {
           acao_id?: string | null
+          audiencia_mes_base?: number | null
+          desconto_percentual?: number | null
           created_at?: string | null
           id?: string
           observacoes?: string | null
           preco_total?: number
+          insercoes_hora_linha?: number | null
           preco_unitario?: number
           proposta_id?: number
           quantidade?: number | null
+          qtd_telas?: number | null
           servico_id?: string
+          tipo_servico_proposta?: string | null
+          valor_manual_insercao_avulsa?: number | null
+          valor_manual_insercao_especial?: number | null
         }
         Relationships: [
           {

@@ -28,6 +28,7 @@ import { ScreenFilters, type ScreenFilters as IScreenFilters } from '../ScreenFi
 import { ImpactFormulaRadioGroup } from './ImpactFormulaRadioGroup';
 import { toast } from 'sonner';
 import { combineIds } from '@/utils/ids';
+import { calculateProposalMetrics } from '@/lib/pricing';
 
 interface StepProps {
   data: ProposalData;
@@ -710,6 +711,15 @@ export const ConfigurationStep: React.FC<StepProps> = ({ data, onUpdate }) => {
     }
   };
 
+  const mergeValorInsercaoConfig = (patch: Partial<NonNullable<ProposalData['valor_insercao_config']>>) => {
+    onUpdate({
+      valor_insercao_config: {
+        ...(data.valor_insercao_config ?? {}),
+        ...patch,
+      },
+    });
+  };
+
   return (
     <div className="space-y-8 pdf-dense-text">
       <div className="text-center">
@@ -818,6 +828,107 @@ export const ConfigurationStep: React.FC<StepProps> = ({ data, onUpdate }) => {
                 className="mt-2"
               />
             </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="operating-hours">Horas de Operação por Dia</Label>
+                <Input
+                  id="operating-hours"
+                  type="number"
+                  min="1"
+                  max="24"
+                  step="1"
+                  value={data.horas_operacao_dia ?? ''}
+                  onChange={(e) => {
+                    const value = parseFloat(e.target.value);
+                    onUpdate({ horas_operacao_dia: isNaN(value) ? 0 : value });
+                  }}
+                  className="mt-2"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Informe quantas horas por dia a campanha estará ativa (ex.: 12 para operação 12h/dia).
+                </p>
+              </div>
+              <div>
+                <Label htmlFor="business-days">Dias Úteis / Mês Base</Label>
+                <Input
+                  id="business-days"
+                  type="number"
+                  min="1"
+                  max="31"
+                  step="1"
+                  value={data.dias_uteis_mes_base ?? ''}
+                  onChange={(e) => {
+                    const value = parseFloat(e.target.value);
+                    onUpdate({ dias_uteis_mes_base: isNaN(value) ? 0 : value });
+                  }}
+                  className="mt-2"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Utilize a média de dias úteis que será considerada para os cálculos (ex.: 22 dias).
+                </p>
+              </div>
+            </div>
+            {/* Unidade do Período */}
+            <div className="space-y-2 mt-4">
+              <Label>Unidade do Período</Label>
+              <RadioGroup
+                value={data.period_unit ?? 'months'}
+                onValueChange={(value) => onUpdate({ period_unit: value as 'months' | 'days' })}
+                className="mt-2"
+              >
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="months" id="period-months" />
+                  <Label htmlFor="period-months">Meses</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="days" id="period-days" />
+                  <Label htmlFor="period-days">Dias</Label>
+                </div>
+              </RadioGroup>
+              <p className="text-xs text-gray-500">Selecione se o período da campanha será definido em meses ou dias.</p>
+            </div>
+            {/* Meses do Período */}
+            <div className="space-y-2 mt-4">
+              <Label htmlFor="months-period">Meses do Período (01–12)</Label>
+              <Input
+                id="months-period"
+                type="number"
+                min="1"
+                max="12"
+                value={data.months_period ?? 1}
+                onChange={(e) => {
+                  const v = parseInt(e.target.value);
+                  const clamped = isNaN(v) ? 1 : Math.max(1, Math.min(12, v));
+                  onUpdate({ months_period: clamped });
+                }}
+                className="mt-2"
+              />
+              <p className="text-xs text-gray-500">
+                Informe quantos meses o período da proposta irá contemplar. Ex.: 08 para 8 meses.
+              </p>
+            </div>
+            {/* Dias do Período (mostra apenas quando unit = days) */}
+            {(data.period_unit ?? 'months') === 'days' && (
+              <div className="space-y-2 mt-2">
+                <Label htmlFor="days-period">Dias do Período</Label>
+                <Input
+                  id="days-period"
+                  type="number"
+                  min="1"
+                  max="365"
+                  value={data.days_period ?? ''}
+                  onChange={(e) => {
+                    const v = parseInt(e.target.value);
+                    const clamped = isNaN(v) ? 1 : Math.max(1, Math.min(365, v));
+                    onUpdate({ days_period: clamped });
+                  }}
+                  className="mt-2"
+                />
+                <p className="text-xs text-gray-500">
+                  Informe o período em dias quando optar pela unidade de período "Dias" (ex.: 15, 30, 45).
+                </p>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -831,61 +942,262 @@ export const ConfigurationStep: React.FC<StepProps> = ({ data, onUpdate }) => {
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
-            <Label>Modo CPM</Label>
+            <Label>Modo de Cálculo</Label>
             <RadioGroup
-              value={data.cpm_mode}
-              onValueChange={(value) => onUpdate({ cpm_mode: value as 'manual' | 'blended' })}
+              value={data.cpm_mode ?? 'manual'}
+              onValueChange={(value) => {
+                const mode = value as 'manual' | 'blended' | 'valor_insercao';
+                onUpdate({
+                  cpm_mode: mode,
+                  pricing_mode: mode === 'valor_insercao' ? 'insertion' : 'cpm',
+                });
+              }}
               className="mt-2"
             >
               <div className="flex items-center space-x-2">
                 <RadioGroupItem value="manual" id="cpm-manual" />
-                <Label htmlFor="cpm-manual">Manual</Label>
+                <Label htmlFor="cpm-manual">CPM Manual</Label>
               </div>
               <div className="flex items-center space-x-2">
                 <RadioGroupItem value="blended" id="cpm-blended" />
-                <Label htmlFor="cpm-blended">Blended</Label>
+                <Label htmlFor="cpm-blended">CPM Blended</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="valor_insercao" id="cpm-valor-insercao" />
+                <Label htmlFor="cpm-valor-insercao">Valor por Inserção</Label>
               </div>
             </RadioGroup>
           </div>
 
-          {data.cpm_mode === 'manual' && (
-            <div>
-              <Label htmlFor="cpm-value">Valor CPM (R$)</Label>
-              <Input
-                id="cpm-value"
-                type="number"
-                step="0.01"
-                value={data.cpm_value || ''}
-                onChange={(e) => onUpdate({ cpm_value: parseFloat(e.target.value) || 0 })}
-                className="mt-2"
-              />
+          {data.cpm_mode === 'valor_insercao' ? (
+            <>
+              <div className="mt-2">
+                <Label>Tipo de Serviço</Label>
+                <RadioGroup
+                  value={data.valor_insercao_config?.tipo_servico_proposta ?? 'Avulsa'}
+                  onValueChange={(value) => {
+                    const tipo = value as 'Avulsa' | 'Especial';
+                    onUpdate({
+                      pricing_variant: tipo === 'Especial' ? 'especial' : 'avulsa',
+                      valor_insercao_config: {
+                        ...(data.valor_insercao_config ?? {}),
+                        tipo_servico_proposta: tipo,
+                      },
+                    });
+                  }}
+                  className="mt-2"
+                >
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="Avulsa" id="servico-avulsa" />
+                    <Label htmlFor="servico-avulsa">Avulsa</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="Especial" id="servico-especial" />
+                    <Label htmlFor="servico-especial">Especial</Label>
+                  </div>
+                </RadioGroup>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="audiencia-base">Audiência / Mês Base</Label>
+                  <Input
+                    id="audiencia-base"
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={data.valor_insercao_config?.audiencia_mes_base ?? ''}
+                    onChange={(e) => {
+                      const value = parseFloat(e.target.value);
+                      mergeValorInsercaoConfig({ audiencia_mes_base: isNaN(value) ? undefined : value });
+                    }}
+                    className="mt-2"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="qtd-telas">Qtd. Telas (Linha)</Label>
+                  <Input
+                    id="qtd-telas"
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={data.valor_insercao_config?.qtd_telas ?? ''}
+                    onChange={(e) => {
+                      const value = parseFloat(e.target.value);
+                      mergeValorInsercaoConfig({ qtd_telas: isNaN(value) ? undefined : value });
+                    }}
+                    className="mt-2"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="desconto-percentual-linha">Desconto % (Linha)</Label>
+                  <Input
+                    id="desconto-percentual-linha"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={data.valor_insercao_config?.desconto_percentual ?? ''}
+                    onChange={(e) => {
+                      const value = parseFloat(e.target.value);
+                      mergeValorInsercaoConfig({ desconto_percentual: isNaN(value) ? undefined : value });
+                    }}
+                    className="mt-2"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="valor-avulsa-linha">Valor Inserção Avulsa (R$)</Label>
+                  <Input
+                    id="valor-avulsa-linha"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={data.valor_insercao_config?.valor_manual_insercao_avulsa ?? ''}
+                    onChange={(e) => {
+                      const value = parseFloat(e.target.value);
+                      mergeValorInsercaoConfig({ valor_manual_insercao_avulsa: isNaN(value) ? undefined : value });
+                    }}
+                    className="mt-2"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="valor-especial-linha">Valor Inserção Especial (R$)</Label>
+                  <Input
+                    id="valor-especial-linha"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={data.valor_insercao_config?.valor_manual_insercao_especial ?? ''}
+                    onChange={(e) => {
+                      const value = parseFloat(e.target.value);
+                      mergeValorInsercaoConfig({ valor_manual_insercao_especial: isNaN(value) ? undefined : value });
+                    }}
+                    className="mt-2"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="insercoes-hora-linha">Inserções/Hora (Linha)</Label>
+                  <Input
+                    id="insercoes-hora-linha"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={data.valor_insercao_config?.insercoes_hora_linha ?? ''}
+                    onChange={(e) => {
+                      const value = parseFloat(e.target.value);
+                      mergeValorInsercaoConfig({ insercoes_hora_linha: isNaN(value) ? null : value });
+                    }}
+                    className="mt-2"
+                    placeholder="Opcional - usa valor global se vazio"
+                  />
+                </div>
+              </div>
+            </>
+          ) : (
+            <>
+              {data.cpm_mode === 'manual' && (
+                <div>
+                  <Label htmlFor="cpm-value">Valor CPM (R$)</Label>
+                  <Input
+                    id="cpm-value"
+                    type="number"
+                    step="0.01"
+                    value={data.cpm_value || ''}
+                    onChange={(e) => onUpdate({ cpm_value: parseFloat(e.target.value) || 0 })}
+                    className="mt-2"
+                  />
+                </div>
+              )}
+              {data.cpm_mode === 'blended' && (
+                <p className="text-xs text-gray-500">
+                  O modo Blended utiliza as métricas de inventário para calcular um CPM médio automaticamente.
+                </p>
+              )}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="discount-pct">Desconto (%)</Label>
+                  <Input
+                    id="discount-pct"
+                    type="number"
+                    step="0.1"
+                    value={data.discount_pct}
+                    onChange={(e) => onUpdate({ discount_pct: parseFloat(e.target.value) || 0 })}
+                    className="mt-2"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="discount-fixed">Desconto Fixo (R$)</Label>
+                  <Input
+                    id="discount-fixed"
+                    type="number"
+                    step="0.01"
+                    value={data.discount_fixed}
+                    onChange={(e) => onUpdate({ discount_fixed: parseFloat(e.target.value) || 0 })}
+                    className="mt-2"
+                  />
+                </div>
+              </div>
+            </>
+          )}
+          {/* Tabela de Preços por Inserção - valores manuais */}
+          {data.cpm_mode === 'valor_insercao' && (
+            <div className="space-y-3 mt-6">
+            <Label className="font-semibold">Tabela de Preços por Inserção (valores manuais)</Label>
+            <p className="text-xs text-gray-500">Preencha os valores por duração para Avulsa e Especial. Os valores serão usados nos cálculos.</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Avulsa */}
+              <div className="p-3 border rounded-lg">
+                <div className="font-medium mb-2">Veiculação Avulsa</div>
+                <div className="space-y-2">
+                  {[...new Set([...(data.film_seconds || [])])]
+                    .sort((a, b) => a - b)
+                    .map((sec) => (
+                      <div key={`avulsa-${sec}`} className="grid grid-cols-2 gap-2 items-center">
+                        <Label className="text-sm">{sec}&quot;</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          value={data.insertion_prices?.avulsa?.[sec] ?? ''}
+                          onChange={(e) => {
+                            const val = parseFloat(e.target.value);
+                            const next = {
+                              ...data.insertion_prices,
+                              avulsa: { ...(data.insertion_prices?.avulsa || {}), [sec]: isNaN(val) ? 0 : val }
+                            };
+                            onUpdate({ insertion_prices: next });
+                          }}
+                        />
+                      </div>
+                    ))}
+                </div>
+              </div>
+              {/* Especial */}
+              <div className="p-3 border rounded-lg">
+                <div className="font-medium mb-2">Projeto Especial de Conteúdo</div>
+                <div className="space-y-2">
+                  {[...new Set([...(data.film_seconds || [])])]
+                    .sort((a, b) => a - b)
+                    .map((sec) => (
+                      <div key={`especial-${sec}`} className="grid grid-cols-2 gap-2 items-center">
+                        <Label className="text-sm">{sec}&quot;</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          value={data.insertion_prices?.especial?.[sec] ?? ''}
+                          onChange={(e) => {
+                            const val = parseFloat(e.target.value);
+                            const next = {
+                              ...data.insertion_prices,
+                              especial: { ...(data.insertion_prices?.especial || {}), [sec]: isNaN(val) ? 0 : val }
+                            };
+                            onUpdate({ insertion_prices: next });
+                          }}
+                        />
+                      </div>
+                    ))}
+                </div>
+              </div>
             </div>
           )}
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="discount-pct">Desconto (%)</Label>
-              <Input
-                id="discount-pct"
-                type="number"
-                step="0.1"
-                value={data.discount_pct}
-                onChange={(e) => onUpdate({ discount_pct: parseFloat(e.target.value) || 0 })}
-                className="mt-2"
-              />
-            </div>
-            <div>
-              <Label htmlFor="discount-fixed">Desconto Fixo (R$)</Label>
-              <Input
-                id="discount-fixed"
-                type="number"
-                step="0.01"
-                value={data.discount_fixed}
-                onChange={(e) => onUpdate({ discount_fixed: parseFloat(e.target.value) || 0 })}
-                className="mt-2"
-              />
-            </div>
-          </div>
         </CardContent>
       </Card>
     </div>
@@ -922,29 +1234,26 @@ export const ConfigurationStep: React.FC<StepProps> = ({ data, onUpdate }) => {
 
 // Step 6: Summary
 export const SummaryStep: React.FC<{ data: ProposalData }> = ({ data }) => {
+  const derivedPricingMode = data.cpm_mode === 'valor_insercao' ? 'insertion' : (data.pricing_mode ?? 'cpm');
   const calculateMetrics = () => {
-    const screens = data.selectedScreens.length;
-    const startDate = data.start_date ? new Date(data.start_date) : new Date();
-    const endDate = data.end_date ? new Date(data.end_date) : new Date();
-    const days = data.start_date && data.end_date ? 
-      Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1 : 30;
-    
-    const hoursPerDay = 10;
-    const totalInsertions = data.insertions_per_hour * hoursPerDay * days * screens;
-    const avgAudiencePerScreen = 100;
-    const impacts = totalInsertions * avgAudiencePerScreen;
-    const cpm = data.cpm_value || 25;
-    const grossValue = (impacts / 1000) * cpm;
-    const netValue = grossValue - (grossValue * data.discount_pct / 100) - data.discount_fixed;
-
-    return {
-      screens,
-      days,
-      totalInsertions,
-      impacts,
-      grossValue,
-      netValue,
-    };
+    return calculateProposalMetrics({
+      screens_count: data.selectedScreens.length,
+      film_seconds: Array.isArray(data.film_seconds) ? data.film_seconds : [],
+      custom_film_seconds: data.custom_film_seconds,
+      insertions_per_hour: data.insertions_per_hour,
+      hours_per_day: data.horas_operacao_dia,
+      business_days_per_month: data.dias_uteis_mes_base,
+      period_unit: data.period_unit,
+      months_period: data.months_period,
+      days_period: data.days_period,
+      pricing_mode: derivedPricingMode,
+      pricing_variant: data.pricing_variant,
+      insertion_prices: data.insertion_prices,
+      discounts_per_insertion: data.discounts_per_insertion,
+      cpm_value: data.cpm_value,
+      discount_pct: data.discount_pct,
+      discount_fixed: data.discount_fixed,
+    });
   };
 
   const metrics = calculateMetrics();
@@ -1057,15 +1366,41 @@ export const SummaryStep: React.FC<{ data: ProposalData }> = ({ data }) => {
               <div className="text-2xl font-bold text-blue-600">{data.insertions_per_hour}</div>
               <div className="text-sm text-gray-600">Inserções/Hora</div>
             </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-blue-600">
-                {data.cpm_value ? formatCurrency(data.cpm_value) : 'Blended'}
+            {(((data as any).pricing_mode ?? 'cpm') === 'insertion') ? (
+              <div className="text-center">
+                <div className="text-sm font-semibold text-blue-600">Preço por Inserção</div>
+                <div className="text-xs text-gray-600">Variante: {((data as any).pricing_variant ?? 'avulsa') === 'avulsa' ? 'Avulsa' : 'Especial'}</div>
               </div>
-              <div className="text-sm text-gray-600">CPM</div>
-            </div>
+            ) : (
+              <div className="text-center">
+                <div className="text-2xl font-bold text-blue-600">
+                  {data.cpm_value ? formatCurrency(data.cpm_value) : 'Blended'}
+                </div>
+                <div className="text-sm text-gray-600">CPM</div>
+              </div>
+            )}
             <div className="text-center">
               <div className="text-2xl font-bold text-blue-600">Fórmula {data.impact_formula}</div>
               <div className="text-sm text-gray-600">Modelo de Impacto</div>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mt-4">
+            <div className="text-center">
+              <div className="text-sm font-semibold text-blue-600">Unidade do Período</div>
+              <div className="text-sm text-gray-600">{(((data as any).period_unit ?? 'months') === 'days') ? 'Dias' : 'Meses'}</div>
+            </div>
+            <div className="text-center">
+              {(((data as any).period_unit ?? 'months') === 'days') ? (
+                <>
+                  <div className="text-2xl font-bold text-blue-600">{(data as any).days_period ?? '-'}</div>
+                  <div className="text-sm text-gray-600">Dias</div>
+                </>
+              ) : (
+                <>
+                  <div className="text-2xl font-bold text-blue-600">{(data as any).months_period ?? '-'}</div>
+                  <div className="text-sm text-gray-600">Meses</div>
+                </>
+              )}
             </div>
           </div>
         </CardContent>
@@ -1120,18 +1455,23 @@ export const SummaryStep: React.FC<{ data: ProposalData }> = ({ data }) => {
               <span className="text-gray-600">Valor Bruto:</span>
               <span className="text-xl font-semibold">{formatCurrency(metrics.grossValue)}</span>
             </div>
-            
-            {data.discount_pct > 0 && (
+            {(((data as any).pricing_mode ?? 'cpm') === 'cpm') && data.discount_pct > 0 && (
               <div className="flex justify-between items-center py-2 text-red-600">
                 <span>Desconto ({data.discount_pct}%):</span>
                 <span>-{formatCurrency(metrics.grossValue * data.discount_pct / 100)}</span>
               </div>
             )}
-            
-            {data.discount_fixed > 0 && (
+            {(((data as any).pricing_mode ?? 'cpm') === 'cpm') && data.discount_fixed > 0 && (
               <div className="flex justify-between items-center py-2 text-red-600">
                 <span>Desconto Fixo:</span>
                 <span>-{formatCurrency(data.discount_fixed)}</span>
+              </div>
+            )}
+
+            {(((data as any).pricing_mode ?? 'cpm') === 'insertion') && Array.isArray((metrics as any).missingPriceFor) && (metrics as any).missingPriceFor.length > 0 && (
+              <div className="flex justify-between items-center py-2 text-red-600">
+                <span>Preços ausentes para: {((metrics as any).missingPriceFor as number[]).sort((a,b)=>a-b).map(s => `${s}"`).join(', ')}</span>
+                <span className="text-sm">Preencha os valores por inserção para todas as durações.</span>
               </div>
             )}
             
@@ -1143,6 +1483,12 @@ export const SummaryStep: React.FC<{ data: ProposalData }> = ({ data }) => {
                 {formatCurrency(metrics.netValue)}
               </span>
             </div>
+            {(((data as any).pricing_mode ?? 'cpm') === 'insertion') && (
+              <div className="text-xs text-gray-600">
+                Cálculo com preço por inserção ({((data as any).pricing_variant ?? 'avulsa') === 'avulsa' ? 'Avulsa' : 'Especial'}),
+                considerando unidade de período {(((data as any).period_unit ?? 'months') === 'days') ? 'Dias' : 'Meses'}.
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>

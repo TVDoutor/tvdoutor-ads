@@ -22,7 +22,8 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "postbuild": "echo 'Build completed successfully!'",
-    "test:e2e": "node tests/e2e/pdf.e2e.js"
+    "test:e2e": "node tests/e2e/pdf.e2e.js",
+    "test:unit": "ts-node ./tests/unit/pricing.test.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

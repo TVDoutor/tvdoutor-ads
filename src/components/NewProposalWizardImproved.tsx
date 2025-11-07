@@ -25,6 +25,7 @@ import {
 import { type ScreenFilters as IScreenFilters } from './ScreenFilters';
 import { geocodeAddress } from '@/lib/geocoding';
 import { searchScreensNearLocation } from '@/lib/search-service';
+import { validateWizardStep } from '@/utils/validations/proposal-wizard';
 
 export interface ProposalData {
   proposal_type: ('avulsa' | 'projeto')[];
@@ -35,13 +36,47 @@ export interface ProposalData {
   film_seconds: number[];
   custom_film_seconds?: number;
   insertions_per_hour: number;
-  cpm_mode: 'manual' | 'blended';
+  cpm_mode: 'manual' | 'blended' | 'valor_insercao';
   cpm_value?: number;
   impact_formula: string;
   discount_pct: number;
   discount_fixed: number;
   start_date?: string;
   end_date?: string;
+  // --- Novos campos para cálculos solicitados ---
+  horas_operacao_dia: number; // horas_por_dia
+  dias_uteis_mes_base: number; // dias_uteis_por_mes
+  months_period?: number; // meses_periodo da proposta
+  days_period?: number; // dias_periodo quando unidade for 'days'
+  pricing_mode?: 'cpm' | 'insertion';
+  pricing_variant?: 'avulsa' | 'especial';
+  period_unit?: 'months' | 'days';
+  // tabela de preços por inserção (avulsa/especial) por duração (chave: segundos)
+  insertion_prices: {
+    avulsa: Record<number, number>;
+    especial: Record<number, number>;
+  };
+  // descontos por inserção por duração (pct/fixo), separados por variante
+  discounts_per_insertion?: {
+    avulsa: Record<number, { pct?: number; fixed?: number }>;
+    especial: Record<number, { pct?: number; fixed?: number }>;
+  };
+  // desconto percentual por linha de produto
+  discount_pct_avulsa?: number;
+  discount_pct_especial?: number;
+  // fator de quadros/regra específica do especial
+  fator_quadros?: number;
+  // audiência base mensal (override global opcional)
+  audience_base_monthly?: number;
+  valor_insercao_config?: {
+    tipo_servico_proposta?: 'Avulsa' | 'Especial';
+    audiencia_mes_base?: number;
+    qtd_telas?: number;
+    desconto_percentual?: number;
+    valor_manual_insercao_avulsa?: number;
+    valor_manual_insercao_especial?: number;
+    insercoes_hora_linha?: number | null;
+  };
 }
 
 interface NewProposalWizardProps {
@@ -75,6 +110,35 @@ export const NewProposalWizardImproved: React.FC<NewProposalWizardProps> = ({
     impact_formula: 'A',
     discount_pct: 0,
     discount_fixed: 0,
+    // Defaults seguros (não alteram comportamento atual)
+    horas_operacao_dia: 10,
+    dias_uteis_mes_base: 22,
+    months_period: 8,
+    days_period: undefined,
+    pricing_mode: 'cpm',
+    pricing_variant: 'avulsa',
+    period_unit: 'months',
+    insertion_prices: {
+      avulsa: { 15: 0.39, 30: 0.55, 45: 0.71 },
+      especial: { 15: 0.62, 30: 0.76, 45: 0.88 },
+    },
+    discounts_per_insertion: {
+      avulsa: {},
+      especial: {},
+    },
+    discount_pct_avulsa: 0,
+    discount_pct_especial: 0,
+    fator_quadros: 6,
+    audience_base_monthly: 0,
+    valor_insercao_config: {
+      tipo_servico_proposta: 'Avulsa',
+      audiencia_mes_base: 0,
+      qtd_telas: 0,
+      desconto_percentual: 0,
+      valor_manual_insercao_avulsa: 0,
+      valor_manual_insercao_especial: 0,
+      insercoes_hora_linha: null,
+    },
   });
 
   const [availableProjects, setAvailableProjects] = useState<any[]>([]);
@@ -92,7 +156,28 @@ export const NewProposalWizardImproved: React.FC<NewProposalWizardProps> = ({
     });
   };
 
+  // Helper para verificar preços ausentes por inserção
+  const getMissingInsertionPrices = () => {
+    const variant = data.pricing_variant ?? 'avulsa';
+    const durations = Array.from(new Set([...(data.film_seconds || []), ...(data.custom_film_seconds ? [data.custom_film_seconds] : [])]))
+      .filter((sec) => typeof sec === 'number' && sec > 0)
+      .sort((a, b) => a - b);
+    const table = data.insertion_prices?.[variant] || {};
+    const missing = durations.filter((sec) => {
+      const price = table[sec];
+      return price === undefined || price === null || isNaN(price) || price <= 0;
+    });
+    return missing;
+  };
+
   const nextStep = () => {
+    // Validação via Zod por etapa
+    const validation = validateWizardStep(currentStep, data);
+    if (!validation.success) {
+      const msg = validation.errors?.join('\n') || 'Verifique os campos desta etapa.';
+      toast.warning(msg);
+      return;
+    }
     if (currentStep < STEPS.length) {
       setCurrentStep(prev => prev + 1);
     }
@@ -105,16 +190,7 @@ export const NewProposalWizardImproved: React.FC<NewProposalWizardProps> = ({
   };
 
   const canProceed = () => {
-    const result = (() => {
-      switch (currentStep) {
-        case 1: return data.proposal_type.length > 0;
-        case 2: return data.customer_name.trim() !== '' && data.customer_email.trim() !== '';
-        case 3: return data.selected_project; // Sempre exigir projeto selecionado
-        case 4: return data.selectedScreens.length > 0;
-        case 5: return data.film_seconds.length > 0 && data.insertions_per_hour > 0;
-        default: return true;
-      }
-    })();
+    const result = validateWizardStep(currentStep, data).success;
     
     console.log(`🔍 Step ${currentStep} validation:`, {
       canProceed: result,
@@ -521,7 +597,23 @@ export const NewProposalWizardImproved: React.FC<NewProposalWizardProps> = ({
           </Button>
 
           <Button
-            onClick={currentStep === STEPS.length ? () => onComplete(data) : nextStep}
+            onClick={() => {
+              if (currentStep === STEPS.length) {
+                // Validação final para modo de inserção
+                if (data.cpm_mode === 'valor_insercao') {
+                  const missing = getMissingInsertionPrices();
+                  if (missing.length > 0) {
+                    toast.warning(
+                      `Preencha o preço por inserção para: ${missing.join('s, ')}s (variante ${data.pricing_variant ?? 'avulsa'}).`
+                    );
+                    return;
+                  }
+                }
+                onComplete(data);
+              } else {
+                nextStep();
+              }
+            }}
             disabled={!canProceed()}
             className="flex items-center gap-2"
           >
@@ -533,4 +625,3 @@ export const NewProposalWizardImproved: React.FC<NewProposalWizardProps> = ({
     </div>
   );
 };
-

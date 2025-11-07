@@ -82,6 +82,25 @@ async function run() {
     console.log(`✅ Encontrados ${pageBreakCount} marcadores .page-break-before no DOM`);
   }
 
+  // Valida presença da mini tabela do FinancialSummaryCard quando modo de precificação é por inserção
+  const pricingModeText = await page.evaluate(() => {
+    const el = document.querySelector('[data-testid="pricing-mode-value"]');
+    return el ? (el.textContent || '').trim() : null;
+  });
+  if (pricingModeText && pricingModeText.toLowerCase().includes('inserção')) {
+    const hasTable = await page.evaluate(() => !!document.querySelector('[data-testid="insertion-pricing-table"]'));
+    const rows = await page.evaluate(() => Array.from(document.querySelectorAll('[data-testid^="insertion-row-"]')).length);
+    if (!hasTable || rows < 1) {
+      console.error('❌ Mini tabela de preços por inserção não encontrada ou sem linhas.');
+      await browser.close();
+      process.exitCode = 1;
+      return;
+    }
+    console.log(`✅ Mini tabela de preços por inserção presente com ${rows} linha(s)`);
+  } else {
+    console.log('ℹ️ Modo de precificação não é por inserção nesta proposta. Verificação da mini tabela foi ignorada.');
+  }
+
   // Verifica páginas de inventário e isolamento por página (se aplicável)
   const inventoryPageInfo = await page.evaluate(() => ({
     pages: Array.from(document.querySelectorAll('#proposal-print-area .inventory-page')).length,

@@ -27,6 +27,8 @@ import {
   Target,
   Zap
 } from "lucide-react";
+import { FileSpreadsheet } from "lucide-react";
+import ExcelJS from "exceljs";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { downloadVisibleProposalPDF } from "@/lib/pdf-service";
@@ -162,6 +164,108 @@ const ProposalDetails = () => {
       fetchProposal(parseInt(id));
     }
   }, [id]);
+
+  const pricingSummary = useMemo(() => {
+    if (!proposal) return null;
+
+    try {
+      const quote = proposal.quote && typeof proposal.quote === 'object' ? proposal.quote : {};
+      const toPositiveNumber = (value: any) => {
+        const num = Number(value);
+        return Number.isFinite(num) && num > 0 ? num : undefined;
+      };
+      const toNumber = (value: any) => {
+        const num = Number(value);
+        return Number.isFinite(num) ? num : undefined;
+      };
+      const toPriceRecord = (table: Record<string, any> | undefined) => {
+        if (!table || typeof table !== 'object') return {} as Record<number, number>;
+        return Object.entries(table).reduce((acc, [key, value]) => {
+          const sec = toPositiveNumber(key);
+          const price = toNumber(value);
+          if (sec && typeof price === 'number') {
+            acc[sec] = price;
+          }
+          return acc;
+        }, {} as Record<number, number>);
+      };
+      const toDiscountRecord = (table: Record<string, any> | undefined) => {
+        if (!table || typeof table !== 'object') return {} as Record<number, { pct?: number; fixed?: number }>;
+        return Object.entries(table).reduce((acc, [key, value]) => {
+          const sec = toPositiveNumber(key);
+          if (!sec) return acc;
+          const pct = toNumber(value?.pct);
+          const fixed = toNumber(value?.fixed);
+          acc[sec] = {
+            ...(typeof pct === 'number' ? { pct } : {}),
+            ...(typeof fixed === 'number' ? { fixed } : {}),
+          };
+          return acc;
+        }, {} as Record<number, { pct?: number; fixed?: number }>);
+      };
+
+      const variantDurations = Array.isArray(quote.selected_durations) ? quote.selected_durations : [];
+      const quoteDurations = Array.isArray(quote.film_seconds) ? quote.film_seconds : [];
+      const priceDurations = Object.keys({
+        ...(quote.insertion_prices?.avulsa ?? {}),
+        ...(quote.insertion_prices?.especial ?? {}),
+      }).map((key) => toPositiveNumber(key)).filter(Boolean) as number[];
+
+      const baseDurations: number[] = [
+        ...quoteDurations,
+        ...variantDurations,
+        ...priceDurations,
+      ]
+        .map((value) => toPositiveNumber(value))
+        .filter(Boolean) as number[];
+
+      const normalizedFilmSeconds = toPositiveNumber(proposal.film_seconds);
+      if (normalizedFilmSeconds) {
+        baseDurations.push(normalizedFilmSeconds);
+      }
+
+      const customFilmSeconds = toPositiveNumber(quote.custom_film_seconds ?? quote.customFilmSeconds);
+      const durations = getSelectedDurations(baseDurations as number[], customFilmSeconds);
+
+      const pricingInput = {
+        screens_count: proposal.proposal_screens?.length ?? quote.qtd_telas ?? quote.valor_insercao_config?.qtd_telas ?? 0,
+        film_seconds: durations,
+        custom_film_seconds: customFilmSeconds,
+        insertions_per_hour: toNumber(proposal.insertions_per_hour ?? quote.insertions_per_hour) ?? 0,
+        hours_per_day: toNumber(quote.horas_operacao_dia ?? proposal.horas_operacao_dia) ?? 10,
+        business_days_per_month: toNumber(quote.dias_uteis_mes_base ?? proposal.dias_uteis_mes_base) ?? 22,
+        period_unit: quote.period_unit ?? proposal.period_unit ?? 'months',
+        months_period: toNumber(quote.months_period ?? proposal.months_period),
+        days_period: toNumber(quote.days_period ?? proposal.days_period),
+        avg_audience_per_insertion: toNumber(quote.avg_audience_per_insertion ?? quote.audience_per_insertion ?? proposal.avg_audience_per_insertion),
+        pricing_mode: quote.pricing_mode ?? proposal.pricing_mode ?? (proposal.cpm_mode === 'valor_insercao' ? 'insertion' : 'cpm'),
+        pricing_variant: quote.pricing_variant ?? proposal.pricing_variant ?? 'avulsa',
+        insertion_prices: {
+          avulsa: toPriceRecord(quote.insertion_prices?.avulsa),
+          especial: toPriceRecord(quote.insertion_prices?.especial),
+        },
+        discounts_per_insertion: {
+          avulsa: toDiscountRecord(quote.discounts_per_insertion?.avulsa),
+          especial: toDiscountRecord(quote.discounts_per_insertion?.especial),
+        },
+        cpm_value: toNumber(proposal.cpm_value ?? quote.cpm_value),
+        discount_pct: toNumber(proposal.discount_pct ?? quote.discount_pct),
+        discount_fixed: toNumber(proposal.discount_fixed ?? quote.discount_fixed),
+      };
+
+      const metrics = calculateProposalMetrics(pricingInput);
+
+      return {
+        metrics,
+        pricingInput,
+        durations,
+        quote,
+      };
+    } catch (error) {
+      console.error('[ProposalDetails] Falha ao calcular métricas de precificação', error);
+      return null;
+    }
+  }, [proposal]);
 
   const fetchProposal = async (proposalId: number) => {
     try {
@@ -310,107 +414,7 @@ const ProposalDetails = () => {
     return Math.max(Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1, 0);
   };
 
-  const pricingSummary = useMemo(() => {
-    if (!proposal) return null;
-
-    try {
-      const quote = proposal.quote && typeof proposal.quote === 'object' ? proposal.quote : {};
-      const toPositiveNumber = (value: any) => {
-        const num = Number(value);
-        return Number.isFinite(num) && num > 0 ? num : undefined;
-      };
-      const toNumber = (value: any) => {
-        const num = Number(value);
-        return Number.isFinite(num) ? num : undefined;
-      };
-      const toPriceRecord = (table: Record<string, any> | undefined) => {
-        if (!table || typeof table !== 'object') return {} as Record<number, number>;
-        return Object.entries(table).reduce((acc, [key, value]) => {
-          const sec = toPositiveNumber(key);
-          const price = toNumber(value);
-          if (sec && typeof price === 'number') {
-            acc[sec] = price;
-          }
-          return acc;
-        }, {} as Record<number, number>);
-      };
-      const toDiscountRecord = (table: Record<string, any> | undefined) => {
-        if (!table || typeof table !== 'object') return {} as Record<number, { pct?: number; fixed?: number }>;
-        return Object.entries(table).reduce((acc, [key, value]) => {
-          const sec = toPositiveNumber(key);
-          if (!sec) return acc;
-          const pct = toNumber(value?.pct);
-          const fixed = toNumber(value?.fixed);
-          acc[sec] = {
-            ...(typeof pct === 'number' ? { pct } : {}),
-            ...(typeof fixed === 'number' ? { fixed } : {}),
-          };
-          return acc;
-        }, {} as Record<number, { pct?: number; fixed?: number }>);
-      };
-
-      const variantDurations = Array.isArray(quote.selected_durations) ? quote.selected_durations : [];
-      const quoteDurations = Array.isArray(quote.film_seconds) ? quote.film_seconds : [];
-      const priceDurations = Object.keys({
-        ...(quote.insertion_prices?.avulsa ?? {}),
-        ...(quote.insertion_prices?.especial ?? {}),
-      }).map((key) => toPositiveNumber(key)).filter(Boolean) as number[];
-
-      const baseDurations: number[] = [
-        ...quoteDurations,
-        ...variantDurations,
-        ...priceDurations,
-      ]
-        .map((value) => toPositiveNumber(value))
-        .filter(Boolean) as number[];
-
-      const normalizedFilmSeconds = toPositiveNumber(proposal.film_seconds);
-      if (normalizedFilmSeconds) {
-        baseDurations.push(normalizedFilmSeconds);
-      }
-
-      const customFilmSeconds = toPositiveNumber(quote.custom_film_seconds ?? quote.customFilmSeconds);
-      const durations = getSelectedDurations(baseDurations as number[], customFilmSeconds);
-
-      const pricingInput = {
-        screens_count: proposal.proposal_screens?.length ?? quote.qtd_telas ?? quote.valor_insercao_config?.qtd_telas ?? 0,
-        film_seconds: durations,
-        custom_film_seconds: customFilmSeconds,
-        insertions_per_hour: toNumber(proposal.insertions_per_hour ?? quote.insertions_per_hour) ?? 0,
-        hours_per_day: toNumber(quote.horas_operacao_dia ?? proposal.horas_operacao_dia) ?? 10,
-        business_days_per_month: toNumber(quote.dias_uteis_mes_base ?? proposal.dias_uteis_mes_base) ?? 22,
-        period_unit: quote.period_unit ?? proposal.period_unit ?? 'months',
-        months_period: toNumber(quote.months_period ?? proposal.months_period),
-        days_period: toNumber(quote.days_period ?? proposal.days_period),
-        avg_audience_per_insertion: toNumber(quote.avg_audience_per_insertion ?? quote.audience_per_insertion ?? proposal.avg_audience_per_insertion),
-        pricing_mode: quote.pricing_mode ?? proposal.pricing_mode ?? (proposal.cpm_mode === 'valor_insercao' ? 'insertion' : 'cpm'),
-        pricing_variant: quote.pricing_variant ?? proposal.pricing_variant ?? 'avulsa',
-        insertion_prices: {
-          avulsa: toPriceRecord(quote.insertion_prices?.avulsa),
-          especial: toPriceRecord(quote.insertion_prices?.especial),
-        },
-        discounts_per_insertion: {
-          avulsa: toDiscountRecord(quote.discounts_per_insertion?.avulsa),
-          especial: toDiscountRecord(quote.discounts_per_insertion?.especial),
-        },
-        cpm_value: toNumber(proposal.cpm_value ?? quote.cpm_value),
-        discount_pct: toNumber(proposal.discount_pct ?? quote.discount_pct),
-        discount_fixed: toNumber(proposal.discount_fixed ?? quote.discount_fixed),
-      };
-
-      const metrics = calculateProposalMetrics(pricingInput);
-
-      return {
-        metrics,
-        pricingInput,
-        durations,
-        quote,
-      };
-    } catch (error) {
-      console.error('[ProposalDetails] Falha ao calcular métricas de precificação', error);
-      return null;
-    }
-  }, [proposal]);
+  // pricingSummary já movido acima para manter regras de hooks
 
   const pricingMetrics = pricingSummary?.metrics;
   const pricingInput = pricingSummary?.pricingInput;
@@ -482,6 +486,168 @@ const ProposalDetails = () => {
     }
   };
 
+  const handleDownloadExcel = async () => {
+    if (!proposal) return;
+    const rows = (proposal.proposal_screens || []).map((ps) => ({
+      id: ps.screens?.id,
+      code: ps.screens?.code ?? '',
+      name: ps.screens?.name ?? ps.screens?.display_name ?? '',
+      class: ps.screens?.class ?? '',
+      type: (ps.screens as any)?.category ?? (ps.screens as any)?.screen_type ?? '',
+      address: (ps.screens as any)?.google_formatted_address ?? (ps.screens as any)?.formatted_address ?? '',
+      city: ps.screens?.city ?? '',
+      state: ps.screens?.state ?? '',
+      venue_id: ps.screens?.venue_id ?? '',
+      venue_name: ps.screens?.venues?.name ?? '',
+    }));
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('Pontos');
+    ws.columns = [
+      { header: 'ID', key: 'id', width: 10 },
+      { header: 'Código', key: 'code', width: 14 },
+      { header: 'Nome', key: 'name', width: 32 },
+      { header: 'Classe', key: 'class', width: 12 },
+      { header: 'Tipo', key: 'type', width: 16 },
+      { header: 'Endereço', key: 'address', width: 40 },
+      { header: 'Cidade', key: 'city', width: 18 },
+      { header: 'Estado', key: 'state', width: 10 },
+      { header: 'Venue', key: 'venue_id', width: 12 },
+      { header: 'Venue Nome', key: 'venue_name', width: 20 },
+    ];
+    ws.addRows(rows);
+    const ws2 = wb.addWorksheet('Resumo');
+    const pricing = pricingSummary;
+    const pricingInput = pricing?.pricingInput as any;
+    const durationsForDisplay = pricing?.durations as number[] | undefined;
+    const months = Number(pricingInput?.months_period ?? proposal.months_period ?? 1) || 1;
+    const screensCount = Number(pricingInput?.screens_count ?? (proposal.proposal_screens?.length ?? 0)) || 0;
+    const insertionsPerHour = Number(pricingInput?.insertions_per_hour ?? proposal.insertions_per_hour ?? 0) || 0;
+    const hoursPerDay = Number(pricingInput?.hours_per_day ?? proposal.horas_operacao_dia ?? 10) || 10;
+    const businessDaysPerMonth = Number(pricingInput?.business_days_per_month ?? proposal.dias_uteis_mes_base ?? 22) || 22;
+    const insertionsMonthly = Math.round(insertionsPerHour * hoursPerDay * businessDaysPerMonth * screensCount);
+    const impactsMonthly = proposal.impacts_business ? Math.round(Number(proposal.impacts_business) / months) : undefined;
+    const grossMonthly = proposal.gross_business ? Number(proposal.gross_business) / months : 0;
+    const descPct = Number(pricingInput?.discount_pct ?? proposal.discount_pct ?? 0) || 0;
+    const netMonthly = grossMonthly * (1 - descPct / 100);
+    const investPorTelaMes = screensCount ? grossMonthly / screensCount : 0;
+    const audienceMonthly = pricingInput?.audience_monthly ?? undefined;
+    const cpmMonthly = audienceMonthly ? (grossMonthly / Math.max(Number(audienceMonthly) / 1000, 1)) : (impactsMonthly ? (grossMonthly / Math.max(impactsMonthly / 1000, 1)) : undefined);
+
+    const currencyFmt = '"R$" #,##0.00';
+    const percentFmt = '0.00%';
+    const decimalFmt = '#,##0.00';
+
+    const titleAv = ws2.addRow(['Veiculação Avulsa']);
+    const headerAv = ws2.addRow(['Filme', 'Meses', 'Inserções/hora', 'Inserções/mês', 'Audi/mês', 'Impact/mês', 'Qtd telas', 'Invest Bruto/Mês', 'Invest Ag. Bruto/Mês', 'Desc (%)', 'Invest/tela/mês', 'CPM/Impact/Mês', 'Invest.Negociado Mensal', 'Total Negociado/8M']);
+    const secs = (durationsForDisplay && durationsForDisplay.length ? durationsForDisplay : [Number(proposal.film_seconds || 0)]).filter(Boolean);
+    secs.forEach((sec) => {
+      const row = ws2.addRow([
+        `${sec}"`,
+        months,
+        insertionsPerHour,
+        null,
+        audienceMonthly ?? '',
+        null,
+        screensCount,
+        null,
+        null,
+        descPct / 100,
+        null,
+        null,
+        null,
+        null,
+      ]);
+      const r = row.number;
+      row.getCell(4).value = { formula: `C${r}*10*G${r}*22` };
+      row.getCell(6).value = { formula: `E${r}*C${r}` };
+      row.getCell(8).value = { formula: `D${r}*L12` };
+      row.getCell(9).value = { formula: `H${r}` };
+      row.getCell(11).value = { formula: `M${r}/G${r}` };
+      row.getCell(12).value = { formula: `(M${r}/F${r})*1000` };
+      row.getCell(13).value = { formula: `I${r}-(I${r}*J${r})` };
+      row.getCell(14).value = { formula: `M${r}*B${r}` };
+      row.getCell(8).numFmt = currencyFmt;
+      row.getCell(9).numFmt = currencyFmt;
+      row.getCell(10).numFmt = percentFmt;
+      row.getCell(11).numFmt = currencyFmt;
+      row.getCell(12).numFmt = currencyFmt;
+      row.getCell(13).numFmt = currencyFmt;
+      row.getCell(14).numFmt = currencyFmt;
+    });
+
+    ws2.addRow([]);
+    const titleEsp = ws2.addRow(['Projeto Especial de Conteúdo']);
+    const headerEsp = ws2.addRow(['Filme', 'Meses', 'Inserções/hora', 'Inserções/mês', 'Audi/mês', 'Impact/mês', 'Qtd telas', 'Invest Bruto/Mês', 'Invest Ag. Bruto/Mês', 'Desc (%)', 'Invest/tela/mês', 'CPM/Impact/Mês', 'Invest.Negociado Mensal', 'Total Negociado/8M']);
+    secs.forEach((sec) => {
+      const row = ws2.addRow([
+        `${sec}"`,
+        months,
+        insertionsPerHour,
+        null,
+        audienceMonthly ?? '',
+        null,
+        screensCount,
+        null,
+        null,
+        descPct / 100,
+        null,
+        null,
+        null,
+        null,
+      ]);
+      const r = row.number;
+      row.getCell(4).value = { formula: `C${r}*10*G${r}*22` };
+      row.getCell(6).value = { formula: `E${r}*C${r}` };
+      row.getCell(8).value = { formula: `D${r}*L12` };
+      row.getCell(9).value = { formula: `H${r}` };
+      row.getCell(11).value = { formula: `M${r}/G${r}` };
+      row.getCell(12).value = { formula: `(M${r}/F${r})*1000` };
+      row.getCell(13).value = { formula: `I${r}-(I${r}*J${r})` };
+      row.getCell(14).value = { formula: `M${r}*B${r}` };
+      row.getCell(8).numFmt = currencyFmt;
+      row.getCell(9).numFmt = currencyFmt;
+      row.getCell(10).numFmt = percentFmt;
+      row.getCell(11).numFmt = currencyFmt;
+      row.getCell(12).numFmt = currencyFmt;
+      row.getCell(13).numFmt = currencyFmt;
+      row.getCell(14).numFmt = currencyFmt;
+    });
+
+    ws2.addRow([]);
+    const headerTabela = ws2.addRow(['Veiculação', 'Tempo', 'Inserção Avulsa', 'Inserção Esp. Cont.']);
+    const linhaHorario = ws2.addRow(['2ª a 6ª Feira (5 d.u.)', '08h - 18h - 10h/dia', '', '']);
+    const priceAvulsa = (pricingInput?.insertion_prices?.avulsa ?? {}) as Record<number, number>;
+    const priceEspecial = (pricingInput?.insertion_prices?.especial ?? {}) as Record<number, number>;
+    const durationsPrice = secs.length ? secs : Object.keys({ ...priceAvulsa, ...priceEspecial }).map((k) => Number(k));
+    durationsPrice.forEach((sec) => {
+      const row = ws2.addRow(['', `${sec}"`, priceAvulsa?.[sec] ?? '', priceEspecial?.[sec] ?? '']);
+      row.getCell(3).numFmt = currencyFmt;
+      row.getCell(4).numFmt = currencyFmt;
+    });
+
+    // Define CPM base em L12 para uso da fórmula H = D * L12
+    ws2.getCell('L12').value = cpmMonthly ?? 0;
+    ws2.getCell('L12').numFmt = currencyFmt;
+    ws2.addRow([]);
+    ws2.addRow(['Observações']);
+    ws2.addRow(['Os quadros têm duração de 30"']);
+    ws2.addRow(['Checking Online']);
+    ws2.addRow(['Para Checking Presencial, consultar condições e valores']);
+    ws2.addRow(['Tabela vigente mês da veiculação; pontos podem estar indisponíveis no momento da autorização']);
+    ws2.addRow(['Em caso de multiplicidade de marcas será cobrado adicional de 30% sobre o valor da proposta']);
+    const buffer = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `proposta_${proposal.id}_pontos.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+    toast.success('Planilha gerada com sucesso');
+  };
+
   return (
     <DashboardLayout>
       <div id="proposal-print-area" className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/30">
@@ -528,6 +694,14 @@ const ProposalDetails = () => {
                 >
                   <Download className="h-4 w-4" />
                   {loading ? 'Carregando...' : 'PDF Profissional'}
+                </Button>
+                <Button 
+                  onClick={handleDownloadExcel}
+                  disabled={loading || !proposal}
+                  className="gap-2 bg-white text-orange-600 hover:bg-orange-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <FileSpreadsheet className="h-4 w-4" />
+                  Excel Pontos
                 </Button>
               </div>
             </div>

@@ -13,6 +13,7 @@ import { toast } from 'sonner';
 import { geocodeAddress } from '@/lib/geocoding';
 import { searchScreensNearLocation, ScreenSearchResult } from '@/lib/search-service';
 import marcadorLocalizacao from '@/assets/marcador-de-localizacao.png';
+import { getPharmacies, updateMissingCoordinates, updateCoordinatesFromCEP, type PharmacyRow } from '@/lib/pharmacy-service';
 
 interface Screen {
   id: number;
@@ -27,6 +28,17 @@ interface Screen {
   proposal_count?: number;
   heat_intensity?: number;
 }
+
+// Sanitização simples para uso em strings HTML
+const sanitize = (value: unknown): string => {
+  const str = String(value ?? '');
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+};
 
 // Custom debounce hook for auto-search
 function useDebounce(value: string, delay: number) {
@@ -51,11 +63,16 @@ export default function InteractiveMap() {
   const [loading, setLoading] = useState(true);
   const [mapError, setMapError] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'markers' | 'heatmap'>('markers');
+  const [layerMode, setLayerMode] = useState<'venues' | 'pharmacies' | 'both'>('venues');
   const [heatmapData, setHeatmapData] = useState<[number, number, number][]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [cityFilter, setCityFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [classFilter, setClassFilter] = useState('all');
+  const [pharmacies, setPharmacies] = useState<FarmaciaPublica[]>([]);
+  const [phFilters, setPhFilters] = useState<{ uf: string; cidade: string; grupo: string; bairro: string }>({ uf: 'all', cidade: 'all', grupo: 'all', bairro: 'all' });
+  const [pharmaciesError, setPharmaciesError] = useState<string | null>(null);
+  const [phStats, setPhStats] = useState<{ total: number; valid: number; rendered: number }>({ total: 0, valid: 0, rendered: 0 });
   const [addressSearch, setAddressSearch] = useState('');
   const [radiusKm, setRadiusKm] = useState('5');
   const [centerCoordinates, setCenterCoordinates] = useState<{lat: number, lng: number} | null>(null);
@@ -125,6 +142,22 @@ export default function InteractiveMap() {
       setLoading(false);
     }
   };
+
+  const fetchPharmacies = async () => {
+    try {
+      const rows = await getPharmacies(phFilters)
+      setPharmacies(rows)
+      setPharmaciesError(null)
+      if (mapInstance.current) {
+        const L = await import('leaflet')
+        updateMarkers(L)
+      }
+    } catch (error: any) {
+      const msg = `Erro ao carregar farmácias: ${error.message}`
+      setPharmaciesError(msg)
+      toast.error(msg)
+    }
+  }
 
   // Initialize map
   const initializeMap = async () => {
@@ -267,8 +300,8 @@ export default function InteractiveMap() {
         marker.bindPopup(`
           <div style="padding: 8px; text-align: center;">
             <h4 style="margin: 0 0 4px 0; font-weight: bold; color: #ef4444;">📍 Auto-busca</h4>
-            <p style="margin: 0; font-size: 12px;">${geocodeResult.google_formatted_address || searchValue}</p>
-            <p style="margin: 2px 0; font-size: 11px; color: #666;">Raio: ${radiusKm}km • ${searchResults.length} telas</p>
+            <p style="margin: 0; font-size: 12px;">${sanitize(geocodeResult.google_formatted_address || searchValue)}</p>
+            <p style="margin: 2px 0; font-size: 11px; color: #666;">Raio: ${sanitize(radiusKm)}km • ${sanitize(searchResults.length)} telas</p>
           </div>
         `);
         
@@ -317,16 +350,16 @@ export default function InteractiveMap() {
                     </svg>
                   </div>
                   <div>
-                    <h4 style="font-weight: 600; color: #111827; font-size: 16px; margin: 0;">${screen.name || screen.code}</h4>
-                    <p style="font-size: 12px; color: #0891b2; margin: 0;">Código: ${screen.code}</p>
+                    <h4 style="font-weight: 600; color: #111827; font-size: 16px; margin: 0;">${sanitize(screen.name || screen.code)}</h4>
+                    <p style="font-size: 12px; color: #0891b2; margin: 0;">Código: ${sanitize(screen.code)}</p>
                   </div>
                 </div>
                 
                 <div style="background: #f9fafb; border-radius: 6px; padding: 10px; margin-bottom: 8px;">
                   <h5 style="font-weight: 600; color: #374151; margin: 0 0 6px 0; font-size: 12px;">📍 Localização</h5>
                   <div style="font-size: 11px; color: #374151;">
-                    <div><strong>Cidade:</strong> ${screen.city}, ${screen.state}</div>
-                    <div><strong>Distância:</strong> ${screen.distance}km do centro</div>
+                    <div><strong>Cidade:</strong> ${sanitize(screen.city)}, ${sanitize(screen.state)}</div>
+                    <div><strong>Distância:</strong> ${sanitize(screen.distance)}km do centro</div>
                   </div>
                 </div>
                 
@@ -337,19 +370,19 @@ export default function InteractiveMap() {
                   <div style="font-size: 11px; color: #374151; display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
                     <div style="background: #e0f2fe; padding: 6px; border-radius: 4px;">
                       <div style="font-weight: 600; color: #0369a1;">Alcance</div>
-                      <div style="color: #0c4a6e;">${screen.reach ? screen.reach.toLocaleString() : 'N/A'} pessoas/semana</div>
+                      <div style="color: #0c4a6e;">${sanitize(screen.reach ? screen.reach.toLocaleString() : 'N/A')} pessoas/semana</div>
                     </div>
                     <div style="background: #f0fdf4; padding: 6px; border-radius: 4px;">
                       <div style="font-weight: 600; color: #166534;">Investimento</div>
-                      <div style="color: #14532d;">R$ ${screen.price ? screen.price.toFixed(2) : 'N/A'}/semana</div>
+                      <div style="color: #14532d;">R$ ${sanitize(screen.price ? screen.price.toFixed(2) : 'N/A')}/semana</div>
                     </div>
                     <div style="background: #fef3c7; padding: 6px; border-radius: 4px;">
                       <div style="font-weight: 600; color: #92400e;">CPM</div>
-                      <div style="color: #78350f;">R$ ${screen.reach && screen.price ? (screen.price / (screen.reach / 1000)).toFixed(2) : 'N/A'}</div>
+                      <div style="color: #78350f;">R$ ${sanitize(screen.reach && screen.price ? (screen.price / (screen.reach / 1000)).toFixed(2) : 'N/A')}</div>
                     </div>
                     <div style="background: #f3e8ff; padding: 6px; border-radius: 4px;">
                       <div style="font-weight: 600; color: #7c3aed;">Classe</div>
-                      <div style="color: #5b21b6;">${screen.class || 'N/A'}</div>
+                      <div style="color: #5b21b6;">${sanitize(screen.class || 'N/A')}</div>
                     </div>
                   </div>
                 </div>
@@ -610,9 +643,14 @@ export default function InteractiveMap() {
 
     const map = mapInstance.current;
     
-    // Clear existing markers and heatmap layers except search center marker and search result markers
+    // Clear existing markers and heatmap layers
     map.eachLayer((layer: any) => {
+      // Always remove non-special markers
       if (layer instanceof L.Marker && !layer.options.isSearchCenter && !layer.options.isSearchResult && !layer.options.isMainSearchResult) {
+        map.removeLayer(layer);
+      }
+      // When exibindo apenas farmácias, remover também marcadores de busca de telas
+      if (layerMode === 'pharmacies' && layer instanceof L.Marker && (layer.options?.isSearchResult || layer.options?.isMainSearchResult)) {
         map.removeLayer(layer);
       }
       // Remove heatmap layers
@@ -652,15 +690,23 @@ export default function InteractiveMap() {
 
     // Show markers only in marker mode
     if (viewMode === 'markers') {
-      // Always show ALL screens from database (all 1000 screens)
-      const validScreens = screens
-        .filter(s => s.lat && s.lng); // Show ALL screens without limit
+      // Draw screens based on selected layer
+      const validScreens = screens.filter(s => s.lat && s.lng);
+      const shouldShowScreens = layerMode === 'venues' || layerMode === 'both';
+      const screensToDraw = shouldShowScreens ? (
+        (layerMode === 'both' && centerCoordinates)
+          ? validScreens.filter(screen => {
+              const d = calculateDistance(centerCoordinates!.lat, centerCoordinates!.lng, Number(screen.lat), Number(screen.lng));
+              return d <= parseFloat(radiusKm);
+            })
+          : validScreens
+      ) : [];
       
       console.log('🎯 Telas válidas para mostrar no mapa:', validScreens.length);
 
       const markers: any[] = [];
 
-      validScreens.forEach(screen => {
+      screensToDraw.forEach(screen => {
         const lat = Number(screen.lat);
         const lng = Number(screen.lng);
         
@@ -762,6 +808,103 @@ export default function InteractiveMap() {
         searchResultsCount: addressSearchResults.length,
         searchActive: addressSearchResults.length > 0
       });
+      const term = phSearch.trim().toLowerCase()
+      const termDigits = term.replace(/[^0-9]/g, '')
+      const basePhPoints = pharmacies
+        .filter(p => p.latitude && p.longitude)
+        .filter(p => (phFilters.uf === 'all' || p.uf === phFilters.uf))
+        .filter(p => (phFilters.cidade === 'all' || p.cidade === phFilters.cidade))
+        .filter(p => (phFilters.bairro === 'all' || (p.bairro ?? '') === phFilters.bairro))
+        .filter(p => (phFilters.grupo === 'all' || (p.grupo ?? '') === phFilters.grupo))
+        .filter(p => {
+          if (!term) return true
+          const nome = (p.nome || '').toLowerCase()
+          const grupo = (p.grupo || '').toLowerCase()
+          const endereco = (p.endereco || '').toLowerCase()
+          const bairro = (p.bairro || '').toLowerCase()
+          const cep = (p.cep || '')
+          return (
+            nome.includes(term) ||
+            grupo.includes(term) ||
+            endereco.includes(term) ||
+            bairro.includes(term) ||
+            (termDigits && cep.replace(/[^0-9]/g, '').includes(termDigits))
+          )
+        })
+      const phPoints = (layerMode === 'both' && centerCoordinates)
+        ? basePhPoints.filter(p => {
+            const d = calculateDistance(centerCoordinates!.lat, centerCoordinates!.lng, Number(p.latitude), Number(p.longitude));
+            return d <= parseFloat(radiusKm);
+          })
+        : basePhPoints;
+      if (layerMode === 'pharmacies' || layerMode === 'both') {
+        setPhStats({ total: pharmacies.length, valid: basePhPoints.length, rendered: phPoints.length })
+        const zoom = map.getZoom()
+        const grid = zoom < 6 ? 1 : zoom < 8 ? 0.5 : zoom < 10 ? 0.2 : zoom < 12 ? 0.1 : zoom < 14 ? 0.05 : 0.02
+        const buckets: Record<string, FarmaciaPublica[]> = {}
+        phPoints.forEach(p => {
+          const keyLat = Math.round(Number(p.latitude) / grid) * grid
+          const keyLng = Math.round(Number(p.longitude) / grid) * grid
+          const key = `${keyLat}|${keyLng}`
+          if (!buckets[key]) buckets[key] = []
+          buckets[key].push(p)
+        })
+        Object.entries(buckets).forEach(([key, rows]) => {
+          const lat = rows.reduce((acc, r) => acc + Number(r.latitude), 0) / rows.length
+          const lng = rows.reduce((acc, r) => acc + Number(r.longitude), 0) / rows.length
+          const size = rows.length > 25 ? 36 : rows.length > 9 ? 30 : 26
+          const icon = L.divIcon({
+            className: 'pharmacy-cluster',
+            html: rows.length > 1
+              ? `<div style="width:${size}px;height:${size}px;border-radius:50%;border:2px solid white;box-shadow:0 2px 4px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;background:#ef4444;color:white;font-weight:700;font-size:${rows.length>25?'14px':rows.length>9?'13px':'12px'};">${rows.length}</div>`
+              : `<div style="width:${size}px;height:${size}px;border-radius:50%;border:2px solid white;box-shadow:0 2px 4px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;background:#ef4444;">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="white">
+                    <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+                  </svg>
+                  <div style="position:absolute;width:${size}px;height:${size}px;display:flex;align-items:center;justify-content:center;">
+                    <div style="width:${Math.round(size*0.5)}px;height:${Math.round(size*0.16)}px;background:white"></div>
+                    <div style="position:absolute;width:${Math.round(size*0.16)}px;height:${Math.round(size*0.5)}px;background:white"></div>
+                  </div>
+                </div>`,
+            iconSize: [size, size],
+            iconAnchor: [size/2, size/2]
+          })
+          const marker = L.marker([lat, lng], { icon }).addTo(map)
+          if (rows.length === 1) {
+            const p = rows[0] as any
+            marker.bindPopup(`
+              <div style="padding:12px; min-width: 260px; max-width: 320px;">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+                  <div style="width:32px;height:32px;border-radius:50%;background:#ef4444;display:flex;align-items:center;justify-content:center;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="white">
+                      <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+                    </svg>
+                  </div>
+                  <div>
+                    <h4 style="font-weight:600;color:#111827;font-size:16px;margin:0;">${sanitize((p.nome || p.grupo || '') as string)}</h4>
+                    <p style="font-size:12px;color:#ef4444;margin:0;">Farmácia</p>
+                  </div>
+                </div>
+                <div style="background:#f9fafb;border-radius:6px;padding:10px;margin-bottom:8px;">
+                  <h5 style="font-weight:600;color:#374151;margin:0 0 6px 0;font-size:12px;">Localização</h5>
+                  <div style="font-size:11px;color:#374151;">
+                    <div><strong>Endereço:</strong> ${sanitize(p.endereco || '')} ${sanitize((p.numero || '') as string)}</div>
+                    <div><strong>Bairro:</strong> ${sanitize(p.bairro || '')}</div>
+                    <div><strong>Cidade:</strong> ${sanitize(p.cidade || '')}, ${sanitize(p.uf || '')}</div>
+                    ${p.grupo ? `<div><strong>Grupo:</strong> ${sanitize(p.grupo)}</div>` : ''}
+                  </div>
+                </div>
+              </div>
+            `)
+          } else {
+            marker.bindPopup(`
+              <div style="padding:10px;">
+                <div style="font-weight:600;color:#111827;">${rows.length} farmácias neste agrupamento</div>
+              </div>
+            `)
+          }
+        })
+      }
     }
   };
 
@@ -1040,6 +1183,10 @@ export default function InteractiveMap() {
   }, []);
 
   useEffect(() => {
+    fetchPharmacies();
+  }, [phFilters]);
+
+  useEffect(() => {
     if (screens.length > 0) {
       initializeMap();
     }
@@ -1053,7 +1200,7 @@ export default function InteractiveMap() {
     if (mapInstance.current && screens.length > 0) {
       import('leaflet').then(L => updateMarkers(L));
     }
-  }, [screens, addressSearchResults, viewMode]);
+  }, [screens, addressSearchResults, viewMode, pharmacies, layerMode]);
 
   // Auto-search for regular search field
   useEffect(() => {
@@ -1180,6 +1327,10 @@ export default function InteractiveMap() {
               <RefreshCw className="h-4 w-4 mr-2" />
               Atualizar
             </Button>
+            <Button onClick={fetchPharmacies} variant="outline" size="sm">
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Atualizar Farmácias
+            </Button>
             <div className="flex gap-1">
               <Button 
                 onClick={() => setViewMode('markers')} 
@@ -1189,13 +1340,24 @@ export default function InteractiveMap() {
                 <MapPin className="h-4 w-4 mr-1" />
                 Marcadores
               </Button>
-              <Button 
-                onClick={() => setViewMode('heatmap')} 
-                variant={viewMode === 'heatmap' ? 'default' : 'outline'} 
-                size="sm"
-              >
-                <Flame className="h-4 w-4 mr-1" />
-                Heatmap
+            <Button 
+              onClick={() => setViewMode('heatmap')} 
+              variant={viewMode === 'heatmap' ? 'default' : 'outline'} 
+              size="sm"
+            >
+              <Flame className="h-4 w-4 mr-1" />
+              Heatmap
+            </Button>
+            </div>
+            <div className="ml-2 flex gap-1">
+              <Button onClick={() => setLayerMode('venues')} variant={layerMode === 'venues' ? 'default' : 'outline'} size="sm">
+                Telas
+              </Button>
+              <Button onClick={() => setLayerMode('pharmacies')} variant={layerMode === 'pharmacies' ? 'default' : 'outline'} size="sm">
+                Farmácias
+              </Button>
+              <Button onClick={() => setLayerMode('both')} variant={layerMode === 'both' ? 'default' : 'outline'} size="sm">
+                Ambos
               </Button>
             </div>
           </div>
@@ -1237,12 +1399,46 @@ export default function InteractiveMap() {
             </Card>
         </div>
 
+        {/* Farmácias Stats */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm">Farmácias (Total)</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-red-600">{phStats.total}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm">Com Coordenadas</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-red-500">{phStats.valid}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm">Renderizadas</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-red-400">{phStats.rendered}</div>
+            </CardContent>
+          </Card>
+        </div>
+
         {/* Filters */}
         <Card>
           <CardHeader>
             <CardTitle>Filtros</CardTitle>
           </CardHeader>
           <CardContent>
+            {pharmaciesError && (
+              <Alert className="mb-4">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{pharmaciesError}</AlertDescription>
+              </Alert>
+            )}
             {/* Address and Radius Search */}
             <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
               <h3 className="font-semibold text-blue-900 mb-3 flex items-center gap-2">
@@ -1372,25 +1568,81 @@ export default function InteractiveMap() {
                 <Select value={classFilter} onValueChange={setClassFilter}>
                   <SelectTrigger>
                     <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
+                  </SelectTrigger>
+                  <SelectContent>
                     <SelectItem value="all">Todas</SelectItem>
-                      {classes.map(cls => (
-                        <SelectItem key={cls} value={cls}>{cls}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                </div>
+                    {classes.map(cls => (
+                      <SelectItem key={cls} value={cls}>{cls}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-sm font-medium">UF (Farmácia)</label>
+                <Select value={phFilters.uf} onValueChange={(v) => setPhFilters({ ...phFilters, uf: v })}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas</SelectItem>
+                    {Array.from(new Set(pharmacies.map(p => p.uf).filter(Boolean))).sort().map(uf => (
+                      <SelectItem key={String(uf)} value={String(uf)}>{String(uf)}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-sm font-medium">Cidade (Farmácia)</label>
+                <Select value={phFilters.cidade} onValueChange={(v) => setPhFilters({ ...phFilters, cidade: v })}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas</SelectItem>
+                    {Array.from(new Set(pharmacies.map(p => p.cidade).filter(Boolean))).sort().map(c => (
+                      <SelectItem key={String(c)} value={String(c)}>{String(c)}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-sm font-medium">Bairro (Farmácia)</label>
+                <Select value={phFilters.bairro} onValueChange={(v) => setPhFilters({ ...phFilters, bairro: v })}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    {Array.from(new Set(pharmacies.map(p => p.bairro).filter(Boolean))).sort().map(b => (
+                      <SelectItem key={String(b)} value={String(b)}>{String(b)}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-sm font-medium">Grupo (Farmácia)</label>
+                <Select value={phFilters.grupo} onValueChange={(v) => setPhFilters({ ...phFilters, grupo: v })}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    {Array.from(new Set(pharmacies.map(p => p.grupo).filter(Boolean))).sort().map(g => (
+                      <SelectItem key={String(g)} value={String(g)}>{String(g)}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
             <div className="mt-4">
-                  <Button 
+              <Button 
                 onClick={clearMainSearch}
                 variant="outline" 
-                    size="sm" 
+                size="sm" 
               >
                 Limpar Filtros
-                  </Button>
-              </div>
+              </Button>
+            </div>
             </CardContent>
           </Card>
 

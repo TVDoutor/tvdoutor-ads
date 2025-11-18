@@ -94,6 +94,48 @@ function currencyClose(a: number, b: number, tolerance = 1e-6) {
   assert.deepEqual(missingPriceFor, [60]);
 })();
 
+// computeInsertionModeValue com variante 'ambos'
+(() => {
+  const input = {
+    screens_count: 3,
+    film_seconds: [15, 30],
+    insertions_per_hour: 4,
+    period_unit: 'days',
+    days_period: 2,
+    pricing_mode: 'insertion',
+    pricing_variant: 'ambos',
+    insertion_prices: { avulsa: { 15: 1.0, 30: 2.0 }, especial: { 15: 0.5, 30: 1.0 } },
+    discounts_per_insertion: { avulsa: { 15: { pct: 10 }, 30: { fixed: 0.5 } }, especial: { 15: { fixed: 0.2 } } },
+  } as any;
+  const totalInsertions = computeTotalInsertions(input);
+  const { gross, net, missingPriceFor } = computeInsertionModeValue(input, totalInsertions);
+  assert.equal(missingPriceFor.length, 0);
+  // Avulsa efetivo: 15s -> 0.9; 30s -> 1.5 | Especial efetivo: 15s -> 0.3; 30s -> 1.0
+  const expectedUnitSum = (0.9 + 1.5) + (0.3 + 1.0);
+  const expectedTotal = expectedUnitSum * totalInsertions;
+  currencyClose(gross, expectedTotal);
+  currencyClose(net, expectedTotal);
+})();
+
+// computeInsertionModeValue 'ambos' com preços faltantes em uma variante
+(() => {
+  const input = {
+    screens_count: 1,
+    film_seconds: [15, 60],
+    insertions_per_hour: 2,
+    period_unit: 'days',
+    days_period: 1,
+    pricing_mode: 'insertion',
+    pricing_variant: 'ambos',
+    insertion_prices: { avulsa: { 15: 1.0 }, especial: { 60: 2.0 } },
+  } as any;
+  const totalInsertions = computeTotalInsertions(input);
+  const { gross, missingPriceFor } = computeInsertionModeValue(input, totalInsertions);
+  assert.ok(gross > 0);
+  // 15 faltando em especial, 60 faltando em avulsa -> ambos devem aparecer
+  assert.deepEqual(missingPriceFor.sort((a,b)=>a-b), [15, 60]);
+})();
+
 // computeCPMModeValue
 (() => {
   const { gross, net } = computeCPMModeValue(100000, 25, 10, 1000);

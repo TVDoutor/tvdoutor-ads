@@ -114,7 +114,7 @@ const HeroSection = () => {
                         target.style.display = 'none';
                         const parent = target.parentElement;
                         if (parent) {
-                          parent.innerHTML = `<span class="text-xs font-medium text-gray-500 text-center block">${logo.name}</span>`;
+                          parent.textContent = logo.name;
                         }
                       }}
                     />
@@ -141,7 +141,7 @@ const HeroSection = () => {
                         target.style.display = 'none';
                         const parent = target.parentElement;
                         if (parent) {
-                          parent.innerHTML = `<span class="text-xs font-medium text-gray-500 text-center block">${logo.name}</span>`;
+                          parent.textContent = logo.name;
                         }
                       }}
                     />
@@ -168,7 +168,7 @@ const HeroSection = () => {
                         target.style.display = 'none';
                         const parent = target.parentElement;
                         if (parent) {
-                          parent.innerHTML = `<span class="text-xs font-medium text-gray-500 text-center block">${logo.name}</span>`;
+                          parent.textContent = logo.name;
                         }
                       }}
                     />
@@ -195,7 +195,7 @@ const HeroSection = () => {
                         target.style.display = 'none';
                         const parent = target.parentElement;
                         if (parent) {
-                          parent.innerHTML = `<span class="text-xs font-medium text-gray-500 text-center block">${logo.name}</span>`;
+                          parent.textContent = logo.name;
                         }
                       }}
                     />

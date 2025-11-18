@@ -8,7 +8,7 @@
  * Configure PROPOSAL_URL se necessário, ex.: PROPOSAL_URL=http://localhost:8082/proposta/1
  */
 
-const puppeteer = require('puppeteer');
+import puppeteer from 'puppeteer';
 
 async function run() {
   const url = process.env.PROPOSAL_URL || 'http://localhost:8082/';

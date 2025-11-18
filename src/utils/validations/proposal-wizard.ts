@@ -4,7 +4,7 @@ import { getSelectedDurations } from '@/lib/pricing';
 // Schemas Zod por etapa do wizard
 
 export const Step1Schema = z.object({
-  proposal_type: z.array(z.enum(['avulsa', 'projeto'])).min(1, 'Selecione pelo menos um tipo de proposta'),
+  proposal_type: z.array(z.enum(['avulsa', 'projeto', 'patrocinio_editorial'])).min(1, 'Selecione pelo menos um tipo de proposta'),
 });
 
 export const Step2Schema = z.object({
@@ -29,7 +29,7 @@ export const Step5Schema = z.object({
   insertions_per_hour: z.number().positive('Inserções por hora deve ser > 0'),
   cpm_mode: z.enum(['manual', 'blended', 'valor_insercao']).optional(),
   pricing_mode: z.enum(['cpm', 'insertion']).optional(),
-  pricing_variant: z.enum(['avulsa', 'especial']).optional(),
+  pricing_variant: z.enum(['avulsa', 'especial', 'ambos']).optional(),
   period_unit: z.enum(['months', 'days']).optional(),
   horas_operacao_dia: z.number().positive('Horas de operação/dia deve ser > 0'),
   dias_uteis_mes_base: z.number().positive('Dias úteis/mês base deve ser > 0'),
@@ -51,19 +51,48 @@ export const Step5Schema = z.object({
   const variant = val.pricing_variant ?? 'avulsa';
   if (mode === 'insertion') {
     const durations = getSelectedDurations(val.film_seconds, val.custom_film_seconds);
-    const table = val.insertion_prices?.[variant] || {};
-    const missing = durations.filter((sec) => {
-      // As chaves foram validadas como strings; coerção numérica -> string para lookup
-      const price = table[String(sec)];
-      return price === undefined || price === null || isNaN(price) || price <= 0;
-    });
-    if (missing.length > 0) {
-      const list = missing.map((s) => `${s}"`).join(', ');
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ['insertion_prices'],
-        message: `Preço por inserção obrigatório para: ${list} (variante ${variant}).`,
+    if (variant === 'ambos') {
+      const tableA = val.insertion_prices?.avulsa || {};
+      const tableE = val.insertion_prices?.especial || {};
+      const missingA = durations.filter((sec) => {
+        const price = tableA[String(sec)];
+        return price === undefined || price === null || isNaN(price) || price <= 0;
       });
+      const missingE = durations.filter((sec) => {
+        const price = tableE[String(sec)];
+        return price === undefined || price === null || isNaN(price) || price <= 0;
+      });
+      if (missingA.length > 0) {
+        const listA = missingA.map((s) => `${s}"`).join(', ');
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['insertion_prices'],
+          message: `Preço por inserção obrigatório para: ${listA} (variante avulsa).`,
+        });
+      }
+      if (missingE.length > 0) {
+        const listE = missingE.map((s) => `${s}"`).join(', ');
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['insertion_prices'],
+          message: `Preço por inserção obrigatório para: ${listE} (variante especial).`,
+        });
+      }
+    } else {
+      const table = (val.insertion_prices as any)?.[variant] || {};
+      const missing = durations.filter((sec) => {
+        // As chaves foram validadas como strings; coerção numérica -> string para lookup
+        const price = table[String(sec)];
+        return price === undefined || price === null || isNaN(price) || price <= 0;
+      });
+      if (missing.length > 0) {
+        const list = missing.map((s) => `${s}"`).join(', ');
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['insertion_prices'],
+          message: `Preço por inserção obrigatório para: ${list} (variante ${variant}).`,
+        });
+      }
     }
   }
 });

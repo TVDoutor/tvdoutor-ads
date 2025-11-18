@@ -530,7 +530,22 @@ const ProposalDetails = () => {
     const descPct = Number(pricingInput?.discount_pct ?? proposal.discount_pct ?? 0) || 0;
     const netMonthly = grossMonthly * (1 - descPct / 100);
     const investPorTelaMes = screensCount ? grossMonthly / screensCount : 0;
-    const audienceMonthly = pricingInput?.audience_monthly ?? undefined;
+    const audienceBase = Number(
+      (pricingSummary?.quote?.valor_insercao_config?.audiencia_mes_base ??
+        (pricingInput as any)?.audiencia_mes_base ??
+        (pricingInput as any)?.valor_insercao_config?.audiencia_mes_base ??
+        (proposal as any)?.audiencia_mes_base ??
+        0)
+    );
+    const avgAudiencePerInsertion = Number(
+      (pricingInput as any)?.avg_audience_per_insertion ??
+        pricingSummary?.quote?.avg_audience_per_insertion ??
+        (proposal as any)?.avg_audience_per_insertion ??
+        0
+    );
+    const audienceMonthly = (audienceBase && audienceBase > 0)
+      ? audienceBase
+      : (avgAudiencePerInsertion && avgAudiencePerInsertion > 0 ? Math.round(avgAudiencePerInsertion * insertionsMonthly) : undefined);
     const cpmMonthly = audienceMonthly ? (grossMonthly / Math.max(Number(audienceMonthly) / 1000, 1)) : (impactsMonthly ? (grossMonthly / Math.max(impactsMonthly / 1000, 1)) : undefined);
 
     const currencyFmt = '"R$" #,##0.00';
@@ -540,6 +555,7 @@ const ProposalDetails = () => {
     const titleAv = ws2.addRow(['Veiculação Avulsa']);
     const headerAv = ws2.addRow(['Filme', 'Meses', 'Inserções/hora', 'Inserções/mês', 'Audi/mês', 'Impact/mês', 'Qtd telas', 'Invest Bruto/Mês', 'Invest Ag. Bruto/Mês', 'Desc (%)', 'Invest/tela/mês', 'CPM/Impact/Mês', 'Invest.Negociado Mensal', 'Total Negociado/8M']);
     const secs = (durationsForDisplay && durationsForDisplay.length ? durationsForDisplay : [Number(proposal.film_seconds || 0)]).filter(Boolean);
+    const avulsaRowIdxs: number[] = [];
     secs.forEach((sec) => {
       const row = ws2.addRow([
         `${sec}"`,
@@ -557,10 +573,12 @@ const ProposalDetails = () => {
         null,
         null,
       ]);
+      avulsaRowIdxs.push(row.number);
       const r = row.number;
       row.getCell(4).value = { formula: `C${r}*10*G${r}*22` };
       row.getCell(6).value = { formula: `E${r}*C${r}` };
-      row.getCell(8).value = { formula: `D${r}*L12` };
+      // H será ajustado após criarmos a tabela de preços (referência C15)
+      row.getCell(8).value = null;
       row.getCell(9).value = { formula: `H${r}` };
       row.getCell(11).value = { formula: `M${r}/G${r}` };
       row.getCell(12).value = { formula: `(M${r}/F${r})*1000` };
@@ -578,6 +596,7 @@ const ProposalDetails = () => {
     ws2.addRow([]);
     const titleEsp = ws2.addRow(['Projeto Especial de Conteúdo']);
     const headerEsp = ws2.addRow(['Filme', 'Meses', 'Inserções/hora', 'Inserções/mês', 'Audi/mês', 'Impact/mês', 'Qtd telas', 'Invest Bruto/Mês', 'Invest Ag. Bruto/Mês', 'Desc (%)', 'Invest/tela/mês', 'CPM/Impact/Mês', 'Invest.Negociado Mensal', 'Total Negociado/8M']);
+    const especialRowIdxs: number[] = [];
     secs.forEach((sec) => {
       const row = ws2.addRow([
         `${sec}"`,
@@ -595,10 +614,12 @@ const ProposalDetails = () => {
         null,
         null,
       ]);
+      especialRowIdxs.push(row.number);
       const r = row.number;
       row.getCell(4).value = { formula: `C${r}*10*G${r}*22` };
       row.getCell(6).value = { formula: `E${r}*C${r}` };
-      row.getCell(8).value = { formula: `D${r}*L12` };
+      // H será ajustado após criarmos a tabela de preços (referência D15)
+      row.getCell(8).value = null;
       row.getCell(9).value = { formula: `H${r}` };
       row.getCell(11).value = { formula: `M${r}/G${r}` };
       row.getCell(12).value = { formula: `(M${r}/F${r})*1000` };
@@ -615,7 +636,9 @@ const ProposalDetails = () => {
 
     ws2.addRow([]);
     const headerTabela = ws2.addRow(['Veiculação', 'Tempo', 'Inserção Avulsa', 'Inserção Esp. Cont.']);
+    const headerTabelaRow = headerTabela.number;
     const linhaHorario = ws2.addRow(['2ª a 6ª Feira (5 d.u.)', '08h - 18h - 10h/dia', '', '']);
+    const linhaHorarioRow = linhaHorario.number;
     const priceAvulsa = (pricingInput?.insertion_prices?.avulsa ?? {}) as Record<number, number>;
     const priceEspecial = (pricingInput?.insertion_prices?.especial ?? {}) as Record<number, number>;
     const durationsPrice = secs.length ? secs : Object.keys({ ...priceAvulsa, ...priceEspecial }).map((k) => Number(k));
@@ -628,6 +651,17 @@ const ProposalDetails = () => {
     // Define CPM base em L12 para uso da fórmula H = D * L12
     ws2.getCell('L12').value = cpmMonthly ?? 0;
     ws2.getCell('L12').numFmt = currencyFmt;
+
+    // Ajusta H para usar preços da primeira linha de preços (C{firstPriceRow}/D{firstPriceRow})
+    const firstPriceRow = linhaHorarioRow + 1;
+    avulsaRowIdxs.forEach((r, i) => {
+      const priceRow = firstPriceRow + i;
+      ws2.getCell(r, 8).value = { formula: `D${r}*C${priceRow}` };
+    });
+    especialRowIdxs.forEach((r, i) => {
+      const priceRow = firstPriceRow + i;
+      ws2.getCell(r, 8).value = { formula: `D${r}*D${priceRow}` };
+    });
     ws2.addRow([]);
     ws2.addRow(['Observações']);
     ws2.addRow(['Os quadros têm duração de 30"']);

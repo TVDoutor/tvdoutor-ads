@@ -6,7 +6,7 @@
 
 export type PeriodUnit = 'months' | 'days';
 export type PricingMode = 'cpm' | 'insertion';
-export type PricingVariant = 'avulsa' | 'especial';
+export type PricingVariant = 'avulsa' | 'especial' | 'ambos';
 
 export interface InsertionPriceTable {
   avulsa: Record<number, number>;
@@ -107,27 +107,38 @@ export function computeInsertionModeValue(
   input: PricingInput,
   totalInsertions: number,
 ): { gross: number; net: number; missingPriceFor: number[] } {
-  const pricingVariant = input.pricing_variant ?? 'avulsa';
+  const variant = input.pricing_variant ?? 'avulsa';
   const durations = getSelectedDurations(input.film_seconds, input.custom_film_seconds);
-  let grossSum = 0;
-  const missing: number[] = [];
 
-  durations.forEach((sec) => {
-    const priceTable = input.insertion_prices?.[pricingVariant] || {};
-    const price = priceTable?.[sec];
-    if (price === undefined || price === null || isNaN(price) || price <= 0) {
-      missing.push(sec);
-      return;
-    }
-    const dCfg = input.discounts_per_insertion?.[pricingVariant]?.[sec] || {};
-    const pct = typeof dCfg.pct === 'number' ? dCfg.pct : 0;
-    const fixed = typeof dCfg.fixed === 'number' ? dCfg.fixed : 0;
-    const effectiveUnitPrice = pct > 0 ? (price * (1 - pct / 100)) : Math.max(0, price - fixed);
-    grossSum += effectiveUnitPrice * totalInsertions;
-  });
+  const computeForVariant = (v: Exclude<PricingVariant, 'ambos'>) => {
+    let gross = 0;
+    const missing: number[] = [];
+    durations.forEach((sec) => {
+      const priceTable = input.insertion_prices?.[v] || {};
+      const price = priceTable?.[sec];
+      if (price === undefined || price === null || isNaN(price) || price <= 0) {
+        missing.push(sec);
+        return;
+      }
+      const dCfg = input.discounts_per_insertion?.[v]?.[sec] || {};
+      const pct = typeof dCfg.pct === 'number' ? dCfg.pct : 0;
+      const fixed = typeof dCfg.fixed === 'number' ? dCfg.fixed : 0;
+      const effectiveUnitPrice = pct > 0 ? (price * (1 - pct / 100)) : Math.max(0, price - fixed);
+      gross += effectiveUnitPrice * totalInsertions;
+    });
+    return { gross, missing };
+  };
 
-  // No modo por inserção, o desconto já está embutido no preço efetivo
-  return { gross: grossSum, net: grossSum, missingPriceFor: missing };
+  if (variant === 'ambos') {
+    const av = computeForVariant('avulsa');
+    const es = computeForVariant('especial');
+    const grossSum = av.gross + es.gross;
+    const missingUnion = Array.from(new Set([...av.missing, ...es.missing])).sort((a, b) => a - b);
+    return { gross: grossSum, net: grossSum, missingPriceFor: missingUnion };
+  }
+
+  const single = computeForVariant(variant);
+  return { gross: single.gross, net: single.gross, missingPriceFor: single.missing };
 }
 
 /** Calcula o valor bruto e líquido no modo CPM. */

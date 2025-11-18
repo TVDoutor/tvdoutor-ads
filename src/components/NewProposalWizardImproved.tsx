@@ -25,10 +25,11 @@ import {
 import { type ScreenFilters as IScreenFilters } from './ScreenFilters';
 import { geocodeAddress } from '@/lib/geocoding';
 import { searchScreensNearLocation } from '@/lib/search-service';
+import { parseCepText, batchFindScreensByCEPs } from '@/lib/cep-batch';
 import { validateWizardStep } from '@/utils/validations/proposal-wizard';
 
 export interface ProposalData {
-  proposal_type: ('avulsa' | 'projeto')[];
+  proposal_type: ('avulsa' | 'projeto' | 'patrocinio_editorial')[];
   customer_name: string;
   customer_email: string;
   selected_project?: any;
@@ -50,7 +51,7 @@ export interface ProposalData {
   months_period?: number; // meses_periodo da proposta
   days_period?: number; // dias_periodo quando unidade for 'days'
   pricing_mode?: 'cpm' | 'insertion';
-  pricing_variant?: 'avulsa' | 'especial';
+  pricing_variant?: 'avulsa' | 'especial' | 'ambos';
   period_unit?: 'months' | 'days';
   // tabela de preços por inserção (avulsa/especial) por duração (chave: segundos)
   insertion_prices: {
@@ -70,7 +71,7 @@ export interface ProposalData {
   // audiência base mensal (override global opcional)
   audience_base_monthly?: number;
   valor_insercao_config?: {
-    tipo_servico_proposta?: 'Avulsa' | 'Especial';
+    tipo_servico_proposta?: 'Avulsa' | 'Especial' | 'Ambos';
     audiencia_mes_base?: number;
     qtd_telas?: number;
     desconto_percentual?: number;
@@ -160,16 +161,32 @@ export const NewProposalWizardImproved: React.FC<NewProposalWizardProps> = ({
 
   // Helper para verificar preços ausentes por inserção
   const getMissingInsertionPrices = () => {
-    const variant = data.pricing_variant ?? 'avulsa';
+    const types = data.proposal_type || [];
+    const hasAvulsa = types.includes('avulsa');
+    const hasEspecial = types.includes('projeto') || types.includes('patrocinio_editorial');
+    const variant = hasAvulsa && hasEspecial ? 'ambos' : hasAvulsa ? 'avulsa' : hasEspecial ? 'especial' : (data.pricing_variant ?? 'avulsa');
     const durations = Array.from(new Set([...(data.film_seconds || []), ...(data.custom_film_seconds ? [data.custom_film_seconds] : [])]))
       .filter((sec) => typeof sec === 'number' && sec > 0)
       .sort((a, b) => a - b);
-    const table = data.insertion_prices?.[variant] || {};
-    const missing = durations.filter((sec) => {
-      const price = table[sec];
-      return price === undefined || price === null || isNaN(price) || price <= 0;
-    });
-    return missing;
+    if (variant === 'ambos') {
+      const tableAvulsa = data.insertion_prices?.avulsa || {};
+      const tableEspecial = data.insertion_prices?.especial || {};
+      const missingUnion = durations.filter((sec) => {
+        const pA = tableAvulsa[sec];
+        const pE = tableEspecial[sec];
+        const missingA = pA === undefined || pA === null || isNaN(pA) || pA <= 0;
+        const missingE = pE === undefined || pE === null || isNaN(pE) || pE <= 0;
+        return missingA || missingE;
+      });
+      return missingUnion;
+    } else {
+      const table = (data.insertion_prices as any)?.[variant] || {};
+      const missing = durations.filter((sec) => {
+        const price = table[sec];
+        return price === undefined || price === null || isNaN(price) || price <= 0;
+      });
+      return missing;
+    }
   };
 
   const nextStep = () => {
@@ -273,8 +290,41 @@ export const NewProposalWizardImproved: React.FC<NewProposalWizardProps> = ({
     console.log('🔍 Buscando telas com filtros:', filters);
     
     try {
-      // Se há um endereço de busca por raio preenchido, usar o serviço de busca por localização
-      if (filters.radiusSearchAddress.trim()) {
+      // Prioridade: lista de CEPs
+      if (filters.cepListText && filters.cepListText.trim()) {
+        toast.info('Processando lista de CEPs...');
+        const parsed = parseCepText(filters.cepListText);
+        if (parsed.errors.length) {
+          toast.warning(`${parsed.errors.length} cep(s) inválido(s) ignorado(s)`);
+        }
+        if (parsed.ceps.length === 0) {
+          toast.error('Nenhum CEP válido informado');
+          setAvailableScreens([]);
+          setLoading(false);
+          return;
+        }
+        const { screens } = await batchFindScreensByCEPs(parsed.ceps, filters.radiusKm, '2');
+        let processedScreens = screens.map((screen: any) => ({
+          id: parseInt(screen.id),
+          name: screen.name || screen.display_name,
+          display_name: screen.display_name || screen.name,
+          code: screen.code,
+          city: screen.city,
+          state: screen.state,
+          class: screen.class,
+          active: screen.active,
+          venues: { name: screen.venue_name || screen.name, type: null },
+          distance: screen.distance,
+          venue_name: screen.venue_name || screen.name,
+          address: screen.address_raw || `${screen.city}, ${screen.state}`
+        }));
+        // Filtros adicionais
+        if (filters.selectedClasses.length > 0) {
+          processedScreens = processedScreens.filter((s: any) => filters.selectedClasses.includes(s.class));
+        }
+        setAvailableScreens(processedScreens);
+        toast.success(`${processedScreens.length} tela(s) encontradas via CEPs`);
+      } else if (filters.radiusSearchAddress.trim()) {
         console.log('📍 Iniciando busca por raio...');
         
         try {
@@ -526,102 +576,159 @@ export const NewProposalWizardImproved: React.FC<NewProposalWizardProps> = ({
     }
   };
 
+  // Atualizar audiência base mensal a partir das telas selecionadas (dados do banco)
+  useEffect(() => {
+    const refreshAudienceFromSelectedScreens = async () => {
+      try {
+        const selectedIds = Array.isArray(data.selectedScreens) ? data.selectedScreens : [];
+        if (selectedIds.length === 0) {
+          updateData({
+            valor_insercao_config: {
+              ...(data.valor_insercao_config ?? {}),
+              audiencia_mes_base: 0,
+              qtd_telas: 0,
+            },
+          });
+          return;
+        }
+
+        const { data: screensRows } = await supabase
+          .from('screens')
+          .select('id, venue_id')
+          .in('id', selectedIds);
+
+        const venueIds = Array.from(new Set((screensRows || []).map((r: any) => r.venue_id).filter(Boolean)));
+
+        let totalMonthlyAudience = 0;
+        if (venueIds.length > 0) {
+          const { data: audienceRows } = await supabase
+            .from('venue_audience_monthly')
+            .select('venue_id, audience')
+            .in('venue_id', venueIds);
+          totalMonthlyAudience = (audienceRows || []).reduce((sum: number, row: any) => sum + (Number(row.audience) || 0), 0);
+        }
+
+        updateData({
+          valor_insercao_config: {
+            ...(data.valor_insercao_config ?? {}),
+            audiencia_mes_base: totalMonthlyAudience,
+            qtd_telas: selectedIds.length,
+          },
+        });
+      } catch (err) {
+        console.warn('[Wizard] Falha ao atualizar audiência mensal de venues selecionados:', err);
+      }
+    };
+
+    refreshAudienceFromSelectedScreens();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data.selectedScreens]);
+
   return (
-    <div className="px-6 pt-6 pb-4 h-full flex flex-col">
+    <div className="px-6 pt-6 pb-4 h-full min-h-0 flex flex-col">
       <div className="w-full flex-1 flex flex-col">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Nova Proposta</h1>
-          <p className="text-gray-600">Crie uma nova proposta comercial seguindo os passos abaixo</p>
-        </div>
-
-        {/* Progress Bar */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between mb-4">
-            <span className="text-sm text-gray-500">Passo {currentStep} de {STEPS.length}</span>
-            <span className="text-sm text-gray-500">{Math.round(progress)}% concluído</span>
-          </div>
-          <Progress value={progress} className="h-2" />
-        </div>
-
-        {/* Steps Navigation */}
-        <div className="flex justify-center mb-8">
-          <div className="flex items-center space-x-4 overflow-x-auto pb-4">
-            {STEPS.map((step, index) => (
-              <div key={step.id} className="flex items-center">
-                <div className={`
-                  flex items-center justify-center w-12 h-12 rounded-full border-2 transition-all duration-200
-                  ${currentStep >= step.id 
-                    ? 'bg-blue-600 border-blue-600 text-white' 
-                    : 'bg-white border-gray-300 text-gray-400'
-                  }
-                `}>
-                  {React.createElement(step.icon, { className: "w-5 h-5" })}
-                </div>
-                <div className="ml-3 hidden sm:block">
-                  <p className={`text-sm font-medium ${
-                    currentStep >= step.id ? 'text-blue-600' : 'text-gray-500'
-                  }`}>
-                    {step.title}
-                  </p>
-                  <p className="text-xs text-gray-400">{step.description}</p>
-                </div>
-                {index < STEPS.length - 1 && (
-                  <ChevronRight className="w-5 h-5 text-gray-300 mx-4" />
-                )}
+        <div className="relative mb-8 rounded-2xl border bg-gradient-to-r from-primary/10 via-blue-50 to-indigo-100 p-6">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">Nova Proposta</h1>
+              <p className="text-gray-600">Crie uma proposta comercial com fluxo guiado e moderno</p>
+            </div>
+            <div className="flex items-center gap-4">
+              <div className="hidden md:block w-52">
+                <Progress value={progress} className="h-2" />
               </div>
-            ))}
+              <div className="px-3 py-1 rounded-full text-sm font-medium bg-white border text-gray-700">{Math.round(progress)}% concluído</div>
+            </div>
           </div>
         </div>
 
-        {/* Main Content */}
-        <Card className="shadow-lg border flex flex-1 min-h-0">
-          <CardHeader className="border-b bg-white">
-            <CardTitle className="flex items-center gap-3 text-gray-900">
-              {React.createElement(STEPS[currentStep - 1].icon, { className: "w-6 h-6" })}
-              {STEPS[currentStep - 1].title}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="px-8 pt-8 pb-6 flex-1 overflow-auto min-h-0 bg-white">
-            {renderStepContent()}
-          </CardContent>
-        </Card>
-
-        {/* Navigation Buttons */}
-        <div className="flex justify-between mt-8">
-          <Button
-            variant="outline"
-            onClick={currentStep === 1 ? onCancel : prevStep}
-            className="flex items-center gap-2"
-          >
-            <ChevronLeft className="w-4 h-4" />
-            {currentStep === 1 ? 'Cancelar' : 'Anterior'}
-          </Button>
-
-          <Button
-            onClick={() => {
-              if (currentStep === STEPS.length) {
-                // Validação final para modo de inserção
-                if (data.cpm_mode === 'valor_insercao') {
-                  const missing = getMissingInsertionPrices();
-                  if (missing.length > 0) {
-                    toast.warning(
-                      `Preencha o preço por inserção para: ${missing.join('s, ')}s (variante ${data.pricing_variant ?? 'avulsa'}).`
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <div className="lg:col-span-4 xl:col-span-3">
+            <Card className="shadow-sm">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm text-gray-700">Etapas</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <div className="space-y-2">
+                  {STEPS.map((step) => {
+                    const Icon = step.icon;
+                    const isActive = currentStep === step.id;
+                    const isCompleted = currentStep > step.id;
+                    return (
+                      <button
+                        key={step.id}
+                        onClick={() => { if (step.id <= currentStep) setCurrentStep(step.id); }}
+                        className={`w-full flex items-center gap-3 rounded-lg border px-3 py-3 transition-all ${
+                          isActive ? 'border-blue-600 bg-blue-50' : isCompleted ? 'border-green-200 bg-green-50' : 'border-gray-200 bg-white'
+                        }`}
+                      >
+                        <div className={`flex items-center justify-center w-9 h-9 rounded-full ${
+                          isActive ? 'bg-blue-600 text-white' : isCompleted ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-500'
+                        }`}>
+                          <Icon className="w-4 h-4" />
+                        </div>
+                        <div className="flex-1 text-left">
+                          <div className={`text-sm font-semibold ${isActive ? 'text-blue-700' : isCompleted ? 'text-green-700' : 'text-gray-800'}`}>{step.title}</div>
+                          <div className="text-xs text-gray-500">{step.description}</div>
+                        </div>
+                        <div className={`text-xs font-medium ${isCompleted ? 'text-green-700' : isActive ? 'text-blue-700' : 'text-gray-400'}`}>#{step.id}</div>
+                      </button>
                     );
-                    return;
-                  }
-                }
-                onComplete(data);
-              } else {
-                nextStep();
-              }
-            }}
-            disabled={!canProceed()}
-            className="flex items-center gap-2"
-          >
-            {currentStep === STEPS.length ? 'Finalizar Proposta' : 'Próximo'}
-            {currentStep !== STEPS.length && <ChevronRight className="w-4 h-4" />}
-          </Button>
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="lg:col-span-8 xl:col-span-9 flex flex-col">
+            <Card className="shadow-lg border w-full">
+              <CardContent className="px-8 pt-8 pb-12 overflow-visible bg-white">
+                {renderStepContent()}
+                <div className="bg-white border-t mt-6 py-4 px-2 w-full">
+                  <div className="flex justify-between items-center">
+                    <Button
+                      variant="outline"
+                      onClick={currentStep === 1 ? onCancel : prevStep}
+                      className="flex items-center gap-2"
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                      {currentStep === 1 ? 'Cancelar' : 'Anterior'}
+                    </Button>
+                    <div className="flex items-center gap-3">
+                      <Button
+                        variant="outline"
+                        onClick={() => toast.success('Rascunho salvo')}
+                        className="flex items-center gap-2"
+                      >
+                        Salvar Rascunho
+                      </Button>
+                      <Button
+                        onClick={() => {
+                          if (currentStep === STEPS.length) {
+                            if (data.cpm_mode === 'valor_insercao') {
+                              const missing = getMissingInsertionPrices();
+                              if (missing.length > 0) {
+                                toast.warning(`Preencha o preço por inserção para: ${missing.join('s, ')}s (variante ${data.pricing_variant ?? 'avulsa'}).`);
+                                return;
+                              }
+                            }
+                            onComplete(data);
+                          } else {
+                            nextStep();
+                          }
+                        }}
+                        disabled={!canProceed()}
+                        className="flex items-center gap-2"
+                      >
+                        {currentStep === STEPS.length ? 'Finalizar Proposta' : 'Próximo'}
+                        {currentStep !== STEPS.length && <ChevronRight className="w-4 h-4" />}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </div>
       </div>
     </div>

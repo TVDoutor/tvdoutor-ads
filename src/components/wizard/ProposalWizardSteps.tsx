@@ -1,5 +1,6 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -23,14 +24,25 @@ import {
   Clock,
   Play,
   Calculator,
-  AlertCircle
+  AlertCircle,
+  FileText
 } from 'lucide-react';
 import { ProposalData } from '../NewProposalWizardImproved';
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
 import { ScreenFilters, type ScreenFilters as IScreenFilters } from '../ScreenFilters';
 import { ImpactFormulaRadioGroup } from './ImpactFormulaRadioGroup';
 import { toast } from 'sonner';
 import { combineIds } from '@/utils/ids';
 import { calculateProposalMetrics } from '@/lib/pricing';
+import { supabase } from '@/integrations/supabase/client';
+
+// Labels centralizados para tipos de proposta
+type ProposalType = 'avulsa' | 'projeto' | 'patrocinio_editorial';
+const PROPOSAL_TYPE_LABELS: Record<ProposalType, string> = {
+  avulsa: 'Veiculação Avulsa',
+  projeto: 'Projeto Especial de Conteúdo',
+  patrocinio_editorial: 'Patrocínio Editorial',
+};
 
 interface StepProps {
   data: ProposalData;
@@ -41,9 +53,9 @@ interface StepProps {
 export const ProposalTypeStep: React.FC<StepProps> = ({ data, onUpdate }) => {
   
 
-  const handleTypeToggle = (type: 'avulsa' | 'projeto', checked: boolean) => {
+  const handleTypeToggle = (type: ProposalType, checked: boolean) => {
     const currentTypes = data.proposal_type || [];
-    let newTypes: ('avulsa' | 'projeto')[];
+    let newTypes: ProposalType[];
     
     if (checked) {
       // Adiciona o tipo se não estiver presente
@@ -55,18 +67,30 @@ export const ProposalTypeStep: React.FC<StepProps> = ({ data, onUpdate }) => {
     onUpdate({ proposal_type: newTypes });
   };
 
-  const isTypeSelected = (type: 'avulsa' | 'projeto') => {
+  const isTypeSelected = (type: ProposalType) => {
     return data.proposal_type?.includes(type) || false;
   };
 
   return (
     <div className="space-y-8">
       <div className="text-center">
-        <h3 className="text-xl font-semibold text-gray-900 mb-2">Que tipo de proposta você deseja criar?</h3>
+        <div className="inline-flex items-center gap-2">
+          <h3 className="text-xl font-semibold text-gray-900 mb-2">Que tipo de proposta você deseja criar?</h3>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger className="text-gray-500">
+                <AlertCircle className="w-4 h-4" />
+              </TooltipTrigger>
+              <TooltipContent>
+                Selecione os formatos que melhor se aplicam. Você pode escolher mais de um tipo.
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
         <p className="text-gray-600">Selecione um ou ambos os tipos de campanha que atendem às necessidades do seu cliente</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card 
           className={`cursor-pointer transition-all duration-200 hover:shadow-md ${
             isTypeSelected('avulsa') ? 'ring-2 ring-blue-500 border-blue-500' : ''
@@ -128,6 +152,37 @@ export const ProposalTypeStep: React.FC<StepProps> = ({ data, onUpdate }) => {
             </Label>
           </CardContent>
         </Card>
+
+        <Card 
+          className={`cursor-pointer transition-all duration-200 hover:shadow-md ${
+            isTypeSelected('patrocinio_editorial') ? 'ring-2 ring-purple-500 border-purple-500' : ''
+          }`}
+          onClick={() => handleTypeToggle('patrocinio_editorial', !isTypeSelected('patrocinio_editorial'))}
+        >
+          <CardContent className="p-6">
+            <div className="flex items-start justify-between mb-4">
+              <Checkbox
+                id="patrocinio_editorial"
+                checked={isTypeSelected('patrocinio_editorial')}
+                onCheckedChange={(checked) => handleTypeToggle('patrocinio_editorial', checked as boolean)}
+                onClick={(e) => e.stopPropagation()}
+              />
+            </div>
+            <Label htmlFor="patrocinio_editorial" className="cursor-pointer">
+              <div className="flex flex-col items-center text-center space-y-4">
+                <div className="p-3 bg-purple-100 rounded-full">
+                  <FileText className="w-8 h-8 text-purple-600" />
+                </div>
+                <div>
+                  <h4 className="font-semibold text-lg">Patrocínio Editorial</h4>
+                  <p className="text-sm text-muted-foreground mt-2">
+                    Esse formato de campanha abrange Anúncios + Quadros + VTs
+                  </p>
+                </div>
+              </div>
+            </Label>
+          </CardContent>
+        </Card>
       </div>
 
       
@@ -136,59 +191,110 @@ export const ProposalTypeStep: React.FC<StepProps> = ({ data, onUpdate }) => {
 };
 
 // Step 2: Client Information
-export const ClientInfoStep: React.FC<StepProps> = ({ data, onUpdate }) => (
-  <div className="space-y-8 pdf-dense-text">
-    <div className="text-center">
-      <h3 className="text-xl font-semibold text-gray-900 mb-2 pdf-compact-title">Informações do Cliente</h3>
-      <p className="text-gray-600">Insira os dados do cliente para identificar projetos relacionados</p>
-    </div>
+export const ClientInfoStep: React.FC<StepProps> = ({ data, onUpdate }) => {
+  const isValidEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  const nameError = (data.customer_name || '').trim().length < 2;
+  const emailError = !isValidEmail((data.customer_email || '').trim());
 
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-2xl mx-auto">
-      <div className="space-y-2">
-        <Label htmlFor="customer_name" className="flex items-center gap-2">
-          <User className="w-4 h-4" />
-          Nome do Cliente
-        </Label>
-        <Input
-          id="customer_name"
-          value={data.customer_name}
-          onChange={(e) => onUpdate({ customer_name: e.target.value })}
-          placeholder="Digite o nome do cliente"
-          className="h-12"
-        />
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="customer_email" className="flex items-center gap-2">
-          <User className="w-4 h-4" />
-          Email do Cliente
-        </Label>
-        <Input
-          id="customer_email"
-          type="email"
-          value={data.customer_email}
-          onChange={(e) => onUpdate({ customer_email: e.target.value })}
-          placeholder="email@cliente.com"
-          className="h-12"
-        />
-      </div>
-    </div>
-
-    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 max-w-2xl mx-auto pdf-dense-text">
-      <div className="flex items-start gap-3">
-        <div className="p-2 bg-blue-100 rounded-full">
-          <Briefcase className="w-5 h-5 text-blue-600" />
-        </div>
-        <div>
-          <h4 className="font-semibold text-blue-900 mb-1 pdf-compact-title">Verificação de Projetos</h4>
-          <p className="text-sm text-blue-700">
-            Com base no nome do cliente, o sistema buscará automaticamente por projetos existentes na próxima etapa.
-          </p>
+  return (
+    <div className="space-y-8">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-primary/10 rounded-lg">
+            <User className="w-5 h-5 text-primary" />
+          </div>
+          <div>
+            <h3 className="text-xl font-semibold text-gray-900">Informações do Cliente</h3>
+            <p className="text-sm text-gray-600">Preencha os dados essenciais. Extras são opcionais.</p>
+          </div>
         </div>
       </div>
+
+      <div className="w-full rounded-xl border bg-white shadow-sm">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6">
+          <div className="space-y-2">
+            <Label htmlFor="customer_name" className="flex items-center gap-2">
+              <User className="w-4 h-4" />
+              Nome do Cliente
+            </Label>
+            <Input
+              id="customer_name"
+              value={data.customer_name}
+              onChange={(e) => onUpdate({ customer_name: e.target.value })}
+              placeholder="Ex: Clínica Saúde Total"
+              className={`h-12 ${nameError && (data.customer_name?.length ? 'border-red-500' : '')}`}
+            />
+            <div className="text-xs">
+              {nameError && data.customer_name?.length ? (
+                <span className="text-red-600">Informe pelo menos 2 caracteres</span>
+              ) : (
+                <span className="text-muted-foreground">Usado para identificar o cliente na proposta</span>
+              )}
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="customer_email" className="flex items-center gap-2">
+              <User className="w-4 h-4" />
+              Email do Cliente
+            </Label>
+            <Input
+              id="customer_email"
+              type="email"
+              value={data.customer_email}
+              onChange={(e) => onUpdate({ customer_email: e.target.value })}
+              placeholder="contato@cliente.com"
+              className={`h-12 ${emailError && (data.customer_email?.length ? 'border-red-500' : '')}`}
+            />
+            <div className="text-xs">
+              {emailError && data.customer_email?.length ? (
+                <span className="text-red-600">Email em formato inválido</span>
+              ) : (
+                <span className="text-muted-foreground">Usado para contato e envio da proposta</span>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="border-t p-6">
+          <Accordion type="single" collapsible>
+            <AccordionItem value="extras">
+              <AccordionTrigger>Informações adicionais (opcional)</AccordionTrigger>
+              <AccordionContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <Label>Empresa</Label>
+                    <Input placeholder="Ex: Grupo Saúde Ltda" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Telefone</Label>
+                    <Input placeholder="Ex: (11) 99999-9999" />
+                  </div>
+                  <div className="md:col-span-2 space-y-2">
+                    <Label>Observações</Label>
+                    <Input placeholder="Notas internas (não obrigatórias)" />
+                  </div>
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
+        </div>
+      </div>
+
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 w-full">
+        <div className="flex items-start gap-3">
+          <div className="p-2 bg-blue-100 rounded-full">
+            <Briefcase className="w-5 h-5 text-blue-600" />
+          </div>
+          <div>
+            <h4 className="font-semibold text-blue-900 mb-1">Verificação de Projetos</h4>
+            <p className="text-sm text-blue-700">Com base no nome do cliente, sugeriremos projetos relacionados na próxima etapa.</p>
+          </div>
+        </div>
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 // Step 3: Project Selection
 interface ProjectSelectionStepProps extends StepProps {
@@ -205,9 +311,7 @@ export const ProjectSelectionStep: React.FC<ProjectSelectionStepProps> = ({
 
   const getProposalTypeLabel = () => {
     if (!data.proposal_type || data.proposal_type.length === 0) return 'Nenhum tipo selecionado';
-    const types = data.proposal_type.map(type => 
-      type === 'avulsa' ? 'Veiculação Avulsa' : 'Projeto Especial de Conteúdo'
-    );
+    const types = data.proposal_type.map(type => PROPOSAL_TYPE_LABELS[type as keyof typeof PROPOSAL_TYPE_LABELS] || String(type));
     return types.join(' + ');
   };
 
@@ -340,6 +444,11 @@ export const ScreenSelectionStep: React.FC<ScreenSelectionStepProps> = ({
   // Seleção temporária para permitir múltiplas buscas e adicionar pontos incrementalmente
   const [tempSelectedScreens, setTempSelectedScreens] = useState<number[]>([]);
 
+  const combinedSelectedIds = useMemo(
+    () => combineIds<number>(data.selectedScreens as number[], tempSelectedScreens),
+    [data.selectedScreens, tempSelectedScreens]
+  );
+
   const toggleScreen = (screenId: number) => {
     const isSelected = tempSelectedScreens.includes(screenId);
     const newTempSelected = isSelected
@@ -403,14 +512,42 @@ export const ScreenSelectionStep: React.FC<ScreenSelectionStepProps> = ({
       return;
     }
     const combined = combineIds<number>(data.selectedScreens as number[], tempSelectedScreens);
-    onUpdate({ selectedScreens: combined });
+    // Calcula audiência mensal base somando os alcances dos locais selecionados
+    const computeMonthlyAudienceForSelected = (selectedIds: number[]) => {
+      const selected = screens.filter(s => selectedIds.includes(s.id));
+      let total = 0;
+      for (const s of selected) {
+        const venueMonthly = s?.venue_info?.audience_monthly;
+        const audienceMonthly = s?.audience_monthly ?? s?.audienceMonthly;
+        const weeklyAudience = s?.audience_weekly ?? s?.weekly_rate ?? s?.weeklyAudience ?? s?.audience;
+        if (typeof venueMonthly === 'number' && isFinite(venueMonthly)) {
+          total += venueMonthly;
+        } else if (typeof audienceMonthly === 'number' && isFinite(audienceMonthly)) {
+          total += audienceMonthly;
+        } else if (typeof weeklyAudience === 'number' && isFinite(weeklyAudience)) {
+          // Aproximação simples: 4 semanas por mês
+          total += weeklyAudience * 4;
+        }
+      }
+      return total;
+    };
+
+    const monthlyAudience = computeMonthlyAudienceForSelected(combined);
+    onUpdate({ 
+      selectedScreens: combined,
+      valor_insercao_config: {
+        ...(data.valor_insercao_config ?? {}),
+        audiencia_mes_base: monthlyAudience,
+        qtd_telas: combined.length,
+      }
+    });
     // Limpar a seleção temporária para permitir nova busca/seleção
     setTempSelectedScreens([]);
     toast.success(`${tempSelectedScreens.length} ponto(s) adicionado(s) à proposta!`);
   };
 
-  const getUniqueLocations = () => {
-    const selectedScreensData = screens.filter(s => data.selectedScreens.includes(s.id));
+  const getUniqueLocations = (selectedIds: number[]) => {
+    const selectedScreensData = screens.filter(s => selectedIds.includes(s.id));
     const locations = selectedScreensData.map(s => `${s.city}, ${s.state}`);
     return [...new Set(locations)];
   };
@@ -424,19 +561,19 @@ export const ScreenSelectionStep: React.FC<ScreenSelectionStepProps> = ({
           <p className="text-gray-600">Use os filtros para encontrar e selecionar as telas desejadas</p>
         </div>
         
-        <div className="flex gap-4">
-          <Badge variant="outline" className="text-lg px-3 py-1">
-            <Monitor className="w-4 h-4 mr-2" />
-            {data.selectedScreens.length} Selecionadas
-          </Badge>
-          <Badge variant="outline" className="text-lg px-3 py-1">
-            <MapPin className="w-4 h-4 mr-2" />
-            {getUniqueLocations().length} Praças
-          </Badge>
-          <Badge variant="secondary" className="text-lg px-3 py-1">
-            {screens.length} Disponíveis
-          </Badge>
-        </div>
+          <div className="flex gap-4">
+            <Badge variant="outline" className="text-lg px-3 py-1">
+              <Monitor className="w-4 h-4 mr-2" />
+              {combinedSelectedIds.length} Selecionadas
+            </Badge>
+            <Badge variant="outline" className="text-lg px-3 py-1">
+              <MapPin className="w-4 h-4 mr-2" />
+              {getUniqueLocations(combinedSelectedIds).length} Praças
+            </Badge>
+            <Badge variant="secondary" className="text-lg px-3 py-1">
+              {screens.length} Disponíveis
+            </Badge>
+          </div>
       </div>
 
       {/* Filtros */}
@@ -486,7 +623,7 @@ export const ScreenSelectionStep: React.FC<ScreenSelectionStepProps> = ({
               </Button>
             </div>
             <div className="text-sm text-gray-600">
-              {tempSelectedScreens.length} de {screens.length} selecionadas
+              {combinedSelectedIds.length} de {screens.length} selecionadas
             </div>
           </div>
 
@@ -723,6 +860,15 @@ export const ConfigurationStep: React.FC<StepProps> = ({ data, onUpdate }) => {
   };
 
   const derivedPricingMode = data.cpm_mode === 'valor_insercao' ? 'insertion' : (data.pricing_mode ?? 'cpm');
+  const derivedPricingVariant: 'avulsa' | 'especial' | 'ambos' = (() => {
+    const types = data.proposal_type || [];
+    const hasAvulsa = types.includes('avulsa');
+    const hasEspecial = types.includes('projeto') || types.includes('patrocinio_editorial');
+    if (hasAvulsa && hasEspecial) return 'ambos';
+    if (hasAvulsa) return 'avulsa';
+    if (hasEspecial) return 'especial';
+    return data.pricing_variant ?? 'avulsa';
+  })();
 
   const pricingSummary = useMemo(() => {
     try {
@@ -746,7 +892,7 @@ export const ConfigurationStep: React.FC<StepProps> = ({ data, onUpdate }) => {
         avg_audience_per_insertion: data.avg_audience_per_insertion,
       });
 
-      const variant = data.pricing_variant ?? 'avulsa';
+      const variant = derivedPricingVariant;
       const durations = Array.from(new Set([
         ...(Array.isArray(data.film_seconds) ? data.film_seconds : []),
         ...(data.custom_film_seconds ? [data.custom_film_seconds] : []),
@@ -755,18 +901,23 @@ export const ConfigurationStep: React.FC<StepProps> = ({ data, onUpdate }) => {
         .sort((a, b) => a - b);
 
       const breakdown = derivedPricingMode === 'insertion' && metrics
-        ? durations.map((sec) => {
-            const price = data.insertion_prices?.[variant]?.[sec];
-            const discount = data.discounts_per_insertion?.[variant]?.[sec];
-            const pct = discount?.pct ?? 0;
-            const fixed = discount?.fixed ?? 0;
-            const effective = typeof price === 'number'
-              ? Math.max(price - (price * pct / 100) - fixed, 0)
-              : undefined;
-            const subtotal = typeof effective === 'number'
-              ? effective * metrics.totalInsertions
-              : undefined;
-            return { duration: sec, unitPrice: effective, subtotal };
+        ? durations.flatMap((sec) => {
+            const variantsForBreakdown: Array<'avulsa' | 'especial'> =
+              variant === 'ambos' ? ['avulsa', 'especial'] : [variant as 'avulsa' | 'especial'];
+
+            return variantsForBreakdown.map((v) => {
+              const price = data.insertion_prices?.[v]?.[sec];
+              const discount = data.discounts_per_insertion?.[v]?.[sec];
+              const pct = discount?.pct ?? 0;
+              const fixed = discount?.fixed ?? 0;
+              const effective = typeof price === 'number'
+                ? Math.max(price - (price * pct / 100) - fixed, 0)
+                : undefined;
+              const subtotal = typeof effective === 'number'
+                ? effective * metrics.totalInsertions
+                : undefined;
+              return { duration: sec, unitPrice: effective, subtotal, variant: v };
+            });
           })
         : [];
 
@@ -1046,63 +1197,13 @@ export const ConfigurationStep: React.FC<StepProps> = ({ data, onUpdate }) => {
           {data.cpm_mode === 'valor_insercao' ? (
             <>
               <div className="mt-2">
-                <Label>Tipo de Serviço</Label>
-                <RadioGroup
-                  value={data.valor_insercao_config?.tipo_servico_proposta ?? 'Avulsa'}
-                  onValueChange={(value) => {
-                    const tipo = value as 'Avulsa' | 'Especial';
-                    onUpdate({
-                      pricing_variant: tipo === 'Especial' ? 'especial' : 'avulsa',
-                      valor_insercao_config: {
-                        ...(data.valor_insercao_config ?? {}),
-                        tipo_servico_proposta: tipo,
-                      },
-                    });
-                  }}
-                  className="mt-2"
-                >
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="Avulsa" id="servico-avulsa" />
-                    <Label htmlFor="servico-avulsa">Avulsa</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="Especial" id="servico-especial" />
-                    <Label htmlFor="servico-especial">Especial</Label>
-                  </div>
-                </RadioGroup>
+                <div className="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-sm">
+                  <span>Variante:</span>
+                  <span className="font-semibold">{derivedPricingVariant === 'avulsa' ? 'Avulsa' : derivedPricingVariant === 'especial' ? 'Especial' : 'Ambos'}</span>
+                </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="audiencia-base">Audiência / Mês Base</Label>
-                  <Input
-                    id="audiencia-base"
-                    type="number"
-                    min="0"
-                    step="1"
-                    value={data.valor_insercao_config?.audiencia_mes_base ?? ''}
-                    onChange={(e) => {
-                      const value = parseFloat(e.target.value);
-                      mergeValorInsercaoConfig({ audiencia_mes_base: isNaN(value) ? undefined : value });
-                    }}
-                    className="mt-2"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="qtd-telas">Qtd. Telas (Linha)</Label>
-                  <Input
-                    id="qtd-telas"
-                    type="number"
-                    min="0"
-                    step="1"
-                    value={data.valor_insercao_config?.qtd_telas ?? ''}
-                    onChange={(e) => {
-                      const value = parseFloat(e.target.value);
-                      mergeValorInsercaoConfig({ qtd_telas: isNaN(value) ? undefined : value });
-                    }}
-                    className="mt-2"
-                  />
-                </div>
                 <div>
                   <Label htmlFor="desconto-percentual-linha">Desconto % (Linha)</Label>
                   <Input
@@ -1332,9 +1433,9 @@ export const ConfigurationStep: React.FC<StepProps> = ({ data, onUpdate }) => {
                 <p className="font-semibold mb-3">Detalhamento por Duração</p>
                 <div className="space-y-2 text-sm">
                   {pricingBreakdown.map((item) => (
-                    <div key={item.duration} className="flex items-center justify-between">
+                    <div key={`${item.duration}-${item.variant ?? 'single'}`} className="flex items-center justify-between">
                       <span className="text-orange-100">
-                        {item.duration}" → {item.unitPrice !== undefined ? `${formatCurrency(item.unitPrice)} / inserção` : 'Preço não configurado'}
+                        {item.duration}" {item.variant ? `(${item.variant === 'avulsa' ? 'Avulsa' : 'Especial'})` : ''} → {item.unitPrice !== undefined ? `${formatCurrency(item.unitPrice)} / inserção` : 'Preço não configurado'}
                       </span>
                       <span className="font-semibold">
                         {item.subtotal !== undefined ? formatCurrency(item.subtotal) : '-'}
@@ -1390,7 +1491,35 @@ export const ConfigurationStep: React.FC<StepProps> = ({ data, onUpdate }) => {
 
 // Step 6: Summary
 export const SummaryStep: React.FC<{ data: ProposalData }> = ({ data }) => {
+  const types = data.proposal_type || [];
+  const hasAvulsa = Array.isArray(types) && types.includes('avulsa');
+  const hasEspecial = Array.isArray(types) && (types.includes('projeto') || types.includes('patrocinio_editorial'));
+  const derivedPricingVariant: 'avulsa' | 'especial' | 'ambos' = hasAvulsa && hasEspecial
+    ? 'ambos'
+    : hasAvulsa
+      ? 'avulsa'
+      : hasEspecial
+        ? 'especial'
+        : ((data.pricing_variant ?? 'avulsa') as 'avulsa' | 'especial' | 'ambos');
   const derivedPricingMode = data.cpm_mode === 'valor_insercao' ? 'insertion' : (data.pricing_mode ?? 'cpm');
+
+  const [locationStats, setLocationStats] = useState<{ states: number; cities: number; pracas: number; total: number }>({ states: 0, cities: 0, pracas: 0, total: 0 });
+
+  useEffect(() => {
+    const run = async () => {
+      if (!Array.isArray(data.selectedScreens) || data.selectedScreens.length === 0) return;
+      const { data: rows } = await supabase
+        .from('screens')
+        .select('id, city, state')
+        .in('id', data.selectedScreens as number[]);
+      const total = (rows || []).length;
+      const cities = new Set((rows || []).map(r => `${r.city}`)).size;
+      const states = new Set((rows || []).map(r => `${r.state}`)).size;
+      const pracas = new Set((rows || []).map(r => `${r.city},${r.state}`)).size;
+      setLocationStats({ states, cities, pracas, total });
+    };
+    run();
+  }, [data.selectedScreens]);
   const calculateMetrics = () => {
     return calculateProposalMetrics({
       screens_count: data.selectedScreens.length,
@@ -1457,7 +1586,7 @@ export const SummaryStep: React.FC<{ data: ProposalData }> = ({ data }) => {
               <div className="flex gap-2 flex-wrap">
                 {data.proposal_type.map(type => (
                   <Badge key={type}>
-                    {type === 'avulsa' ? 'Veiculação Avulsa' : 'Projeto Especial'}
+                    {PROPOSAL_TYPE_LABELS[type as keyof typeof PROPOSAL_TYPE_LABELS] || String(type)}
                   </Badge>
                 ))}
               </div>
@@ -1526,7 +1655,7 @@ export const SummaryStep: React.FC<{ data: ProposalData }> = ({ data }) => {
             {(((data as any).pricing_mode ?? 'cpm') === 'insertion') ? (
               <div className="text-center">
                 <div className="text-sm font-semibold text-blue-600">Preço por Inserção</div>
-                <div className="text-xs text-gray-600">Variante: {((data as any).pricing_variant ?? 'avulsa') === 'avulsa' ? 'Avulsa' : 'Especial'}</div>
+                <div className="text-xs text-gray-600">Variante: {((data as any).pricing_variant ?? 'avulsa') === 'avulsa' ? 'Avulsa' : ((data as any).pricing_variant === 'especial' ? 'Especial' : 'Ambos')}</div>
               </div>
             ) : (
               <div className="text-center">
@@ -1558,6 +1687,35 @@ export const SummaryStep: React.FC<{ data: ProposalData }> = ({ data }) => {
                   <div className="text-sm text-gray-600">Meses</div>
                 </>
               )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Praças e Locais */}
+      <Card className="pdf-tight-card">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 pdf-compact-title">
+            <MapPin className="w-5 h-5" /> Praças e Locais
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="pdf-dense-text">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+            <div className="text-center">
+              <div className="text-2xl font-bold text-blue-600">{locationStats.total}</div>
+              <div className="text-sm text-gray-600">Telas</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-blue-600">{locationStats.pracas}</div>
+              <div className="text-sm text-gray-600">Praças</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-blue-600">{locationStats.cities}</div>
+              <div className="text-sm text-gray-600">Cidades</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-blue-600">{locationStats.states}</div>
+              <div className="text-sm text-gray-600">Estados</div>
             </div>
           </div>
         </CardContent>
@@ -1642,7 +1800,7 @@ export const SummaryStep: React.FC<{ data: ProposalData }> = ({ data }) => {
             </div>
             {(((data as any).pricing_mode ?? 'cpm') === 'insertion') && (
               <div className="text-xs text-gray-600">
-                Cálculo com preço por inserção ({((data as any).pricing_variant ?? 'avulsa') === 'avulsa' ? 'Avulsa' : 'Especial'}),
+                Cálculo com preço por inserção ({derivedPricingVariant === 'avulsa' ? 'Avulsa' : derivedPricingVariant === 'especial' ? 'Especial' : 'Ambos'}),
                 considerando unidade de período {(((data as any).period_unit ?? 'months') === 'days') ? 'Dias' : 'Meses'}.
               </div>
             )}

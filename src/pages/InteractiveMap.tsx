@@ -13,7 +13,7 @@ import { toast } from 'sonner';
 import { geocodeAddress } from '@/lib/geocoding';
 import { searchScreensNearLocation, ScreenSearchResult } from '@/lib/search-service';
 import marcadorLocalizacao from '@/assets/marcador-de-localizacao.png';
-import { getPharmacies, updateMissingCoordinates, updateCoordinatesFromCEP, type PharmacyRow } from '@/lib/pharmacy-service';
+import { fetchFarmacias, fetchDistinctUFs, fetchFarmaciasPorRaio, pullFarmaciasFromView, updateMissingCoordinates, updateCoordinatesFromCEP, type FarmaciaPublica } from '@/lib/pharmacy-service';
 
 interface Screen {
   id: number;
@@ -70,6 +70,8 @@ export default function InteractiveMap() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [classFilter, setClassFilter] = useState('all');
   const [pharmacies, setPharmacies] = useState<FarmaciaPublica[]>([]);
+  const [ufOptions, setUfOptions] = useState<string[]>(['all']);
+  const [phSearch, setPhSearch] = useState('');
   const [phFilters, setPhFilters] = useState<{ uf: string; cidade: string; grupo: string; bairro: string }>({ uf: 'all', cidade: 'all', grupo: 'all', bairro: 'all' });
   const [pharmaciesError, setPharmaciesError] = useState<string | null>(null);
   const [phStats, setPhStats] = useState<{ total: number; valid: number; rendered: number }>({ total: 0, valid: 0, rendered: 0 });
@@ -145,8 +147,17 @@ export default function InteractiveMap() {
 
   const fetchPharmacies = async () => {
     try {
-      const rows = await getPharmacies(phFilters)
+      let rows: FarmaciaPublica[]
+      if (centerCoordinates) {
+        rows = await fetchFarmaciasPorRaio(centerCoordinates.lat, centerCoordinates.lng, parseFloat(radiusKm), phFilters)
+      } else {
+        rows = await fetchFarmacias({ filters: phFilters })
+      }
       setPharmacies(rows)
+      try {
+        const ufs = await fetchDistinctUFs()
+        setUfOptions(['all', ...ufs])
+      } catch {}
       setPharmaciesError(null)
       if (mapInstance.current) {
         const L = await import('leaflet')
@@ -156,6 +167,17 @@ export default function InteractiveMap() {
       const msg = `Erro ao carregar farmácias: ${error.message}`
       setPharmaciesError(msg)
       toast.error(msg)
+    }
+  }
+
+  const pullAndFetchFarmacias = async () => {
+    try {
+      const result = await pullFarmaciasFromView()
+      toast.success(`Farmácias atualizadas: ${result.upserted} registros`)
+    } catch (e: any) {
+      toast.error(`Falha ao atualizar farmácias: ${e.message || 'erro'}`)
+    } finally {
+      await fetchPharmacies()
     }
   }
 
@@ -181,22 +203,30 @@ export default function InteractiveMap() {
       }
 
       const container = mapContainer.current;
-    container.style.height = '1000px';
-    container.style.width = '1500px';
-      container.style.maxWidth = '100%';
-      container.innerHTML = '';
+      if (!container) {
+        setMapError('Contêiner do mapa não encontrado');
+        return;
+      }
 
       const map = L.map(container).setView([-14.235, -51.925], 4);
 
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap contributors'
-      }).addTo(map);
+      try {
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '© OpenStreetMap contributors',
+          crossOrigin: true,
+        }).addTo(map);
+      } catch (e) {
+        console.warn('⚠️ Falha ao carregar tile layer OSM, prosseguindo sem base:', e);
+      }
 
       mapInstance.current = map;
         setMapError(null);
       console.log('✅ Mapa inicializado');
 
-      setTimeout(() => updateMarkers(L), 500);
+      setTimeout(() => {
+        map.invalidateSize(true);
+        updateMarkers(L);
+      }, 500);
 
     } catch (error) {
       console.error('💥 Erro ao inicializar mapa:', error);
@@ -831,12 +861,7 @@ export default function InteractiveMap() {
             (termDigits && cep.replace(/[^0-9]/g, '').includes(termDigits))
           )
         })
-      const phPoints = (layerMode === 'both' && centerCoordinates)
-        ? basePhPoints.filter(p => {
-            const d = calculateDistance(centerCoordinates!.lat, centerCoordinates!.lng, Number(p.latitude), Number(p.longitude));
-            return d <= parseFloat(radiusKm);
-          })
-        : basePhPoints;
+      const phPoints = basePhPoints
       if (layerMode === 'pharmacies' || layerMode === 'both') {
         setPhStats({ total: pharmacies.length, valid: basePhPoints.length, rendered: phPoints.length })
         const zoom = map.getZoom()
@@ -857,15 +882,10 @@ export default function InteractiveMap() {
             className: 'pharmacy-cluster',
             html: rows.length > 1
               ? `<div style="width:${size}px;height:${size}px;border-radius:50%;border:2px solid white;box-shadow:0 2px 4px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;background:#ef4444;color:white;font-weight:700;font-size:${rows.length>25?'14px':rows.length>9?'13px':'12px'};">${rows.length}</div>`
-              : `<div style="width:${size}px;height:${size}px;border-radius:50%;border:2px solid white;box-shadow:0 2px 4px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;background:#ef4444;">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="white">
-                    <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
-                  </svg>
-                  <div style="position:absolute;width:${size}px;height:${size}px;display:flex;align-items:center;justify-content:center;">
+              : `<div style="position:relative;width:${size}px;height:${size}px;border-radius:50%;border:2px solid white;box-shadow:0 2px 4px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;background:#ef4444;">
                     <div style="width:${Math.round(size*0.5)}px;height:${Math.round(size*0.16)}px;background:white"></div>
                     <div style="position:absolute;width:${Math.round(size*0.16)}px;height:${Math.round(size*0.5)}px;background:white"></div>
-                  </div>
-                </div>`,
+                 </div>`,
             iconSize: [size, size],
             iconAnchor: [size/2, size/2]
           })
@@ -875,10 +895,9 @@ export default function InteractiveMap() {
             marker.bindPopup(`
               <div style="padding:12px; min-width: 260px; max-width: 320px;">
                 <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
-                  <div style="width:32px;height:32px;border-radius:50%;background:#ef4444;display:flex;align-items:center;justify-content:center;">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="white">
-                      <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
-                    </svg>
+                  <div style="position:relative;width:32px;height:32px;border-radius:50%;background:#ef4444;border:2px solid white;box-shadow:0 2px 4px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;">
+                    <div style="width:16px;height:5px;background:white"></div>
+                    <div style="position:absolute;width:5px;height:16px;background:white"></div>
                   </div>
                   <div>
                     <h4 style="font-weight:600;color:#111827;font-size:16px;margin:0;">${sanitize((p.nome || p.grupo || '') as string)}</h4>
@@ -1184,7 +1203,7 @@ export default function InteractiveMap() {
 
   useEffect(() => {
     fetchPharmacies();
-  }, [phFilters]);
+  }, [phFilters, centerCoordinates, radiusKm, layerMode]);
 
   useEffect(() => {
     if (screens.length > 0) {
@@ -1327,7 +1346,7 @@ export default function InteractiveMap() {
               <RefreshCw className="h-4 w-4 mr-2" />
               Atualizar
             </Button>
-            <Button onClick={fetchPharmacies} variant="outline" size="sm">
+            <Button onClick={pullAndFetchFarmacias} variant="outline" size="sm">
               <RefreshCw className="h-4 w-4 mr-2" />
               Atualizar Farmácias
             </Button>
@@ -1584,9 +1603,8 @@ export default function InteractiveMap() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">Todas</SelectItem>
-                    {Array.from(new Set(pharmacies.map(p => p.uf).filter(Boolean))).sort().map(uf => (
-                      <SelectItem key={String(uf)} value={String(uf)}>{String(uf)}</SelectItem>
+                    {ufOptions.map((uf) => (
+                      <SelectItem key={uf} value={uf}>{uf === 'all' ? 'Todas' : uf}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -1599,8 +1617,8 @@ export default function InteractiveMap() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Todas</SelectItem>
-                    {Array.from(new Set(pharmacies.map(p => p.cidade).filter(Boolean))).sort().map(c => (
-                      <SelectItem key={String(c)} value={String(c)}>{String(c)}</SelectItem>
+                    {Array.from(new Set(pharmacies.map(p => (p.cidade || '')).filter(Boolean))).sort().map(c => (
+                      <SelectItem key={c} value={c}>{c}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -1613,8 +1631,8 @@ export default function InteractiveMap() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Todos</SelectItem>
-                    {Array.from(new Set(pharmacies.map(p => p.bairro).filter(Boolean))).sort().map(b => (
-                      <SelectItem key={String(b)} value={String(b)}>{String(b)}</SelectItem>
+                    {Array.from(new Set(pharmacies.map(p => (p.bairro || '')).filter(Boolean))).sort().map(b => (
+                      <SelectItem key={b} value={b}>{b}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -1627,8 +1645,8 @@ export default function InteractiveMap() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Todos</SelectItem>
-                    {Array.from(new Set(pharmacies.map(p => p.grupo).filter(Boolean))).sort().map(g => (
-                      <SelectItem key={String(g)} value={String(g)}>{String(g)}</SelectItem>
+                    {Array.from(new Set(pharmacies.map(p => (p.grupo || '')).filter(Boolean))).sort().map(g => (
+                      <SelectItem key={g} value={g}>{g}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -1649,21 +1667,21 @@ export default function InteractiveMap() {
                 {/* Map */}
         <div className={`grid grid-cols-1 gap-4 ${(addressSearchResults.length > 0 || (mainSearchResults.length > 0 && (searchTerm || cityFilter !== 'all' || statusFilter !== 'all' || classFilter !== 'all'))) ? 'lg:grid-cols-10' : ''}`}>
           <div className={`${(addressSearchResults.length > 0 || (mainSearchResults.length > 0 && (searchTerm || cityFilter !== 'all' || statusFilter !== 'all' || classFilter !== 'all'))) ? 'lg:col-span-7' : ''}`}>
-            <Card>
+            <Card className="relative z-0 overflow-hidden">
               <CardHeader>
                 <CardTitle>Mapa das Telas</CardTitle>
-                    </CardHeader>
-              <CardContent className="p-0">
+              </CardHeader>
+              <CardContent className="p-0 overflow-hidden h-[700px]">
                       {mapError ? (
                   <Alert className="m-4">
                     <AlertCircle className="h-4 w-4" />
                     <AlertDescription>{mapError}</AlertDescription>
                   </Alert>
                 ) : (
-                  <div ref={mapContainer} className="w-full h-[1000px] max-w-[1500px] rounded-lg overflow-auto" />
-                      )}
-                    </CardContent>
-                  </Card>
+                  <div ref={mapContainer} className="w-full h-full max-w-full rounded-lg overflow-hidden" />
+              )}
+              </CardContent>
+            </Card>
                 </div>
 
           {/* Sidebar com resultados - só aparece quando há busca ativa */}

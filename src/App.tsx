@@ -35,6 +35,7 @@ import ImpactModelsAdmin from "./pages/ImpactModelsAdmin";
 import NotFound from "./pages/NotFound";
 import { HeatmapTest } from "./components/HeatmapTest";
 import { SimpleHeatmap } from "./components/SimpleHeatmap";
+import Pharmacies from "./pages/Pharmacies";
 
 const queryClient = new QueryClient();
 
@@ -132,6 +133,12 @@ const App = () => {
             <Route path="/inventory" element={
               <ProtectedRoute>
                 <Inventory />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/farmacias" element={
+              <ProtectedRoute>
+                <Pharmacies />
               </ProtectedRoute>
             } />
             

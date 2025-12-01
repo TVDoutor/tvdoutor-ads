@@ -16,7 +16,7 @@ interface FinancialSummaryCardProps {
   // Informações adicionais da proposta para exibir modo de precificação e tabela por inserção
   quote?: {
     pricing_mode?: 'cpm' | 'insertion';
-    pricing_variant?: 'avulsa' | 'especial';
+    pricing_variant?: 'avulsa' | 'especial' | 'ambos';
     period_unit?: 'months' | 'days';
     months_period?: number;
     days_period?: number;
@@ -30,6 +30,7 @@ interface FinancialSummaryCardProps {
     };
   };
   missingPriceFor?: number[];
+  audienceLabel?: string;
 }
 
 export function FinancialSummaryCard({
@@ -47,17 +48,28 @@ export function FinancialSummaryCard({
   formatCurrency,
   quote,
   missingPriceFor,
+  audienceLabel,
 }: FinancialSummaryCardProps) {
   const pricingMode = quote?.pricing_mode === 'insertion' ? 'Por Inserção' : 'CPM';
-  const variantLabel = quote?.pricing_variant === 'especial' ? 'Projeto Especial' : quote?.pricing_variant === 'avulsa' ? 'Campanha Avulsa' : undefined;
+  const variantLabel = quote?.pricing_variant === 'especial'
+    ? 'Projeto Especial'
+    : quote?.pricing_variant === 'avulsa'
+    ? 'Campanha Avulsa'
+    : quote?.pricing_variant === 'ambos'
+    ? 'Ambos'
+    : undefined;
   const selectedVariant = quote?.pricing_variant || 'avulsa';
-
   const pricesByVariant = quote?.insertion_prices?.[selectedVariant] || {};
   const discountsByVariant = quote?.discounts_per_insertion?.[selectedVariant] || {};
-  const secondsList = Object.keys(pricesByVariant)
-    .map((s) => parseInt(s, 10))
-    .filter((n) => !Number.isNaN(n))
-    .sort((a, b) => a - b);
+  const secondsList = selectedVariant === 'ambos'
+    ? Array.from(new Set([
+        ...Object.keys(quote?.insertion_prices?.avulsa || {}).map((s) => parseInt(s, 10)),
+        ...Object.keys(quote?.insertion_prices?.especial || {}).map((s) => parseInt(s, 10)),
+      ])).filter((n) => !Number.isNaN(n)).sort((a, b) => a - b)
+    : Object.keys(pricesByVariant)
+        .map((s) => parseInt(s, 10))
+        .filter((n) => !Number.isNaN(n))
+        .sort((a, b) => a - b);
 
   const formatNumber = (value?: number | null) => {
     if (typeof value !== 'number' || Number.isNaN(value)) return '-';
@@ -69,6 +81,7 @@ export function FinancialSummaryCard({
     : typeof filmSeconds === 'number' && !Number.isNaN(filmSeconds) && filmSeconds > 0
       ? `${filmSeconds}s`
       : '-';
+  const audienceSectionLabel = audienceLabel ?? 'Audiência/Mês';
 
   return (
     <div className="rounded-xl border border-orange-200 bg-white overflow-hidden pdf-tight-card">
@@ -91,7 +104,7 @@ export function FinancialSummaryCard({
             <div className="text-slate-900 font-semibold">{formatNumber(totalInsertions)}</div>
           </div>
           <div className="rounded-lg border border-orange-100 p-3">
-            <div className="text-xs text-slate-600">Audiência/Mês</div>
+            <div className="text-xs text-slate-600">{audienceSectionLabel}</div>
             <div className="text-slate-900 font-semibold">{formatNumber(audiencePerMonth)}</div>
           </div>
           <div className="rounded-lg border border-orange-100 p-3">
@@ -137,21 +150,53 @@ export function FinancialSummaryCard({
               <div className="text-xs text-slate-600 mb-2">Tabela de Preços por Inserção ({variantLabel || selectedVariant})</div>
               <div className="space-y-2">
                 {secondsList.map((sec) => {
-                  const base = pricesByVariant[sec];
-                  const d = discountsByVariant[sec] || {};
-                  const pct = d.pct || 0;
-                  const fixed = d.fixed || 0;
-                  const final = Math.max(base - (base * pct / 100) - fixed, 0);
-                  return (
-                    <div key={sec} className="grid grid-cols-4 gap-2 text-sm items-center" data-testid={`insertion-row-${sec}`}>
-                      <div className="text-slate-700">{sec}s</div>
-                      <div className="text-slate-900 font-semibold" data-testid="price-base">{formatCurrency(base)}</div>
-                      <div className="text-slate-700" data-testid="price-discount">
-                        {pct ? `${pct}%` : '-'}{fixed ? ` / ${formatCurrency(fixed)}` : ''}
+                  if (selectedVariant === 'ambos') {
+                    const baseA = quote?.insertion_prices?.avulsa?.[sec] ?? 0;
+                    const dA = quote?.discounts_per_insertion?.avulsa?.[sec] || {};
+                    const pctA = dA.pct || 0;
+                    const fixedA = dA.fixed || 0;
+                    const finalA = Math.max(baseA - (baseA * pctA / 100) - fixedA, 0);
+
+                    const baseE = quote?.insertion_prices?.especial?.[sec] ?? 0;
+                    const dE = quote?.discounts_per_insertion?.especial?.[sec] || {};
+                    const pctE = dE.pct || 0;
+                    const fixedE = dE.fixed || 0;
+                    const finalE = Math.max(baseE - (baseE * pctE / 100) - fixedE, 0);
+
+                    return (
+                      <div key={sec} className="space-y-1" data-testid={`insertion-row-${sec}`}>
+                        <div className="text-slate-700 text-sm">{sec}s</div>
+                        <div className="grid grid-cols-4 gap-2 text-sm items-center">
+                          <div className="text-slate-600">Avulsa</div>
+                          <div className="text-slate-900 font-semibold">{formatCurrency(baseA)}</div>
+                          <div className="text-slate-700">{pctA ? `${pctA}%` : '-'}{fixedA ? ` / ${formatCurrency(fixedA)}` : ''}</div>
+                          <div className="text-slate-900 font-semibold">{formatCurrency(finalA)}</div>
+                        </div>
+                        <div className="grid grid-cols-4 gap-2 text-sm items-center">
+                          <div className="text-slate-600">Especial</div>
+                          <div className="text-slate-900 font-semibold">{formatCurrency(baseE)}</div>
+                          <div className="text-slate-700">{pctE ? `${pctE}%` : '-'}{fixedE ? ` / ${formatCurrency(fixedE)}` : ''}</div>
+                          <div className="text-slate-900 font-semibold">{formatCurrency(finalE)}</div>
+                        </div>
                       </div>
-                      <div className="text-slate-900 font-semibold" data-testid="price-final">{formatCurrency(final)}</div>
-                    </div>
-                  );
+                    );
+                  } else {
+                    const base = pricesByVariant[sec];
+                    const d = discountsByVariant[sec] || {};
+                    const pct = d.pct || 0;
+                    const fixed = d.fixed || 0;
+                    const final = Math.max(base - (base * pct / 100) - fixed, 0);
+                    return (
+                      <div key={sec} className="grid grid-cols-4 gap-2 text-sm items-center" data-testid={`insertion-row-${sec}`}>
+                        <div className="text-slate-700">{sec}s</div>
+                        <div className="text-slate-900 font-semibold" data-testid="price-base">{formatCurrency(base)}</div>
+                        <div className="text-slate-700" data-testid="price-discount">
+                          {pct ? `${pct}%` : '-'}{fixed ? ` / ${formatCurrency(fixed)}` : ''}
+                        </div>
+                        <div className="text-slate-900 font-semibold" data-testid="price-final">{formatCurrency(final)}</div>
+                      </div>
+                    );
+                  }
                 })}
               </div>
             </div>

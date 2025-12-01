@@ -859,6 +859,28 @@ export const ConfigurationStep: React.FC<StepProps> = ({ data, onUpdate }) => {
     });
   };
 
+  const isDaysPeriod = (data.period_unit ?? 'months') === 'days';
+
+  const handlePeriodUnitChange = (unit: 'months' | 'days') => {
+    if (unit === 'days' && (!data.days_period || data.days_period <= 0)) {
+      onUpdate({
+        period_unit: 'days',
+        days_period: 1,
+      });
+      return;
+    }
+
+    if (unit === 'months' && (!data.months_period || data.months_period <= 0)) {
+      onUpdate({
+        period_unit: 'months',
+        months_period: 1,
+      });
+      return;
+    }
+
+    onUpdate({ period_unit: unit });
+  };
+
   const derivedPricingMode = data.cpm_mode === 'valor_insercao' ? 'insertion' : (data.pricing_mode ?? 'cpm');
   const derivedPricingVariant: 'avulsa' | 'especial' | 'ambos' = (() => {
     const types = data.proposal_type || [];
@@ -1097,8 +1119,8 @@ export const ConfigurationStep: React.FC<StepProps> = ({ data, onUpdate }) => {
             <div className="space-y-2 mt-4">
               <Label>Unidade do Período</Label>
               <RadioGroup
-                value={data.period_unit ?? 'months'}
-                onValueChange={(value) => onUpdate({ period_unit: value as 'months' | 'days' })}
+                value={isDaysPeriod ? 'days' : 'months'}
+                onValueChange={(value) => handlePeriodUnitChange(value as 'months' | 'days')}
                 className="mt-2"
               >
                 <div className="flex items-center space-x-2">
@@ -1113,27 +1135,29 @@ export const ConfigurationStep: React.FC<StepProps> = ({ data, onUpdate }) => {
               <p className="text-xs text-gray-500">Selecione se o período da campanha será definido em meses ou dias.</p>
             </div>
             {/* Meses do Período */}
-            <div className="space-y-2 mt-4">
-              <Label htmlFor="months-period">Meses do Período (01–12)</Label>
-              <Input
-                id="months-period"
-                type="number"
-                min="1"
-                max="12"
-                value={data.months_period ?? 1}
-                onChange={(e) => {
-                  const v = parseInt(e.target.value);
-                  const clamped = isNaN(v) ? 1 : Math.max(1, Math.min(12, v));
-                  onUpdate({ months_period: clamped });
-                }}
-                className="mt-2"
-              />
-              <p className="text-xs text-gray-500">
-                Informe quantos meses o período da proposta irá contemplar. Ex.: 08 para 8 meses.
-              </p>
-            </div>
+            {!isDaysPeriod && (
+              <div className="space-y-2 mt-4">
+                <Label htmlFor="months-period">Meses do Período (01–12)</Label>
+                <Input
+                  id="months-period"
+                  type="number"
+                  min="1"
+                  max="12"
+                  value={data.months_period ?? 1}
+                  onChange={(e) => {
+                    const v = parseInt(e.target.value);
+                    const clamped = isNaN(v) ? 1 : Math.max(1, Math.min(12, v));
+                    onUpdate({ months_period: clamped });
+                  }}
+                  className="mt-2"
+                />
+                <p className="text-xs text-gray-500">
+                  Informe quantos meses o período da proposta irá contemplar. Ex.: 08 para 8 meses.
+                </p>
+              </div>
+            )}
             {/* Dias do Período (mostra apenas quando unit = days) */}
-            {(data.period_unit ?? 'months') === 'days' && (
+            {isDaysPeriod && (
               <div className="space-y-2 mt-2">
                 <Label htmlFor="days-period">Dias do Período</Label>
                 <Input

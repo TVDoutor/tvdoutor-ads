@@ -639,11 +639,6 @@ const Users = () => {
           </div>
         </div>
 
-        {/* Debug Admin - TEMPORÁRIO */}
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <AdminDebug />
-        </div>
-
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
           {/* Enhanced Stats Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

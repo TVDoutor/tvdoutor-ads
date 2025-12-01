@@ -32,7 +32,7 @@ import ExcelJS from "exceljs";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { downloadVisibleProposalPDF } from "@/lib/pdf-service";
-import { InventoryPreview, FinancialSummaryCard, ProjectInfoCard, StatusActionsCard, InventoryCard } from "@/components/proposal";
+import { InventoryPreview, FinancialSummaryCard, ProjectInfoCard, StatusActionsCard, InventoryCard, InvestmentBreakdownCard } from "@/components/proposal";
 import { useProposalFilters } from "@/hooks/useProposalFilters";
 import { normalizeProposal } from "@/utils/validations/proposal";
 import { calculateProposalMetrics, getSelectedDurations } from "@/lib/pricing";
@@ -131,6 +131,33 @@ interface ProposalDetails {
     };
   }>;
 } 
+
+const SectionHeading = ({ title, description, action }: { title: string; description?: string; action?: any }) => (
+  <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+    <div>
+      <h2 className="text-xl font-semibold text-slate-900">{title}</h2>
+      {description && <p className="text-sm text-slate-500">{description}</p>}
+    </div>
+    {action}
+  </div>
+);
+
+const SummaryStatCard = ({ icon: Icon, label, value, helper }: { icon: any; label: string; value: string; helper?: string }) => (
+  <div className="rounded-2xl border border-white/60 bg-white shadow-lg shadow-slate-200/60 p-5">
+    <div className="flex items-center justify-between gap-4">
+      <div>
+        <p className="text-xs uppercase tracking-[0.25em] text-slate-400">{label}</p>
+        <p className="text-2xl font-semibold text-slate-900 mt-2">{value}</p>
+        {helper && <p className="text-xs text-slate-500 mt-1">{helper}</p>}
+      </div>
+      {Icon && (
+        <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-orange-500/10 to-orange-400/30 text-orange-500 flex items-center justify-center">
+          <Icon className="h-5 w-5" />
+        </div>
+      )}
+    </div>
+  </div>
+);
 
 const ProposalDetails = () => {
   const { id } = useParams<{ id: string }>();
@@ -396,12 +423,17 @@ const ProposalDetails = () => {
     );
   }
 
-  const formatCurrency = (value?: number) => {
-    if (!value) return 'R$ 0,00';
+  const formatCurrency = (value?: number | null) => {
+    if (value === undefined || value === null || Number.isNaN(Number(value))) return 'R$ 0,00';
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
       currency: 'BRL'
     }).format(value);
+  };
+  const formatNumber = (value?: number | null) => {
+    if (typeof value !== 'number' || Number.isNaN(value)) return '-';
+    const rounded = Math.round(value);
+    return rounded.toLocaleString('pt-BR');
   };
 
   // filteredScreens e groupedByCityState já são calculados via hook useProposalFilters
@@ -439,9 +471,139 @@ const ProposalDetails = () => {
     return null;
   })();
 
-  const audiencePerMonth = pricingMetrics?.impacts && inferredDays
-    ? Math.round((pricingMetrics.impacts / Math.max(inferredDays, 1)) * 30)
+  const isDaysPeriod = pricingMetrics?.periodUnit === 'days';
+  const unitsForAudience = (() => {
+    if (!pricingMetrics) return null;
+    if (isDaysPeriod) {
+      return pricingMetrics.daysPeriod ?? inferredDays ?? null;
+    }
+    const months = pricingMetrics.monthsPeriod ?? pricingInput?.months_period;
+    return months ?? null;
+  })();
+  const unitsDivisor = unitsForAudience && unitsForAudience > 0 ? unitsForAudience : 1;
+  const audiencePerMonth = pricingMetrics?.impacts
+    ? Math.round(pricingMetrics.impacts / Math.max(unitsDivisor, 1))
     : undefined;
+  const audienceLabel = isDaysPeriod ? 'Audiência/Dia' : 'Audiência/Mês';
+  const quoteData = (pricingSummary?.quote ?? proposal.quote ?? {}) as any;
+  const insertionsPerHourValue = Number(pricingInput?.insertions_per_hour ?? proposal.insertions_per_hour ?? 0) || 0;
+  const hoursPerDay = Number(pricingInput?.hours_per_day ?? proposal.horas_operacao_dia ?? 10) || 10;
+  const businessDaysPerMonth = Number(pricingInput?.business_days_per_month ?? proposal.dias_uteis_mes_base ?? 22) || 22;
+  const screensCount = pricingMetrics?.screens ?? proposal.proposal_screens?.length ?? 0;
+  const avgAudiencePerInsertion = Number(
+    pricingInput?.avg_audience_per_insertion ??
+      quoteData?.avg_audience_per_insertion ??
+      proposal.avg_audience_per_insercao ??
+      proposal.avg_audience_per_insertion ??
+      100
+  ) || 0;
+  const rawPeriodValue = isDaysPeriod
+    ? Number(pricingMetrics?.daysPeriod ?? pricingInput?.days_period ?? inferredDays ?? 0)
+    : Number(pricingMetrics?.monthsPeriod ?? pricingInput?.months_period ?? 1);
+  const periodValue = rawPeriodValue > 0 ? rawPeriodValue : 1;
+  const periodColumnLabel = isDaysPeriod ? 'Dias' : 'Meses';
+  const unitLabel = isDaysPeriod ? 'Dia' : 'Mês';
+  const insertionsPerUnit = Math.round(
+    insertionsPerHourValue * hoursPerDay * screensCount * (isDaysPeriod ? 1 : businessDaysPerMonth)
+  );
+  const audiencePerUnitValue = avgAudiencePerInsertion > 0
+    ? Math.round(avgAudiencePerInsertion * insertionsPerUnit)
+    : null;
+  const impactsPerUnitValue = audiencePerUnitValue && insertionsPerHourValue
+    ? Math.round(audiencePerUnitValue * insertionsPerHourValue)
+    : null;
+  const durationsList = (durationsForDisplay && durationsForDisplay.length > 0
+    ? durationsForDisplay
+    : [Number(proposal.film_seconds || 0)])
+    .map((sec) => Number(sec))
+    .filter((sec) => Number.isFinite(sec) && sec > 0);
+  const priceTables = pricingInput?.insertion_prices ?? { avulsa: {}, especial: {} };
+  const variantDiscountFraction = {
+    avulsa: Number(
+      quoteData?.discount_pct_avulsa ??
+        proposal.discount_pct_avulsa ??
+        quoteData?.discount_pct ??
+        proposal.discount_pct ??
+        0
+    ) / 100,
+    especial: Number(
+      quoteData?.discount_pct_especial ??
+        proposal.discount_pct_especial ??
+        quoteData?.discount_pct ??
+        proposal.discount_pct ??
+        0
+    ) / 100,
+  } as Record<'avulsa' | 'especial', number>;
+
+  const buildInvestmentRows = (variant: 'avulsa' | 'especial') => {
+    if (!durationsList.length) return [];
+    return durationsList.map((duration) => {
+      const priceTable = (priceTables?.[variant] ?? {}) as Record<number, number>;
+      const basePrice = Number(priceTable?.[duration] ?? 0);
+      const investBruto = basePrice * insertionsPerUnit;
+      const investAg = investBruto;
+      const discountFraction = variantDiscountFraction[variant] ?? 0;
+      const investNegotiated = investAg - (investAg * discountFraction);
+      const totalNegotiated = investNegotiated * periodValue;
+      const investPerScreen = screensCount > 0 ? investNegotiated / screensCount : 0;
+      const cpmPerImpact = impactsPerUnitValue
+        ? investNegotiated / Math.max(impactsPerUnitValue, 1) * 1000
+        : 0;
+
+      return {
+        durationLabel: `${duration}"`,
+        periodValue,
+        insertionsPerHour: insertionsPerHourValue,
+        insertionsPerUnit,
+        audiencePerUnit: audiencePerUnitValue,
+        impactsPerUnit: impactsPerUnitValue,
+        screens: screensCount,
+        investBruto,
+        investAgBruto: investAg,
+        discountPct: discountFraction,
+        investPerScreen,
+        cpmPerImpact,
+        investNegotiated,
+        totalNegotiated,
+      };
+    });
+  };
+
+  const investmentBreakdown = {
+    avulsa: buildInvestmentRows('avulsa'),
+    especial: buildInvestmentRows('especial'),
+  };
+  const investmentSubtitle = isDaysPeriod
+    ? 'Valores calculados por dia de campanha'
+    : 'Valores calculados por mês de campanha';
+  const cityCount = proposal.proposal_screens ? new Set(proposal.proposal_screens.map((ps) => ps.screens?.city)).size : 0;
+  const stateCount = proposal.proposal_screens ? new Set(proposal.proposal_screens.map((ps) => ps.screens?.state)).size : 0;
+  const highlightStats = [
+    {
+      icon: DollarSign,
+      label: 'Investimento',
+      value: formatCurrency(netValueCalculated),
+      helper: 'Valor líquido estimado',
+    },
+    {
+      icon: Monitor,
+      label: 'Telas Selecionadas',
+      value: formatNumber(proposal.proposal_screens?.length || 0),
+      helper: `${formatNumber(cityCount)} cidades ativas`,
+    },
+    {
+      icon: MapPin,
+      label: 'Cobertura',
+      value: formatNumber(cityCount),
+      helper: `${formatNumber(stateCount)} estados`,
+    },
+    {
+      icon: BarChart3,
+      label: 'Impactos Estimados',
+      value: formatNumber(pricingMetrics?.impacts ?? 0),
+      helper: audienceLabel,
+    },
+  ];
 
   const formatDate = (dateString?: string) => {
     if (!dateString) return 'Não informado';
@@ -684,151 +846,123 @@ const ProposalDetails = () => {
 
   return (
     <DashboardLayout>
-      <div id="proposal-print-area" className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/30">
-        {/* Hero Header com Gradiente */}
-        <div className="relative overflow-hidden bg-gradient-to-r from-orange-500 via-orange-600 to-orange-700">
-          <div className="absolute inset-0 bg-black/20"></div>
-          <div className="relative px-6 py-8">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <Button 
-                  variant="secondary" 
-                  size="sm" 
-                  onClick={() => navigate('/propostas')}
-                  className="hide-on-pdf gap-2 bg-white/10 hover:bg-white/20 text-white border-white/20"
-                >
-                  <ArrowLeft className="h-4 w-4" />
-                  Voltar
-                </Button>
+      <div id="proposal-print-area" className="min-h-screen bg-slate-50">
+        <div className="relative isolate overflow-hidden bg-gradient-to-r from-orange-500 via-orange-600 to-rose-500 text-white">
+          <div className="absolute inset-0 opacity-30 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.45),_transparent_55%)]" />
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 relative">
+            <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+              <div className="space-y-4">
+                <Badge variant="secondary" className="bg-white/15 text-white border-white/30 w-fit">
+                  Proposta #{proposal.id}
+                </Badge>
                 <div>
-                  <h1 className="text-4xl font-bold text-white mb-1">
+                  <p className="text-sm uppercase tracking-[0.35em] text-white/70">Resumo da Proposta</p>
+                  <h1 className="text-4xl font-bold leading-tight">
                     {proposal.agencia_projetos?.nome_projeto || proposal.customer_name || `Proposta #${proposal.id}`}
                   </h1>
-                  <p className="text-orange-100 flex items-center gap-2">
+                </div>
+                <div className="flex flex-wrap gap-x-6 gap-y-3 text-sm text-white/80">
+                  <span className="flex items-center gap-2">
                     <Calendar className="h-4 w-4" />
                     Criada em {formatDate(proposal.created_at)}
-                  </p>
+                  </span>
+                  {proposal.customer_name && (
+                    <span className="flex items-center gap-2">
+                      <User className="h-4 w-4" />
+                      Cliente: {proposal.customer_name}
+                    </span>
+                  )}
+                  {proposal.agencias?.nome_agencia && (
+                    <span className="flex items-center gap-2">
+                      <Building className="h-4 w-4" />
+                      Agência: {proposal.agencias?.nome_agencia}
+                    </span>
+                  )}
                 </div>
               </div>
-              
-              <div className="flex items-center gap-3">
-                <ProposalStatusBadge status={proposal.status} className="hide-on-pdf" />
-                <Button 
-                  variant="secondary"
-                  onClick={() => navigate(`/nova-proposta?edit=${proposal.id}`)}
-                  className="hide-on-pdf gap-2 bg-white/10 hover:bg-white/20 text-white border-white/20"
-                >
-                  <Edit className="h-4 w-4" />
-                  Editar
-                </Button>
-                <Button 
-                  onClick={handleGeneratePDF}
-                  disabled={loading || !proposal}
-                  className="pdf-download-button gap-2 bg-white text-orange-600 hover:bg-orange-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <Download className="h-4 w-4" />
-                  {loading ? 'Carregando...' : 'PDF Profissional'}
-                </Button>
-                <Button 
-                  onClick={handleDownloadExcel}
-                  disabled={loading || !proposal}
-                  className="gap-2 bg-white text-orange-600 hover:bg-orange-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <FileSpreadsheet className="h-4 w-4" />
-                  Excel Pontos
-                </Button>
+
+              <div className="w-full lg:w-auto space-y-3">
+                <div className="flex flex-wrap gap-3 items-center justify-start lg:justify-end">
+                  <ProposalStatusBadge status={proposal.status} className="hide-on-pdf" />
+                  <Badge variant="secondary" className="bg-white/15 text-white border-white/20 capitalize">
+                    {proposal.proposal_type === 'projeto'
+                      ? 'Projeto Especial'
+                      : proposal.proposal_type === 'patrocinio_editorial'
+                      ? 'Patrocínio Editorial'
+                      : 'Veiculação Avulsa'}
+                  </Badge>
+                </div>
+                <div className="flex flex-wrap justify-start lg:justify-end gap-3">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => navigate('/propostas')}
+                    className="hide-on-pdf gap-2 bg-white/10 hover:bg-white/20 text-white border-white/30"
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                    Voltar
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => navigate(`/nova-proposta?edit=${proposal.id}`)}
+                    className="hide-on-pdf gap-2 bg-white/10 hover:bg-white/20 text-white border-white/30"
+                  >
+                    <Edit className="h-4 w-4" />
+                    Editar
+                  </Button>
+                  <Button
+                    onClick={handleGeneratePDF}
+                    disabled={loading || !proposal}
+                    className="pdf-download-button gap-2 bg-white text-orange-600 hover:bg-orange-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Download className="h-4 w-4" />
+                    {loading ? 'Carregando...' : 'PDF Profissional'}
+                  </Button>
+                  <Button
+                    onClick={handleDownloadExcel}
+                    disabled={loading || !proposal}
+                    className="gap-2 bg-white/10 hover:bg-white/20 text-white border border-white/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <FileSpreadsheet className="h-4 w-4" />
+                    Excel Pontos
+                  </Button>
+                </div>
               </div>
             </div>
           </div>
         </div>
 
         {/* Container principal */}
-        <div className="px-6 py-8 space-y-8">
-        {/* Cards de métricas principais */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 pdf-kpis-grid pdf-section-kpis">
-          <Card className="kpi-card border-0 shadow-lg bg-gradient-to-br from-orange-500 to-orange-600 text-white">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-orange-100 text-sm font-medium">Valor Total</p>
-                  <p className="text-3xl font-bold">{formatCurrency(netValueCalculated)}</p>
-                </div>
-                <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
-                  <DollarSign className="h-6 w-6" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-14 space-y-10 pb-16">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          {highlightStats.map((stat) => (
+            <SummaryStatCard key={stat.label} {...stat} />
+          ))}
+        </div>
 
-          <Card className="kpi-card border-0 shadow-lg bg-gradient-to-br from-orange-500 to-orange-600 text-white">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-orange-100 text-sm font-medium">Telas Selecionadas</p>
-                  <p className="text-3xl font-bold">{proposal.proposal_screens?.length || 0}</p>
-                </div>
-                <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
-                  <Monitor className="h-6 w-6" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-            <Card className="border-0 shadow-lg bg-gradient-to-br from-orange-500 to-orange-600 text-white">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-orange-100 text-sm font-medium">Cidades</p>
-                    <p className="text-3xl font-bold">
-                      {proposal.proposal_screens ? 
-                        new Set(proposal.proposal_screens.map(ps => ps.screens.city)).size : 0}
-                    </p>
-                  </div>
-                  <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
-                    <MapPin className="h-6 w-6" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="border-0 shadow-lg bg-gradient-to-br from-orange-500 to-orange-600 text-white">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-orange-100 text-sm font-medium">Estados</p>
-                    <p className="text-3xl font-bold">
-                      {proposal.proposal_screens ? 
-                        new Set(proposal.proposal_screens.map(ps => ps.screens.state)).size : 0}
-                    </p>
-                  </div>
-                  <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
-                    <Building className="h-6 w-6" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Grid principal de conteúdo */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 pdf-two-column pdf-gap-6">
-            {/* Informações do Projeto - Componentizado */}
-            <div className="avoid-break-inside lg:col-span-2 pdf-project-info pdf-section-project">
-              <ProjectInfoCard
-                proposal={{
-                  project_name: proposal.agencia_projetos?.nome_projeto || proposal.customer_name || 'Projeto não definido',
-                  client_name: proposal.agencia_projetos?.cliente_final || proposal.customer_name,
-                  agency: {
-                    name: proposal.agencias?.nome_agencia,
-                    email: proposal.agencias?.email_empresa || proposal.customer_email,
-                  },
-                  proposal_type: proposal.proposal_type === 'avulsa' ? 'Campanha Avulsa' : 'Projeto Especial',
-                  status: proposal.status,
-                }}
-                filteredScreens={filteredScreens}
-                showAddress={showAddress}
-                showScreenType={showScreenType}
-              />
-            </div>
+        <div className="grid gap-8 lg:grid-cols-[1.7fr,1fr]">
+          <section className="space-y-6">
+            <SectionHeading
+              title="Informações do Projeto"
+              description="Dados do cliente, agência e escopo resumidos em um só lugar."
+            />
+            <ProjectInfoCard
+              proposal={{
+                project_name: proposal.agencia_projetos?.nome_projeto || proposal.customer_name || 'Projeto não definido',
+                client_name: proposal.agencia_projetos?.cliente_final || proposal.customer_name,
+                agency: {
+                  name: proposal.agencias?.nome_agencia,
+                  email: proposal.agencias?.email_empresa || proposal.customer_email,
+                },
+                proposal_type: proposal.proposal_type === 'avulsa' ? 'Campanha Avulsa' : 'Projeto Especial',
+                status: proposal.status,
+              }}
+              filteredScreens={filteredScreens}
+              showAddress={showAddress}
+              showScreenType={showScreenType}
+            />
+          </section>
 
             {/* Resumo Financeiro - Componentizado */}
             <div className="avoid-break-inside pdf-financial pdf-section-financial">
@@ -838,6 +972,7 @@ const ProposalDetails = () => {
                 insertionsPerHour={proposal.insertions_per_hour}
                 totalInsertions={pricingMetrics?.totalInsertions}
                 audiencePerMonth={audiencePerMonth}
+                audienceLabel={audienceLabel}
                 avgAudiencePerInsertion={pricingInput?.avg_audience_per_insertion}
                 impacts={pricingMetrics?.impacts}
                 grossValue={grossValueCalculated}
@@ -848,6 +983,26 @@ const ProposalDetails = () => {
                 quote={pricingSummary?.quote ?? proposal.quote}
                 missingPriceFor={pricingMetrics?.missingPriceFor}
               />
+              <div className="mt-6 space-y-6">
+                <InvestmentBreakdownCard
+                  title="Veiculação Avulsa"
+                  subtitle={investmentSubtitle}
+                  periodColumnLabel={periodColumnLabel}
+                  unitLabel={unitLabel}
+                  rows={investmentBreakdown.avulsa}
+                  formatCurrency={formatCurrency}
+                  formatNumber={formatNumber}
+                />
+                <InvestmentBreakdownCard
+                  title="Projeto Especial de Conteúdo"
+                  subtitle={investmentSubtitle}
+                  periodColumnLabel={periodColumnLabel}
+                  unitLabel={unitLabel}
+                  rows={investmentBreakdown.especial}
+                  formatCurrency={formatCurrency}
+                  formatNumber={formatNumber}
+                />
+              </div>
             </div>
           </div>
 

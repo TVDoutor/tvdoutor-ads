@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { DashboardLayout } from '@/components/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -28,6 +28,8 @@ interface Screen {
   proposal_count?: number;
   heat_intensity?: number;
 }
+
+const PHARMACY_LIST_LIMIT = 100;
 
 // Sanitização simples para uso em strings HTML
 const sanitize = (value: unknown): string => {
@@ -88,6 +90,9 @@ export default function InteractiveMap() {
   
   const mapContainer = useRef<HTMLDivElement>(null);
   const mapInstance = useRef<any>(null);
+  const leafletRef = useRef<any>(null);
+  const pharmacyMarkersRef = useRef<Map<number, any>>(new Map());
+  const markerRefreshTimeout = useRef<number | null>(null);
 
   // Fetch screens data
   const fetchScreens = async () => {
@@ -159,10 +164,6 @@ export default function InteractiveMap() {
         setUfOptions(['all', ...ufs])
       } catch {}
       setPharmaciesError(null)
-      if (mapInstance.current) {
-        const L = await import('leaflet')
-        updateMarkers(L)
-      }
     } catch (error: any) {
       const msg = `Erro ao carregar farmácias: ${error.message}`
       setPharmaciesError(msg)
@@ -189,6 +190,7 @@ export default function InteractiveMap() {
       console.log('🗺️ Inicializando mapa...');
       
       const L = await import('leaflet');
+      leafletRef.current = L;
       await import('leaflet/dist/leaflet.css');
 
       delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -437,7 +439,7 @@ export default function InteractiveMap() {
   }, [radiusKm]);
 
   // Calculate distance between two coordinates (Haversine formula)
-  const calculateDistance = (lat1: number, lng1: number, lat2: number, lng2: number): number => {
+  function calculateDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
     const R = 6371; // Earth's radius in kilometers
     const dLat = (lat2 - lat1) * Math.PI / 180;
     const dLng = (lng2 - lng1) * Math.PI / 180;
@@ -447,7 +449,42 @@ export default function InteractiveMap() {
       Math.sin(dLng/2) * Math.sin(dLng/2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
     return R * c;
-  };
+  }
+
+  const filteredPharmacies = useMemo(() => {
+    const term = phSearch.trim().toLowerCase();
+    const termDigits = term.replace(/[^0-9]/g, '');
+    const radius = parseFloat(radiusKm);
+    const hasRadius = !Number.isNaN(radius);
+    const shouldFilterByRadius = Boolean(centerCoordinates && hasRadius && (layerMode === 'pharmacies' || layerMode === 'both'));
+
+    return pharmacies
+      .filter(p => p.latitude != null && p.longitude != null)
+      .filter(p => phFilters.uf === 'all' || p.uf === phFilters.uf)
+      .filter(p => phFilters.cidade === 'all' || p.cidade === phFilters.cidade)
+      .filter(p => phFilters.bairro === 'all' || (p.bairro ?? '') === phFilters.bairro)
+      .filter(p => phFilters.grupo === 'all' || (p.grupo ?? '') === phFilters.grupo)
+      .filter(p => {
+        if (!term) return true;
+        const nome = (p.nome || '').toLowerCase();
+        const grupo = (p.grupo || '').toLowerCase();
+        const endereco = (p.endereco || '').toLowerCase();
+        const bairro = (p.bairro || '').toLowerCase();
+        const cep = (p.cep || '').replace(/[^0-9]/g, '');
+        return (
+          nome.includes(term) ||
+          grupo.includes(term) ||
+          endereco.includes(term) ||
+          bairro.includes(term) ||
+          (termDigits && cep.includes(termDigits))
+        );
+      })
+      .filter(p => {
+        if (!shouldFilterByRadius || !centerCoordinates) return true;
+        const distance = calculateDistance(centerCoordinates.lat, centerCoordinates.lng, Number(p.latitude), Number(p.longitude));
+        return distance <= radius;
+      });
+  }, [pharmacies, phFilters, phSearch, centerCoordinates, radiusKm, layerMode]);
 
   // Search by address and radius using LP logic
   const searchByAddressAndRadius = async () => {
@@ -661,33 +698,102 @@ export default function InteractiveMap() {
     }, 500);
   };
 
+  const navigateToPharmacy = async (pharmacy: FarmaciaPublica) => {
+    if (!mapInstance.current || pharmacy.latitude == null || pharmacy.longitude == null) {
+      toast.error('Coordenadas não disponíveis para esta farmácia');
+      return;
+    }
+
+    const lat = Number(pharmacy.latitude);
+    const lng = Number(pharmacy.longitude);
+
+    if (Number.isNaN(lat) || Number.isNaN(lng)) {
+      toast.error('Coordenadas inválidas para esta farmácia');
+      return;
+    }
+
+    if (layerMode === 'venues') {
+      setLayerMode('both');
+    }
+
+    toast.success(`📍 Navegando para ${pharmacy.nome || 'farmácia'}`);
+    mapInstance.current.setView([lat, lng], 16);
+
+    const existingMarker = pharmacyMarkersRef.current.get(pharmacy.id);
+    if (existingMarker) {
+      setTimeout(() => {
+        try {
+          existingMarker.openPopup();
+        } catch (error) {
+          console.warn('⚠️ Não foi possível abrir o popup da farmácia selecionada:', error);
+        }
+      }, 300);
+      return;
+    }
+
+    setTimeout(async () => {
+      const markerAfterUpdate = pharmacyMarkersRef.current.get(pharmacy.id);
+      if (markerAfterUpdate) {
+        try {
+          markerAfterUpdate.openPopup();
+          return;
+        } catch (error) {
+          console.warn('⚠️ Não foi possível abrir o popup da farmácia após atualização:', error);
+        }
+      }
+
+      const L = await import('leaflet');
+      let popupFound = false;
+
+      mapInstance.current?.eachLayer((layer: any) => {
+        if (layer?.options?.isPharmacyMarker && layer.getLatLng) {
+          const layerLatLng = layer.getLatLng();
+          if (layerLatLng && Math.abs(layerLatLng.lat - lat) < 0.0001 && Math.abs(layerLatLng.lng - lng) < 0.0001) {
+            if (layer.openPopup) {
+              layer.openPopup();
+              popupFound = true;
+            }
+          }
+        }
+      });
+
+      if (!popupFound) {
+        console.log('⚠️ Popup de farmácia não encontrado para', pharmacy.id);
+      }
+    }, 350);
+  };
+
   const updateMarkers = async (L: any) => {
     if (!mapInstance.current) return;
-
-    console.log('🔄 updateMarkers called:', {
-      screensTotal: screens.length,
-      addressSearchResults: addressSearchResults.length,
-      hasMap: !!mapInstance.current,
-      viewMode
-    });
 
     const map = mapInstance.current;
     
     // Clear existing markers and heatmap layers
     map.eachLayer((layer: any) => {
-      // Always remove non-special markers
-      if (layer instanceof L.Marker && !layer.options.isSearchCenter && !layer.options.isSearchResult && !layer.options.isMainSearchResult) {
+      const layerOptions = layer.options || {};
+      const isSearchLayer = layerOptions.isSearchCenter || layerOptions.isSearchResult || layerOptions.isMainSearchResult || layerOptions.isRadiusCircle;
+
+      if (layerOptions.isPharmacyMarker) {
         map.removeLayer(layer);
+        return;
       }
-      // When exibindo apenas farmácias, remover também marcadores de busca de telas
-      if (layerMode === 'pharmacies' && layer instanceof L.Marker && (layer.options?.isSearchResult || layer.options?.isMainSearchResult)) {
+
+      if (layer instanceof L.Marker && !isSearchLayer) {
         map.removeLayer(layer);
+        return;
       }
-      // Remove heatmap layers
-      if (layer.options && layer.options.isHeatmap) {
+
+      if (layerMode === 'pharmacies' && layer instanceof L.Marker && (layerOptions.isSearchResult || layerOptions.isMainSearchResult)) {
+        map.removeLayer(layer);
+        return;
+      }
+
+      if (layerOptions.isHeatmap) {
         map.removeLayer(layer);
       }
     });
+
+    pharmacyMarkersRef.current.clear();
 
     // Add heatmap layer if in heatmap mode
     if (viewMode === 'heatmap' && heatmapData.length > 0) {
@@ -732,8 +838,6 @@ export default function InteractiveMap() {
           : validScreens
       ) : [];
       
-      console.log('🎯 Telas válidas para mostrar no mapa:', validScreens.length);
-
       const markers: any[] = [];
 
       screensToDraw.forEach(screen => {
@@ -833,96 +937,108 @@ export default function InteractiveMap() {
         map.fitBounds(group.getBounds().pad(0.1));
       }
 
-      console.log('✅ Marcadores adicionados ao mapa:', {
-        total: markers.length,
-        searchResultsCount: addressSearchResults.length,
-        searchActive: addressSearchResults.length > 0
-      });
-      const term = phSearch.trim().toLowerCase()
-      const termDigits = term.replace(/[^0-9]/g, '')
-      const basePhPoints = pharmacies
-        .filter(p => p.latitude && p.longitude)
-        .filter(p => (phFilters.uf === 'all' || p.uf === phFilters.uf))
-        .filter(p => (phFilters.cidade === 'all' || p.cidade === phFilters.cidade))
-        .filter(p => (phFilters.bairro === 'all' || (p.bairro ?? '') === phFilters.bairro))
-        .filter(p => (phFilters.grupo === 'all' || (p.grupo ?? '') === phFilters.grupo))
-        .filter(p => {
-          if (!term) return true
-          const nome = (p.nome || '').toLowerCase()
-          const grupo = (p.grupo || '').toLowerCase()
-          const endereco = (p.endereco || '').toLowerCase()
-          const bairro = (p.bairro || '').toLowerCase()
-          const cep = (p.cep || '')
-          return (
-            nome.includes(term) ||
-            grupo.includes(term) ||
-            endereco.includes(term) ||
-            bairro.includes(term) ||
-            (termDigits && cep.replace(/[^0-9]/g, '').includes(termDigits))
-          )
+      const shouldShowPharmacies = layerMode === 'pharmacies' || layerMode === 'both';
+
+      if (shouldShowPharmacies) {
+        const duplicateKey = (lat: number, lng: number) => `${lat.toFixed(6)}|${lng.toFixed(6)}`
+        const duplicateMeta = new Map<string, { total: number; next: number }>()
+
+        filteredPharmacies.forEach(pharmacy => {
+          if (pharmacy.latitude == null || pharmacy.longitude == null) return
+          const key = duplicateKey(Number(pharmacy.latitude), Number(pharmacy.longitude))
+          const meta = duplicateMeta.get(key)
+          if (!meta) duplicateMeta.set(key, { total: 1, next: 0 })
+          else meta.total += 1
         })
-      const phPoints = basePhPoints
-      if (layerMode === 'pharmacies' || layerMode === 'both') {
-        setPhStats({ total: pharmacies.length, valid: basePhPoints.length, rendered: phPoints.length })
-        const zoom = map.getZoom()
-        const grid = zoom < 6 ? 1 : zoom < 8 ? 0.5 : zoom < 10 ? 0.2 : zoom < 12 ? 0.1 : zoom < 14 ? 0.05 : 0.02
-        const buckets: Record<string, FarmaciaPublica[]> = {}
-        phPoints.forEach(p => {
-          const keyLat = Math.round(Number(p.latitude) / grid) * grid
-          const keyLng = Math.round(Number(p.longitude) / grid) * grid
-          const key = `${keyLat}|${keyLng}`
-          if (!buckets[key]) buckets[key] = []
-          buckets[key].push(p)
-        })
-        Object.entries(buckets).forEach(([key, rows]) => {
-          const lat = rows.reduce((acc, r) => acc + Number(r.latitude), 0) / rows.length
-          const lng = rows.reduce((acc, r) => acc + Number(r.longitude), 0) / rows.length
-          const size = rows.length > 25 ? 36 : rows.length > 9 ? 30 : 26
-          const icon = L.divIcon({
-            className: 'pharmacy-cluster',
-            html: rows.length > 1
-              ? `<div style="width:${size}px;height:${size}px;border-radius:50%;border:2px solid white;box-shadow:0 2px 4px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;background:#ef4444;color:white;font-weight:700;font-size:${rows.length>25?'14px':rows.length>9?'13px':'12px'};">${rows.length}</div>`
-              : `<div style="position:relative;width:${size}px;height:${size}px;border-radius:50%;border:2px solid white;box-shadow:0 2px 4px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;background:#ef4444;">
-                    <div style="width:${Math.round(size*0.5)}px;height:${Math.round(size*0.16)}px;background:white"></div>
-                    <div style="position:absolute;width:${Math.round(size*0.16)}px;height:${Math.round(size*0.5)}px;background:white"></div>
-                 </div>`,
-            iconSize: [size, size],
-            iconAnchor: [size/2, size/2]
-          })
-          const marker = L.marker([lat, lng], { icon }).addTo(map)
-          if (rows.length === 1) {
-            const p = rows[0] as any
-            marker.bindPopup(`
-              <div style="padding:12px; min-width: 260px; max-width: 320px;">
-                <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
-                  <div style="position:relative;width:32px;height:32px;border-radius:50%;background:#ef4444;border:2px solid white;box-shadow:0 2px 4px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;">
-                    <div style="width:16px;height:5px;background:white"></div>
-                    <div style="position:absolute;width:5px;height:16px;background:white"></div>
-                  </div>
-                  <div>
-                    <h4 style="font-weight:600;color:#111827;font-size:16px;margin:0;">${sanitize((p.nome || p.grupo || '') as string)}</h4>
-                    <p style="font-size:12px;color:#ef4444;margin:0;">Farmácia</p>
-                  </div>
-                </div>
-                <div style="background:#f9fafb;border-radius:6px;padding:10px;margin-bottom:8px;">
-                  <h5 style="font-weight:600;color:#374151;margin:0 0 6px 0;font-size:12px;">Localização</h5>
-                  <div style="font-size:11px;color:#374151;">
-                    <div><strong>Endereço:</strong> ${sanitize(p.endereco || '')} ${sanitize((p.numero || '') as string)}</div>
-                    <div><strong>Bairro:</strong> ${sanitize(p.bairro || '')}</div>
-                    <div><strong>Cidade:</strong> ${sanitize(p.cidade || '')}, ${sanitize(p.uf || '')}</div>
-                    ${p.grupo ? `<div><strong>Grupo:</strong> ${sanitize(p.grupo)}</div>` : ''}
-                  </div>
-                </div>
-              </div>
-            `)
-          } else {
-            marker.bindPopup(`
-              <div style="padding:10px;">
-                <div style="font-weight:600;color:#111827;">${rows.length} farmácias neste agrupamento</div>
-              </div>
-            `)
+
+        filteredPharmacies.forEach(pharmacy => {
+          if (pharmacy.latitude == null || pharmacy.longitude == null) return
+          let lat = Number(pharmacy.latitude)
+          let lng = Number(pharmacy.longitude)
+
+          if (Number.isNaN(lat) || Number.isNaN(lng)) return
+
+          const key = duplicateKey(Number(pharmacy.latitude), Number(pharmacy.longitude))
+          const meta = duplicateMeta.get(key)
+          if (meta && meta.total > 1) {
+            const angle = (meta.next / meta.total) * 2 * Math.PI
+            const baseOffsetMeters = 5
+            const dynamicOffsetMeters = baseOffsetMeters + meta.total
+            const metersToDegreesLat = dynamicOffsetMeters / 111000
+            const metersToDegreesLng = dynamicOffsetMeters / (111000 * Math.cos(lat * Math.PI / 180 || 1))
+            lat += metersToDegreesLat * Math.cos(angle)
+            lng += metersToDegreesLng * Math.sin(angle)
+            meta.next += 1
+          } else if (meta) {
+            meta.next += 1
           }
-        })
+
+          const icon = L.divIcon({
+            className: 'pharmacy-marker',
+            iconSize: [28, 28],
+            iconAnchor: [14, 14],
+            html: `
+              <div style="
+                width: 24px;
+                height: 24px;
+                border-radius: 50%;
+                border: 2px solid #ffffff;
+                background: #ef4444;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.35);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+              ">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+                  <rect x="10" y="4" width="4" height="16" rx="1" fill="#ffffff" />
+                  <rect x="4" y="10" width="16" height="4" rx="1" fill="#ffffff" />
+                </svg>
+              </div>
+            `
+          });
+
+          const marker = L.marker([lat, lng], { icon } as any).addTo(map);
+          (marker as any).options.isPharmacyMarker = true;
+          (marker as any).options.pharmacyId = pharmacy.id;
+
+          marker.bindPopup(`
+            <div style="padding:12px; min-width: 260px; max-width: 320px;">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+                <div style="position:relative;width:32px;height:32px;border-radius:50%;background:#ef4444;border:2px solid white;box-shadow:0 2px 4px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                    <rect x="10" y="4" width="4" height="16" rx="1" fill="#ffffff" />
+                    <rect x="4" y="10" width="16" height="4" rx="1" fill="#ffffff" />
+                  </svg>
+                </div>
+                <div>
+                  <h4 style="font-weight:600;color:#111827;font-size:16px;margin:0;">${sanitize(pharmacy.nome || pharmacy.grupo || '')}</h4>
+                  <p style="font-size:12px;color:#ef4444;margin:0;">Farmácia</p>
+                </div>
+              </div>
+              <div style="background:#f9fafb;border-radius:6px;padding:10px;margin-bottom:8px;">
+                <h5 style="font-weight:600;color:#374151;margin:0 0 6px 0;font-size:12px;">Localização</h5>
+                <div style="font-size:11px;color:#374151;">
+                  <div><strong>Endereço:</strong> ${sanitize((() => {
+                    const streetParts = [pharmacy.tipo_logradouro, pharmacy.endereco].filter(Boolean).join(' ').trim();
+                    const numberPart = pharmacy.numero ? String(pharmacy.numero).trim() : '';
+                    const complementPart = pharmacy.complemento ? String(pharmacy.complemento).trim() : '';
+                    const parts = [streetParts, numberPart].filter(Boolean).join(', ');
+                    const withComplement = complementPart ? `${parts}${parts ? ' - ' : ''}${complementPart}` : parts;
+                    return withComplement || 'Não informado';
+                  })())}</div>
+                  ${pharmacy.bairro ? `<div><strong>Bairro:</strong> ${sanitize(pharmacy.bairro)}</div>` : ''}
+                  <div><strong>Cidade:</strong> ${sanitize(pharmacy.cidade || '')}, ${sanitize(pharmacy.uf || '')}</div>
+                  ${pharmacy.grupo ? `<div><strong>Grupo:</strong> ${sanitize(pharmacy.grupo)}</div>` : ''}
+                  ${pharmacy.cep ? `<div><strong>CEP:</strong> ${sanitize(pharmacy.cep)}</div>` : ''}
+                </div>
+              </div>
+            </div>
+          `);
+
+          pharmacyMarkersRef.current.set(pharmacy.id, marker);
+        });
+
+        console.log('💊 Farmácias renderizadas no mapa:', filteredPharmacies.length);
       }
     }
   };
@@ -1203,7 +1319,23 @@ export default function InteractiveMap() {
 
   useEffect(() => {
     fetchPharmacies();
-  }, [phFilters, centerCoordinates, radiusKm, layerMode]);
+  }, [phFilters, centerCoordinates, radiusKm]);
+
+  useEffect(() => {
+    const total = pharmacies.length;
+    const valid = pharmacies.filter(p => p.latitude != null && p.longitude != null).length;
+    const rendered = (layerMode === 'pharmacies' || layerMode === 'both') ? filteredPharmacies.length : 0;
+    setPhStats(prev => {
+      if (
+        prev.total === total &&
+        prev.valid === valid &&
+        prev.rendered === rendered
+      ) {
+        return prev;
+      }
+      return { total, valid, rendered };
+    });
+  }, [pharmacies, filteredPharmacies, layerMode]);
 
   useEffect(() => {
     if (screens.length > 0) {
@@ -1216,10 +1348,33 @@ export default function InteractiveMap() {
   }, [screens, searchTerm, cityFilter, statusFilter, classFilter, centerCoordinates, radiusKm]);
 
   useEffect(() => {
-    if (mapInstance.current && screens.length > 0) {
-      import('leaflet').then(L => updateMarkers(L));
+    if (!mapInstance.current || !leafletRef.current) return;
+
+    if (markerRefreshTimeout.current) {
+      window.clearTimeout(markerRefreshTimeout.current);
     }
-  }, [screens, addressSearchResults, viewMode, pharmacies, layerMode]);
+
+    markerRefreshTimeout.current = window.setTimeout(() => {
+      updateMarkers(leafletRef.current);
+      markerRefreshTimeout.current = null;
+    }, 120);
+
+    return () => {
+      if (markerRefreshTimeout.current) {
+        window.clearTimeout(markerRefreshTimeout.current);
+        markerRefreshTimeout.current = null;
+      }
+    };
+  }, [
+    screens,
+    addressSearchResults,
+    viewMode,
+    layerMode,
+    filteredPharmacies,
+    centerCoordinates,
+    radiusKm,
+    heatmapData
+  ]);
 
   // Auto-search for regular search field
   useEffect(() => {
@@ -1595,6 +1750,14 @@ export default function InteractiveMap() {
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+              <div>
+                <label className="text-sm font-medium">Buscar Farmácia</label>
+                <Input
+                  placeholder="Nome, rede, endereço ou CEP"
+                  value={phSearch}
+                  onChange={(e) => setPhSearch(e.target.value)}
+                />
               </div>
               <div>
                 <label className="text-sm font-medium">UF (Farmácia)</label>

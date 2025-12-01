@@ -158,32 +158,67 @@ const NewProposal = () => {
           if (Array.isArray(list)) ws.addRows(list);
 
           const ws2 = wb.addWorksheet('Resumo');
-          const months = Number(data.months_period ?? 1) || 1;
+          const periodUnit = data.period_unit === 'days' ? 'days' : 'months';
+          const isDaysPeriod = periodUnit === 'days';
+          const rawPeriodValue = isDaysPeriod ? Number(data.days_period ?? 0) : Number(data.months_period ?? 1);
+          const periodValue = rawPeriodValue > 0 ? rawPeriodValue : 1;
+          const periodLabel = isDaysPeriod ? 'Dias' : 'Meses';
+          const insertionsHeader = isDaysPeriod ? 'Inserções/dia' : 'Inserções/mês';
+          const audienceHeader = isDaysPeriod ? 'Audi/dia' : 'Audi/mês';
+          const impactHeader = isDaysPeriod ? 'Impact/dia' : 'Impact/mês';
+          const investBrutoHeader = isDaysPeriod ? 'Invest Bruto/Dia' : 'Invest Bruto/Mês';
+          const investAgHeader = isDaysPeriod ? 'Invest Ag. Bruto/Dia' : 'Invest Ag. Bruto/Mês';
+          const investPerScreenHeader = isDaysPeriod ? 'Invest/tela/dia' : 'Invest/tela/mês';
+          const cpmImpactHeader = isDaysPeriod ? 'CPM/Impact/Dia' : 'CPM/Impact/Mês';
+          const negotiatedHeader = isDaysPeriod ? 'Invest.Negociado Diário' : 'Invest.Negociado Mensal';
           const screensCount = Number(data.valor_insercao_config?.qtd_telas ?? selectedIds.length) || 0;
           const insertionsPerHour = Number(data.insertions_per_hour ?? 0) || 0;
           const hoursPerDay = Number(data.horas_operacao_dia ?? 10) || 10;
           const businessDaysPerMonth = Number(data.dias_uteis_mes_base ?? 22) || 22;
-          const insertionsMonthly = Math.round(insertionsPerHour * hoursPerDay * businessDaysPerMonth * screensCount);
+          const insertionsPerUnit = Math.round(
+            insertionsPerHour * hoursPerDay * screensCount * (isDaysPeriod ? 1 : businessDaysPerMonth)
+          );
           const audienceBase = Number(data.valor_insercao_config?.audiencia_mes_base ?? 0);
           const avgAudiencePerInsertion = Number(data.avg_audience_per_insertion ?? 0);
-          const audienceMonthly = (audienceBase && audienceBase > 0) ? audienceBase : (avgAudiencePerInsertion > 0 ? Math.round(avgAudiencePerInsertion * insertionsMonthly) : undefined);
+          const audiencePerUnit = (audienceBase && audienceBase > 0)
+            ? audienceBase
+            : (avgAudiencePerInsertion > 0 ? Math.round(avgAudiencePerInsertion * insertionsPerUnit) : undefined);
           const currencyFmt = '"R$" #,##0.00';
           const percentFmt = '0.00%';
           const durations = (Array.isArray(data.film_seconds) ? data.film_seconds : [Number(data.film_seconds || 0)]).filter((sec) => Number(sec) > 0);
+          const headerRowLabels = [
+            'Filme',
+            periodLabel,
+            'Inserções/hora',
+            insertionsHeader,
+            audienceHeader,
+            impactHeader,
+            'Qtd telas',
+            investBrutoHeader,
+            investAgHeader,
+            'Desc (%)',
+            investPerScreenHeader,
+            cpmImpactHeader,
+            negotiatedHeader,
+            'Total Negociado'
+          ];
 
           const makeBold = (row: any) => row.eachCell({ includeEmpty: true }, (cell: any) => { cell.font = { bold: true }; });
           const titleAvRow = ws2.addRow(['Veiculação Avulsa']);
           makeBold(titleAvRow);
-          const headerAvRow = ws2.addRow(['Filme', 'Meses', 'Inserções/hora', 'Inserções/mês', 'Audi/mês', 'Impact/mês', 'Qtd telas', 'Invest Bruto/Mês', 'Invest Ag. Bruto/Mês', 'Desc (%)', 'Invest/tela/mês', 'CPM/Impact/Mês', 'Invest.Negociado Mensal', 'Total Negociado']);
+          const headerAvRow = ws2.addRow([...headerRowLabels]);
           makeBold(headerAvRow);
           const avulsaRowIdxs: number[] = [];
           durations.forEach((sec) => {
             const row = ws2.addRow([
-              `${sec}"`, months, insertionsPerHour, null, audienceMonthly ?? '', null, screensCount, null, null, (Number(data.discount_pct_avulsa ?? data.discount_pct ?? 0) / 100) || 0, null, null, null, null,
+              `${sec}"`, periodValue, insertionsPerHour, null, audiencePerUnit ?? '', null, screensCount, null, null, (Number(data.discount_pct_avulsa ?? data.discount_pct ?? 0) / 100) || 0, null, null, null, null,
             ]);
             avulsaRowIdxs.push(row.number);
             const r = row.number;
-            row.getCell(4).value = { formula: `C${r}*${hoursPerDay}*G${r}*${businessDaysPerMonth}` };
+            const insertionsFormula = isDaysPeriod
+              ? `C${r}*${hoursPerDay}*G${r}`
+              : `C${r}*${hoursPerDay}*G${r}*${businessDaysPerMonth}`;
+            row.getCell(4).value = { formula: insertionsFormula };
             row.getCell(6).value = { formula: `E${r}*C${r}` };
             row.getCell(9).value = { formula: `H${r}` };
             row.getCell(11).value = { formula: `M${r}/G${r}` };
@@ -202,16 +237,19 @@ const NewProposal = () => {
           ws2.addRow([]);
           const titleEspRow = ws2.addRow(['Projeto Especial de Conteúdo']);
           makeBold(titleEspRow);
-          const headerEspRow = ws2.addRow(['Filme', 'Meses', 'Inserções/hora', 'Inserções/mês', 'Audi/mês', 'Impact/mês', 'Qtd telas', 'Invest Bruto/Mês', 'Invest Ag. Bruto/Mês', 'Desc (%)', 'Invest/tela/mês', 'CPM/Impact/Mês', 'Invest.Negociado Mensal', 'Total Negociado']);
+          const headerEspRow = ws2.addRow([...headerRowLabels]);
           makeBold(headerEspRow);
           const especialRowIdxs: number[] = [];
           durations.forEach((sec) => {
             const row = ws2.addRow([
-              `${sec}"`, months, insertionsPerHour, null, audienceMonthly ?? '', null, screensCount, null, null, (Number(data.discount_pct_especial ?? data.discount_pct ?? 0) / 100) || 0, null, null, null, null,
+              `${sec}"`, periodValue, insertionsPerHour, null, audiencePerUnit ?? '', null, screensCount, null, null, (Number(data.discount_pct_especial ?? data.discount_pct ?? 0) / 100) || 0, null, null, null, null,
             ]);
             especialRowIdxs.push(row.number);
             const r = row.number;
-            row.getCell(4).value = { formula: `C${r}*${hoursPerDay}*G${r}*${businessDaysPerMonth}` };
+            const insertionsFormula = isDaysPeriod
+              ? `C${r}*${hoursPerDay}*G${r}`
+              : `C${r}*${hoursPerDay}*G${r}*${businessDaysPerMonth}`;
+            row.getCell(4).value = { formula: insertionsFormula };
             row.getCell(6).value = { formula: `E${r}*C${r}` };
             row.getCell(9).value = { formula: `H${r}` };
             row.getCell(11).value = { formula: `M${r}/G${r}` };

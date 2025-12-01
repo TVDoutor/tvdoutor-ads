@@ -68,8 +68,8 @@ export function getSelectedDurations(seconds: number[], custom?: number): number
 
 /**
  * Calcula o total de inserções de acordo com a unidade do período.
- * Regra (alinhada ao SummaryStep atual):
- * - period_unit = 'days': insertions_per_hour * days_period * screens_count
+ * Regra:
+ * - period_unit = 'days': insertions_per_hour * hours_per_day * days_period * screens_count
  * - period_unit = 'months': insertions_per_hour * hours_per_day * business_days_per_month * months_period * screens_count
  * - fallback: insertions_per_hour * (hours_per_day || 10) * defaultDays(30) * screens_count
  */
@@ -82,7 +82,7 @@ export function computeTotalInsertions(input: PricingInput): number {
   const daysPeriod = input.days_period;
 
   if (periodUnit === 'days' && typeof daysPeriod === 'number' && daysPeriod > 0) {
-    return input.insertions_per_hour * daysPeriod * screens;
+    return input.insertions_per_hour * hoursPerDay * daysPeriod * screens;
   }
 
   if (periodUnit === 'months' && typeof monthsPeriod === 'number' && monthsPeriod > 0) {

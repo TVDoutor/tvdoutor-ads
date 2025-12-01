@@ -18,7 +18,8 @@ import {
   ChevronLeft,
   User,
   LogOut,
-  Target
+  Target,
+  Pill
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -49,6 +50,11 @@ const menuItems = [
     label: "Inventário",
     icon: Monitor,
     href: "/inventory"
+  },
+  {
+    label: "Farmácias",
+    icon: Pill,
+    href: "/farmacias"
   },
   {
     label: "Propostas",

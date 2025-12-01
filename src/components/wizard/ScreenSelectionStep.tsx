@@ -10,6 +10,7 @@ import type { ProposalData } from "../NewProposalWizard";
 import { toast } from "sonner";
 import { CitySelectionModal } from "@/components/ui/city-selection-modal";
 import { AddressRadiusSearch } from "@/components/ui/address-radius-search";
+import { parseCepXls, parseCepText, batchFindScreensByCEPs } from '@/lib/cep-batch';
 import { combineIds } from "@/utils/ids";
 
 interface Screen {
@@ -54,6 +55,12 @@ export const ScreenSelectionStep = ({ data, onUpdate }: ScreenSelectionStepProps
   const [availableSpecialties, setAvailableSpecialties] = useState<{ value: string; label: string; count: number }[]>([]);
   const [radiusSearchResults, setRadiusSearchResults] = useState<any[]>([]);
   const [radiusSearchActive, setRadiusSearchActive] = useState(false);
+  const [cepFile, setCepFile] = useState<File | null>(null);
+  const [cepRadius, setCepRadius] = useState('5');
+  const [cepWeeks, setCepWeeks] = useState('2');
+  const [cepProcessing, setCepProcessing] = useState(false);
+  const [cepSummary, setCepSummary] = useState<{valid: number; invalid: number; venues: number; screens: number} | null>(null);
+  const [cepText, setCepText] = useState('');
 
   useEffect(() => {
     fetchScreens();
@@ -329,6 +336,44 @@ export const ScreenSelectionStep = ({ data, onUpdate }: ScreenSelectionStepProps
     toast.success(`${screens.length} telas encontradas! Clique em "Adicionar Pontos" para incluir na proposta.`);
   };
 
+  const handleCepFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0] || null;
+    setCepFile(f);
+  };
+
+  const processCepBatch = async () => {
+    setCepProcessing(true);
+    try {
+      let parsed: { ceps: string[]; errors: string[] } = { ceps: [], errors: [] };
+      if (cepText && cepText.trim()) parsed = parseCepText(cepText);
+      else if (cepFile) parsed = await parseCepXls(cepFile);
+      else {
+        toast.error('Informe uma lista de CEPs ou selecione um arquivo .xlsx');
+        setCepProcessing(false);
+        return;
+      }
+      if (parsed.errors.length) {
+        toast.warning(`${parsed.errors.length} linha(s) com erro de CEP`);
+      }
+      if (parsed.ceps.length === 0) {
+        toast.error('Nenhum CEP válido encontrado');
+        setCepSummary({ valid: 0, invalid: parsed.errors.length, venues: 0, screens: 0 });
+        return;
+      }
+      const { screens, venues } = await batchFindScreensByCEPs(parsed.ceps, parseInt(cepRadius), cepWeeks);
+      const ids = screens.map(s => parseInt(String(s.id)));
+      setRadiusSearchResults(screens);
+      setRadiusSearchActive(true);
+      setTempSelectedScreens(ids);
+      setCepSummary({ valid: parsed.ceps.length, invalid: parsed.errors.length, venues: venues.length, screens: screens.length });
+      toast.success(`${screens.length} telas encontradas em ${venues.length} venues`);
+    } catch (err: any) {
+      toast.error(err?.message || 'Erro ao processar CEPs');
+    } finally {
+      setCepProcessing(false);
+    }
+  };
+
 
   const handleSelectAllScreens = () => {
     const allScreenIds = filteredScreens.map(screen => screen.id);
@@ -389,7 +434,7 @@ export const ScreenSelectionStep = ({ data, onUpdate }: ScreenSelectionStepProps
     <div className="space-y-6">
       {/* Filtros - Layout em linha para melhor UX */}
       <div className="space-y-4">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           {/* Busca */}
           <div className="space-y-2">
             <label className="text-sm font-medium flex items-center gap-2">
@@ -605,6 +650,40 @@ export const ScreenSelectionStep = ({ data, onUpdate }: ScreenSelectionStepProps
                   </Button>
                 </Badge>
               )}
+            </div>
+          )}
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-sm font-medium flex items-center gap-2">
+            Lista de CEPs
+          </label>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <textarea 
+              className="w-full border rounded-md p-2 h-24"
+              placeholder="Informe CEPs separados por linha ou vírgula"
+              value={cepText}
+              onChange={(e) => setCepText(e.target.value)}
+            />
+            <Input type="file" accept=".xlsx" onChange={handleCepFileChange} />
+            <Select value={cepRadius} onValueChange={setCepRadius}>
+              <SelectTrigger>
+                <SelectValue placeholder="Raio (km)" />
+              </SelectTrigger>
+              <SelectContent>
+                {['1','2','5','10','20','50'].map(v => (
+                  <SelectItem key={v} value={v}>{v} km</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Input placeholder="Semanas" value={cepWeeks} onChange={(e) => setCepWeeks(e.target.value)} />
+          </div>
+          <Button size="sm" onClick={processCepBatch} disabled={cepProcessing} className="w-full">
+            {cepProcessing ? 'Processando...' : 'Processar CEPs'}
+          </Button>
+          {cepSummary && (
+            <div className="text-xs text-muted-foreground">
+              {cepSummary.valid} CEP(s) válidos, {cepSummary.invalid} inválidos • {cepSummary.venues} venues • {cepSummary.screens} telas
             </div>
           )}
         </div>

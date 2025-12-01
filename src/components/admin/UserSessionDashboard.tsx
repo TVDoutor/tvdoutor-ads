@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -124,6 +124,23 @@ export const UserSessionDashboard: React.FC<UserSessionDashboardProps> = ({ clas
     session.full_name?.toLowerCase().includes(searchTerm.toLowerCase())
   ) || [];
 
+  const sessionsToday = useMemo(() => {
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+
+    const activeToday = (onlineStats?.sessions_data || []).filter(session => {
+      const started = new Date(session.started_at);
+      return started >= startOfDay;
+    }).length;
+
+    const historyToday = sessionHistory.filter(session => {
+      const started = new Date(session.started_at);
+      return started >= startOfDay;
+    }).length;
+
+    return activeToday + historyToday;
+  }, [onlineStats, sessionHistory]);
+
   if (!isSuperAdmin) {
     return null;
   }
@@ -214,7 +231,7 @@ export const UserSessionDashboard: React.FC<UserSessionDashboardProps> = ({ clas
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-purple-700">
-              {isLoading ? <Skeleton className="h-9 w-12" /> : 0}
+              {isLoading ? <Skeleton className="h-9 w-12" /> : sessionsToday}
             </div>
             <p className="text-xs text-purple-600 mt-1">Total de sessões iniciadas hoje</p>
           </CardContent>

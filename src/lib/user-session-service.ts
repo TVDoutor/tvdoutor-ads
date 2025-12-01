@@ -204,64 +204,33 @@ class UserSessionService {
    */
   async getOnlineUsersStats(): Promise<OnlineUsersStats | null> {
     try {
-      // Buscar sessões ativas diretamente (evita depender de RPC)
-      const nowISO = new Date().toISOString();
-      const { data: sessions, error } = await supabase
-        .from('user_sessions')
-        .select('user_id, started_at, last_seen_at, ip_address, user_agent, expires_at, is_active')
-        .eq('is_active', true as any)
-        .gt('expires_at', nowISO);
-
+      const { data, error } = await supabase.rpc('get_online_users_stats');
       if (error) {
-        console.error('❌ Erro ao consultar user_sessions:', error);
-        // Fallback: Edge Function com Service Role
-        const { data: efData, error: efError } = await supabase.functions.invoke('user-sessions', {
-          body: { action: 'online' }
-        });
-        if (efError) {
-          console.error('❌ Fallback edge function (online) falhou:', efError);
-          return { total_online: 0, sessions_data: [] };
-        }
-        return efData as OnlineUsersStats;
+        console.error('❌ Erro ao executar get_online_users_stats:', error);
+        return { total_online: 0, sessions_data: [] };
       }
 
-      const rows = sessions || [];
-      if (rows.length === 0) return { total_online: 0, sessions_data: [] };
+      const payload = Array.isArray(data) ? data[0] : data;
+      if (!payload) return { total_online: 0, sessions_data: [] };
 
-      // Enriquecer com perfis para email/nome
-      const uniqueUserIds = Array.from(new Set(rows.map(r => r.user_id).filter(Boolean)));
-      let profilesMap = new Map<string, { email: string; full_name: string }>();
-      if (uniqueUserIds.length > 0) {
-        const { data: profiles, error: pErr } = await supabase
-          .from('profiles')
-          .select('id, email, full_name')
-          .in('id', uniqueUserIds);
-        if (!pErr) {
-          for (const p of profiles || []) {
-            profilesMap.set(p.id, { email: p.email, full_name: p.full_name });
-          }
-        } else {
-          console.warn('⚠️ Erro ao enriquecer perfis em getOnlineUsersStats:', pErr);
-        }
-      }
+      const sessionsRaw = Array.isArray(payload.sessions_data) ? payload.sessions_data : [];
+      const sessions_data: UserSession[] = sessionsRaw.map((session: any) => ({
+        user_id: session.user_id,
+        email: session.email ?? '',
+        full_name: session.full_name ?? '',
+        started_at: session.started_at ?? session.last_seen_at ?? new Date().toISOString(),
+        last_seen_at: session.last_seen_at ?? session.started_at ?? new Date().toISOString(),
+        duration_minutes: typeof session.duration_minutes === 'number'
+          ? Math.max(0, Math.round(session.duration_minutes))
+          : 0,
+        ip_address: session.ip_address ?? undefined,
+        user_agent: session.user_agent ?? undefined
+      }));
 
-      const sessions_data: UserSession[] = rows.map((r: any) => {
-        const profile = profilesMap.get(r.user_id) || { email: '', full_name: '' };
-        const started = r.started_at || r.last_seen_at || new Date().toISOString();
-        const durationMinutes = Math.max(0, Math.floor((Date.now() - new Date(started).getTime()) / 60000));
-        return {
-          user_id: r.user_id,
-          email: profile.email,
-          full_name: profile.full_name,
-          started_at: started,
-          last_seen_at: r.last_seen_at || started,
-          duration_minutes: durationMinutes,
-          ip_address: r.ip_address,
-          user_agent: r.user_agent,
-        };
-      });
-
-      return { total_online: sessions_data.length, sessions_data };
+      return {
+        total_online: payload.total_online ?? sessions_data.length,
+        sessions_data
+      };
     } catch (error) {
       console.error('💥 Erro ao obter estatísticas de usuários online:', error);
       return null;

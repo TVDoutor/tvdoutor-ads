@@ -69,6 +69,8 @@ interface ProposalDetails {
     nome_projeto: string;
     descricao?: string;
     cliente_final?: string;
+    orcamento_projeto?: number;
+    responsavel_nome?: string;
   };
   proposal_screens?: Array<{
     id: number;
@@ -254,6 +256,8 @@ const ProposalDetails = () => {
         .from('proposals')
         .select(`
           *,
+          projeto_id,
+          agencia_id,
           agencias (
             id,
             nome_agencia,
@@ -266,6 +270,7 @@ const ProposalDetails = () => {
             custom_cpm,
             screens (
               id,
+              code,
               name,
               display_name,
               category,
@@ -288,12 +293,17 @@ const ProposalDetails = () => {
       if (!data) throw new Error('Proposta não encontrada');
 
       // DEBUG: Log para verificar projeto_id
+      console.log('🔍 [ProposalDetails] Dados completos da proposta:', data);
       console.log('🔍 [ProposalDetails] projeto_id:', data.projeto_id);
       console.log('🔍 [ProposalDetails] agencia_id:', data.agencia_id);
+      console.log('🔍 [ProposalDetails] Tipo de projeto_id:', typeof data.projeto_id);
       
       let projectData = null;
       if (data.projeto_id) {
-        console.log('🔍 [ProposalDetails] Buscando projeto:', data.projeto_id);
+        console.log('🔍 [ProposalDetails] Buscando projeto com ID:', data.projeto_id);
+        console.log('🔍 [ProposalDetails] Tipo do projeto_id:', typeof data.projeto_id);
+        
+        // Tentar buscar o projeto
         const { data: project, error: projectError } = await supabase
           .from('agencia_projetos')
           .select(`
@@ -302,21 +312,56 @@ const ProposalDetails = () => {
             descricao, 
             cliente_final,
             orcamento_projeto,
-            responsavel_nome
+            responsavel_projeto
           `)
           .eq('id', data.projeto_id)
           .single();
         
         if (projectError) {
           console.error('❌ [ProposalDetails] Erro ao buscar projeto:', projectError);
+          console.error('❌ [ProposalDetails] Detalhes do erro:', {
+            message: projectError.message,
+            code: projectError.code,
+            details: projectError.details,
+            hint: projectError.hint
+          });
         }
         
         if (!projectError && project) {
           console.log('✅ [ProposalDetails] Projeto encontrado:', project);
-          projectData = project;
+          
+          // Buscar o nome do responsável separadamente se houver responsavel_projeto
+          let responsavelNome = null;
+          if (project.responsavel_projeto) {
+            const { data: responsavel, error: responsavelError } = await supabase
+              .from('pessoas_projeto')
+              .select('nome')
+              .eq('id', project.responsavel_projeto)
+              .single();
+            
+            if (!responsavelError && responsavel) {
+              responsavelNome = responsavel.nome;
+              console.log('✅ [ProposalDetails] Responsável encontrado:', responsavelNome);
+            } else if (responsavelError) {
+              console.warn('⚠️ [ProposalDetails] Erro ao buscar responsável:', responsavelError);
+            }
+          }
+          
+          // Normalizar os dados do projeto para incluir responsavel_nome
+          projectData = {
+            ...project,
+            responsavel_nome: responsavelNome
+          };
+        } else if (!projectError && !project) {
+          console.warn('⚠️ [ProposalDetails] Projeto não encontrado para ID:', data.projeto_id);
         }
       } else {
         console.warn('⚠️ [ProposalDetails] Nenhum projeto_id definido na proposta');
+        console.warn('⚠️ [ProposalDetails] Dados da proposta:', {
+          id: data.id,
+          customer_name: data.customer_name,
+          projeto_id: data.projeto_id
+        });
       }
 
       const proposalWithProject = {
@@ -384,18 +429,38 @@ const ProposalDetails = () => {
 
     try {
       // Preparar dados das telas
-      const rows = (proposal.proposal_screens || []).map((ps) => ({
-        id: ps.screens?.id,
-        code: ps.screens?.code ?? '',
-        name: ps.screens?.name ?? ps.screens?.display_name ?? '',
-        class: ps.screens?.class ?? '',
-        type: (ps.screens as any)?.category ?? (ps.screens as any)?.screen_type ?? '',
-        address: (ps.screens as any)?.google_formatted_address ?? (ps.screens as any)?.formatted_address ?? '',
-        city: ps.screens?.city ?? '',
-        state: ps.screens?.state ?? '',
-        venue_id: ps.screens?.venue_id ?? '',
-        venue_name: ps.screens?.venues?.name ?? '',
-      }));
+      const rows = (proposal.proposal_screens || []).map((ps) => {
+        const screen = ps.screens;
+        // Garantir que o código seja uma string válida
+        const code = String(screen?.code || '').trim();
+        
+        // Log para depuração
+        if (!code) {
+          console.warn('⚠️ [Excel] Tela sem código:', {
+            screen_id: screen?.id,
+            name: screen?.name,
+            display_name: screen?.display_name,
+            screen_data: screen
+          });
+        }
+        
+        return {
+          id: screen?.id || null,
+          code: code || '',
+          name: screen?.name ?? screen?.display_name ?? '',
+          class: screen?.class ?? '',
+          type: (screen as any)?.category ?? (screen as any)?.screen_type ?? '',
+          address: (screen as any)?.google_formatted_address ?? (screen as any)?.formatted_address ?? '',
+          city: screen?.city ?? '',
+          state: screen?.state ?? '',
+          venue_id: screen?.venue_id ?? null,
+          venue_name: screen?.venues?.name ?? '',
+        };
+      });
+      
+      console.log('📊 [Excel] Total de linhas preparadas:', rows.length);
+      console.log('📊 [Excel] Primeiras 3 linhas:', rows.slice(0, 3));
+      console.log('📊 [Excel] Códigos das primeiras 3 linhas:', rows.slice(0, 3).map(r => r.code));
 
       const wb = new ExcelJS.Workbook();
       

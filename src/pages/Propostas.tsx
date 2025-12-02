@@ -1,11 +1,10 @@
 // @ts-nocheck
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
   SelectContent,
@@ -124,6 +123,7 @@ const Propostas = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [typeFilter, setTypeFilter] = useState<string>("all");
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [stats, setStats] = useState<ProposalStats>({
     total: 0,
     rascunho: 0,
@@ -133,14 +133,17 @@ const Propostas = () => {
     rejeitada: 0
   });
 
-  useEffect(() => {
-    console.log('🔄 useEffect executado - user mudou:', user);
-    fetchProposals();
-  }, [user]);
-
-  useEffect(() => {
-    applyFilters();
-  }, [proposals, searchTerm, statusFilter, typeFilter]);
+  const calculateStats = (proposalsList: Proposal[]) => {
+    const newStats = {
+      total: proposalsList.length,
+      rascunho: proposalsList.filter(p => p.status === 'rascunho').length,
+      enviada: proposalsList.filter(p => p.status === 'enviada').length,
+      em_analise: proposalsList.filter(p => p.status === 'em_analise').length,
+      aceita: proposalsList.filter(p => p.status === 'aceita').length,
+      rejeitada: proposalsList.filter(p => p.status === 'rejeitada').length,
+    };
+    setStats(newStats);
+  };
 
   const fetchProposals = async () => {
     try {
@@ -227,19 +230,7 @@ const Propostas = () => {
     }
   };
 
-  const calculateStats = (proposalsList: Proposal[]) => {
-    const newStats = {
-      total: proposalsList.length,
-      rascunho: proposalsList.filter(p => p.status === 'rascunho').length,
-      enviada: proposalsList.filter(p => p.status === 'enviada').length,
-      em_analise: proposalsList.filter(p => p.status === 'em_analise').length,
-      aceita: proposalsList.filter(p => p.status === 'aceita').length,
-      rejeitada: proposalsList.filter(p => p.status === 'rejeitada').length,
-    };
-    setStats(newStats);
-  };
-
-  const applyFilters = () => {
+  const applyFilters = useCallback(() => {
     let filtered = [...proposals];
 
     // Filtro por texto
@@ -261,8 +252,31 @@ const Propostas = () => {
       filtered = filtered.filter(proposal => proposal.proposal_type === typeFilter);
     }
 
+    console.log('✅ Filtros aplicados:', {
+      total: proposals.length,
+      filtradas: filtered.length,
+      statusFilter,
+      typeFilter,
+      searchTerm
+    });
+
     setFilteredProposals(filtered);
-  };
+  }, [proposals, searchTerm, statusFilter, typeFilter]);
+
+  useEffect(() => {
+    console.log('🔄 useEffect executado - user mudou:', user);
+    fetchProposals();
+  }, [user]);
+
+  useEffect(() => {
+    console.log('🔄 Aplicando filtros:', { 
+      proposalsCount: proposals.length, 
+      searchTerm, 
+      statusFilter, 
+      typeFilter
+    });
+    applyFilters();
+  }, [applyFilters]);
 
   const handleView = (id: number) => {
     navigate(`/propostas/${id}`);
@@ -374,10 +388,14 @@ const Propostas = () => {
 
         <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-8 pb-12 space-y-8">
           {/* Stats Cards com Efeito Glassmorphism */}
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 relative z-10 mb-4" style={{ isolation: 'isolate' }}>
             <Card 
-              className="group border-0 shadow-xl hover:shadow-2xl transition-all duration-500 hover:-translate-y-2 cursor-pointer bg-gradient-to-br from-[#f48220] to-[#e67516] overflow-hidden"
-              onClick={() => setStatusFilter("all")}
+              className="group border-0 shadow-xl hover:shadow-2xl transition-all duration-500 hover:-translate-y-2 cursor-pointer bg-gradient-to-br from-[#f48220] to-[#e67516] overflow-hidden relative"
+              onClick={(e) => {
+                e.stopPropagation();
+                console.log('🖱️ Card Total clicado');
+                setStatusFilter("all");
+              }}
             >
               <div className="absolute inset-0 bg-gradient-to-br from-[#ff9d4d]/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
               <CardContent className="p-4 relative z-10">
@@ -394,8 +412,12 @@ const Propostas = () => {
             </Card>
             
             <Card 
-              className="group border-0 shadow-xl hover:shadow-2xl transition-all duration-500 hover:-translate-y-2 cursor-pointer bg-gradient-to-br from-slate-500 to-slate-600 overflow-hidden"
-              onClick={() => setStatusFilter('rascunho')}
+              className="group border-0 shadow-xl hover:shadow-2xl transition-all duration-500 hover:-translate-y-2 cursor-pointer bg-gradient-to-br from-slate-500 to-slate-600 overflow-hidden relative"
+              onClick={(e) => {
+                e.stopPropagation();
+                console.log('🖱️ Card Rascunho clicado');
+                setStatusFilter('rascunho');
+              }}
             >
               <div className="absolute inset-0 bg-gradient-to-br from-slate-400/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
               <CardContent className="p-4 relative z-10">
@@ -412,8 +434,12 @@ const Propostas = () => {
             </Card>
             
             <Card 
-              className="group border-0 shadow-xl hover:shadow-2xl transition-all duration-500 hover:-translate-y-2 cursor-pointer bg-gradient-to-br from-[#ff9d4d] to-[#ffb87a] overflow-hidden"
-              onClick={() => setStatusFilter('enviada')}
+              className="group border-0 shadow-xl hover:shadow-2xl transition-all duration-500 hover:-translate-y-2 cursor-pointer bg-gradient-to-br from-[#ff9d4d] to-[#ffb87a] overflow-hidden relative"
+              onClick={(e) => {
+                e.stopPropagation();
+                console.log('🖱️ Card Enviadas clicado');
+                setStatusFilter('enviada');
+              }}
             >
               <div className="absolute inset-0 bg-gradient-to-br from-[#ffc499]/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
               <CardContent className="p-4 relative z-10">
@@ -430,8 +456,12 @@ const Propostas = () => {
             </Card>
             
             <Card 
-              className="group border-0 shadow-xl hover:shadow-2xl transition-all duration-500 hover:-translate-y-2 cursor-pointer bg-gradient-to-br from-[#d66912] to-[#b85a0f] overflow-hidden"
-              onClick={() => setStatusFilter('em_analise')}
+              className="group border-0 shadow-xl hover:shadow-2xl transition-all duration-500 hover:-translate-y-2 cursor-pointer bg-gradient-to-br from-[#d66912] to-[#b85a0f] overflow-hidden relative"
+              onClick={(e) => {
+                e.stopPropagation();
+                console.log('🖱️ Card Análise clicado');
+                setStatusFilter('em_analise');
+              }}
             >
               <div className="absolute inset-0 bg-gradient-to-br from-[#e67516]/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
               <CardContent className="p-4 relative z-10">
@@ -448,8 +478,12 @@ const Propostas = () => {
             </Card>
             
             <Card 
-              className="group border-0 shadow-xl hover:shadow-2xl transition-all duration-500 hover:-translate-y-2 cursor-pointer bg-gradient-to-br from-[#ffb87a] to-[#ffc499] overflow-hidden"
-              onClick={() => setStatusFilter('aceita')}
+              className="group border-0 shadow-xl hover:shadow-2xl transition-all duration-500 hover:-translate-y-2 cursor-pointer bg-gradient-to-br from-[#ffb87a] to-[#ffc499] overflow-hidden relative"
+              onClick={(e) => {
+                e.stopPropagation();
+                console.log('🖱️ Card Aceitas clicado');
+                setStatusFilter('aceita');
+              }}
             >
               <div className="absolute inset-0 bg-gradient-to-br from-[#ffd4b8]/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
               <CardContent className="p-4 relative z-10">
@@ -466,8 +500,12 @@ const Propostas = () => {
             </Card>
             
             <Card 
-              className="group border-0 shadow-xl hover:shadow-2xl transition-all duration-500 hover:-translate-y-2 cursor-pointer bg-gradient-to-br from-red-500 to-red-600 overflow-hidden"
-              onClick={() => setStatusFilter('rejeitada')}
+              className="group border-0 shadow-xl hover:shadow-2xl transition-all duration-500 hover:-translate-y-2 cursor-pointer bg-gradient-to-br from-red-500 to-red-600 overflow-hidden relative"
+              onClick={(e) => {
+                e.stopPropagation();
+                console.log('🖱️ Card Rejeitadas clicado');
+                setStatusFilter('rejeitada');
+              }}
             >
               <div className="absolute inset-0 bg-gradient-to-br from-red-400/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
               <CardContent className="p-4 relative z-10">
@@ -485,7 +523,7 @@ const Propostas = () => {
           </div>
 
           {/* Filters Card com Design Moderno */}
-          <Card className="border-0 shadow-xl bg-white/80 backdrop-blur-sm">
+          <Card className="border-0 shadow-xl bg-white/80 backdrop-blur-sm relative z-20">
             <CardHeader className="pb-4">
               <CardTitle className="flex items-center gap-2 text-xl">
                 <div className="p-2 bg-[#f48220]/10 rounded-lg">
@@ -564,19 +602,52 @@ const Propostas = () => {
           </Card>
 
           {/* Proposals Content */}
-          <Tabs defaultValue="grid" className="space-y-6">
-            <TabsList className="grid w-full max-w-[400px] grid-cols-2 h-12 bg-white border-2 border-slate-200 shadow-lg">
-              <TabsTrigger value="grid" className="gap-2 data-[state=active]:bg-[#f48220] data-[state=active]:text-white transition-all">
-                <Grid3x3 className="h-4 w-4" />
-                Grade
-              </TabsTrigger>
-              <TabsTrigger value="list" className="gap-2 data-[state=active]:bg-[#f48220] data-[state=active]:text-white transition-all">
-                <List className="h-4 w-4" />
-                Lista
-              </TabsTrigger>
-            </TabsList>
+          <div className="space-y-6 relative" style={{ isolation: 'isolate' }}>
+            <div className="flex items-center gap-2 relative z-50" style={{ pointerEvents: 'auto' }}>
+              <div className="grid w-full max-w-[400px] grid-cols-2 h-12 bg-white border-2 border-slate-200 shadow-lg rounded-md p-1 relative z-50">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log('🖱️ Botão Grade clicado - statusFilter atual:', statusFilter);
+                    setViewMode('grid');
+                    console.log('✅ ViewMode alterado para: grid');
+                  }}
+                  className={`flex items-center justify-center gap-2 rounded-md transition-all relative z-50 ${
+                    viewMode === 'grid'
+                      ? 'bg-[#f48220] text-white shadow-sm'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                  style={{ pointerEvents: 'auto' }}
+                >
+                  <Grid3x3 className="h-4 w-4" />
+                  Grade
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log('🖱️ Botão Lista clicado - statusFilter atual:', statusFilter);
+                    setViewMode('list');
+                    console.log('✅ ViewMode alterado para: list');
+                  }}
+                  className={`flex items-center justify-center gap-2 rounded-md transition-all relative z-50 ${
+                    viewMode === 'list'
+                      ? 'bg-[#f48220] text-white shadow-sm'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                  style={{ pointerEvents: 'auto' }}
+                >
+                  <List className="h-4 w-4" />
+                  Lista
+                </button>
+              </div>
+            </div>
 
-            <TabsContent value="grid">
+            {viewMode === 'grid' && (
+              <div>
               {filteredProposals.length === 0 ? (
                 <Card className="border-2 border-dashed border-slate-300 bg-white/50 backdrop-blur-sm">
                   <CardContent className="p-12 text-center">
@@ -616,9 +687,10 @@ const Propostas = () => {
                   ))}
                 </div>
               )}
-            </TabsContent>
+              </div>
+            )}
 
-            <TabsContent value="list">
+            {viewMode === 'list' && (
               <div className="space-y-4">
                 {filteredProposals.length === 0 ? (
                   <Card className="border-2 border-dashed border-slate-300 bg-white/50 backdrop-blur-sm">
@@ -655,8 +727,8 @@ const Propostas = () => {
                   ))
                 )}
               </div>
-            </TabsContent>
-          </Tabs>
+            )}
+          </div>
         </div>
       </div>
     </DashboardLayout>
@@ -796,7 +868,7 @@ const Propostas = () => {
     const StatusIcon = getStatusIcon(proposal.status);
     
     return (
-      <Card className="group border-0 shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 bg-white overflow-hidden">
+      <Card className="group w-full border-0 shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 bg-white overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-r from-[#f48220]/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
         <CardContent className="p-5 relative z-10">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">

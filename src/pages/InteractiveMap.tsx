@@ -7,9 +7,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { MapPin, Search, Zap, ZapOff, AlertCircle, RefreshCw, MousePointer, Navigation, Loader2, Target, Layers, Flame } from 'lucide-react';
+import { MapPin, Search, Zap, ZapOff, AlertCircle, RefreshCw, MousePointer, Navigation, Loader2, Target, Layers, Flame, FileSpreadsheet, Download } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import ExcelJS from 'exceljs';
 import { geocodeAddress } from '@/lib/geocoding';
 import { searchScreensNearLocation, ScreenSearchResult } from '@/lib/search-service';
 import marcadorLocalizacao from '@/assets/marcador-de-localizacao.png';
@@ -222,13 +223,17 @@ export default function InteractiveMap() {
       }
 
       mapInstance.current = map;
-        setMapError(null);
+      setMapError(null);
       console.log('✅ Mapa inicializado');
 
-      setTimeout(() => {
-        map.invalidateSize(true);
-        updateMarkers(L);
-      }, 500);
+      // Aguardar o mapa estar totalmente pronto antes de adicionar marcadores
+      map.whenReady(() => {
+        console.log('✅ Mapa pronto para adicionar marcadores');
+        setTimeout(() => {
+          map.invalidateSize(true);
+          updateMarkers(L);
+        }, 300);
+      });
 
     } catch (error) {
       console.error('💥 Erro ao inicializar mapa:', error);
@@ -306,126 +311,155 @@ export default function InteractiveMap() {
       setAddressSearchResults(searchResults);
 
       // Centralizar mapa na localização (sem toast para auto-search)
-      if (mapInstance.current) {
-        mapInstance.current.setView([geocodeResult.lat, geocodeResult.lng], 12);
-        
-        // Adicionar marcador do centro da busca
-        const L = await import('leaflet');
+      if (!mapInstance.current) {
+        console.warn('⚠️ Mapa não está inicializado');
+        return;
+      }
+      
+      const map = mapInstance.current;
+      
+      // Verificar se o mapa está pronto antes de operar
+      if (!isMapReady(map)) {
+        // Aguardar o mapa estar pronto
+        map.whenReady(() => {
+          try {
+            if (isMapReady(map)) {
+              map.setView([geocodeResult.lat, geocodeResult.lng], 12);
+              addSearchCenterMarker(map, geocodeResult, addressSearch, radiusKm);
+            }
+          } catch (error) {
+            console.error('❌ Erro ao centralizar mapa após whenReady:', error);
+          }
+        });
+        return;
+      }
+      
+      try {
+        map.setView([geocodeResult.lat, geocodeResult.lng], 12);
         
         // Remove previous search center markers
-        mapInstance.current.eachLayer((layer: any) => {
+        map.eachLayer((layer: any) => {
           if (layer.options && layer.options.isSearchCenter) {
-            mapInstance.current.removeLayer(layer);
+            map.removeLayer(layer);
           }
         });
         
-        const marker = L.marker([geocodeResult.lat, geocodeResult.lng], {
-          icon: L.icon({
-            iconUrl: marcadorLocalizacao,
-            iconSize: [32, 32],
-            iconAnchor: [16, 32],
-            popupAnchor: [0, -32]
-          }),
-          ...(({ isSearchCenter: true } as any))
-        }).addTo(mapInstance.current);
-        
-        marker.bindPopup(`
-          <div style="padding: 8px; text-align: center;">
-            <h4 style="margin: 0 0 4px 0; font-weight: bold; color: #ef4444;">📍 Auto-busca</h4>
-            <p style="margin: 0; font-size: 12px;">${sanitize(geocodeResult.google_formatted_address || searchValue)}</p>
-            <p style="margin: 2px 0; font-size: 11px; color: #666;">Raio: ${sanitize(radiusKm)}km • ${sanitize(searchResults.length)} telas</p>
-          </div>
-        `);
+        await addSearchCenterMarker(map, geocodeResult, searchValue, radiusKm);
         
         // CRITICAL: Update markers to show search results on map (use LP logic)
         console.log('🎯 Atualizando marcadores no mapa após auto-busca por endereço (lógica da LP)');
         
         // CLEAR PREVIOUS SEARCH DATA - Remove old search markers and circles
-        mapInstance.current.eachLayer((layer: any) => {
-          if (layer.options && (layer.options.isSearchResult || layer.options.isRadiusCircle)) {
-            mapInstance.current.removeLayer(layer);
+        if (isMapReady(map)) {
+          const L = await import('leaflet');
+          
+          map.eachLayer((layer: any) => {
+            if (layer.options && (layer.options.isSearchResult || layer.options.isRadiusCircle)) {
+              map.removeLayer(layer);
+            }
+          });
+          
+          // Add radius circle like LP
+          try {
+            const radiusCircle = L.circle([geocodeResult.lat, geocodeResult.lng], {
+              color: '#3b82f6',
+              fillColor: '#3b82f6', 
+              fillOpacity: 0.1,
+              radius: parseInt(radiusKm) * 1000, // Convert km to meters
+              isRadiusCircle: true // Flag to identify radius circles
+            });
+            radiusCircle.addTo(map);
+          } catch (circleError) {
+            console.error('❌ Erro ao adicionar círculo de raio:', circleError);
           }
-        });
-        
-        // Add radius circle like LP
-        L.circle([geocodeResult.lat, geocodeResult.lng], {
-          color: '#3b82f6',
-          fillColor: '#3b82f6', 
-          fillOpacity: 0.1,
-          radius: parseInt(radiusKm) * 1000, // Convert km to meters
-          ...(({ isRadiusCircle: true } as any)) // Flag to identify radius circles
-        }).addTo(mapInstance.current);
-        
-        // Add screen markers from search results (LP style)
-        searchResults.forEach((screen) => {
-          if (screen.lat && screen.lng) {
-            const screenMarker = L.marker([screen.lat, screen.lng], {
-              icon: L.divIcon({
-                className: 'search-result-marker',
-                html: `<div style="width: 28px; height: 28px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 6px rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; background: #06b6d4;">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="white">
-                    <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
-                  </svg>
-                </div>`,
-                iconSize: [28, 28],
-                iconAnchor: [14, 14]
-              }),
-              ...(({ isSearchResult: true } as any)) // Flag to identify search result markers
-            }).addTo(mapInstance.current);
-            
-            screenMarker.bindPopup(`
-              <div style="padding: 12px; min-width: 280px; max-width: 320px;">
-                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
-                  <div style="width: 32px; height: 32px; border-radius: 50%; background: #06b6d4; display: flex; align-items: center; justify-content: center;">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="white">
-                      <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
-                    </svg>
-                  </div>
-                  <div>
-                    <h4 style="font-weight: 600; color: #111827; font-size: 16px; margin: 0;">${sanitize(screen.name || screen.code)}</h4>
-                    <p style="font-size: 12px; color: #0891b2; margin: 0;">Código: ${sanitize(screen.code)}</p>
-                  </div>
-                </div>
+          
+          // Add screen markers from search results (LP style)
+          searchResults.forEach((screen) => {
+            if (screen.lat && screen.lng && isMapReady(map)) {
+              try {
+                const screenMarker = L.marker([screen.lat, screen.lng], {
+                  icon: L.divIcon({
+                    className: 'search-result-marker',
+                    html: `<div style="width: 28px; height: 28px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 6px rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; background: #06b6d4;">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="white">
+                        <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+                      </svg>
+                    </div>`,
+                    iconSize: [28, 28],
+                    iconAnchor: [14, 14]
+                  }),
+                  isSearchResult: true // Flag to identify search result markers
+                });
                 
-                <div style="background: #f9fafb; border-radius: 6px; padding: 10px; margin-bottom: 8px;">
-                  <h5 style="font-weight: 600; color: #374151; margin: 0 0 6px 0; font-size: 12px;">📍 Localização</h5>
-                  <div style="font-size: 11px; color: #374151;">
-                    <div><strong>Cidade:</strong> ${sanitize(screen.city)}, ${sanitize(screen.state)}</div>
-                    <div><strong>Distância:</strong> ${sanitize(screen.distance)}km do centro</div>
-                  </div>
-                </div>
-                
-                <div style="background: #f9fafb; border-radius: 6px; padding: 10px; margin-bottom: 8px;">
-                  <h5 style="font-weight: 600; color: #374151; margin: 0 0 8px 0; font-size: 12px; display: flex; align-items: center; gap: 4px;">
-                    <span>📊</span> Performance
-                  </h5>
-                  <div style="font-size: 11px; color: #374151; display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
-                    <div style="background: #e0f2fe; padding: 6px; border-radius: 4px;">
-                      <div style="font-weight: 600; color: #0369a1;">Alcance</div>
-                      <div style="color: #0c4a6e;">${sanitize(screen.reach ? screen.reach.toLocaleString() : 'N/A')} pessoas/semana</div>
+                try {
+                  screenMarker.addTo(map);
+                  
+                  screenMarker.bindPopup(`
+                    <div style="padding: 12px; min-width: 280px; max-width: 320px;">
+                      <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+                        <div style="width: 32px; height: 32px; border-radius: 50%; background: #06b6d4; display: flex; align-items: center; justify-content: center;">
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="white">
+                            <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+                          </svg>
+                        </div>
+                        <div>
+                          ${screen.name ? '<h4 style="font-weight: 700; color: #111827; font-size: 16px; margin: 0 0 4px 0;">' + sanitize(screen.name) + '</h4>' : ''}
+                          ${screen.code ? '<p style="font-size: 12px; color: #0891b2; margin: 0;">Código: ' + sanitize(screen.code) + '</p>' : '<p style="font-size: 12px; color: #6b7280; margin: 0;">Sem código</p>'}
+                        </div>
+                      </div>
+                      
+                      <div style="background: #f9fafb; border-radius: 6px; padding: 10px; margin-bottom: 8px;">
+                        <h5 style="font-weight: 600; color: #374151; margin: 0 0 6px 0; font-size: 12px;">📍 Localização</h5>
+                        <div style="font-size: 11px; color: #374151;">
+                          <div><strong>Cidade:</strong> ${sanitize(screen.city)}, ${sanitize(screen.state)}</div>
+                          <div><strong>Distância:</strong> ${sanitize(screen.distance)}km do centro</div>
+                        </div>
+                      </div>
+                      
+                      <div style="background: #f9fafb; border-radius: 6px; padding: 10px; margin-bottom: 8px;">
+                        <h5 style="font-weight: 600; color: #374151; margin: 0 0 8px 0; font-size: 12px; display: flex; align-items: center; gap: 4px;">
+                          <span>📊</span> Performance
+                        </h5>
+                        <div style="font-size: 11px; color: #374151; display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
+                          <div style="background: #e0f2fe; padding: 6px; border-radius: 4px;">
+                            <div style="font-weight: 600; color: #0369a1;">Alcance</div>
+                            <div style="color: #0c4a6e;">${sanitize(screen.reach ? screen.reach.toLocaleString() : 'N/A')} pessoas/semana</div>
+                          </div>
+                          <div style="background: #f0fdf4; padding: 6px; border-radius: 4px;">
+                            <div style="font-weight: 600; color: #166534;">Investimento</div>
+                            <div style="color: #14532d;">R$ ${sanitize(screen.price ? screen.price.toFixed(2) : 'N/A')}/semana</div>
+                          </div>
+                          <div style="background: #fef3c7; padding: 6px; border-radius: 4px;">
+                            <div style="font-weight: 600; color: #92400e;">CPM</div>
+                            <div style="color: #78350f;">R$ ${sanitize(screen.reach && screen.price ? (screen.price / (screen.reach / 1000)).toFixed(2) : 'N/A')}</div>
+                          </div>
+                          <div style="background: #f3e8ff; padding: 6px; border-radius: 4px;">
+                            <div style="font-weight: 600; color: #7c3aed;">Classe</div>
+                            <div style="color: #5b21b6;">${sanitize(screen.class || 'N/A')}</div>
+                          </div>
+                        </div>
+                      </div>
+                      
                     </div>
-                    <div style="background: #f0fdf4; padding: 6px; border-radius: 4px;">
-                      <div style="font-weight: 600; color: #166534;">Investimento</div>
-                      <div style="color: #14532d;">R$ ${sanitize(screen.price ? screen.price.toFixed(2) : 'N/A')}/semana</div>
-                    </div>
-                    <div style="background: #fef3c7; padding: 6px; border-radius: 4px;">
-                      <div style="font-weight: 600; color: #92400e;">CPM</div>
-                      <div style="color: #78350f;">R$ ${sanitize(screen.reach && screen.price ? (screen.price / (screen.reach / 1000)).toFixed(2) : 'N/A')}</div>
-                    </div>
-                    <div style="background: #f3e8ff; padding: 6px; border-radius: 4px;">
-                      <div style="font-weight: 600; color: #7c3aed;">Classe</div>
-                      <div style="color: #5b21b6;">${sanitize(screen.class || 'N/A')}</div>
-                    </div>
-                  </div>
-                </div>
-                
-              </div>
-            `);
-          }
-        });
-        
-        // Small delay to ensure all markers are added before updating existing ones
-        setTimeout(() => updateMarkers(L), 200);
+                  `);
+                } catch (markerError) {
+                  console.error('❌ Erro ao adicionar marcador de tela:', screen.code, markerError);
+                }
+              } catch (createError) {
+                console.error('❌ Erro ao criar marcador de tela:', screen.code, createError);
+              }
+            }
+          });
+          
+          // Small delay to ensure all markers are added before updating existing ones
+          setTimeout(() => {
+            if (mapInstance.current && isMapReady(mapInstance.current)) {
+              updateMarkers(L);
+            }
+          }, 200);
+        }
+      } catch (error) {
+        console.error('❌ Erro ao centralizar mapa:', error);
       }
       
     } catch (error) {
@@ -487,6 +521,42 @@ export default function InteractiveMap() {
   }, [pharmacies, phFilters, phSearch, centerCoordinates, radiusKm, layerMode]);
 
   // Search by address and radius using LP logic
+  // Função helper para adicionar marcador do centro da busca
+  const addSearchCenterMarker = async (map: any, geocodeResult: any, addressSearch: string, radiusKm: string) => {
+    try {
+      if (!isMapReady(map)) {
+        console.warn('⚠️ Mapa não está pronto para adicionar marcador do centro');
+        return;
+      }
+      
+      const L = await import('leaflet');
+      const marker = L.marker([geocodeResult.lat, geocodeResult.lng], {
+        icon: L.icon({
+          iconUrl: marcadorLocalizacao,
+          iconSize: [32, 32],
+          iconAnchor: [16, 32],
+          popupAnchor: [0, -32]
+        }),
+        ...(({ isSearchCenter: true } as any))
+      });
+      
+      try {
+        marker.addTo(map);
+        marker.bindPopup(`
+          <div style="padding: 8px; text-align: center;">
+            <h4 style="margin: 0 0 4px 0; font-weight: bold; color: #ef4444;">📍 Centro da Busca</h4>
+            <p style="margin: 0; font-size: 12px;">${geocodeResult.google_formatted_address || addressSearch}</p>
+            <p style="margin: 2px 0; font-size: 11px; color: #666;">Raio: ${radiusKm} km</p>
+          </div>
+        `).openPopup();
+      } catch (addError) {
+        console.error('❌ Erro ao adicionar marcador do centro:', addError);
+      }
+    } catch (error) {
+      console.error('❌ Erro ao criar marcador do centro:', error);
+    }
+  };
+
   const searchByAddressAndRadius = async () => {
     if (!addressSearch.trim()) {
       toast.error('Digite um endereço para buscar');
@@ -521,119 +591,148 @@ export default function InteractiveMap() {
       setCenterCoordinates({ lat: geocodeResult.lat, lng: geocodeResult.lng });
       setAddressSearchResults(searchResults);
       
-      // Centralizar mapa na localização
-      if (mapInstance.current) {
-        mapInstance.current.setView([geocodeResult.lat, geocodeResult.lng], 12);
-        
-        // Adicionar marcador do centro da busca
-        const L = await import('leaflet');
-        const marker = L.marker([geocodeResult.lat, geocodeResult.lng], {
-          icon: L.icon({
-            iconUrl: marcadorLocalizacao,
-            iconSize: [32, 32],
-            iconAnchor: [16, 32],
-            popupAnchor: [0, -32]
-          }),
-          ...(({ isSearchCenter: true } as any)) // Flag to identify search center marker
-        }).addTo(mapInstance.current);
-        
-        marker.bindPopup(`
-          <div style="padding: 8px; text-align: center;">
-            <h4 style="margin: 0 0 4px 0; font-weight: bold; color: #ef4444;">📍 Centro da Busca</h4>
-            <p style="margin: 0; font-size: 12px;">${geocodeResult.google_formatted_address || addressSearch}</p>
-            <p style="margin: 2px 0; font-size: 11px; color: #666;">Raio: ${radiusKm} km</p>
-          </div>
-        `).openPopup();
+      // Centralizar mapa na localização - aguardar mapa estar pronto
+      if (!mapInstance.current) {
+        console.warn('⚠️ Mapa não está inicializado');
+        return;
+      }
+      
+      const map = mapInstance.current;
+      
+      // Verificar se o mapa está pronto antes de operar
+      if (!isMapReady(map)) {
+        // Aguardar o mapa estar pronto
+        map.whenReady(() => {
+          try {
+            if (isMapReady(map)) {
+              map.setView([geocodeResult.lat, geocodeResult.lng], 12);
+              addSearchCenterMarker(map, geocodeResult, addressSearch, radiusKm);
+            }
+          } catch (error) {
+            console.error('❌ Erro ao centralizar mapa após whenReady:', error);
+          }
+        });
+        return;
+      }
+      
+      try {
+        map.setView([geocodeResult.lat, geocodeResult.lng], 12);
+        await addSearchCenterMarker(map, geocodeResult, addressSearch, radiusKm);
         
         // CRITICAL: Update markers to show search results on map (use LP logic)
         console.log('🎯 Atualizando marcadores no mapa após busca por endereço (lógica da LP)');
         
         // CLEAR PREVIOUS SEARCH DATA - Remove old search markers and circles
-        mapInstance.current.eachLayer((layer: any) => {
-          if (layer.options && (layer.options.isSearchResult || layer.options.isRadiusCircle)) {
-            mapInstance.current.removeLayer(layer);
+        if (isMapReady(map)) {
+          const L = await import('leaflet');
+          
+          map.eachLayer((layer: any) => {
+            if (layer.options && (layer.options.isSearchResult || layer.options.isRadiusCircle)) {
+              map.removeLayer(layer);
+            }
+          });
+          
+          // Add radius circle like LP
+          try {
+            const radiusCircle = L.circle([geocodeResult.lat, geocodeResult.lng], {
+              color: '#3b82f6',
+              fillColor: '#3b82f6', 
+              fillOpacity: 0.1,
+              radius: parseInt(radiusKm) * 1000, // Convert km to meters
+              isRadiusCircle: true // Flag to identify radius circles
+            });
+            radiusCircle.addTo(map);
+          } catch (circleError) {
+            console.error('❌ Erro ao adicionar círculo de raio:', circleError);
           }
-        });
-        
-        // Add radius circle like LP
-        const radiusCircle = L.circle([geocodeResult.lat, geocodeResult.lng], {
-          color: '#3b82f6',
-          fillColor: '#3b82f6', 
-          fillOpacity: 0.1,
-          radius: parseInt(radiusKm) * 1000, // Convert km to meters
-          isRadiusCircle: true // Flag to identify radius circles
-        }).addTo(mapInstance.current);
-        
-        // Add screen markers from search results (LP style)
-        searchResults.forEach((screen) => {
-          if (screen.lat && screen.lng) {
-            const screenMarker = L.marker([screen.lat, screen.lng], {
-              icon: L.divIcon({
-                className: 'search-result-marker',
-                html: `<div style="width: 28px; height: 28px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 6px rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; background: #06b6d4;">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="white">
-                    <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
-                  </svg>
-                </div>`,
-                iconSize: [28, 28],
-                iconAnchor: [14, 14]
-              }),
-              isSearchResult: true // Flag to identify search result markers
-            }).addTo(mapInstance.current);
-            
-            screenMarker.bindPopup(`
-              <div style="padding: 12px; min-width: 280px; max-width: 320px;">
-                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
-                  <div style="width: 32px; height: 32px; border-radius: 50%; background: #06b6d4; display: flex; align-items: center; justify-content: center;">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="white">
-                      <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
-                    </svg>
-                  </div>
-                  <div>
-                    <h4 style="font-weight: 600; color: #111827; font-size: 16px; margin: 0;">${screen.name || screen.code}</h4>
-                    <p style="font-size: 12px; color: #0891b2; margin: 0;">Código: ${screen.code}</p>
-                  </div>
-                </div>
+          
+          // Add screen markers from search results (LP style)
+          searchResults.forEach((screen) => {
+            if (screen.lat && screen.lng && isMapReady(map)) {
+              try {
+                const screenMarker = L.marker([screen.lat, screen.lng], {
+                  icon: L.divIcon({
+                    className: 'search-result-marker',
+                    html: `<div style="width: 28px; height: 28px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 6px rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; background: #06b6d4;">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="white">
+                        <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+                      </svg>
+                    </div>`,
+                    iconSize: [28, 28],
+                    iconAnchor: [14, 14]
+                  }),
+                  isSearchResult: true // Flag to identify search result markers
+                });
                 
-                <div style="background: #f9fafb; border-radius: 6px; padding: 10px; margin-bottom: 8px;">
-                  <h5 style="font-weight: 600; color: #374151; margin: 0 0 6px 0; font-size: 12px;">📍 Localização</h5>
-                  <div style="font-size: 11px; color: #374151;">
-                    <div><strong>Cidade:</strong> ${screen.city}, ${screen.state}</div>
-                    <div><strong>Distância:</strong> ${screen.distance}km do centro</div>
-                  </div>
-                </div>
-                
-                <div style="background: #f9fafb; border-radius: 6px; padding: 10px; margin-bottom: 8px;">
-                  <h5 style="font-weight: 600; color: #374151; margin: 0 0 8px 0; font-size: 12px; display: flex; align-items: center; gap: 4px;">
-                    <span>📊</span> Performance
-                  </h5>
-                  <div style="font-size: 11px; color: #374151; display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
-                    <div style="background: #e0f2fe; padding: 6px; border-radius: 4px;">
-                      <div style="font-weight: 600; color: #0369a1;">Alcance</div>
-                      <div style="color: #0c4a6e;">${screen.reach ? screen.reach.toLocaleString() : 'N/A'} pessoas/semana</div>
+                try {
+                  screenMarker.addTo(map);
+                  
+                  screenMarker.bindPopup(`
+                    <div style="padding: 12px; min-width: 280px; max-width: 320px;">
+                      <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+                        <div style="width: 32px; height: 32px; border-radius: 50%; background: #06b6d4; display: flex; align-items: center; justify-content: center;">
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="white">
+                            <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+                          </svg>
+                        </div>
+                        <div>
+                          ${screen.name ? '<h4 style="font-weight: 700; color: #111827; font-size: 16px; margin: 0 0 4px 0;">' + sanitize(screen.name) + '</h4>' : ''}
+                          ${screen.code ? '<p style="font-size: 12px; color: #0891b2; margin: 0;">Código: ' + sanitize(screen.code) + '</p>' : '<p style="font-size: 12px; color: #6b7280; margin: 0;">Sem código</p>'}
+                        </div>
+                      </div>
+                      
+                      <div style="background: #f9fafb; border-radius: 6px; padding: 10px; margin-bottom: 8px;">
+                        <h5 style="font-weight: 600; color: #374151; margin: 0 0 6px 0; font-size: 12px;">📍 Localização</h5>
+                        <div style="font-size: 11px; color: #374151;">
+                          <div><strong>Cidade:</strong> ${screen.city}, ${screen.state}</div>
+                          <div><strong>Distância:</strong> ${screen.distance}km do centro</div>
+                        </div>
+                      </div>
+                      
+                      <div style="background: #f9fafb; border-radius: 6px; padding: 10px; margin-bottom: 8px;">
+                        <h5 style="font-weight: 600; color: #374151; margin: 0 0 8px 0; font-size: 12px; display: flex; align-items: center; gap: 4px;">
+                          <span>📊</span> Performance
+                        </h5>
+                        <div style="font-size: 11px; color: #374151; display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
+                          <div style="background: #e0f2fe; padding: 6px; border-radius: 4px;">
+                            <div style="font-weight: 600; color: #0369a1;">Alcance</div>
+                            <div style="color: #0c4a6e;">${screen.reach ? screen.reach.toLocaleString() : 'N/A'} pessoas/semana</div>
+                          </div>
+                          <div style="background: #f0fdf4; padding: 6px; border-radius: 4px;">
+                            <div style="font-weight: 600; color: #166534;">Investimento</div>
+                            <div style="color: #14532d;">R$ ${screen.price ? screen.price.toFixed(2) : 'N/A'}/semana</div>
+                          </div>
+                          <div style="background: #fef3c7; padding: 6px; border-radius: 4px;">
+                            <div style="font-weight: 600; color: #92400e;">CPM</div>
+                            <div style="color: #78350f;">R$ ${screen.reach && screen.price ? (screen.price / (screen.reach / 1000)).toFixed(2) : 'N/A'}</div>
+                          </div>
+                          <div style="background: #f3e8ff; padding: 6px; border-radius: 4px;">
+                            <div style="font-weight: 600; color: #7c3aed;">Classe</div>
+                            <div style="color: #5b21b6;">${screen.class || 'N/A'}</div>
+                          </div>
+                        </div>
+                      </div>
+                      
                     </div>
-                    <div style="background: #f0fdf4; padding: 6px; border-radius: 4px;">
-                      <div style="font-weight: 600; color: #166534;">Investimento</div>
-                      <div style="color: #14532d;">R$ ${screen.price ? screen.price.toFixed(2) : 'N/A'}/semana</div>
-                    </div>
-                    <div style="background: #fef3c7; padding: 6px; border-radius: 4px;">
-                      <div style="font-weight: 600; color: #92400e;">CPM</div>
-                      <div style="color: #78350f;">R$ ${screen.reach && screen.price ? (screen.price / (screen.reach / 1000)).toFixed(2) : 'N/A'}</div>
-                    </div>
-                    <div style="background: #f3e8ff; padding: 6px; border-radius: 4px;">
-                      <div style="font-weight: 600; color: #7c3aed;">Classe</div>
-                      <div style="color: #5b21b6;">${screen.class || 'N/A'}</div>
-                    </div>
-                  </div>
-                </div>
-                
-              </div>
-            `);
-          }
-        });
-        
-        // Small delay to ensure all markers are added before updating existing ones
-        setTimeout(() => updateMarkers(L), 200);
+                  `);
+                } catch (markerError) {
+                  console.error('❌ Erro ao adicionar marcador de tela:', screen.code, markerError);
+                }
+              } catch (createError) {
+                console.error('❌ Erro ao criar marcador de tela:', screen.code, createError);
+              }
+            }
+          });
+          
+          // Small delay to ensure all markers are added before updating existing ones
+          setTimeout(() => {
+            if (mapInstance.current && isMapReady(mapInstance.current)) {
+              updateMarkers(L);
+            }
+          }, 200);
+        }
+      } catch (error) {
+        console.error('❌ Erro ao centralizar mapa:', error);
       }
       
       toast.success(`${searchResults.length} telas encontradas em um raio de ${radiusKm}km`);
@@ -671,7 +770,13 @@ export default function InteractiveMap() {
     toast.success(`📍 Navegando para ${screen.code} - ${screen.city}`);
 
     // Set view to screen location with higher zoom (real coordinates from database)
-    mapInstance.current.setView([lat, lng], 16);
+    try {
+      if (mapInstance.current && mapInstance.current.getContainer && mapInstance.current.getContainer()) {
+        mapInstance.current.setView([lat, lng], 16);
+      }
+    } catch (error) {
+      console.error('❌ Erro ao navegar para tela:', error);
+    }
 
     // Import L and find popup for this screen
     const L = await import('leaflet');
@@ -717,7 +822,13 @@ export default function InteractiveMap() {
     }
 
     toast.success(`📍 Navegando para ${pharmacy.nome || 'farmácia'}`);
-    mapInstance.current.setView([lat, lng], 16);
+    try {
+      if (mapInstance.current && mapInstance.current.getContainer && mapInstance.current.getContainer()) {
+        mapInstance.current.setView([lat, lng], 16);
+      }
+    } catch (error) {
+      console.error('❌ Erro ao navegar para farmácia:', error);
+    }
 
     const existingMarker = pharmacyMarkersRef.current.get(pharmacy.id);
     if (existingMarker) {
@@ -763,10 +874,31 @@ export default function InteractiveMap() {
     }, 350);
   };
 
+  // Função helper para verificar se o mapa está pronto
+  const isMapReady = (map: any): boolean => {
+    try {
+      if (!map || !map.getContainer) return false;
+      const container = map.getContainer();
+      if (!container) return false;
+      const rect = container.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) return false;
+      if (!(map as any)._loaded) return false;
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
   const updateMarkers = async (L: any) => {
     if (!mapInstance.current) return;
-
+    
     const map = mapInstance.current;
+    
+    // Verificar se o mapa está totalmente inicializado
+    if (!isMapReady(map)) {
+      console.warn('⚠️ Mapa não está pronto para atualizar marcadores');
+      return;
+    }
     
     // Clear existing markers and heatmap layers
     map.eachLayer((layer: any) => {
@@ -871,14 +1003,29 @@ export default function InteractiveMap() {
         iconAnchor: [size/2, size/2]
       });
 
-      const marker = L.marker([lat, lng], { icon }).addTo(map);
-      
-      // Calculate performance data for popup
-      const price = calculatePrice(screen.class || 'ND', '2');
-      const reach = calculateReach(screen.class || 'ND');
-      const cpm = reach && price ? (price / (reach / 1000)).toFixed(2) : 'N/A';
+      try {
+        // Verificação mais robusta do mapa usando função helper
+        if (!isMapReady(map)) {
+          console.warn('⚠️ Mapa não está pronto para adicionar marcador:', screen.code);
+          return;
+        }
+        
+        const marker = L.marker([lat, lng], { icon });
+        
+        // Adicionar ao mapa de forma segura
+        try {
+          marker.addTo(map);
+        } catch (addError) {
+          console.error('❌ Erro ao adicionar marcador ao mapa:', screen.code, addError);
+          return;
+        }
+        
+        // Calculate performance data for popup
+        const price = calculatePrice(screen.class || 'ND', '2');
+        const reach = calculateReach(screen.class || 'ND');
+        const cpm = reach && price ? (price / (reach / 1000)).toFixed(2) : 'N/A';
 
-      marker.bindPopup(`
+        marker.bindPopup(`
         <div style="padding: 12px; min-width: 280px; max-width: 320px;">
           <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
             <div style="width: 32px; height: 32px; border-radius: 50%; background: ${backgroundColor}; display: flex; align-items: center; justify-content: center;">
@@ -887,8 +1034,8 @@ export default function InteractiveMap() {
               </svg>
             </div>
             <div>
-              <h4 style="font-weight: 600; color: #111827; font-size: 16px; margin: 0;">${screen.name || screen.code}</h4>
-              <p style="font-size: 12px; color: #0891b2; margin: 0;">Código: ${screen.code}</p>
+              ${screen.name ? '<h4 style="font-weight: 700; color: #111827; font-size: 16px; margin: 0 0 4px 0;">' + sanitize(screen.name) + '</h4>' : ''}
+              ${screen.code ? '<p style="font-size: 12px; color: #0891b2; margin: 0;">Código: ' + sanitize(screen.code) + '</p>' : '<p style="font-size: 12px; color: #6b7280; margin: 0;">Sem código</p>'}
             </div>
           </div>
 
@@ -928,7 +1075,10 @@ export default function InteractiveMap() {
         </div>
       `);
 
-      markers.push(marker);
+        markers.push(marker);
+      } catch (error) {
+        console.error('❌ Erro ao criar marcador para tela:', screen.code, error);
+      }
     });
 
       // Only fit bounds if no search is active (to preserve search center view)
@@ -1093,7 +1243,13 @@ export default function InteractiveMap() {
             
             const firstTargetScreen = targetScreens.find(s => s.lat !== null && s.lng !== null);
             if (firstTargetScreen) {
-              mapInstance.current.setView([firstTargetScreen.lat!, firstTargetScreen.lng!], 12);
+              try {
+                if (mapInstance.current && mapInstance.current.getContainer && mapInstance.current.getContainer()) {
+                  mapInstance.current.setView([firstTargetScreen.lat!, firstTargetScreen.lng!], 12);
+                }
+              } catch (error) {
+                console.error('❌ Erro ao centralizar mapa na primeira tela:', error);
+              }
             }
             
             // Add markers for ALL target screens with performance data
@@ -1134,8 +1290,8 @@ export default function InteractiveMap() {
                         </svg>
                       </div>
                       <div>
-                        <h4 style="font-weight: 600; color: #111827; font-size: 16px; margin: 0;">${screen.name || screen.code}</h4>
-                        <p style="font-size: 12px; color: #0891b2; margin: 0;">Código: ${screen.code}</p>
+                        ${screen.name ? '<h4 style="font-weight: 700; color: #111827; font-size: 16px; margin: 0 0 4px 0;">' + sanitize(screen.name) + '</h4>' : ''}
+                        ${screen.code ? '<p style="font-size: 12px; color: #0891b2; margin: 0;">Código: ' + sanitize(screen.code) + '</p>' : '<p style="font-size: 12px; color: #6b7280; margin: 0;">Sem código</p>'}
                       </div>
                     </div>
                     
@@ -1266,8 +1422,8 @@ export default function InteractiveMap() {
                     </svg>
                   </div>
                   <div>
-                    <h4 style="font-weight: 600; color: #111827; font-size: 16px; margin: 0;">${screen.name || screen.code}</h4>
-                    <p style="font-size: 12px; color: #0891b2; margin: 0;">Código: ${screen.code}</p>
+                    ${screen.name ? '<h4 style="font-weight: 700; color: #111827; font-size: 16px; margin: 0 0 4px 0;">' + sanitize(screen.name) + '</h4>' : ''}
+                    ${screen.code ? '<p style="font-size: 12px; color: #0891b2; margin: 0;">Código: ' + sanitize(screen.code) + '</p>' : '<p style="font-size: 12px; color: #6b7280; margin: 0;">Sem código</p>'}
                   </div>
                 </div>
                 
@@ -1349,6 +1505,29 @@ export default function InteractiveMap() {
 
   useEffect(() => {
     if (!mapInstance.current || !leafletRef.current) return;
+
+    // Verificar se o mapa está pronto antes de atualizar marcadores
+    const map = mapInstance.current;
+    if (!map.getContainer || !map.getContainer()) {
+      console.warn('⚠️ Mapa não está pronto no useEffect');
+      return;
+    }
+
+    // Verificar se o mapa está carregado
+    if (!(map as any)._loaded) {
+      // Aguardar o mapa estar pronto
+      map.whenReady(() => {
+        if (markerRefreshTimeout.current) {
+          window.clearTimeout(markerRefreshTimeout.current);
+        }
+
+        markerRefreshTimeout.current = window.setTimeout(() => {
+          updateMarkers(leafletRef.current);
+          markerRefreshTimeout.current = null;
+        }, 120);
+      });
+      return;
+    }
 
     if (markerRefreshTimeout.current) {
       window.clearTimeout(markerRefreshTimeout.current);
@@ -1460,6 +1639,93 @@ export default function InteractiveMap() {
     if (debouncedAddressSearch !== addressSearch) return; // Only trigger when debounce is settled
     performAutoAddressSearch(debouncedAddressSearch);
   }, [debouncedAddressSearch, performAutoAddressSearch]);
+
+  // Função para exportar pontos filtrados para Excel
+  const handleExportExcel = async () => {
+    try {
+      // Determinar quais dados exportar
+      const dataToExport = addressSearchResults.length > 0 
+        ? addressSearchResults 
+        : mainSearchResults.length > 0 
+          ? mainSearchResults 
+          : filteredScreens;
+
+      if (dataToExport.length === 0) {
+        toast.warning('Nenhum ponto para exportar');
+        return;
+      }
+
+      toast.info('Gerando planilha Excel...');
+
+      const wb = new ExcelJS.Workbook();
+      const ws = wb.addWorksheet('Pontos Filtrados');
+
+      // Definir colunas
+      ws.columns = [
+        { header: 'Código', key: 'code', width: 15 },
+        { header: 'Nome', key: 'name', width: 35 },
+        { header: 'Cidade', key: 'city', width: 20 },
+        { header: 'Estado', key: 'state', width: 10 },
+        { header: 'Classe', key: 'class', width: 10 },
+        { header: 'Status', key: 'active', width: 12 },
+        { header: 'Latitude', key: 'lat', width: 15 },
+        { header: 'Longitude', key: 'lng', width: 15 },
+        { header: 'Distância (km)', key: 'distance', width: 15 },
+        { header: 'Alcance (pessoas/semana)', key: 'reach', width: 20 },
+        { header: 'Investimento (R$/semana)', key: 'price', width: 20 },
+        { header: 'CPM', key: 'cpm', width: 15 },
+      ];
+
+      // Preparar dados para exportação
+      const rows = dataToExport.map((screen: any) => {
+        const cpm = screen.reach && screen.price 
+          ? (screen.price / (screen.reach / 1000)).toFixed(2)
+          : 'N/A';
+
+        return {
+          code: screen.code || '',
+          name: screen.name || screen.display_name || '',
+          city: screen.city || '',
+          state: screen.state || '',
+          class: screen.class || 'ND',
+          active: screen.active !== undefined ? (screen.active ? 'Ativo' : 'Inativo') : '',
+          lat: screen.lat ? screen.lat.toString() : '',
+          lng: screen.lng ? screen.lng.toString() : '',
+          distance: screen.distance ? screen.distance.toFixed(2) : '',
+          reach: screen.reach ? screen.reach.toString() : '',
+          price: screen.price ? screen.price.toFixed(2) : '',
+          cpm: cpm,
+        };
+      });
+
+      ws.addRows(rows);
+
+      // Estilizar cabeçalho
+      ws.getRow(1).font = { bold: true };
+      ws.getRow(1).fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFE0E0E0' }
+      };
+
+      // Gerar arquivo
+      const buffer = await wb.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `pontos-filtrados-${new Date().toISOString().split('T')[0]}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      toast.success(`Planilha gerada com sucesso! ${dataToExport.length} ponto(s) exportado(s).`);
+    } catch (error: any) {
+      console.error('Erro ao exportar Excel:', error);
+      toast.error('Erro ao gerar planilha Excel: ' + (error.message || 'Erro desconhecido'));
+    }
+  };
 
   // Get unique values
   const cities = Array.from(new Set(screens.map(s => s.city))).sort();
@@ -1852,16 +2118,30 @@ export default function InteractiveMap() {
             <div className="lg:col-span-3" data-sidebar="results">
                     <Card>
                       <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <MousePointer className="h-4 w-4" />
-                    {addressSearchResults.length > 0 ? 'Resultados da Busca' : 'Resultados dos Filtros'}
-                  </CardTitle>
-                  <p className="text-xs text-muted-foreground">
-                    {addressSearchResults.length > 0 
-                      ? `${addressSearchResults.length} telas encontradas na busca`
-                      : `${mainSearchResults.length} telas encontradas nos filtros`
-                    }
-                  </p>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="flex items-center gap-2">
+                        <MousePointer className="h-4 w-4" />
+                        {addressSearchResults.length > 0 ? 'Resultados da Busca' : 'Resultados dos Filtros'}
+                      </CardTitle>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {addressSearchResults.length > 0 
+                          ? `${addressSearchResults.length} telas encontradas na busca`
+                          : `${mainSearchResults.length} telas encontradas nos filtros`
+                        }
+                      </p>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={handleExportExcel}
+                      className="flex items-center gap-2"
+                      disabled={addressSearchResults.length === 0 && mainSearchResults.length === 0}
+                    >
+                      <FileSpreadsheet className="h-4 w-4" />
+                      Excel
+                    </Button>
+                  </div>
                       </CardHeader>
               <CardContent>
                 {/* Show search results when available */}
@@ -1888,7 +2168,16 @@ export default function InteractiveMap() {
                           }}
                           title="Clique para focar no mapa"
                         >
-                          {screen.name || screen.code}
+                          {screen.name ? (
+                            <>
+                              <span className="font-bold">{screen.name}</span>
+                              {screen.code && <div className="text-xs text-cyan-600 mt-1">Código: {screen.code}</div>}
+                            </>
+                          ) : screen.code ? (
+                            <span>Código: {screen.code}</span>
+                          ) : (
+                            <span className="text-muted-foreground">Sem código</span>
+                          )}
                               </div>
                         
                         <div className="text-xs text-muted-foreground mb-2">
@@ -1948,7 +2237,16 @@ export default function InteractiveMap() {
                           }}
                           title="Clique para focar no mapa"
                         >
-                          {screen.name || screen.code}
+                          {screen.name ? (
+                            <>
+                              <span className="font-bold">{screen.name}</span>
+                              {screen.code && <div className="text-xs text-cyan-600 mt-1">Código: {screen.code}</div>}
+                            </>
+                          ) : screen.code ? (
+                            <span>Código: {screen.code}</span>
+                          ) : (
+                            <span className="text-muted-foreground">Sem código</span>
+                          )}
         </div>
                         
                         <div className="text-xs text-muted-foreground mb-2">
@@ -1996,7 +2294,16 @@ export default function InteractiveMap() {
                       >
         <div className="flex items-center justify-between">
                           <div>
-                            <p className="font-medium text-sm">{screen.code}</p>
+                            {screen.name ? (
+                              <>
+                                <p className="font-bold text-sm">{screen.name}</p>
+                                {screen.code && <p className="text-xs text-cyan-600">Código: {screen.code}</p>}
+                              </>
+                            ) : screen.code ? (
+                              <p className="font-medium text-sm">Código: {screen.code}</p>
+                            ) : (
+                              <p className="font-medium text-sm text-muted-foreground">Sem código</p>
+                            )}
                             <p className="text-xs text-muted-foreground">{screen.city}</p>
                           </div>
                           <div className="flex items-center gap-1">

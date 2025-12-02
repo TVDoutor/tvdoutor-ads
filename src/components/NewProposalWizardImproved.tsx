@@ -33,6 +33,8 @@ export interface ProposalData {
   customer_name: string;
   customer_email: string;
   selected_project?: any;
+  projeto_id?: string | null;
+  agencia_id?: string | null;
   selectedScreens: number[];
   film_seconds: number[];
   custom_film_seconds?: number;

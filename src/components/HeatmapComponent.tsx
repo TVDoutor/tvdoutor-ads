@@ -4,13 +4,7 @@ import MarkerClusterGroup from 'react-leaflet-cluster';
 import { useHeatmapData, HeatmapFilters } from '@/hooks/useHeatmapData';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { RefreshCw, MapPin, AlertCircle, Layers } from 'lucide-react';
-import L from 'leaflet';
-import 'leaflet.heat';
-
-// Importe os estilos do Leaflet
-import 'leaflet/dist/leaflet.css';
-// Importe a configuração do Leaflet
-import '@/lib/leaflet-config';
+import { configureLeaflet } from '@/lib/leaflet-config';
 
 // Tipo para os dados que virão da nossa API
 type HeatmapData = [number, number, number][]; // [lat, lng, intensity]
@@ -23,32 +17,39 @@ interface HeatmapComponentProps {
 }
 
 // Componente para adicionar heatmap ao mapa
-const HeatmapLayer: React.FC<{ data: HeatmapData }> = ({ data }) => {
+const HeatmapLayer: React.FC<{ data: HeatmapData; L: any }> = ({ data, L }) => {
   const map = useMap();
 
   useEffect(() => {
-    if (data && data.length > 0) {
-      // Criar camada de heatmap usando leaflet.heat
-      const heatLayer = (L as any).heatLayer(data, {
-        radius: 25,
-        blur: 15,
-        maxZoom: 18,
-        max: 1.0,
-        gradient: {
-          0.0: 'blue',
-          0.3: 'cyan',
-          0.5: 'lime',
-          0.7: 'yellow',
-          1.0: 'red'
-        }
-      }).addTo(map);
+    if (data && data.length > 0 && L) {
+      let heatLayer: any = null;
+      
+      // Carregar leaflet.heat dinamicamente
+      import('leaflet.heat').then(() => {
+        // Criar camada de heatmap usando leaflet.heat
+        heatLayer = (L as any).heatLayer(data, {
+          radius: 25,
+          blur: 15,
+          maxZoom: 18,
+          max: 1.0,
+          gradient: {
+            0.0: 'blue',
+            0.3: 'cyan',
+            0.5: 'lime',
+            0.7: 'yellow',
+            1.0: 'red'
+          }
+        }).addTo(map);
+      });
 
       // Cleanup
       return () => {
-        map.removeLayer(heatLayer);
+        if (heatLayer) {
+          map.removeLayer(heatLayer);
+        }
       };
     }
-  }, [data, map]);
+  }, [data, map, L]);
 
   return null;
 };
@@ -62,6 +63,23 @@ export const HeatmapComponent: React.FC<HeatmapComponentProps> = ({
   const { heatmapData, loading, error, refetch } = useHeatmapData(filters);
   const [data, setData] = useState<HeatmapData>([]);
   const [mapView, setMapView] = useState<'heatmap' | 'clusters'>('heatmap');
+  const [L, setL] = useState<any>(null);
+  const [leafletReady, setLeafletReady] = useState(false);
+
+  // Carregar Leaflet dinamicamente
+  useEffect(() => {
+    const loadLeaflet = async () => {
+      try {
+        const leafletModule = await configureLeaflet();
+        setL(leafletModule);
+        setLeafletReady(true);
+      } catch (error) {
+        console.error('Erro ao carregar Leaflet:', error);
+      }
+    };
+
+    loadLeaflet();
+  }, []);
 
   useEffect(() => {
     // Usar dados mockados se não houver dados reais
@@ -78,6 +96,8 @@ export const HeatmapComponent: React.FC<HeatmapComponentProps> = ({
 
   // Criar ícones customizados para os clusters
   const createCustomIcon = (count: number) => {
+    if (!L) return undefined;
+    
     const size = count > 100 ? 'large' : count > 10 ? 'medium' : 'small';
     const colors = {
       small: '#3B82F6',
@@ -202,8 +222,16 @@ export const HeatmapComponent: React.FC<HeatmapComponentProps> = ({
         </div>
       </CardHeader>
       <CardContent>
-        <div className="rounded-lg overflow-hidden border" style={{ height: '600px' }}>
-          <MapContainer 
+        {!leafletReady ? (
+          <div className="rounded-lg overflow-hidden border flex items-center justify-center" style={{ height: '600px' }}>
+            <div className="flex items-center gap-2">
+              <RefreshCw className="h-5 w-5 animate-spin" />
+              <span>Carregando mapa...</span>
+            </div>
+          </div>
+        ) : (
+          <div className="rounded-lg overflow-hidden border" style={{ height: '600px' }}>
+            <MapContainer 
             center={[-23.5505, -46.6333]} // São Paulo como centro padrão
             zoom={10} 
             style={{ height: '100%', width: '100%' }}
@@ -216,8 +244,8 @@ export const HeatmapComponent: React.FC<HeatmapComponentProps> = ({
             />
             
             {/* Camada de Heatmap */}
-            {showHeatmap && mapView === 'heatmap' && data.length > 0 && (
-              <HeatmapLayer data={data} />
+            {showHeatmap && mapView === 'heatmap' && data.length > 0 && L && (
+              <HeatmapLayer data={data} L={L} />
             )}
 
             {/* Camada de Clusters */}
@@ -237,7 +265,7 @@ export const HeatmapComponent: React.FC<HeatmapComponentProps> = ({
                   <Marker
                     key={point.id}
                     position={point.position}
-                    icon={L.divIcon({
+                    icon={L ? L.divIcon({
                       html: `<div style="
                         background-color: #3B82F6;
                         width: 20px;
@@ -249,7 +277,7 @@ export const HeatmapComponent: React.FC<HeatmapComponentProps> = ({
                       className: 'custom-marker-icon',
                       iconSize: [20, 20],
                       iconAnchor: [10, 10]
-                    })}
+                    }) : undefined}
                   >
                     <Popup>
                       <div className="p-2">
@@ -264,7 +292,8 @@ export const HeatmapComponent: React.FC<HeatmapComponentProps> = ({
               </MarkerClusterGroup>
             )}
           </MapContainer>
-        </div>
+          </div>
+        )}
         
         {data.length === 0 && !loading && (
           <div className="text-center p-8 text-gray-500">

@@ -347,6 +347,8 @@ export const ProjectSelectionStep: React.FC<ProjectSelectionStepProps> = ({
               }`}
               onClick={() => onUpdate({ 
                 selected_project: project,
+                projeto_id: project.id,
+                agencia_id: project.agencia_id,
                 start_date: project.data_inicio,
                 end_date: project.data_fim
               })}

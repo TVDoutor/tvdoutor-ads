@@ -1,6 +1,8 @@
 // @ts-nocheck
 import React, { useState, useEffect } from "react";
 import { DashboardLayout } from "@/components/DashboardLayout";
+import { PageHeader } from "@/components/PageHeader";
+import { StatsGrid } from "@/components/StatsGrid";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -43,7 +45,8 @@ import {
   List,
   RefreshCw,
   Mail,
-  Calendar
+  Calendar,
+  TrendingUp
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
@@ -499,52 +502,47 @@ const Users = () => {
 
   return (
     <DashboardLayout>
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50/30">
-        {/* Header */}
-        <div className="bg-white border-b border-gray-200 shadow-sm">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-primary/10 rounded-lg">
-                  <UsersIcon className="h-6 w-6 text-primary" />
-                </div>
-                <div>
-                  <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Gestão de Usuários</h1>
-                  <p className="text-sm text-gray-500 mt-1">
-                    Administre usuários do sistema • {users.length} usuários cadastrados
-                  </p>
-                </div>
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-purple-50/20">
+        <PageHeader
+          icon={UsersIcon}
+          title="Gestão de Usuários"
+          description="Administre usuários do sistema"
+          badges={[
+            { label: `${users.length} usuários`, variant: "default" }
+          ]}
+          actions={
+            <>
+              <div className="flex bg-white/20 rounded-lg p-1">
+                <Button
+                  variant={viewMode === 'cards' ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => setViewMode('cards')}
+                  className="gap-2"
+                >
+                  <Grid className="h-4 w-4" />
+                  Cards
+                </Button>
+                <Button
+                  variant={viewMode === 'table' ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => setViewMode('table')}
+                  className="gap-2"
+                >
+                  <List className="h-4 w-4" />
+                  Tabela
+                </Button>
               </div>
-              
-              <div className="flex items-center gap-3">
-                <div className="flex bg-gray-100 rounded-lg p-1">
-                  <Button
-                    variant={viewMode === 'cards' ? 'default' : 'ghost'}
-                    size="sm"
-                    onClick={() => setViewMode('cards')}
-                    className="gap-2"
-                  >
-                    <Grid className="h-4 w-4" />
-                    Cards
-                  </Button>
-                  <Button
-                    variant={viewMode === 'table' ? 'default' : 'ghost'}
-                    size="sm"
-                    onClick={() => setViewMode('table')}
-                    className="gap-2"
-                  >
-                    <List className="h-4 w-4" />
-                    Tabela
-                  </Button>
-                </div>
 
-                <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-                  <DialogTrigger asChild>
-                    <Button className="gap-2 shadow-sm" disabled={loading}>
-                      <Plus className="h-4 w-4" />
-                      Novo Usuário
-                    </Button>
-                  </DialogTrigger>
+              <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button 
+                    disabled={loading}
+                    className="bg-white text-[#f48220] hover:bg-white/90 shadow-2xl hover:shadow-white/50 hover:scale-105 transition-all font-bold group"
+                  >
+                    <Plus className="h-5 w-5 mr-2 group-hover:rotate-90 transition-transform" />
+                    Novo Usuário
+                  </Button>
+                </DialogTrigger>
                   <DialogContent className="max-w-md">
                     <DialogHeader>
                       <DialogTitle className="flex items-center gap-2">
@@ -634,69 +632,49 @@ const Users = () => {
                     </DialogFooter>
                   </DialogContent>
                 </Dialog>
-              </div>
-            </div>
-          </div>
-        </div>
+            </>
+          }
+        />
 
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+        <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-8 pb-12 space-y-8">
           {/* Enhanced Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200 hover:shadow-lg transition-shadow">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-blue-800">Total de Usuários</p>
-                    <p className="text-3xl font-bold text-blue-900">{loading ? "..." : users.length}</p>
-                    <p className="text-xs text-blue-700">Ativos no sistema</p>
-                  </div>
-                  <div className="p-3 bg-blue-200 rounded-lg">
-                    <UsersIcon className="h-8 w-8 text-blue-700" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200 hover:shadow-lg transition-shadow">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-purple-800">Administradores</p>
-                    <p className="text-3xl font-bold text-purple-900">
-                      {loading ? "..." : Object.values(userRoles).filter(role => role === "super_admin" || role === "admin" || role === "manager" || role === "client").length}
-                    </p>
-                    <p className="text-xs text-purple-700">Com privilégios elevados</p>
-                  </div>
-                  <div className="p-3 bg-purple-200 rounded-lg">
-                    <Shield className="h-8 w-8 text-purple-700" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="bg-gradient-to-br from-green-50 to-green-100 border-green-200 hover:shadow-lg transition-shadow">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-green-800">Usuários Comuns</p>
-                    <p className="text-3xl font-bold text-green-900">
-                      {loading ? "..." : Object.values(userRoles).filter(role => role === "user").length}
-                    </p>
-                    <p className="text-xs text-green-700">Acesso padrão</p>
-                  </div>
-                  <div className="p-3 bg-green-200 rounded-lg">
-                    <User className="h-8 w-8 text-green-700" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+          <StatsGrid
+            columns={3}
+            stats={[
+              {
+                title: "Total de Usuários",
+                value: loading ? "..." : users.length.toString(),
+                subtitle: "Ativos no sistema",
+                icon: UsersIcon,
+                gradient: "bg-gradient-to-br from-[#f48220] to-[#e67516]",
+                badge: { label: "Todos", icon: UsersIcon }
+              },
+              {
+                title: "Administradores",
+                value: loading ? "..." : Object.values(userRoles).filter(role => role === "super_admin" || role === "admin" || role === "manager" || role === "client").length.toString(),
+                subtitle: "Com privilégios elevados",
+                icon: Shield,
+                gradient: "bg-gradient-to-br from-[#ffb87a] to-[#ffc499]",
+                badge: { label: "Admins", icon: Shield }
+              },
+              {
+                title: "Usuários Comuns",
+                value: loading ? "..." : Object.values(userRoles).filter(role => role === "user").length.toString(),
+                subtitle: "Acesso padrão",
+                icon: User,
+                gradient: "bg-gradient-to-br from-[#ff9d4d] to-[#ffb87a]",
+                badge: { label: "Padrão", icon: User }
+              }
+            ]}
+          />
 
           {/* Enhanced Filters */}
-          <Card className="bg-gradient-to-r from-gray-50/50 to-blue-50/50 border-l-4 border-l-primary">
+          <Card className="border-0 shadow-xl">
             <CardHeader className="pb-4">
-              <CardTitle className="flex items-center gap-2">
-                <Filter className="w-5 h-5 text-primary" />
+              <CardTitle className="flex items-center gap-2 text-xl">
+                <div className="p-2 bg-[#f48220]/10 rounded-lg">
+                  <Filter className="w-5 h-5 text-[#f48220]" />
+                </div>
                 Filtros e Busca
               </CardTitle>
             </CardHeader>

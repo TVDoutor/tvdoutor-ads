@@ -1,6 +1,8 @@
 // @ts-nocheck
 import { useState, useEffect, useCallback } from "react";
 import { DashboardLayout } from "@/components/DashboardLayout";
+import { PageHeader } from "@/components/PageHeader";
+import { StatsGrid } from "@/components/StatsGrid";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -526,8 +528,8 @@ const Inventory = () => {
         venue_type_child: editingScreen.venue_type_child || null,
         venue_type_grandchildren: editingScreen.venue_type_grandchildren || null,
         specialty: specialties.length > 0 ? specialties : null,
-        lat: editingScreen.lat || null,
-        lng: editingScreen.lng || null,
+        lat: editingScreen.lat ?? null,
+        lng: editingScreen.lng ?? null,
       };
       
       console.log('📝 Update data:', updateData);
@@ -1147,9 +1149,9 @@ const Inventory = () => {
 
       // Preparar dados para Excel
       const exportData = screensData.map(screen => ({
-        'Código': screen.name || '',
+        'Código': screen.code || '',
         'Nome de Exibição': screen.display_name || '',
-        'Endereço': screen.address || '',
+        'Endereço': screen.venue_info?.address || screen.address || '',
         'Cidade': screen.city || '',
         'Estado': screen.state || '',
         'CEP': screen.zip_code || '',
@@ -1158,10 +1160,10 @@ const Inventory = () => {
         'Ativo': screen.active ? 'Sim' : 'Não',
         'Latitude': screen.lat || '',
         'Longitude': screen.lng || '',
-        'Taxa Padrão (Mês)': screen.screen_rates?.[0]?.standard_rate_month || '',
-        'Taxa Venda (Mês)': screen.screen_rates?.[0]?.selling_rate_month || '',
-        'Spots por Hora': screen.screen_rates?.[0]?.spots_per_hour || '',
-        'Duração Spot (seg)': screen.screen_rates?.[0]?.spot_duration_secs || '',
+        'Taxa Padrão (Mês)': screen.screen_rates?.standard_rate_month || '',
+        'Taxa Venda (Mês)': screen.screen_rates?.selling_rate_month || '',
+        'Spots por Hora': screen.screen_rates?.spots_per_hour || '',
+        'Duração Spot (seg)': screen.screen_rates?.spot_duration_secs || '',
         'Google Place ID': screen.google_place_id || '',
         'Google Maps URL': screen.google_maps_url || '',
         'Criado em': screen.created_at ? new Date(screen.created_at).toLocaleDateString('pt-BR') : '',
@@ -1242,153 +1244,112 @@ const Inventory = () => {
 
   return (
     <DashboardLayout>
-      <div className="p-6 space-y-6">
-        {/* Header */}
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold flex items-center gap-3">
-              <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                <Monitor className="h-6 w-6 text-primary" />
-              </div>
-              Inventário de Telas
-            </h1>
-            <p className="text-muted-foreground mt-1">
-              Gerencie e visualize todas as telas do sistema TV Doutor
-            </p>
-          </div>
-          
-          <div className="flex flex-wrap items-center gap-2">
-            <Button 
-              variant="outline" 
-              onClick={handleRefresh}
-              disabled={refreshing || loading}
-              className="gap-2"
-            >
-              <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
-              {refreshing ? "Atualizando..." : "Atualizar"}
-            </Button>
-            
-            {(isAdmin() || isManager()) && (
-              <Button onClick={() => setAddModalOpen(true)} className="gap-2">
-                <Plus className="h-4 w-4" />
-                Adicionar Tela
-              </Button>
-            )}
-            
-            {isAdmin() && (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-purple-50/20">
+        <PageHeader
+          icon={Monitor}
+          title="Inventário de Telas"
+          description="Gerencie e visualize todas as telas do sistema TV Doutor"
+          badges={[
+            { label: `${stats.total} telas`, variant: "default" },
+            { label: `${stats.active} ativas`, variant: "default" }
+          ]}
+          actions={
+            <>
               <Button 
-                variant="outline" 
-                onClick={() => setUploadModalOpen(true)}
-                className="gap-2"
+                variant="outline"
+                onClick={handleRefresh}
+                disabled={refreshing || loading}
+                className="bg-white/10 text-white border-white/30 hover:bg-white/20 transition-all group"
               >
-                <FileSpreadsheet className="h-4 w-4" />
-                Upload CSV
+                <RefreshCw className={`h-5 w-5 mr-2 ${refreshing ? 'animate-spin' : 'group-hover:rotate-180'} transition-transform`} />
+                {refreshing ? "Atualizando..." : "Atualizar"}
               </Button>
-            )}
-            
-            <Button 
-              variant="outline" 
-              onClick={handleExportScreens} 
-              className="gap-2"
-              disabled={exporting}
-            >
-              <Download className="h-4 w-4" />
-              {exporting ? "Exportando..." : "Exportar"}
-            </Button>
-          </div>
-        </div>
+              
+              {isAdmin() && (
+                <Button 
+                  variant="outline"
+                  onClick={() => setUploadModalOpen(true)}
+                  className="bg-white/10 text-white border-white/30 hover:bg-white/20 transition-all group"
+                >
+                  <FileSpreadsheet className="h-5 w-5 mr-2 group-hover:scale-110 transition-transform" />
+                  Upload CSV
+                </Button>
+              )}
+              
+              <Button 
+                variant="outline"
+                onClick={handleExportScreens} 
+                disabled={exporting}
+                className="bg-white/10 text-white border-white/30 hover:bg-white/20 transition-all group"
+              >
+                <Download className="h-5 w-5 mr-2 group-hover:translate-y-1 transition-transform" />
+                {exporting ? "Exportando..." : "Exportar"}
+              </Button>
+              
+              {(isAdmin() || isManager()) && (
+                <Button 
+                  onClick={() => setAddModalOpen(true)}
+                  className="bg-white text-[#f48220] hover:bg-white/90 shadow-2xl hover:shadow-white/50 hover:scale-105 transition-all font-bold group"
+                >
+                  <Plus className="h-5 w-5 mr-2 group-hover:rotate-90 transition-transform" />
+                  Adicionar Tela
+                </Button>
+              )}
+            </>
+          }
+        />
+
+        <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-8 pb-12 space-y-8">
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card className="border-l-4 border-l-primary">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-2xl font-bold">
-                    {loading ? <Loader2 className="h-6 w-6 animate-spin" /> : stats.total.toLocaleString('pt-BR')}
-                  </p>
-                  <p className="text-sm text-muted-foreground">Total de Telas</p>
-                </div>
-                <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center">
-                  <Monitor className="h-6 w-6 text-primary" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          <StatsGrid
+            columns={4}
+            stats={[
+              {
+                title: "Total de Telas",
+                value: loading ? "..." : stats.total.toLocaleString('pt-BR'),
+                subtitle: "Todas as telas",
+                icon: Monitor,
+                gradient: "bg-gradient-to-br from-[#f48220] to-[#e67516]",
+                badge: { label: "Inventário", icon: BarChart3 }
+              },
+              {
+                title: "Telas Ativas",
+                value: loading ? "..." : stats.active.toLocaleString('pt-BR'),
+                subtitle: !loading && stats.total > 0 ? `${((stats.active / stats.total) * 100).toFixed(1)}% do total` : "Operacionais",
+                icon: CheckCircle,
+                gradient: "bg-gradient-to-br from-[#ffb87a] to-[#ffc499]",
+                badge: { label: "Operacionais", icon: TrendingUp }
+              },
+              {
+                title: "Telas Inativas",
+                value: loading ? "..." : stats.inactive.toLocaleString('pt-BR'),
+                subtitle: !loading && stats.total > 0 ? `${((stats.inactive / stats.total) * 100).toFixed(1)}% do total` : "Fora de operação",
+                icon: XCircle,
+                gradient: "bg-gradient-to-br from-slate-500 to-slate-600"
+              },
+              {
+                title: "Cidades",
+                value: loading ? "..." : stats.totalCities.toLocaleString('pt-BR'),
+                subtitle: !loading && stats.withLocation > 0 ? `${stats.withLocation} com localização` : "Distribuição",
+                icon: MapPin,
+                gradient: "bg-gradient-to-br from-[#ff9d4d] to-[#ffb87a]",
+                badge: { label: "Geolocalização", icon: MapPin }
+              }
+            ]}
+          />
 
-          <Card className="border-l-4 border-l-green-500">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-2xl font-bold text-green-600">
-                    {loading ? <Loader2 className="h-6 w-6 animate-spin" /> : stats.active.toLocaleString('pt-BR')}
-                  </p>
-                  <p className="text-sm text-muted-foreground">Telas Ativas</p>
-                  {!loading && stats.total > 0 && (
-                    <p className="text-xs text-green-600">
-                      {((stats.active / stats.total) * 100).toFixed(1)}% do total
-                    </p>
-                  )}
+          {/* Filters and Search */}
+          <Card className="border-0 shadow-xl">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-xl">
+                <div className="p-2 bg-[#f48220]/10 rounded-lg">
+                  <Filter className="h-5 w-5 text-[#f48220]" />
                 </div>
-                <div className="h-12 w-12 rounded-lg bg-green-500/10 flex items-center justify-center">
-                  <CheckCircle className="h-6 w-6 text-green-600" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-l-4 border-l-red-500">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-2xl font-bold text-red-600">
-                    {loading ? <Loader2 className="h-6 w-6 animate-spin" /> : stats.inactive.toLocaleString('pt-BR')}
-                  </p>
-                  <p className="text-sm text-muted-foreground">Telas Inativas</p>
-                  {!loading && stats.total > 0 && (
-                    <p className="text-xs text-red-600">
-                      {((stats.inactive / stats.total) * 100).toFixed(1)}% do total
-                    </p>
-                  )}
-                </div>
-                <div className="h-12 w-12 rounded-lg bg-red-500/10 flex items-center justify-center">
-                  <XCircle className="h-6 w-6 text-red-600" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-l-4 border-l-blue-500">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-2xl font-bold text-blue-600">
-                    {loading ? <Loader2 className="h-6 w-6 animate-spin" /> : stats.totalCities.toLocaleString('pt-BR')}
-                  </p>
-                  <p className="text-sm text-muted-foreground">Cidades</p>
-                  {!loading && stats.withLocation > 0 && (
-                    <p className="text-xs text-blue-600">
-                      {stats.withLocation} com localização
-                    </p>
-                  )}
-                </div>
-                <div className="h-12 w-12 rounded-lg bg-blue-500/10 flex items-center justify-center">
-                  <MapPin className="h-6 w-6 text-blue-600" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Filters and Search */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Filter className="h-5 w-5" />
-              Filtros e Busca
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
+                Filtros e Busca
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
             <div className="flex flex-col lg:flex-row items-center gap-4">
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -1396,13 +1357,13 @@ const Inventory = () => {
                   placeholder="Buscar por código, nome, cidade, endereço ou especialidade..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
+                  className="pl-10 h-12 bg-white border-2 border-slate-200 hover:border-[#f48220]/50 focus:border-[#f48220] transition-all"
                 />
               </div>
               
               <div className="flex flex-wrap items-center gap-3">
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-40">
+                  <SelectTrigger className="w-40 h-12 bg-white border-2 border-slate-200 hover:border-[#f48220]/50 focus:border-[#f48220] transition-all">
                     <SelectValue placeholder="Status" />
                   </SelectTrigger>
                   <SelectContent>
@@ -1413,7 +1374,7 @@ const Inventory = () => {
                 </Select>
 
                 <Select value={classFilter} onValueChange={setClassFilter}>
-                  <SelectTrigger className="w-40">
+                  <SelectTrigger className="w-40 h-12 bg-white border-2 border-slate-200 hover:border-[#f48220]/50 focus:border-[#f48220] transition-all">
                     <SelectValue placeholder="Classe" />
                   </SelectTrigger>
                   <SelectContent>
@@ -1427,7 +1388,7 @@ const Inventory = () => {
                 </Select>
 
                 <Select value={specialtyFilter} onValueChange={setSpecialtyFilter}>
-                  <SelectTrigger className="w-48">
+                  <SelectTrigger className="w-48 h-12 bg-white border-2 border-slate-200 hover:border-[#f48220]/50 focus:border-[#f48220] transition-all">
                     <SelectValue placeholder="Especialidade" />
                   </SelectTrigger>
                   <SelectContent>
@@ -1449,9 +1410,9 @@ const Inventory = () => {
                       setClassFilter("all");
                       setSpecialtyFilter("all");
                     }}
-                    className="gap-2"
+                    className="gap-2 h-12 border-2 hover:bg-[#f48220]/10 hover:border-[#f48220] hover:text-[#f48220] transition-all group"
                   >
-                    <XCircle className="h-4 w-4" />
+                    <XCircle className="h-4 w-4 group-hover:rotate-90 transition-transform" />
                     Limpar Filtros
                   </Button>
                 )}
@@ -1472,14 +1433,16 @@ const Inventory = () => {
           </CardContent>
         </Card>
 
-        {/* Table */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle className="flex items-center gap-2">
-                <BarChart3 className="h-5 w-5" />
-                Lista de Telas
-              </CardTitle>
+          {/* Table */}
+          <Card className="border-0 shadow-xl">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2 text-xl">
+                  <div className="p-2 bg-[#f48220]/10 rounded-lg">
+                    <BarChart3 className="h-5 w-5 text-[#f48220]" />
+                  </div>
+                  Lista de Telas
+                </CardTitle>
               <div className="text-sm text-muted-foreground">
                 {loading ? (
                   <div className="flex items-center gap-2">
@@ -1493,185 +1456,175 @@ const Inventory = () => {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="overflow-x-auto">
-              <Table>
+            <div className="overflow-x-auto -mx-6 px-6">
+              <Table className="min-w-full">
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-[200px]">Código do Ponto</TableHead>
-                    <TableHead className="w-[250px]">Localização</TableHead>
-                    <TableHead className="w-[100px]">Status</TableHead>
-                    <TableHead className="w-[100px]">Classe</TableHead>
-                    <TableHead className="w-[150px]">Rates</TableHead>
-                    <TableHead className="w-[200px]">Venue</TableHead>
-                    <TableHead className="w-[200px]">Especialidades</TableHead>
-                    <TableHead className="w-[120px]">Ações</TableHead>
+                    <TableHead className="min-w-[180px]">Código do Ponto</TableHead>
+                    <TableHead className="min-w-[220px]">Localização</TableHead>
+                    <TableHead className="min-w-[90px]">Status</TableHead>
+                    <TableHead className="min-w-[80px]">Classe</TableHead>
+                    <TableHead className="min-w-[130px]">Rates</TableHead>
+                    {((searchTerm && searchTerm.trim() !== '') || statusFilter !== "all" || classFilter !== "all" || specialtyFilter !== "all") && (
+                      <TableHead className="min-w-[350px]">Especialidades</TableHead>
+                    )}
+                    <TableHead className="min-w-[120px] sticky right-0 bg-background z-10">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
               <TableBody>
                 {loading ? (
-                  Array.from({ length: 5 }).map((_, index) => (
-                    <TableRow key={index}>
-                      <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                      <TableCell><Skeleton className="h-4 w-40" /></TableCell>
-                      <TableCell><Skeleton className="h-4 w-16" /></TableCell>
-                      <TableCell><Skeleton className="h-4 w-12" /></TableCell>
-                      <TableCell><Skeleton className="h-4 w-12" /></TableCell>
-                      <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                      <TableCell><Skeleton className="h-4 w-20" /></TableCell>
-                    </TableRow>
-                  ))
+                  Array.from({ length: 5 }).map((_, index) => {
+                    const hasFilters = (searchTerm && searchTerm.trim() !== '') || statusFilter !== "all" || classFilter !== "all" || specialtyFilter !== "all";
+                    return (
+                      <TableRow key={index}>
+                        <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-40" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-12" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-12" /></TableCell>
+                        {hasFilters && (
+                          <TableCell><Skeleton className="h-4 w-40" /></TableCell>
+                        )}
+                        <TableCell className="sticky right-0 bg-background z-10"><Skeleton className="h-4 w-20" /></TableCell>
+                      </TableRow>
+                    );
+                  })
                 ) : (
-                  filteredScreens.map((screen) => (
-                    <TableRow key={screen.id} className="hover:bg-muted/50">
-                      <TableCell>
-                        <div className="space-y-1">
-                          <p className="font-medium font-mono text-sm">
-                            {screen.code || `ID: ${screen.id}`}
-                          </p>
-                          <p className="text-xs text-muted-foreground truncate max-w-[180px]">
-                            {screen.display_name || screen.venue_info?.name || 'Sem nome de exibição'}
-                          </p>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="space-y-1">
-                          <p className="text-sm font-medium truncate max-w-[230px]">
-                            {screen.city && screen.state ? `${screen.city}, ${screen.state}` : 'N/A'}
-                          </p>
-                          <p className="text-xs text-muted-foreground truncate max-w-[230px]">
-                            {screen.address || 'Endereço não informado'}
-                          </p>
-                          {screen.lat && screen.lng && (
-                            <div className="flex items-center gap-1 text-xs text-blue-600">
-                              <MapPin className="h-3 w-3" />
-                              Localizada
-                            </div>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        {screen.active ? (
-                          <Badge variant="default" className="bg-green-100 text-green-800 hover:bg-green-100">
-                            <CheckCircle className="h-3 w-3 mr-1" />
-                            Ativa
-                          </Badge>
-                        ) : (
-                          <Badge variant="secondary" className="bg-red-100 text-red-800 hover:bg-red-100">
-                            <XCircle className="h-3 w-3 mr-1" />
-                            Inativa
-                          </Badge>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className="font-mono">
-                          {screen.class || 'ND'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        {screen.screen_rates ? (
-                          <div className="text-xs space-y-1">
-                            <div className="font-medium">
-                              R$ {screen.screen_rates.standard_rate_month?.toLocaleString('pt-BR') || 'N/A'}
-                            </div>
-                            <div className="text-muted-foreground">
-                              {screen.screen_rates.spots_per_hour || 'N/A'} spots/h
-                            </div>
+                  filteredScreens.map((screen) => {
+                    const hasFilters = (searchTerm && searchTerm.trim() !== '') || statusFilter !== "all" || classFilter !== "all" || specialtyFilter !== "all";
+                    return (
+                      <TableRow key={screen.id} className="hover:bg-muted/50">
+                        <TableCell>
+                          <div className="space-y-1">
+                            <p className="font-medium font-mono text-sm">
+                              {screen.code || `ID: ${screen.id}`}
+                            </p>
+                            <p className="text-xs text-muted-foreground truncate max-w-[180px]">
+                              {screen.display_name || screen.venue_info?.name || 'Sem nome de exibição'}
+                            </p>
                           </div>
-                        ) : (
-                          <span className="text-muted-foreground text-xs">Não definido</span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {screen.venue_info ? (
-                          <div className="text-xs space-y-1">
-                            <div className="font-medium truncate max-w-[180px]">
-                              {screen.venue_info.name || 'N/A'}
-                            </div>
-                            {screen.venue_info.audience_monthly && (
-                              <div className="text-muted-foreground flex items-center gap-1">
-                                <Users className="h-3 w-3" />
-                                {screen.venue_info.audience_monthly.toLocaleString('pt-BR')}/mês
+                        </TableCell>
+                        <TableCell>
+                          <div className="space-y-1">
+                            <p className="text-sm font-medium truncate max-w-[230px]">
+                              {screen.city && screen.state ? `${screen.city}, ${screen.state}` : 'N/A'}
+                            </p>
+                            <p className="text-xs text-muted-foreground truncate max-w-[230px]">
+                              {screen.address || 'Endereço não informado'}
+                            </p>
+                            {screen.lat && screen.lng && (
+                              <div className="flex items-center gap-1 text-xs text-blue-600">
+                                <MapPin className="h-3 w-3" />
+                                Localizada
                               </div>
                             )}
                           </div>
-                        ) : (
-                          <span className="text-muted-foreground text-xs">Não informado</span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {screen.specialty && screen.specialty.length > 0 ? (
-                          <div className="flex flex-wrap gap-1 max-w-[180px]">
-                            {screen.specialty.slice(0, 2).map((spec, index) => (
-                              <Badge key={index} variant="secondary" className="text-xs">
-                                {spec}
-                              </Badge>
-                            ))}
-                            {screen.specialty.length > 2 && (
-                              <Badge variant="outline" className="text-xs">
-                                +{screen.specialty.length - 2}
-                              </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {screen.active ? (
+                            <Badge variant="default" className="bg-green-100 text-green-800 hover:bg-green-100">
+                              <CheckCircle className="h-3 w-3 mr-1" />
+                              Ativa
+                            </Badge>
+                          ) : (
+                            <Badge variant="secondary" className="bg-red-100 text-red-800 hover:bg-red-100">
+                              <XCircle className="h-3 w-3 mr-1" />
+                              Inativa
+                            </Badge>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="font-mono">
+                            {screen.class || 'ND'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {screen.screen_rates ? (
+                            <div className="text-xs space-y-1">
+                              <div className="font-medium">
+                                R$ {screen.screen_rates.standard_rate_month?.toLocaleString('pt-BR') || 'N/A'}
+                              </div>
+                              <div className="text-muted-foreground">
+                                {screen.screen_rates.spots_per_hour || 'N/A'} spots/h
+                              </div>
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground text-xs">Não definido</span>
+                          )}
+                        </TableCell>
+                        {hasFilters && (
+                          <TableCell>
+                            {screen.specialty && screen.specialty.length > 0 ? (
+                              <div className="flex flex-wrap gap-1 max-w-[400px]">
+                                {screen.specialty.map((spec, index) => (
+                                  <Badge key={index} variant="secondary" className="text-xs whitespace-nowrap">
+                                    {spec}
+                                  </Badge>
+                                ))}
+                              </div>
+                            ) : (
+                              <span className="text-muted-foreground text-xs">Nenhuma</span>
                             )}
-                          </div>
-                        ) : (
-                          <span className="text-muted-foreground text-xs">Nenhuma</span>
+                          </TableCell>
                         )}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1">
-                          <Button 
-                            size="sm" 
-                            variant="ghost"
-                            onClick={() => handleViewScreen(screen)}
-                            className="h-8 w-8 p-0"
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                          {(isAdmin() || isManager()) && (
+                        <TableCell className="sticky right-0 bg-background z-10">
+                          <div className="flex items-center gap-1">
+                            <Button 
+                              size="sm" 
+                              variant="ghost"
+                              onClick={() => handleViewScreen(screen)}
+                              className="h-8 w-8 p-0"
+                              title="Ver detalhes"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
                             <Button 
                               size="sm" 
                               variant="ghost"
                               onClick={() => handleEditScreen(screen)}
                               className="h-8 w-8 p-0"
+                              title="Editar tela"
                             >
                               <Edit className="h-4 w-4" />
                             </Button>
-                          )}
-                          {isAdmin() && (
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild>
-                                <Button 
-                                  size="sm" 
-                                  variant="ghost" 
-                                  className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent>
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
-                                  <AlertDialogDescription>
-                                    Tem certeza que deseja excluir a tela "{getDisplayName(screen)}"? 
-                                    Esta ação não pode ser desfeita.
-                                  </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                  <AlertDialogAction 
-                                    onClick={() => handleDeleteScreen(screen.id)}
-                                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            {isAdmin() && (
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button 
+                                    size="sm" 
+                                    variant="ghost" 
+                                    className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
                                   >
-                                    Excluir
-                                  </AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
-                          )}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      Tem certeza que deseja excluir a tela "{getDisplayName(screen)}"? 
+                                      Esta ação não pode ser desfeita.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                    <AlertDialogAction 
+                                      onClick={() => handleDeleteScreen(screen.id)}
+                                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                    >
+                                      Excluir
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
+                )
+              }
               </TableBody>
             </Table>
 
@@ -1875,6 +1828,43 @@ const Inventory = () => {
                       onChange={(e) => updateEditingScreen('state', e.target.value)}
                       placeholder="Estado"
                     />
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="lat">Latitude</Label>
+                    <Input
+                      id="lat"
+                      type="number"
+                      step="any"
+                      value={editingScreen.lat ?? ''}
+                      onChange={(e) => {
+                        const value = e.target.value === '' ? null : parseFloat(e.target.value);
+                        updateEditingScreen('lat', value);
+                      }}
+                      placeholder="Ex: -23.5505"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Coordenada de latitude (ex: -23.5505)
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="lng">Longitude</Label>
+                    <Input
+                      id="lng"
+                      type="number"
+                      step="any"
+                      value={editingScreen.lng ?? ''}
+                      onChange={(e) => {
+                        const value = e.target.value === '' ? null : parseFloat(e.target.value);
+                        updateEditingScreen('lng', value);
+                      }}
+                      placeholder="Ex: -46.6333"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Coordenada de longitude (ex: -46.6333)
+                    </p>
                   </div>
                 </div>
                 
@@ -2235,6 +2225,7 @@ const Inventory = () => {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
     </DashboardLayout>
   );

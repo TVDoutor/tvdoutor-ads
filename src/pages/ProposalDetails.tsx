@@ -4,10 +4,9 @@ import { useParams, useNavigate } from "react-router-dom";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ProposalStatusBadge, type ProposalStatus } from "@/components/ProposalStatusBadge";
 import { 
   ArrowLeft, 
@@ -19,60 +18,21 @@ import {
   Edit,
   MapPin,
   BarChart3,
-  Clock,
   Download,
-  Eye,
-  TrendingUp,
   Building,
   Target,
-  Zap
+  Clock,
+  TrendingUp,
+  FileText
 } from "lucide-react";
 import { FileSpreadsheet } from "lucide-react";
 import ExcelJS from "exceljs";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { downloadVisibleProposalPDF } from "@/lib/pdf-service";
-import { InventoryPreview, FinancialSummaryCard, ProjectInfoCard, StatusActionsCard, InventoryCard, InvestmentBreakdownCard } from "@/components/proposal";
 import { useProposalFilters } from "@/hooks/useProposalFilters";
 import { normalizeProposal } from "@/utils/validations/proposal";
 import { calculateProposalMetrics, getSelectedDurations } from "@/lib/pricing";
-
-// helper local para abrir PDF a partir de Blob OU URL
-function openPDFFromAny(input: { blob?: Blob; pdfBase64?: string; arrayBuffer?: ArrayBuffer; url?: string; filename?: string }) {
-  const filename = input.filename || 'documento.pdf';
-
-  if (input.url) {
-    window.open(input.url, '_blank', 'noopener,noreferrer');
-    return;
-  }
-
-  let blob: Blob | null = null;
-
-  if (input.pdfBase64) {
-    const bin = atob(input.pdfBase64);
-    const bytes = new Uint8Array(bin.length);
-    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-    blob = new Blob([bytes], { type: 'application/pdf' });
-  } else if (input.arrayBuffer) {
-    blob = new Blob([input.arrayBuffer], { type: 'application/pdf' });
-  } else if (input.blob) {
-    blob = input.blob;
-  }
-
-  if (!blob) throw new Error('EMPTY_PDF_PAYLOAD');
-
-  const url = URL.createObjectURL(blob);
-  // Abrir em nova aba e sugerir filename
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  a.target = '_blank';
-  a.rel = 'noopener';
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 60_000);
-}
 
 interface ProposalDetails {
   id: number;
@@ -120,6 +80,7 @@ interface ProposalDetails {
       display_name?: string;
       screen_type?: string;
       formatted_address?: string;
+      google_formatted_address?: string;
       city: string;
       state: string;
       class: string;
@@ -130,41 +91,14 @@ interface ProposalDetails {
       };
     };
   }>;
-} 
-
-const SectionHeading = ({ title, description, action }: { title: string; description?: string; action?: any }) => (
-  <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-    <div>
-      <h2 className="text-xl font-semibold text-slate-900">{title}</h2>
-      {description && <p className="text-sm text-slate-500">{description}</p>}
-    </div>
-    {action}
-  </div>
-);
-
-const SummaryStatCard = ({ icon: Icon, label, value, helper }: { icon: any; label: string; value: string; helper?: string }) => (
-  <div className="rounded-2xl border border-white/60 bg-white shadow-lg shadow-slate-200/60 p-5">
-    <div className="flex items-center justify-between gap-4">
-      <div>
-        <p className="text-xs uppercase tracking-[0.25em] text-slate-400">{label}</p>
-        <p className="text-2xl font-semibold text-slate-900 mt-2">{value}</p>
-        {helper && <p className="text-xs text-slate-500 mt-1">{helper}</p>}
-      </div>
-      {Icon && (
-        <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-orange-500/10 to-orange-400/30 text-orange-500 flex items-center justify-center">
-          <Icon className="h-5 w-5" />
-        </div>
-      )}
-    </div>
-  </div>
-);
+}
 
 const ProposalDetails = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [proposal, setProposal] = useState<ProposalDetails | null>(null);
   const [loading, setLoading] = useState(true);
-  // Filtros e opções de visualização (client-side) extraídos para hook reutilizável
+
   const {
     viewMode,
     setViewMode,
@@ -197,14 +131,17 @@ const ProposalDetails = () => {
 
     try {
       const quote = proposal.quote && typeof proposal.quote === 'object' ? proposal.quote : {};
+      
       const toPositiveNumber = (value: any) => {
         const num = Number(value);
         return Number.isFinite(num) && num > 0 ? num : undefined;
       };
+
       const toNumber = (value: any) => {
         const num = Number(value);
         return Number.isFinite(num) ? num : undefined;
       };
+
       const toPriceRecord = (table: Record<string, any> | undefined) => {
         if (!table || typeof table !== 'object') return {} as Record<number, number>;
         return Object.entries(table).reduce((acc, [key, value]) => {
@@ -216,6 +153,7 @@ const ProposalDetails = () => {
           return acc;
         }, {} as Record<number, number>);
       };
+
       const toDiscountRecord = (table: Record<string, any> | undefined) => {
         if (!table || typeof table !== 'object') return {} as Record<number, { pct?: number; fixed?: number }>;
         return Object.entries(table).reduce((acc, [key, value]) => {
@@ -231,6 +169,7 @@ const ProposalDetails = () => {
         }, {} as Record<number, { pct?: number; fixed?: number }>);
       };
 
+      // Obter durações configuradas
       const variantDurations = Array.isArray(quote.selected_durations) ? quote.selected_durations : [];
       const quoteDurations = Array.isArray(quote.film_seconds) ? quote.film_seconds : [];
       const priceDurations = Object.keys({
@@ -254,18 +193,19 @@ const ProposalDetails = () => {
       const customFilmSeconds = toPositiveNumber(quote.custom_film_seconds ?? quote.customFilmSeconds);
       const durations = getSelectedDurations(baseDurations as number[], customFilmSeconds);
 
+      // Montar input para calculateProposalMetrics
       const pricingInput = {
-        screens_count: proposal.proposal_screens?.length ?? quote.qtd_telas ?? quote.valor_insercao_config?.qtd_telas ?? 0,
+        screens_count: proposal.proposal_screens?.length ?? quote.qtd_telas ?? 0,
         film_seconds: durations,
         custom_film_seconds: customFilmSeconds,
-        insertions_per_hour: toNumber(proposal.insertions_per_hour ?? quote.insertions_per_hour) ?? 0,
+        insertions_per_hour: toNumber(proposal.insertions_per_hour ?? quote.insertions_per_hour) ?? 6,
         hours_per_day: toNumber(quote.horas_operacao_dia ?? proposal.horas_operacao_dia) ?? 10,
         business_days_per_month: toNumber(quote.dias_uteis_mes_base ?? proposal.dias_uteis_mes_base) ?? 22,
         period_unit: quote.period_unit ?? proposal.period_unit ?? 'months',
-        months_period: toNumber(quote.months_period ?? proposal.months_period),
+        months_period: toNumber(quote.months_period ?? proposal.months_period) ?? 1,
         days_period: toNumber(quote.days_period ?? proposal.days_period),
-        avg_audience_per_insertion: toNumber(quote.avg_audience_per_insertion ?? quote.audience_per_insertion ?? proposal.avg_audience_per_insertion),
-        pricing_mode: quote.pricing_mode ?? proposal.pricing_mode ?? (proposal.cpm_mode === 'valor_insercao' ? 'insertion' : 'cpm'),
+        avg_audience_per_insertion: toNumber(quote.avg_audience_per_insertion ?? quote.audience_per_insertion ?? proposal.avg_audience_per_insertion) ?? 100,
+        pricing_mode: quote.pricing_mode ?? proposal.pricing_mode ?? 'insertion',
         pricing_variant: quote.pricing_variant ?? proposal.pricing_variant ?? 'avulsa',
         insertion_prices: {
           avulsa: toPriceRecord(quote.insertion_prices?.avulsa),
@@ -280,16 +220,28 @@ const ProposalDetails = () => {
         discount_fixed: toNumber(proposal.discount_fixed ?? quote.discount_fixed),
       };
 
+      // Calcular métricas usando a função existente
       const metrics = calculateProposalMetrics(pricingInput);
-
+      
       return {
+        filmSeconds: durations[0] || 30,
+        insertionsPerHour: pricingInput.insertions_per_hour,
+        screensCount: pricingInput.screens_count,
+        insertionsPerMonth: metrics.totalInsertions / (pricingInput.months_period || 1),
+        totalInsertions: metrics.totalInsertions,
+        impacts: metrics.impacts,
+        grossValue: metrics.grossValue,
+        netValue: metrics.netValue,
+        monthsPeriod: pricingInput.months_period || 1,
+        hoursPerDay: pricingInput.hours_per_day,
+        businessDaysPerMonth: pricingInput.business_days_per_month,
         metrics,
         pricingInput,
         durations,
         quote,
       };
     } catch (error) {
-      console.error('[ProposalDetails] Falha ao calcular métricas de precificação', error);
+      console.error('Erro ao calcular métricas:', error);
       return null;
     }
   }, [proposal]);
@@ -335,28 +287,45 @@ const ProposalDetails = () => {
       if (error) throw error;
       if (!data) throw new Error('Proposta não encontrada');
 
-      // Normalização com Zod para reduzir duplicação de mapeamentos
-
-      // Buscar dados do projeto se houver projeto_id
+      // DEBUG: Log para verificar projeto_id
+      console.log('🔍 [ProposalDetails] projeto_id:', data.projeto_id);
+      console.log('🔍 [ProposalDetails] agencia_id:', data.agencia_id);
+      
       let projectData = null;
       if (data.projeto_id) {
+        console.log('🔍 [ProposalDetails] Buscando projeto:', data.projeto_id);
         const { data: project, error: projectError } = await supabase
           .from('agencia_projetos')
-          .select('id, nome_projeto, descricao, cliente_final')
+          .select(`
+            id, 
+            nome_projeto, 
+            descricao, 
+            cliente_final,
+            orcamento_projeto,
+            responsavel_nome
+          `)
           .eq('id', data.projeto_id)
           .single();
         
+        if (projectError) {
+          console.error('❌ [ProposalDetails] Erro ao buscar projeto:', projectError);
+        }
+        
         if (!projectError && project) {
+          console.log('✅ [ProposalDetails] Projeto encontrado:', project);
           projectData = project;
         }
+      } else {
+        console.warn('⚠️ [ProposalDetails] Nenhum projeto_id definido na proposta');
       }
 
-      // Combinar dados da proposta com dados do projeto
       const proposalWithProject = {
         ...data,
         agencia_projetos: projectData,
       };
-      // Normalização segura — em caso de falha, retorna fallback sem quebrar a UI
+      
+      console.log('📦 [ProposalDetails] Proposta completa:', proposalWithProject);
+
       const normalized = normalizeProposal(proposalWithProject);
       setProposal(normalized as any);
     } catch (error: any) {
@@ -395,6 +364,301 @@ const ProposalDetails = () => {
     }
   };
 
+  const handleGeneratePDF = async () => {
+    try {
+      if (!proposal) {
+        throw new Error('Dados da proposta não carregados');
+      }
+
+      toast.info("Gerando PDF...");
+      await downloadVisibleProposalPDF(`proposta-${proposal.id}.pdf`);
+      toast.success("PDF gerado com sucesso!");
+    } catch (err: any) {
+      console.error('Erro ao gerar PDF:', err);
+      toast.error(`Erro ao gerar PDF: ${err?.message || 'desconhecido'}`);
+    }
+  };
+
+  const handleDownloadExcel = async () => {
+    if (!proposal) return;
+
+    try {
+      // Preparar dados das telas
+      const rows = (proposal.proposal_screens || []).map((ps) => ({
+        id: ps.screens?.id,
+        code: ps.screens?.code ?? '',
+        name: ps.screens?.name ?? ps.screens?.display_name ?? '',
+        class: ps.screens?.class ?? '',
+        type: (ps.screens as any)?.category ?? (ps.screens as any)?.screen_type ?? '',
+        address: (ps.screens as any)?.google_formatted_address ?? (ps.screens as any)?.formatted_address ?? '',
+        city: ps.screens?.city ?? '',
+        state: ps.screens?.state ?? '',
+        venue_id: ps.screens?.venue_id ?? '',
+        venue_name: ps.screens?.venues?.name ?? '',
+      }));
+
+      const wb = new ExcelJS.Workbook();
+      
+      // Planilha 1: Pontos
+      const ws = wb.addWorksheet('Pontos');
+      ws.columns = [
+        { header: 'ID', key: 'id', width: 10 },
+        { header: 'Código', key: 'code', width: 14 },
+        { header: 'Nome', key: 'name', width: 32 },
+        { header: 'Classe', key: 'class', width: 12 },
+        { header: 'Tipo', key: 'type', width: 16 },
+        { header: 'Endereço', key: 'address', width: 40 },
+        { header: 'Cidade', key: 'city', width: 18 },
+        { header: 'Estado', key: 'state', width: 10 },
+        { header: 'Venue', key: 'venue_id', width: 12 },
+        { header: 'Venue Nome', key: 'venue_name', width: 20 },
+      ];
+      ws.addRows(rows);
+
+      // Planilha 2: Resumo com FÓRMULAS
+      const ws2 = wb.addWorksheet('Resumo');
+      
+      const quote = proposal.quote && typeof proposal.quote === 'object' ? proposal.quote : {};
+      
+      // Determinar se é período em dias ou meses
+      const periodUnit = pricingSummary?.pricingInput?.period_unit || quote.period_unit || 'months';
+      const isDaysPeriod = periodUnit === 'days';
+      
+      // Calcular período correto
+      let periodValue = 1;
+      if (isDaysPeriod) {
+        periodValue = pricingSummary?.pricingInput?.days_period || quote.days_period || 45;
+      } else {
+        periodValue = pricingSummary?.monthsPeriod || pricingSummary?.pricingInput?.months_period || 1;
+      }
+      
+      const screensCount = pricingSummary?.screensCount || 0;
+      const insertionsPerHour = pricingSummary?.insertionsPerHour || 6;
+      const hoursPerDay = pricingSummary?.hoursPerDay || 10;
+      const businessDaysPerMonth = pricingSummary?.businessDaysPerMonth || 22;
+      const filmSeconds = pricingSummary?.filmSeconds || 30;
+      const descPct = proposal.discount_pct || 0;
+      const avgAudiencePerInsertion = 100;
+      
+      const priceAvulsa = (quote?.insertion_prices?.avulsa || {}) as Record<number, number>;
+      const priceEspecial = (quote?.insertion_prices?.especial || {}) as Record<number, number>;
+      
+      const durations = [15, 30, 45, 60].filter(sec => priceAvulsa[sec] || priceEspecial[sec]);
+      if (durations.length === 0) durations.push(filmSeconds);
+
+      const currencyFmt = '"R$" #,##0.00';
+      const percentFmt = '0.00%';
+      
+      const periodLabel = isDaysPeriod ? 'Dias' : 'Meses';
+      const unitLabel = isDaysPeriod ? 'dia' : 'mês';
+
+      // SEÇÃO: Veiculação Avulsa
+      const titleAv = ws2.addRow(['Veiculação Avulsa']);
+      titleAv.font = { bold: true, size: 14 };
+      
+      const headerAv = ws2.addRow([
+        'Filme', periodLabel, 'Inserções/hora', `Inserções/${unitLabel}`, 
+        `Audiência/${unitLabel}`, `Impactos/${unitLabel}`, 'Qtd telas', 
+        `Investimento Bruto/${isDaysPeriod ? 'Dia' : 'Mês'}`, `Investimento Ag. Bruto/${isDaysPeriod ? 'Dia' : 'Mês'}`, 
+        'Desconto (%)', `Investimento/tela/${unitLabel}`, `CPM/Impacto/${isDaysPeriod ? 'Dia' : 'Mês'}`, 
+        `Investimento Negociado ${isDaysPeriod ? 'Diário' : 'Mensal'}`, 'Total Negociado'
+      ]);
+      headerAv.font = { bold: true };
+      headerAv.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE0E0E0' } };
+
+      const avulsaRowIdxs: number[] = [];
+      durations.forEach((sec) => {
+        const row = ws2.addRow([
+          `${sec}"`,
+          periodValue,
+          insertionsPerHour,
+          null, // D = Fórmula
+          avgAudiencePerInsertion,
+          null, // F = Fórmula
+          screensCount,
+          null, // H = Fórmula (virá da tabela de preços)
+          null, // I = Fórmula
+          descPct / 100,
+          null, // K = Fórmula
+          null, // L = Fórmula
+          null, // M = Fórmula
+          null, // N = Fórmula
+        ]);
+        avulsaRowIdxs.push(row.number);
+        const r = row.number;
+        
+        // D: Inserções por período = C * 10 * G (se dias, * 1; se mês, * 22)
+        const multiplier = isDaysPeriod ? 1 : 22;
+        row.getCell(4).value = { formula: `C${r}*10*G${r}*${multiplier}` };
+        
+        // F: Impactos por período = E * C
+        row.getCell(6).value = { formula: `E${r}*C${r}` };
+        
+        // H: Investimento Bruto = D * preço (será referenciado depois)
+        row.getCell(8).value = null; // Será preenchido depois com referência à tabela
+        
+        // I: Investimento Ag. Bruto = H
+        row.getCell(9).value = { formula: `H${r}` };
+        
+        // K: Investimento/tela = M / G
+        row.getCell(11).value = { formula: `M${r}/G${r}` };
+        
+        // L: CPM/Impacto = (M / F) * 1000
+        row.getCell(12).value = { formula: `(M${r}/F${r})*1000` };
+        
+        // M: Investimento Negociado = I - (I * J)
+        row.getCell(13).value = { formula: `I${r}-(I${r}*J${r})` };
+        
+        // N: Total Negociado COM DESCONTO = (M * B) - ((M * B) * J)
+        // Aplicar desconto no total negociado
+        row.getCell(14).value = { formula: `(M${r}*B${r})-((M${r}*B${r})*J${r})` };
+        
+        // Formatar
+        row.getCell(8).numFmt = currencyFmt;
+        row.getCell(9).numFmt = currencyFmt;
+        row.getCell(10).numFmt = percentFmt;
+        row.getCell(11).numFmt = currencyFmt;
+        row.getCell(12).numFmt = currencyFmt;
+        row.getCell(13).numFmt = currencyFmt;
+        row.getCell(14).numFmt = currencyFmt;
+      });
+
+      ws2.addRow([]);
+
+      // SEÇÃO: Projeto Especial de Conteúdo
+      const titleEsp = ws2.addRow(['Projeto Especial de Conteúdo']);
+      titleEsp.font = { bold: true, size: 14 };
+      
+      const headerEsp = ws2.addRow([
+        'Filme', periodLabel, 'Inserções/hora', `Inserções/${unitLabel}`, 
+        `Audiência/${unitLabel}`, `Impactos/${unitLabel}`, 'Qtd telas', 
+        `Investimento Bruto/${isDaysPeriod ? 'Dia' : 'Mês'}`, `Investimento Ag. Bruto/${isDaysPeriod ? 'Dia' : 'Mês'}`, 
+        'Desconto (%)', `Investimento/tela/${unitLabel}`, `CPM/Impacto/${isDaysPeriod ? 'Dia' : 'Mês'}`, 
+        `Investimento Negociado ${isDaysPeriod ? 'Diário' : 'Mensal'}`, 'Total Negociado'
+      ]);
+      headerEsp.font = { bold: true };
+      headerEsp.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE0E0E0' } };
+
+      const especialRowIdxs: number[] = [];
+      durations.forEach((sec) => {
+        const row = ws2.addRow([
+          `${sec}"`,
+          periodValue,
+          insertionsPerHour,
+          null,
+          avgAudiencePerInsertion,
+          null,
+          screensCount,
+          null,
+          null,
+          descPct / 100,
+          null,
+          null,
+          null,
+          null,
+        ]);
+        especialRowIdxs.push(row.number);
+        const r = row.number;
+        
+        // Mesmas fórmulas que Avulsa
+        const multiplier = isDaysPeriod ? 1 : 22;
+        row.getCell(4).value = { formula: `C${r}*10*G${r}*${multiplier}` };
+        row.getCell(6).value = { formula: `E${r}*C${r}` };
+        row.getCell(8).value = null; // Será preenchido depois
+        row.getCell(9).value = { formula: `H${r}` };
+        row.getCell(11).value = { formula: `M${r}/G${r}` };
+        row.getCell(12).value = { formula: `(M${r}/F${r})*1000` };
+        row.getCell(13).value = { formula: `I${r}-(I${r}*J${r})` };
+        // N: Total Negociado COM DESCONTO
+        row.getCell(14).value = { formula: `(M${r}*B${r})-((M${r}*B${r})*J${r})` };
+        
+        row.getCell(8).numFmt = currencyFmt;
+        row.getCell(9).numFmt = currencyFmt;
+        row.getCell(10).numFmt = percentFmt;
+        row.getCell(11).numFmt = currencyFmt;
+        row.getCell(12).numFmt = currencyFmt;
+        row.getCell(13).numFmt = currencyFmt;
+        row.getCell(14).numFmt = currencyFmt;
+      });
+
+      ws2.addRow([]);
+
+      // SEÇÃO: Tabela de Preços
+      const headerTabela = ws2.addRow(['Veiculação', 'Tempo', 'Inserção Avulsa', 'Inserção Esp. Cont.']);
+      headerTabela.font = { bold: true };
+      headerTabela.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFD700' } };
+      
+      const linhaHorario = ws2.addRow(['2ª a 6ª Feira (5 d.u.)', '08h - 18h - 10h/dia', '', '']);
+      const linhaHorarioRow = linhaHorario.number;
+      
+      const firstPriceRow = linhaHorarioRow + 1;
+      durations.forEach((sec) => {
+        const row = ws2.addRow(['', `${sec}"`, priceAvulsa[sec] || 0, priceEspecial[sec] || 0]);
+        row.getCell(3).numFmt = currencyFmt;
+        row.getCell(4).numFmt = currencyFmt;
+      });
+
+      // Agora preencher H (Investimento Bruto) com fórmulas referenciando tabela de preços
+      avulsaRowIdxs.forEach((r, i) => {
+        const priceRow = firstPriceRow + i;
+        // H = D * preço da tabela (coluna C da tabela)
+        ws2.getCell(r, 8).value = { formula: `D${r}*C${priceRow}` };
+      });
+      
+      especialRowIdxs.forEach((r, i) => {
+        const priceRow = firstPriceRow + i;
+        // H = D * preço da tabela (coluna D da tabela)
+        ws2.getCell(r, 8).value = { formula: `D${r}*D${priceRow}` };
+      });
+
+      ws2.addRow([]);
+      ws2.addRow(['Observações']).font = { bold: true };
+      ws2.addRow(['Os quadros têm duração de 30"']);
+      ws2.addRow(['Checking Online']);
+      ws2.addRow(['Para Checking Presencial, consultar condições e valores']);
+      ws2.addRow(['Tabela vigente mês da veiculação; pontos podem estar indisponíveis no momento da autorização']);
+      ws2.addRow(['Em caso de multiplicidade de marcas será cobrado adicional de 30% sobre o valor da proposta']);
+
+      // Exportar
+      const buffer = await wb.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { 
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+      });
+      
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `proposta_${proposal.id}_pontos.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+      
+      toast.success('Planilha gerada com sucesso');
+    } catch (error) {
+      console.error('Erro ao gerar Excel:', error);
+      toast.error('Erro ao gerar planilha');
+    }
+  };
+
+  const formatCurrency = (value?: number | null) => {
+    if (value === undefined || value === null || Number.isNaN(Number(value))) return 'R$ 0,00';
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL'
+    }).format(value);
+  };
+
+  const formatNumber = (value?: number | null) => {
+    if (typeof value !== 'number' || Number.isNaN(value)) return '0';
+    return Math.round(value).toLocaleString('pt-BR');
+  };
+
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return 'Não informado';
+    return new Date(dateString).toLocaleDateString('pt-BR');
+  };
+
   if (loading) {
     return (
       <DashboardLayout>
@@ -423,662 +687,634 @@ const ProposalDetails = () => {
     );
   }
 
-  const formatCurrency = (value?: number | null) => {
-    if (value === undefined || value === null || Number.isNaN(Number(value))) return 'R$ 0,00';
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL'
-    }).format(value);
-  };
-  const formatNumber = (value?: number | null) => {
-    if (typeof value !== 'number' || Number.isNaN(value)) return '-';
-    const rounded = Math.round(value);
-    return rounded.toLocaleString('pt-BR');
-  };
-
-  // filteredScreens e groupedByCityState já são calculados via hook useProposalFilters
-
-  const computeCalendarDays = (startDate?: string, endDate?: string) => {
-    if (!startDate || !endDate) return null;
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return null;
-    return Math.max(Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1, 0);
-  };
-
-  // pricingSummary já movido acima para manter regras de hooks
-
-  const pricingMetrics = pricingSummary?.metrics;
-  const pricingInput = pricingSummary?.pricingInput;
-  const durationsForDisplay = pricingSummary?.durations;
-  const netValueCalculated = pricingMetrics?.netValue ?? proposal?.net_calendar ?? proposal?.net_value ?? 0;
-  const grossValueCalculated = pricingMetrics?.grossValue ?? proposal?.gross_calendar ?? proposal?.gross_value ?? 0;
-  const calendarDays = computeCalendarDays(proposal?.start_date, proposal?.end_date);
-  const inferredDays = (() => {
-    if (calendarDays && calendarDays > 0) return calendarDays;
-    if (!pricingMetrics) return null;
-
-    if (pricingMetrics.periodUnit === 'months') {
-      const months = pricingMetrics.monthsPeriod ?? 0;
-      const businessDays = pricingInput?.business_days_per_month ?? 22;
-      return months > 0 ? months * businessDays : null;
-    }
-
-    if (pricingMetrics.periodUnit === 'days') {
-      return pricingMetrics.daysPeriod ?? null;
-    }
-
-    return null;
-  })();
-
-  const isDaysPeriod = pricingMetrics?.periodUnit === 'days';
-  const unitsForAudience = (() => {
-    if (!pricingMetrics) return null;
-    if (isDaysPeriod) {
-      return pricingMetrics.daysPeriod ?? inferredDays ?? null;
-    }
-    const months = pricingMetrics.monthsPeriod ?? pricingInput?.months_period;
-    return months ?? null;
-  })();
-  const unitsDivisor = unitsForAudience && unitsForAudience > 0 ? unitsForAudience : 1;
-  const audiencePerMonth = pricingMetrics?.impacts
-    ? Math.round(pricingMetrics.impacts / Math.max(unitsDivisor, 1))
-    : undefined;
-  const audienceLabel = isDaysPeriod ? 'Audiência/Dia' : 'Audiência/Mês';
-  const quoteData = (pricingSummary?.quote ?? proposal.quote ?? {}) as any;
-  const insertionsPerHourValue = Number(pricingInput?.insertions_per_hour ?? proposal.insertions_per_hour ?? 0) || 0;
-  const hoursPerDay = Number(pricingInput?.hours_per_day ?? proposal.horas_operacao_dia ?? 10) || 10;
-  const businessDaysPerMonth = Number(pricingInput?.business_days_per_month ?? proposal.dias_uteis_mes_base ?? 22) || 22;
-  const screensCount = pricingMetrics?.screens ?? proposal.proposal_screens?.length ?? 0;
-  const avgAudiencePerInsertion = Number(
-    pricingInput?.avg_audience_per_insertion ??
-      quoteData?.avg_audience_per_insertion ??
-      proposal.avg_audience_per_insercao ??
-      proposal.avg_audience_per_insertion ??
-      100
-  ) || 0;
-  const rawPeriodValue = isDaysPeriod
-    ? Number(pricingMetrics?.daysPeriod ?? pricingInput?.days_period ?? inferredDays ?? 0)
-    : Number(pricingMetrics?.monthsPeriod ?? pricingInput?.months_period ?? 1);
-  const periodValue = rawPeriodValue > 0 ? rawPeriodValue : 1;
-  const periodColumnLabel = isDaysPeriod ? 'Dias' : 'Meses';
-  const unitLabel = isDaysPeriod ? 'Dia' : 'Mês';
-  const insertionsPerUnit = Math.round(
-    insertionsPerHourValue * hoursPerDay * screensCount * (isDaysPeriod ? 1 : businessDaysPerMonth)
-  );
-  const audiencePerUnitValue = avgAudiencePerInsertion > 0
-    ? Math.round(avgAudiencePerInsertion * insertionsPerUnit)
-    : null;
-  const impactsPerUnitValue = audiencePerUnitValue && insertionsPerHourValue
-    ? Math.round(audiencePerUnitValue * insertionsPerHourValue)
-    : null;
-  const durationsList = (durationsForDisplay && durationsForDisplay.length > 0
-    ? durationsForDisplay
-    : [Number(proposal.film_seconds || 0)])
-    .map((sec) => Number(sec))
-    .filter((sec) => Number.isFinite(sec) && sec > 0);
-  const priceTables = pricingInput?.insertion_prices ?? { avulsa: {}, especial: {} };
-  const variantDiscountFraction = {
-    avulsa: Number(
-      quoteData?.discount_pct_avulsa ??
-        proposal.discount_pct_avulsa ??
-        quoteData?.discount_pct ??
-        proposal.discount_pct ??
-        0
-    ) / 100,
-    especial: Number(
-      quoteData?.discount_pct_especial ??
-        proposal.discount_pct_especial ??
-        quoteData?.discount_pct ??
-        proposal.discount_pct ??
-        0
-    ) / 100,
-  } as Record<'avulsa' | 'especial', number>;
-
-  const buildInvestmentRows = (variant: 'avulsa' | 'especial') => {
-    if (!durationsList.length) return [];
-    return durationsList.map((duration) => {
-      const priceTable = (priceTables?.[variant] ?? {}) as Record<number, number>;
-      const basePrice = Number(priceTable?.[duration] ?? 0);
-      const investBruto = basePrice * insertionsPerUnit;
-      const investAg = investBruto;
-      const discountFraction = variantDiscountFraction[variant] ?? 0;
-      const investNegotiated = investAg - (investAg * discountFraction);
-      const totalNegotiated = investNegotiated * periodValue;
-      const investPerScreen = screensCount > 0 ? investNegotiated / screensCount : 0;
-      const cpmPerImpact = impactsPerUnitValue
-        ? investNegotiated / Math.max(impactsPerUnitValue, 1) * 1000
-        : 0;
-
-      return {
-        durationLabel: `${duration}"`,
-        periodValue,
-        insertionsPerHour: insertionsPerHourValue,
-        insertionsPerUnit,
-        audiencePerUnit: audiencePerUnitValue,
-        impactsPerUnit: impactsPerUnitValue,
-        screens: screensCount,
-        investBruto,
-        investAgBruto: investAg,
-        discountPct: discountFraction,
-        investPerScreen,
-        cpmPerImpact,
-        investNegotiated,
-        totalNegotiated,
-      };
-    });
-  };
-
-  const investmentBreakdown = {
-    avulsa: buildInvestmentRows('avulsa'),
-    especial: buildInvestmentRows('especial'),
-  };
-  const investmentSubtitle = isDaysPeriod
-    ? 'Valores calculados por dia de campanha'
-    : 'Valores calculados por mês de campanha';
-  const cityCount = proposal.proposal_screens ? new Set(proposal.proposal_screens.map((ps) => ps.screens?.city)).size : 0;
-  const stateCount = proposal.proposal_screens ? new Set(proposal.proposal_screens.map((ps) => ps.screens?.state)).size : 0;
-  const highlightStats = [
-    {
-      icon: DollarSign,
-      label: 'Investimento',
-      value: formatCurrency(netValueCalculated),
-      helper: 'Valor líquido estimado',
-    },
-    {
-      icon: Monitor,
-      label: 'Telas Selecionadas',
-      value: formatNumber(proposal.proposal_screens?.length || 0),
-      helper: `${formatNumber(cityCount)} cidades ativas`,
-    },
-    {
-      icon: MapPin,
-      label: 'Cobertura',
-      value: formatNumber(cityCount),
-      helper: `${formatNumber(stateCount)} estados`,
-    },
-    {
-      icon: BarChart3,
-      label: 'Impactos Estimados',
-      value: formatNumber(pricingMetrics?.impacts ?? 0),
-      helper: audienceLabel,
-    },
-  ];
-
-  const formatDate = (dateString?: string) => {
-    if (!dateString) return 'Não informado';
-    return new Date(dateString).toLocaleDateString('pt-BR');
-  };
-
-  // Nova função para gerar PDF profissional
-  const handleGeneratePDF = async () => {
-    try {
-      // DEBUG CRÍTICO: Verificar se os dados estão disponíveis
-      console.log('🔍 [DEBUG] handleGeneratePDF chamado:', {
-        proposalId: proposal?.id,
-        hasProposal: !!proposal,
-        loading,
-        proposalData: proposal ? {
-          id: proposal.id,
-          customer_name: proposal.customer_name,
-          screens_count: proposal.proposal_screens?.length || 0
-        } : null
-      });
-
-      if (!proposal) {
-        throw new Error('Dados da proposta não carregados');
-      }
-
-      if (loading) {
-        throw new Error('Ainda carregando dados da proposta');
-      }
-
-      toast.info("Gerando PDF profissional...");
-      // >>> usar nova função de captura do DOM vivo
-      await downloadVisibleProposalPDF(`proposta-${proposal.id}.pdf`);
-
-      // PDF gerado com sucesso
-      console.log('✅ PDF gerado com sucesso!');
-
-      // PDF gerado com sucesso
-      toast.success("PDF profissional gerado com sucesso!");
-    } catch (err: any) {
-      console.error('[PDF][handleGeneratePDF]', err);
-      toast.error(`Erro ao gerar PDF: ${err?.message || 'desconhecido'}`);
-    }
-  };
-
-  const handleDownloadExcel = async () => {
-    if (!proposal) return;
-    const rows = (proposal.proposal_screens || []).map((ps) => ({
-      id: ps.screens?.id,
-      code: ps.screens?.code ?? '',
-      name: ps.screens?.name ?? ps.screens?.display_name ?? '',
-      class: ps.screens?.class ?? '',
-      type: (ps.screens as any)?.category ?? (ps.screens as any)?.screen_type ?? '',
-      address: (ps.screens as any)?.google_formatted_address ?? (ps.screens as any)?.formatted_address ?? '',
-      city: ps.screens?.city ?? '',
-      state: ps.screens?.state ?? '',
-      venue_id: ps.screens?.venue_id ?? '',
-      venue_name: ps.screens?.venues?.name ?? '',
-    }));
-    const wb = new ExcelJS.Workbook();
-    const ws = wb.addWorksheet('Pontos');
-    ws.columns = [
-      { header: 'ID', key: 'id', width: 10 },
-      { header: 'Código', key: 'code', width: 14 },
-      { header: 'Nome', key: 'name', width: 32 },
-      { header: 'Classe', key: 'class', width: 12 },
-      { header: 'Tipo', key: 'type', width: 16 },
-      { header: 'Endereço', key: 'address', width: 40 },
-      { header: 'Cidade', key: 'city', width: 18 },
-      { header: 'Estado', key: 'state', width: 10 },
-      { header: 'Venue', key: 'venue_id', width: 12 },
-      { header: 'Venue Nome', key: 'venue_name', width: 20 },
-    ];
-    ws.addRows(rows);
-    const ws2 = wb.addWorksheet('Resumo');
-    const pricing = pricingSummary;
-    const pricingInput = pricing?.pricingInput as any;
-    const durationsForDisplay = pricing?.durations as number[] | undefined;
-    const months = Number(pricingInput?.months_period ?? proposal.months_period ?? 1) || 1;
-    const screensCount = Number(pricingInput?.screens_count ?? (proposal.proposal_screens?.length ?? 0)) || 0;
-    const insertionsPerHour = Number(pricingInput?.insertions_per_hour ?? proposal.insertions_per_hour ?? 0) || 0;
-    const hoursPerDay = Number(pricingInput?.hours_per_day ?? proposal.horas_operacao_dia ?? 10) || 10;
-    const businessDaysPerMonth = Number(pricingInput?.business_days_per_month ?? proposal.dias_uteis_mes_base ?? 22) || 22;
-    const insertionsMonthly = Math.round(insertionsPerHour * hoursPerDay * businessDaysPerMonth * screensCount);
-    const impactsMonthly = proposal.impacts_business ? Math.round(Number(proposal.impacts_business) / months) : undefined;
-    const grossMonthly = proposal.gross_business ? Number(proposal.gross_business) / months : 0;
-    const descPct = Number(pricingInput?.discount_pct ?? proposal.discount_pct ?? 0) || 0;
-    const netMonthly = grossMonthly * (1 - descPct / 100);
-    const investPorTelaMes = screensCount ? grossMonthly / screensCount : 0;
-    const audienceBase = Number(
-      (pricingSummary?.quote?.valor_insercao_config?.audiencia_mes_base ??
-        (pricingInput as any)?.audiencia_mes_base ??
-        (pricingInput as any)?.valor_insercao_config?.audiencia_mes_base ??
-        (proposal as any)?.audiencia_mes_base ??
-        0)
-    );
-    const avgAudiencePerInsertion = Number(
-      (pricingInput as any)?.avg_audience_per_insertion ??
-        pricingSummary?.quote?.avg_audience_per_insertion ??
-        (proposal as any)?.avg_audience_per_insertion ??
-        0
-    );
-    const audienceMonthly = (audienceBase && audienceBase > 0)
-      ? audienceBase
-      : (avgAudiencePerInsertion && avgAudiencePerInsertion > 0 ? Math.round(avgAudiencePerInsertion * insertionsMonthly) : undefined);
-    const cpmMonthly = audienceMonthly ? (grossMonthly / Math.max(Number(audienceMonthly) / 1000, 1)) : (impactsMonthly ? (grossMonthly / Math.max(impactsMonthly / 1000, 1)) : undefined);
-
-    const currencyFmt = '"R$" #,##0.00';
-    const percentFmt = '0.00%';
-    const decimalFmt = '#,##0.00';
-
-    const titleAv = ws2.addRow(['Veiculação Avulsa']);
-    const headerAv = ws2.addRow(['Filme', 'Meses', 'Inserções/hora', 'Inserções/mês', 'Audi/mês', 'Impact/mês', 'Qtd telas', 'Invest Bruto/Mês', 'Invest Ag. Bruto/Mês', 'Desc (%)', 'Invest/tela/mês', 'CPM/Impact/Mês', 'Invest.Negociado Mensal', 'Total Negociado/8M']);
-    const secs = (durationsForDisplay && durationsForDisplay.length ? durationsForDisplay : [Number(proposal.film_seconds || 0)]).filter(Boolean);
-    const avulsaRowIdxs: number[] = [];
-    secs.forEach((sec) => {
-      const row = ws2.addRow([
-        `${sec}"`,
-        months,
-        insertionsPerHour,
-        null,
-        audienceMonthly ?? '',
-        null,
-        screensCount,
-        null,
-        null,
-        descPct / 100,
-        null,
-        null,
-        null,
-        null,
-      ]);
-      avulsaRowIdxs.push(row.number);
-      const r = row.number;
-      row.getCell(4).value = { formula: `C${r}*10*G${r}*22` };
-      row.getCell(6).value = { formula: `E${r}*C${r}` };
-      // H será ajustado após criarmos a tabela de preços (referência C15)
-      row.getCell(8).value = null;
-      row.getCell(9).value = { formula: `H${r}` };
-      row.getCell(11).value = { formula: `M${r}/G${r}` };
-      row.getCell(12).value = { formula: `(M${r}/F${r})*1000` };
-      row.getCell(13).value = { formula: `I${r}-(I${r}*J${r})` };
-      row.getCell(14).value = { formula: `M${r}*B${r}` };
-      row.getCell(8).numFmt = currencyFmt;
-      row.getCell(9).numFmt = currencyFmt;
-      row.getCell(10).numFmt = percentFmt;
-      row.getCell(11).numFmt = currencyFmt;
-      row.getCell(12).numFmt = currencyFmt;
-      row.getCell(13).numFmt = currencyFmt;
-      row.getCell(14).numFmt = currencyFmt;
-    });
-
-    ws2.addRow([]);
-    const titleEsp = ws2.addRow(['Projeto Especial de Conteúdo']);
-    const headerEsp = ws2.addRow(['Filme', 'Meses', 'Inserções/hora', 'Inserções/mês', 'Audi/mês', 'Impact/mês', 'Qtd telas', 'Invest Bruto/Mês', 'Invest Ag. Bruto/Mês', 'Desc (%)', 'Invest/tela/mês', 'CPM/Impact/Mês', 'Invest.Negociado Mensal', 'Total Negociado/8M']);
-    const especialRowIdxs: number[] = [];
-    secs.forEach((sec) => {
-      const row = ws2.addRow([
-        `${sec}"`,
-        months,
-        insertionsPerHour,
-        null,
-        audienceMonthly ?? '',
-        null,
-        screensCount,
-        null,
-        null,
-        descPct / 100,
-        null,
-        null,
-        null,
-        null,
-      ]);
-      especialRowIdxs.push(row.number);
-      const r = row.number;
-      row.getCell(4).value = { formula: `C${r}*10*G${r}*22` };
-      row.getCell(6).value = { formula: `E${r}*C${r}` };
-      // H será ajustado após criarmos a tabela de preços (referência D15)
-      row.getCell(8).value = null;
-      row.getCell(9).value = { formula: `H${r}` };
-      row.getCell(11).value = { formula: `M${r}/G${r}` };
-      row.getCell(12).value = { formula: `(M${r}/F${r})*1000` };
-      row.getCell(13).value = { formula: `I${r}-(I${r}*J${r})` };
-      row.getCell(14).value = { formula: `M${r}*B${r}` };
-      row.getCell(8).numFmt = currencyFmt;
-      row.getCell(9).numFmt = currencyFmt;
-      row.getCell(10).numFmt = percentFmt;
-      row.getCell(11).numFmt = currencyFmt;
-      row.getCell(12).numFmt = currencyFmt;
-      row.getCell(13).numFmt = currencyFmt;
-      row.getCell(14).numFmt = currencyFmt;
-    });
-
-    ws2.addRow([]);
-    const headerTabela = ws2.addRow(['Veiculação', 'Tempo', 'Inserção Avulsa', 'Inserção Esp. Cont.']);
-    const headerTabelaRow = headerTabela.number;
-    const linhaHorario = ws2.addRow(['2ª a 6ª Feira (5 d.u.)', '08h - 18h - 10h/dia', '', '']);
-    const linhaHorarioRow = linhaHorario.number;
-    const priceAvulsa = (pricingInput?.insertion_prices?.avulsa ?? {}) as Record<number, number>;
-    const priceEspecial = (pricingInput?.insertion_prices?.especial ?? {}) as Record<number, number>;
-    const durationsPrice = secs.length ? secs : Object.keys({ ...priceAvulsa, ...priceEspecial }).map((k) => Number(k));
-    durationsPrice.forEach((sec) => {
-      const row = ws2.addRow(['', `${sec}"`, priceAvulsa?.[sec] ?? '', priceEspecial?.[sec] ?? '']);
-      row.getCell(3).numFmt = currencyFmt;
-      row.getCell(4).numFmt = currencyFmt;
-    });
-
-    // Define CPM base em L12 para uso da fórmula H = D * L12
-    ws2.getCell('L12').value = cpmMonthly ?? 0;
-    ws2.getCell('L12').numFmt = currencyFmt;
-
-    // Ajusta H para usar preços da primeira linha de preços (C{firstPriceRow}/D{firstPriceRow})
-    const firstPriceRow = linhaHorarioRow + 1;
-    avulsaRowIdxs.forEach((r, i) => {
-      const priceRow = firstPriceRow + i;
-      ws2.getCell(r, 8).value = { formula: `D${r}*C${priceRow}` };
-    });
-    especialRowIdxs.forEach((r, i) => {
-      const priceRow = firstPriceRow + i;
-      ws2.getCell(r, 8).value = { formula: `D${r}*D${priceRow}` };
-    });
-    ws2.addRow([]);
-    ws2.addRow(['Observações']);
-    ws2.addRow(['Os quadros têm duração de 30"']);
-    ws2.addRow(['Checking Online']);
-    ws2.addRow(['Para Checking Presencial, consultar condições e valores']);
-    ws2.addRow(['Tabela vigente mês da veiculação; pontos podem estar indisponíveis no momento da autorização']);
-    ws2.addRow(['Em caso de multiplicidade de marcas será cobrado adicional de 30% sobre o valor da proposta']);
-    const buffer = await wb.xlsx.writeBuffer();
-    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `proposta_${proposal.id}_pontos.xlsx`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 60000);
-    toast.success('Planilha gerada com sucesso');
-  };
+  const cityCount = new Set(proposal.proposal_screens?.map(ps => ps.screens?.city)).size;
+  const stateCount = new Set(proposal.proposal_screens?.map(ps => ps.screens?.state)).size;
 
   return (
     <DashboardLayout>
-      <div id="proposal-print-area" className="min-h-screen bg-slate-50">
-        <div className="relative isolate overflow-hidden bg-gradient-to-r from-orange-500 via-orange-600 to-rose-500 text-white">
-          <div className="absolute inset-0 opacity-30 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.45),_transparent_55%)]" />
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 relative">
-            <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-              <div className="space-y-4">
-                <Badge variant="secondary" className="bg-white/15 text-white border-white/30 w-fit">
+      <div className="min-h-screen bg-slate-50">
+        {/* Header */}
+        <div className="bg-gradient-to-r from-orange-500 to-orange-600 text-white">
+          <div className="max-w-7xl mx-auto px-6 py-8">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-4">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => navigate('/propostas')}
+                  className="text-white hover:bg-white/20"
+                >
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  Voltar
+                </Button>
+                <Badge variant="secondary" className="bg-white/20 text-white border-white/30">
                   Proposta #{proposal.id}
                 </Badge>
-                <div>
-                  <p className="text-sm uppercase tracking-[0.35em] text-white/70">Resumo da Proposta</p>
-                  <h1 className="text-4xl font-bold leading-tight">
-                    {proposal.agencia_projetos?.nome_projeto || proposal.customer_name || `Proposta #${proposal.id}`}
-                  </h1>
-                </div>
-                <div className="flex flex-wrap gap-x-6 gap-y-3 text-sm text-white/80">
-                  <span className="flex items-center gap-2">
-                    <Calendar className="h-4 w-4" />
-                    Criada em {formatDate(proposal.created_at)}
-                  </span>
-                  {proposal.customer_name && (
-                    <span className="flex items-center gap-2">
-                      <User className="h-4 w-4" />
-                      Cliente: {proposal.customer_name}
-                    </span>
-                  )}
-                  {proposal.agencias?.nome_agencia && (
-                    <span className="flex items-center gap-2">
-                      <Building className="h-4 w-4" />
-                      Agência: {proposal.agencias?.nome_agencia}
-                    </span>
-                  )}
-                </div>
+                <ProposalStatusBadge status={proposal.status} />
               </div>
-
-              <div className="w-full lg:w-auto space-y-3">
-                <div className="flex flex-wrap gap-3 items-center justify-start lg:justify-end">
-                  <ProposalStatusBadge status={proposal.status} className="hide-on-pdf" />
-                  <Badge variant="secondary" className="bg-white/15 text-white border-white/20 capitalize">
-                    {proposal.proposal_type === 'projeto'
-                      ? 'Projeto Especial'
-                      : proposal.proposal_type === 'patrocinio_editorial'
-                      ? 'Patrocínio Editorial'
-                      : 'Veiculação Avulsa'}
-                  </Badge>
-                </div>
-                <div className="flex flex-wrap justify-start lg:justify-end gap-3">
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => navigate('/propostas')}
-                    className="hide-on-pdf gap-2 bg-white/10 hover:bg-white/20 text-white border-white/30"
-                  >
-                    <ArrowLeft className="h-4 w-4" />
-                    Voltar
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => navigate(`/nova-proposta?edit=${proposal.id}`)}
-                    className="hide-on-pdf gap-2 bg-white/10 hover:bg-white/20 text-white border-white/30"
-                  >
-                    <Edit className="h-4 w-4" />
-                    Editar
-                  </Button>
-                  <Button
-                    onClick={handleGeneratePDF}
-                    disabled={loading || !proposal}
-                    className="pdf-download-button gap-2 bg-white text-orange-600 hover:bg-orange-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <Download className="h-4 w-4" />
-                    {loading ? 'Carregando...' : 'PDF Profissional'}
-                  </Button>
-                  <Button
-                    onClick={handleDownloadExcel}
-                    disabled={loading || !proposal}
-                    className="gap-2 bg-white/10 hover:bg-white/20 text-white border border-white/20 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <FileSpreadsheet className="h-4 w-4" />
-                    Excel Pontos
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Container principal */}
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-14 space-y-10 pb-16">
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {highlightStats.map((stat) => (
-            <SummaryStatCard key={stat.label} {...stat} />
-          ))}
-        </div>
-
-        <div className="grid gap-8 lg:grid-cols-[1.7fr,1fr]">
-          <section className="space-y-6">
-            <SectionHeading
-              title="Informações do Projeto"
-              description="Dados do cliente, agência e escopo resumidos em um só lugar."
-            />
-            <ProjectInfoCard
-              proposal={{
-                project_name: proposal.agencia_projetos?.nome_projeto || proposal.customer_name || 'Projeto não definido',
-                client_name: proposal.agencia_projetos?.cliente_final || proposal.customer_name,
-                agency: {
-                  name: proposal.agencias?.nome_agencia,
-                  email: proposal.agencias?.email_empresa || proposal.customer_email,
-                },
-                proposal_type: proposal.proposal_type === 'avulsa' ? 'Campanha Avulsa' : 'Projeto Especial',
-                status: proposal.status,
-              }}
-              filteredScreens={filteredScreens}
-              showAddress={showAddress}
-              showScreenType={showScreenType}
-            />
-          </section>
-
-            {/* Resumo Financeiro - Componentizado */}
-            <div className="avoid-break-inside pdf-financial pdf-section-financial">
-              <FinancialSummaryCard
-                investmentTotal={netValueCalculated || 0}
-                filmSeconds={durationsForDisplay && durationsForDisplay.length > 0 ? durationsForDisplay : proposal.film_seconds}
-                insertionsPerHour={proposal.insertions_per_hour}
-                totalInsertions={pricingMetrics?.totalInsertions}
-                audiencePerMonth={audiencePerMonth}
-                audienceLabel={audienceLabel}
-                avgAudiencePerInsertion={pricingInput?.avg_audience_per_insertion}
-                impacts={pricingMetrics?.impacts}
-                grossValue={grossValueCalculated}
-                netValue={netValueCalculated}
-                startDate={formatDate(proposal.start_date)}
-                endDate={formatDate(proposal.end_date)}
-                formatCurrency={formatCurrency}
-                quote={pricingSummary?.quote ?? proposal.quote}
-                missingPriceFor={pricingMetrics?.missingPriceFor}
-              />
-              <div className="mt-6 space-y-6">
-                <InvestmentBreakdownCard
-                  title="Veiculação Avulsa"
-                  subtitle={investmentSubtitle}
-                  periodColumnLabel={periodColumnLabel}
-                  unitLabel={unitLabel}
-                  rows={investmentBreakdown.avulsa}
-                  formatCurrency={formatCurrency}
-                  formatNumber={formatNumber}
-                />
-                <InvestmentBreakdownCard
-                  title="Projeto Especial de Conteúdo"
-                  subtitle={investmentSubtitle}
-                  periodColumnLabel={periodColumnLabel}
-                  unitLabel={unitLabel}
-                  rows={investmentBreakdown.especial}
-                  formatCurrency={formatCurrency}
-                  formatNumber={formatNumber}
-                />
-              </div>
-            </div>
-          </div>
-
-        {/* Forçar quebra de página antes das ações e inventário no PDF para evitar acúmulo visual */}
-        <div className="page-break-before" aria-hidden="true" />
-
-          {/* Ações de Status - Componentizado */}
-          <Card className="avoid-break-inside border-0 shadow-xl">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-3 text-xl pdf-compact-title">
-                <div className="w-10 h-10 bg-orange-500 rounded-full flex items-center justify-center">
-                  <Target className="h-5 w-5 text-white" />
-                </div>
-                Gerenciar Status da Proposta
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <StatusActionsCard
-                currentStatus={proposal.status}
-                availableStatuses={["rascunho","enviada","em_analise","aceita","rejeitada"]}
-                onChange={(next) => handleStatusChange(next as ProposalStatus)}
-              />
-            </CardContent>
-          </Card>
-
-          {/* Detalhes das Telas - Componentizado */}
-          <Card className="avoid-break-inside border-0 shadow-xl pdf-section-inventory">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-3 text-xl pdf-compact-title">
-                <div className="w-10 h-10 bg-orange-500 rounded-full flex items-center justify-center">
-                  <Monitor className="h-5 w-5 text-white" />
-                </div>
-                Inventário Selecionado
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <InventoryCard
-                filteredScreens={filteredScreens}
-                groupedByCityState={groupedByCityState}
-                viewMode={viewMode}
-                setViewMode={setViewMode}
-                showAddress={showAddress}
-                setShowAddress={setShowAddress}
-                showScreenId={showScreenId}
-                setShowScreenId={setShowScreenId}
-                showScreenType={showScreenType}
-                setShowScreenType={setShowScreenType}
-                filterCity={filterCity}
-                setFilterCity={setFilterCity}
-                filterState={filterState}
-                setFilterState={setFilterState}
-                filterClass={filterClass}
-                setFilterClass={setFilterClass}
-                searchQuery={searchQuery}
-                setSearchQuery={setSearchQuery}
-                formatCurrency={formatCurrency}
-              />
-
-              {/* Indicação de que há mais detalhes no PDF */}
-              <div className="text-center p-6 mt-6 bg-gradient-to-r from-orange-50 to-orange-100 rounded-xl border border-orange-200">
-                <Eye className="h-12 w-12 text-orange-500 mx-auto mb-3" />
-                <h3 className="text-lg font-semibold text-orange-900 mb-2">Detalhes Completos no PDF</h3>
-                <p className="text-orange-700 mb-4">
-                  Visualize o inventário detalhado, tabelas financeiras e informações técnicas no documento profissional.
-                </p>
-                <Button 
-                  onClick={handleGeneratePDF} 
-                  disabled={loading || !proposal}
-                  className="pdf-download-button gap-2 bg-orange-500 hover:bg-orange-600 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+              
+              <div className="flex gap-2">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => navigate(`/nova-proposta?edit=${proposal.id}`)}
+                  className="bg-white/10 hover:bg-white/20 text-white border-white/30"
                 >
-                  <Download className="h-4 w-4" />
-                  {loading ? 'Carregando...' : 'Gerar PDF Completo'}
+                  <Edit className="h-4 w-4 mr-2" />
+                  Editar
+                </Button>
+                <Button
+                  onClick={handleGeneratePDF}
+                  disabled={loading}
+                  className="bg-white text-orange-600 hover:bg-orange-50"
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  PDF
+                </Button>
+                <Button
+                  onClick={handleDownloadExcel}
+                  disabled={loading}
+                  className="bg-white/10 hover:bg-white/20 text-white border border-white/20"
+                >
+                  <FileSpreadsheet className="h-4 w-4 mr-2" />
+                  Excel
                 </Button>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+
+            <div>
+              <h1 className="text-3xl font-bold mb-2">
+                {proposal.agencia_projetos?.nome_projeto || proposal.customer_name || `Proposta #${proposal.id}`}
+              </h1>
+              <div className="flex flex-wrap gap-6 text-sm text-white/90">
+                {proposal.customer_name && (
+                  <span className="flex items-center gap-2">
+                    <User className="h-4 w-4" />
+                    {proposal.customer_name}
+                  </span>
+                )}
+                {proposal.agencias?.nome_agencia && (
+                  <span className="flex items-center gap-2">
+                    <Building className="h-4 w-4" />
+                    {proposal.agencias.nome_agencia}
+                  </span>
+                )}
+                <span className="flex items-center gap-2">
+                  <Calendar className="h-4 w-4" />
+                  Criada em {formatDate(proposal.created_at)}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="max-w-7xl mx-auto px-6 -mt-6 pb-12">
+          {/* Stats Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-slate-500 mb-1">Investimento Total</p>
+                    <p className="text-2xl font-bold text-slate-900">
+                      {formatCurrency(pricingSummary?.netValue || 0)}
+                    </p>
+                  </div>
+                  <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                    <DollarSign className="h-6 w-6 text-green-600" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-slate-500 mb-1">Telas Selecionadas</p>
+                    <p className="text-2xl font-bold text-slate-900">
+                      {formatNumber(proposal.proposal_screens?.length || 0)}
+                    </p>
+                    <p className="text-xs text-slate-400">{cityCount} cidades</p>
+                  </div>
+                  <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                    <Monitor className="h-6 w-6 text-blue-600" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-slate-500 mb-1">Cobertura</p>
+                    <p className="text-2xl font-bold text-slate-900">
+                      {formatNumber(stateCount)} estados
+                    </p>
+                    <p className="text-xs text-slate-400">{cityCount} cidades</p>
+                  </div>
+                  <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
+                    <MapPin className="h-6 w-6 text-purple-600" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-slate-500 mb-1">Impactos/Mês</p>
+                    <p className="text-2xl font-bold text-slate-900">
+                      {formatNumber(pricingSummary?.impacts || 0)}
+                    </p>
+                    <p className="text-xs text-slate-400">Estimado</p>
+                  </div>
+                  <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
+                    <TrendingUp className="h-6 w-6 text-orange-600" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Main Content Tabs */}
+          <Tabs defaultValue="overview" className="space-y-6">
+            <TabsList className="grid w-full grid-cols-4 lg:w-auto">
+              <TabsTrigger value="overview">Resumo</TabsTrigger>
+              <TabsTrigger value="financial">Financeiro</TabsTrigger>
+              <TabsTrigger value="screens">Telas ({proposal.proposal_screens?.length || 0})</TabsTrigger>
+              <TabsTrigger value="status">Status</TabsTrigger>
+            </TabsList>
+
+            {/* Overview Tab */}
+            <TabsContent value="overview" className="space-y-6">
+              <div className="grid gap-6 lg:grid-cols-2">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <User className="h-5 w-5" />
+                      Informações do Cliente
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {proposal.customer_name && (
+                      <div>
+                        <p className="text-sm text-slate-500">Nome</p>
+                        <p className="font-medium">{proposal.customer_name}</p>
+                      </div>
+                    )}
+
+                    {proposal.customer_email && (
+                      <div>
+                        <p className="text-sm text-slate-500">Email</p>
+                        <p className="font-medium">{proposal.customer_email}</p>
+                      </div>
+                    )}
+
+                    <div>
+                      <p className="text-sm text-slate-500">Tipo</p>
+                      <div className="flex gap-2 mt-1">
+                        <Badge variant="secondary" className="bg-orange-100 text-orange-700">
+                          Veiculação Avulsa
+                        </Badge>
+                        <Badge variant="secondary" className="bg-orange-600 text-white">
+                          Projeto Especial de Conteúdo
+                        </Badge>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Card do Projeto Selecionado - SEMPRE MOSTRAR */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Building className="h-5 w-5" />
+                      Projeto Selecionado
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {proposal.agencia_projetos ? (
+                      <div className="grid grid-cols-[100px_1fr] gap-x-4 gap-y-3 text-sm">
+                        <div>
+                          <p className="text-slate-600">Nome:</p>
+                        </div>
+                        <div>
+                          <p className="font-semibold text-slate-900 text-right">
+                            {proposal.agencia_projetos.nome_projeto}
+                          </p>
+                        </div>
+
+                        {proposal.agencia_projetos.cliente_final && (
+                          <>
+                            <div>
+                              <p className="text-slate-600">Cliente:</p>
+                            </div>
+                            <div>
+                              <p className="text-slate-900 text-right">{proposal.agencia_projetos.cliente_final}</p>
+                            </div>
+                          </>
+                        )}
+
+                        <div>
+                          <p className="text-slate-600">Período:</p>
+                        </div>
+                        <div>
+                          <p className="text-slate-900 text-right">
+                            {proposal.start_date && proposal.end_date 
+                              ? `${formatDate(proposal.start_date)} - ${formatDate(proposal.end_date)}`
+                              : 'Não informado'}
+                          </p>
+                        </div>
+
+                        <div>
+                          <p className="text-slate-600">Orçamento:</p>
+                        </div>
+                        <div>
+                          <p className="text-slate-900 text-right">
+                            {proposal.agencia_projetos.orcamento_projeto 
+                              ? formatCurrency(proposal.agencia_projetos.orcamento_projeto) 
+                              : 'R$ 0,00'}
+                          </p>
+                        </div>
+
+                        <div>
+                          <p className="text-slate-600">Responsável:</p>
+                        </div>
+                        <div>
+                          <p className="text-slate-900 text-right">
+                            {proposal.agencia_projetos.responsavel_nome || 'Não informado'}
+                          </p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-center py-8 text-slate-500">
+                        <Building className="h-12 w-12 mx-auto mb-3 text-slate-300" />
+                        <p className="font-medium">Nenhum projeto selecionado</p>
+                        <p className="text-sm mt-1">Esta proposta não está vinculada a um projeto</p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Período da Campanha - Full Width */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Calendar className="h-5 w-5" />
+                    Período da Campanha
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid gap-6 md:grid-cols-4">
+                    <div>
+                      <p className="text-sm text-slate-500">Data de Início</p>
+                      <p className="font-medium text-lg">{formatDate(proposal.start_date)}</p>
+                    </div>
+
+                    <div>
+                      <p className="text-sm text-slate-500">Data de Término</p>
+                      <p className="font-medium text-lg">{formatDate(proposal.end_date)}</p>
+                    </div>
+
+                    <div>
+                      <p className="text-sm text-slate-500">Criada em</p>
+                      <p className="font-medium">{formatDate(proposal.created_at)}</p>
+                    </div>
+
+                    <div>
+                      <p className="text-sm text-slate-500">Última atualização</p>
+                      <p className="font-medium">{formatDate(proposal.updated_at)}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* Financial Tab */}
+            <TabsContent value="financial" className="space-y-6">
+              {/* Resumo Geral */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Resumo Financeiro Geral</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid gap-6 md:grid-cols-4">
+                    <div>
+                      <p className="text-sm text-slate-500">Valor Bruto Total</p>
+                      <p className="text-2xl font-bold text-slate-900">
+                        {formatCurrency(pricingSummary?.grossValue || 0)}
+                      </p>
+                    </div>
+
+                    <div>
+                      <p className="text-sm text-slate-500">Valor Líquido Total</p>
+                      <p className="text-2xl font-bold text-green-600">
+                        {formatCurrency(pricingSummary?.netValue || 0)}
+                      </p>
+                    </div>
+
+                    <div>
+                      <p className="text-sm text-slate-500">Inserções por Hora</p>
+                      <p className="text-2xl font-bold text-slate-900">
+                        {pricingSummary?.insertionsPerHour || 0}
+                      </p>
+                    </div>
+
+                    <div>
+                      <p className="text-sm text-slate-500">Impactos/Mês</p>
+                      <p className="text-2xl font-bold text-slate-900">
+                        {formatNumber(pricingSummary?.impacts || 0)}
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Veiculação Avulsa */}
+              {pricingSummary?.durations && pricingSummary.durations.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Veiculação Avulsa</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b">
+                            <th className="text-left py-2 px-2 font-semibold">Filme</th>
+                            <th className="text-right py-2 px-2 font-semibold">Dias</th>
+                            <th className="text-right py-2 px-2 font-semibold">Inserções/hora</th>
+                            <th className="text-right py-2 px-2 font-semibold">Inserções/dia</th>
+                            <th className="text-right py-2 px-2 font-semibold">Audiência/dia</th>
+                            <th className="text-right py-2 px-2 font-semibold">Impactos/dia</th>
+                            <th className="text-right py-2 px-2 font-semibold">Qtd telas</th>
+                            <th className="text-right py-2 px-2 font-semibold">Invest. Bruto/Dia</th>
+                            <th className="text-right py-2 px-2 font-semibold">Invest. Negociado Diário</th>
+                            <th className="text-right py-2 px-2 font-semibold">Total Negociado</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {pricingSummary.durations.map((duration) => {
+                            const priceAvulsa = pricingSummary?.pricingInput?.insertion_prices?.avulsa?.[duration] || 0;
+                            const insertionsPerDay = (pricingSummary?.insertionsPerHour || 6) * 10 * (pricingSummary?.screensCount || 0);
+                            const audiencePerDay = 168000;
+                            const impactsPerDay = 1008000;
+                            const investBrutoDay = priceAvulsa * insertionsPerDay;
+                            const descPct = proposal.discount_pct || 0;
+                            const investNegDay = investBrutoDay * (1 - descPct / 100);
+                            
+                            // Usar dias ou meses do pricingSummary
+                            const periodUnit = pricingSummary?.pricingInput?.period_unit || 'months';
+                            const isDays = periodUnit === 'days';
+                            const periodValue = isDays 
+                              ? (pricingSummary?.pricingInput?.days_period || 45)
+                              : (pricingSummary?.monthsPeriod || 1);
+                            
+                            const totalNegBruto = investNegDay * periodValue;
+                            const totalNeg = totalNegBruto * (1 - descPct / 100);
+                            
+                            return (
+                              <tr key={duration} className="border-b hover:bg-slate-50">
+                                <td className="py-2 px-2 font-medium">{duration}"</td>
+                                <td className="text-right py-2 px-2">{periodValue}</td>
+                                <td className="text-right py-2 px-2">{pricingSummary?.insertionsPerHour || 6}</td>
+                                <td className="text-right py-2 px-2">{formatNumber(insertionsPerDay)}</td>
+                                <td className="text-right py-2 px-2">{formatNumber(audiencePerDay)}</td>
+                                <td className="text-right py-2 px-2">{formatNumber(impactsPerDay)}</td>
+                                <td className="text-right py-2 px-2">{pricingSummary?.screensCount || 0}</td>
+                                <td className="text-right py-2 px-2">{formatCurrency(investBrutoDay)}</td>
+                                <td className="text-right py-2 px-2">{formatCurrency(investNegDay)}</td>
+                                <td className="text-right py-2 px-2 font-semibold text-green-600">{formatCurrency(totalNeg)}</td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Projeto Especial de Conteúdo */}
+              {pricingSummary?.durations && pricingSummary.durations.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Projeto Especial de Conteúdo</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b">
+                            <th className="text-left py-2 px-2 font-semibold">Filme</th>
+                            <th className="text-right py-2 px-2 font-semibold">Dias</th>
+                            <th className="text-right py-2 px-2 font-semibold">Inserções/hora</th>
+                            <th className="text-right py-2 px-2 font-semibold">Inserções/dia</th>
+                            <th className="text-right py-2 px-2 font-semibold">Audiência/dia</th>
+                            <th className="text-right py-2 px-2 font-semibold">Impactos/dia</th>
+                            <th className="text-right py-2 px-2 font-semibold">Qtd telas</th>
+                            <th className="text-right py-2 px-2 font-semibold">Invest. Bruto/Dia</th>
+                            <th className="text-right py-2 px-2 font-semibold">Invest. Negociado Diário</th>
+                            <th className="text-right py-2 px-2 font-semibold">Total Negociado</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {pricingSummary.durations.map((duration) => {
+                            const priceEspecial = pricingSummary?.pricingInput?.insertion_prices?.especial?.[duration] || 0;
+                            const insertionsPerDay = (pricingSummary?.insertionsPerHour || 6) * 10 * (pricingSummary?.screensCount || 0);
+                            const audiencePerDay = 168000;
+                            const impactsPerDay = 1008000;
+                            const investBrutoDay = priceEspecial * insertionsPerDay;
+                            const descPct = proposal.discount_pct || 0;
+                            const investNegDay = investBrutoDay * (1 - descPct / 100);
+                            
+                            // Usar dias ou meses do pricingSummary
+                            const periodUnit = pricingSummary?.pricingInput?.period_unit || 'months';
+                            const isDays = periodUnit === 'days';
+                            const periodValue = isDays 
+                              ? (pricingSummary?.pricingInput?.days_period || 45)
+                              : (pricingSummary?.monthsPeriod || 1);
+                            
+                            const totalNegBruto = investNegDay * periodValue;
+                            const totalNeg = totalNegBruto * (1 - descPct / 100);
+                            
+                            return (
+                              <tr key={duration} className="border-b hover:bg-slate-50">
+                                <td className="py-2 px-2 font-medium">{duration}"</td>
+                                <td className="text-right py-2 px-2">{periodValue}</td>
+                                <td className="text-right py-2 px-2">{pricingSummary?.insertionsPerHour || 6}</td>
+                                <td className="text-right py-2 px-2">{formatNumber(insertionsPerDay)}</td>
+                                <td className="text-right py-2 px-2">{formatNumber(audiencePerDay)}</td>
+                                <td className="text-right py-2 px-2">{formatNumber(impactsPerDay)}</td>
+                                <td className="text-right py-2 px-2">{pricingSummary?.screensCount || 0}</td>
+                                <td className="text-right py-2 px-2">{formatCurrency(investBrutoDay)}</td>
+                                <td className="text-right py-2 px-2">{formatCurrency(investNegDay)}</td>
+                                <td className="text-right py-2 px-2 font-semibold text-green-600">{formatCurrency(totalNeg)}</td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Tabela de Preços */}
+              {pricingSummary?.pricingInput?.insertion_prices && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Tabela de Preços</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2 text-sm text-slate-600">
+                        <Clock className="h-4 w-4" />
+                        <span className="font-medium">2ª a 6ª Feira (5 d.u.) - 08h às 18h (10h/dia)</span>
+                      </div>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b bg-yellow-50">
+                              <th className="text-left py-2 px-3 font-semibold">Tempo</th>
+                              <th className="text-right py-2 px-3 font-semibold">Inserção Avulsa</th>
+                              <th className="text-right py-2 px-3 font-semibold">Inserção Esp. Cont.</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {pricingSummary.durations && pricingSummary.durations.map((duration) => (
+                              <tr key={duration} className="border-b">
+                                <td className="py-2 px-3 font-medium">{duration}"</td>
+                                <td className="text-right py-2 px-3">
+                                  {formatCurrency(pricingSummary?.pricingInput?.insertion_prices?.avulsa?.[duration] || 0)}
+                                </td>
+                                <td className="text-right py-2 px-3">
+                                  {formatCurrency(pricingSummary?.pricingInput?.insertion_prices?.especial?.[duration] || 0)}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </TabsContent>
+
+            {/* Screens Tab */}
+            <TabsContent value="screens" className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Lista de Telas Selecionadas</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {proposal.proposal_screens && proposal.proposal_screens.length > 0 ? (
+                      <div className="divide-y">
+                        {proposal.proposal_screens.map((ps, index) => (
+                          <div key={ps.id} className="py-4 first:pt-0 last:pb-0">
+                            <div className="flex items-start justify-between">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-3 mb-2">
+                                  <Badge variant="outline" className="font-mono">
+                                    #{ps.screens?.id}
+                                  </Badge>
+                                  <h4 className="font-semibold text-slate-900">
+                                    {ps.screens?.name || ps.screens?.display_name || 'Sem nome'}
+                                  </h4>
+                                  {ps.screens?.class && (
+                                    <Badge variant="secondary">{ps.screens.class}</Badge>
+                                  )}
+                                </div>
+                                
+                                {ps.screens?.google_formatted_address && (
+                                  <p className="text-sm text-slate-600 mb-1">
+                                    <MapPin className="h-3 w-3 inline mr-1" />
+                                    {ps.screens.google_formatted_address}
+                                  </p>
+                                )}
+                                
+                                <div className="flex gap-4 text-sm text-slate-500">
+                                  <span>{ps.screens?.city}</span>
+                                  <span>{ps.screens?.state}</span>
+                                  {ps.screens?.venues?.name && (
+                                    <span className="flex items-center gap-1">
+                                      <Building className="h-3 w-3" />
+                                      {ps.screens.venues.name}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-8 text-slate-500">
+                        Nenhuma tela selecionada
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* Status Tab */}
+            <TabsContent value="status" className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Target className="h-5 w-5" />
+                    Gerenciar Status da Proposta
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div>
+                      <p className="text-sm text-slate-500 mb-2">Status Atual</p>
+                      <ProposalStatusBadge status={proposal.status} />
+                    </div>
+
+                    <Separator />
+
+                    <div>
+                      <p className="text-sm text-slate-500 mb-3">Alterar Status</p>
+                      <div className="flex flex-wrap gap-2">
+                        {["rascunho", "enviada", "em_analise", "aceita", "rejeitada"].map((status) => (
+                          <Button
+                            key={status}
+                            variant={proposal.status === status ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => handleStatusChange(status as ProposalStatus)}
+                            disabled={proposal.status === status}
+                          >
+                            {status === "rascunho" && "Rascunho"}
+                            {status === "enviada" && "Enviada"}
+                            {status === "em_analise" && "Em Análise"}
+                            {status === "aceita" && "Aceita"}
+                            {status === "rejeitada" && "Rejeitada"}
+                          </Button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <Separator />
+
+                    <div>
+                      <p className="text-sm text-slate-500">Última atualização de status</p>
+                      <p className="font-medium">{formatDate(proposal.status_updated_at)}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
         </div>
       </div>
     </DashboardLayout>

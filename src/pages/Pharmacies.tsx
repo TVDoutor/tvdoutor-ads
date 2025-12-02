@@ -1,6 +1,8 @@
 // @ts-nocheck
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { DashboardLayout } from "@/components/DashboardLayout";
+import { PageHeader } from "@/components/PageHeader";
+import { StatsGrid } from "@/components/StatsGrid";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,7 +14,7 @@ import { Label } from "@/components/ui/label";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import { Search, Plus, RefreshCw, FileSpreadsheet, Download, Building, MapPin, Crosshair, Trash2, Edit, Eye, Upload, Loader2 } from "lucide-react";
+import { Search, Plus, RefreshCw, FileSpreadsheet, Download, Building, MapPin, Crosshair, Trash2, Edit, Eye, Upload, Loader2, TrendingUp, Building2 } from "lucide-react";
 import { 
   fetchAllPharmacies, 
   createPharmacy, 
@@ -631,184 +633,158 @@ const handleApplyFilters = useCallback(() => {
 
   return (
     <DashboardLayout>
-      <div className="p-6 space-y-6">
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold flex items-center gap-3">
-              <div className="h-10 w-10 rounded-lg bg-red-500/10 flex items-center justify-center">
-                <Crosshair className="h-6 w-6 text-red-500" />
-              </div>
-              Gerenciamento de Farmácias
-            </h1>
-            <p className="text-muted-foreground mt-1">
-              Cadastre, atualize e mantenha o inventário de farmácias integradas ao mapa interativo.
-            </p>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              variant="outline"
-              onClick={handleRefresh}
-              disabled={refreshing || loading}
-              className="gap-2"
-            >
-              <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
-              {refreshing ? "Atualizando..." : "Atualizar"}
-            </Button>
-
-            {canEdit && (
-              <Button onClick={() => handleOpenForm("create")} className="gap-2">
-                <Plus className="h-4 w-4" />
-                Adicionar Farmácia
-              </Button>
-            )}
-
-            {isAdmin() && (
-              <label className="inline-flex items-center">
-                <Input
-                  type="file"
-                  accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel"
-                  onChange={e => setUploadFile(e.target.files?.[0] ?? null)}
-                  className="hidden"
-                  disabled={uploading}
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="gap-2"
-                  disabled={uploading}
-                  onClick={() => {
-                    const input = document.createElement("input");
-                    input.type = "file";
-                    input.accept = ".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel";
-                    input.onchange = (event: any) => {
-                      if (event.target?.files?.[0]) {
-                        setUploadFile(event.target.files[0]);
-                      }
-                    };
-                    input.click();
-                  }}
-                >
-                  <Upload className="h-4 w-4" />
-                  {uploading ? `Importando ${uploadProgress}%` : "Importar"}
-                </Button>
-              </label>
-            )}
-
-            {isAdmin() && uploadFile && (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-purple-50/20">
+        <PageHeader
+          icon={Building2}
+          title="Gerenciamento de Farmácias"
+          description="Cadastre, atualize e mantenha o inventário de farmácias integradas ao mapa interativo"
+          badges={[
+            { label: `${stats.total} farmácias`, variant: "default" },
+            { label: `${stats.withCoordinates} com coordenadas`, variant: "default" }
+          ]}
+          actions={
+            <>
               <Button
-                variant="default"
-                onClick={handleImport}
-                disabled={uploading}
-                className="gap-2"
+                variant="outline"
+                onClick={handleRefresh}
+                disabled={refreshing || loading}
+                className="bg-white/10 text-white border-white/30 hover:bg-white/20 transition-all group"
               >
-                <FileSpreadsheet className="h-4 w-4" />
-                {uploading ? "Processando..." : "Enviar Arquivo"}
+                <RefreshCw className={`h-5 w-5 mr-2 ${refreshing ? "animate-spin" : "group-hover:rotate-180"} transition-transform`} />
+                {refreshing ? "Atualizando..." : "Atualizar"}
               </Button>
-            )}
 
-            <Button
-              variant="outline"
-              onClick={handleExport}
-              disabled={exporting || loading}
-              className="gap-2"
-            >
-              <Download className="h-4 w-4" />
-              {exporting ? "Exportando..." : "Exportar"}
-            </Button>
-          </div>
-        </div>
+              {isAdmin() && (
+                <label className="inline-flex items-center">
+                  <Input
+                    type="file"
+                    accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel"
+                    onChange={e => setUploadFile(e.target.files?.[0] ?? null)}
+                    className="hidden"
+                    disabled={uploading}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={uploading}
+                    onClick={() => {
+                      const input = document.createElement("input");
+                      input.type = "file";
+                      input.accept = ".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel";
+                      input.onchange = (event: any) => {
+                        if (event.target?.files?.[0]) {
+                          setUploadFile(event.target.files[0]);
+                        }
+                      };
+                      input.click();
+                    }}
+                    className="bg-white/10 text-white border-white/30 hover:bg-white/20 transition-all group"
+                  >
+                    <Upload className="h-5 w-5 mr-2 group-hover:translate-y-1 transition-transform" />
+                    {uploading ? `Importando ${uploadProgress}%` : "Importar"}
+                  </Button>
+                </label>
+              )}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card className="border-l-4 border-l-red-500">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-2xl font-bold text-red-600">
-                    {loading ? <Loader2 className="h-6 w-6 animate-spin" /> : stats.total.toLocaleString("pt-BR")}
-                  </p>
-                  <p className="text-sm text-muted-foreground">Total de Farmácias</p>
-                </div>
-                <div className="h-12 w-12 rounded-lg bg-red-500/10 flex items-center justify-center">
-                  <Building className="h-6 w-6 text-red-600" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              {isAdmin() && uploadFile && (
+                <Button
+                  onClick={handleImport}
+                  disabled={uploading}
+                  className="bg-white/10 text-white border-white/30 hover:bg-white/20 transition-all group"
+                >
+                  <FileSpreadsheet className="h-5 w-5 mr-2" />
+                  {uploading ? "Processando..." : "Enviar Arquivo"}
+                </Button>
+              )}
 
-          <Card className="border-l-4 border-l-green-500">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-2xl font-bold text-green-600">
-                    {loading ? <Loader2 className="h-6 w-6 animate-spin" /> : stats.withCoordinates.toLocaleString("pt-BR")}
-                  </p>
-                  <p className="text-sm text-muted-foreground">Com Coordenadas</p>
-                </div>
-                <div className="h-12 w-12 rounded-lg bg-green-500/10 flex items-center justify-center">
-                  <MapPin className="h-6 w-6 text-green-600" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              <Button
+                variant="outline"
+                onClick={handleExport}
+                disabled={exporting || loading}
+                className="bg-white/10 text-white border-white/30 hover:bg-white/20 transition-all group"
+              >
+                <Download className="h-5 w-5 mr-2 group-hover:translate-y-1 transition-transform" />
+                {exporting ? "Exportando..." : "Exportar"}
+              </Button>
+              
+              {canEdit && (
+                <Button 
+                  onClick={() => handleOpenForm("create")}
+                  className="bg-white text-[#f48220] hover:bg-white/90 shadow-2xl hover:shadow-white/50 hover:scale-105 transition-all font-bold group"
+                >
+                  <Plus className="h-5 w-5 mr-2 group-hover:rotate-90 transition-transform" />
+                  Adicionar Farmácia
+                </Button>
+              )}
+            </>
+          }
+        />
 
-          <Card className="border-l-4 border-l-amber-500">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-2xl font-bold text-amber-600">
-                    {loading ? <Loader2 className="h-6 w-6 animate-spin" /> : stats.withoutCoordinates.toLocaleString("pt-BR")}
-                  </p>
-                  <p className="text-sm text-muted-foreground">Sem Coordenadas</p>
-                </div>
-                <div className="h-12 w-12 rounded-lg bg-amber-500/10 flex items-center justify-center">
-                  <Crosshair className="h-6 w-6 text-amber-600" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+        <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-8 pb-12 space-y-8">
 
-          <Card className="border-l-4 border-l-blue-500">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-2xl font-bold text-blue-600">
-                    {loading ? <Loader2 className="h-6 w-6 animate-spin" /> : stats.totalGroups.toLocaleString("pt-BR")}
-                  </p>
-                  <p className="text-sm text-muted-foreground">Redes/Grupos</p>
-                </div>
-                <div className="h-12 w-12 rounded-lg bg-blue-500/10 flex items-center justify-center">
-                  <Building className="h-6 w-6 text-blue-600" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+          <StatsGrid
+            columns={4}
+            stats={[
+              {
+                title: "Total de Farmácias",
+                value: loading ? "..." : stats.total.toLocaleString("pt-BR"),
+                subtitle: "Rede completa",
+                icon: Building2,
+                gradient: "bg-gradient-to-br from-[#f48220] to-[#e67516]",
+                badge: { label: "Inventário", icon: Building }
+              },
+              {
+                title: "Com Coordenadas",
+                value: loading ? "..." : stats.withCoordinates.toLocaleString("pt-BR"),
+                subtitle: "Geolocalização ativa",
+                icon: MapPin,
+                gradient: "bg-gradient-to-br from-[#ffb87a] to-[#ffc499]",
+                badge: { label: "Mapeadas", icon: TrendingUp }
+              },
+              {
+                title: "Sem Coordenadas",
+                value: loading ? "..." : stats.withoutCoordinates.toLocaleString("pt-BR"),
+                subtitle: "Pendente mapeamento",
+                icon: Crosshair,
+                gradient: "bg-gradient-to-br from-slate-500 to-slate-600"
+              },
+              {
+                title: "Redes/Grupos",
+                value: loading ? "..." : stats.totalGroups.toLocaleString("pt-BR"),
+                subtitle: "Grupos cadastrados",
+                icon: Building,
+                gradient: "bg-gradient-to-br from-[#ff9d4d] to-[#ffb87a]",
+                badge: { label: "Redes", icon: Building }
+              }
+            ]}
+          />
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Search className="h-5 w-5" />
-              Filtros e Busca
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex flex-col lg:flex-row items-center gap-4">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Buscar por nome, cidade, CNPJ, CEP..."
-                  value={searchTerm}
-                  onChange={e => setSearchTerm(e.target.value)}
-                  onKeyDown={event => {
-                    if (event.key === "Enter") {
-                      event.preventDefault();
-                      handleApplyFilters();
-                    }
-                  }}
-                  className="pl-10"
-                />
-              </div>
+          <Card className="border-0 shadow-xl">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-xl">
+                <div className="p-2 bg-[#f48220]/10 rounded-lg">
+                  <Search className="h-5 w-5 text-[#f48220]" />
+                </div>
+                Filtros e Busca
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex flex-col lg:flex-row items-center gap-4">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Buscar por nome, cidade, CNPJ, CEP..."
+                    value={searchTerm}
+                    onChange={e => setSearchTerm(e.target.value)}
+                    onKeyDown={event => {
+                      if (event.key === "Enter") {
+                        event.preventDefault();
+                        handleApplyFilters();
+                      }
+                    }}
+                    className="pl-10 h-12 bg-white border-2 border-slate-200 hover:border-[#f48220]/50 focus:border-[#f48220] transition-all"
+                  />
+                </div>
 
               <Select value={ufFilter} onValueChange={setUfFilter}>
                 <SelectTrigger className="w-[160px]">
@@ -1162,7 +1138,7 @@ const handleApplyFilters = useCallback(() => {
         </DialogContent>
       </Dialog>
 
-  <AlertDialog open={!!pharmacyToDelete} onOpenChange={open => !open && setPharmacyToDelete(null)}>
+      <AlertDialog open={!!pharmacyToDelete} onOpenChange={open => !open && setPharmacyToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Remover farmácia?</AlertDialogTitle>
@@ -1179,6 +1155,7 @@ const handleApplyFilters = useCallback(() => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      </div>
     </DashboardLayout>
   );
 };

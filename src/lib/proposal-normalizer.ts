@@ -24,6 +24,8 @@ export interface NormalizedProposalPayload {
   horas_operacao_dia: number | null;
   dias_uteis_mes_base: number | null;
   created_by: string;
+  projeto_id?: string | null;
+  agencia_id?: string | null;
 }
 
 function normalizeDate(input?: string): string | undefined {
@@ -101,6 +103,8 @@ export function normalizeProposalPayload(data: ProposalData, userId: string): No
     horas_operacao_dia: typeof horasOperacaoDia === 'number' ? horasOperacaoDia : null,
     dias_uteis_mes_base: typeof diasUteisMesBase === 'number' ? diasUteisMesBase : null,
     created_by: userId,
+    projeto_id: data.projeto_id || null,
+    agencia_id: data.agencia_id || null,
   };
 
   // Logs de diagnóstico úteis durante a migração/normalização
@@ -109,6 +113,17 @@ export function normalizeProposalPayload(data: ProposalData, userId: string): No
   }
   if (Array.isArray(data.film_seconds)) {
     console.warn('[normalizeProposalPayload] film_seconds veio como array, usando primeiro valor:', data.film_seconds);
+  }
+  
+  // Log importante: verificar se projeto_id está sendo incluído
+  if (data.projeto_id) {
+    console.log('✅ [normalizeProposalPayload] projeto_id incluído no payload:', data.projeto_id);
+  } else {
+    console.warn('⚠️ [normalizeProposalPayload] ATENÇÃO: projeto_id está vazio ou null');
+  }
+  
+  if (data.agencia_id) {
+    console.log('✅ [normalizeProposalPayload] agencia_id incluído no payload:', data.agencia_id);
   }
 
   return payload;

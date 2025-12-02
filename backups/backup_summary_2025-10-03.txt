@@ -1,0 +1,37 @@
+# 📊 Resumo do Backup via API
+
+## 📋 Informações Gerais
+- **Data**: 2025-10-03T13:58:42.631Z
+- **Projeto**: vaogzhwzucijiyvyglls
+- **Total de Registros**: 0
+- **Tabelas Processadas**: 13
+
+## 📊 Detalhes por Tabela
+- **profiles**: ❌ Erro - Invalid API key
+- **screens**: ❌ Erro - Invalid API key
+- **proposals**: ❌ Erro - Invalid API key
+- **proposal_screens**: ❌ Erro - Invalid API key
+- **agencies**: ❌ Erro - Invalid API key
+- **agencia_projetos**: ❌ Erro - Invalid API key
+- **agencia_deals**: ❌ Erro - Invalid API key
+- **venues**: ❌ Erro - Invalid API key
+- **price_rules**: ❌ Erro - Invalid API key
+- **screen_rates**: ❌ Erro - Invalid API key
+- **user_roles**: ❌ Erro - Invalid API key
+- **campaigns**: ❌ Erro - Invalid API key
+- **campaign_screens**: ❌ Erro - Invalid API key
+
+## 📁 Arquivos Criados
+- **Backup JSON**: api_backup_2025-10-03.json
+- **Backup SQL**: api_backup_2025-10-03.sql
+- **Resumo**: backup_summary_2025-10-03.txt
+
+## 🔄 Para Restaurar
+1. Use o arquivo .sql para restaurar os dados
+2. Verifique o arquivo .json para detalhes
+3. Consulte o resumo para estatísticas
+
+## ⚠️ IMPORTANTE
+- Este backup contém apenas as tabelas principais
+- Para backup completo, use o Supabase Dashboard
+- Teste a restauração em ambiente de desenvolvimento primeiro

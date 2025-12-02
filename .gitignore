@@ -54,4 +54,7 @@ build.log
 # Backups grandes
 backups/*.sql
 backups/*.zip
-backups/backup_*
+backups/backup_*.trae/
+py/
+.trae/
+py/

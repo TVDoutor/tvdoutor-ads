@@ -1,0 +1,15 @@
+{
+  "timestamp": "2025-10-03T13:57:55.712Z",
+  "projectRef": "vaogzhwzucijiyvyglls",
+  "supabaseUrl": "https://vaogzhwzucijiyvyglls.supabase.co",
+  "backupInstructions": "backup_instructions_2025-10-03.md",
+  "migrationsBackup": "migrations_backup_2025-10-03.txt",
+  "description": "Backup completo do banco de dados TV Doutor ADS",
+  "createdBy": "backup-alternative.js",
+  "version": "1.0.0",
+  "methods": [
+    "Supabase Dashboard",
+    "pg_dump",
+    "API backup"
+  ]
+}

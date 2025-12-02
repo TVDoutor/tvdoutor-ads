@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { DashboardLayout } from '@/components/DashboardLayout';
+import { PageHeader } from '@/components/PageHeader';
+import { StatsGrid } from '@/components/StatsGrid';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -24,7 +26,8 @@ import {
   CheckCircle,
   Loader2,
   Save,
-  X
+  X,
+  Calculator
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { ImpactModelsService, ImpactModel, CreateImpactModelData, UpdateImpactModelData } from '@/lib/impact-models-service';
@@ -218,22 +221,25 @@ export default function ImpactModelsAdmin() {
 
   return (
     <DashboardLayout>
-      <div className="p-6 space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Gerenciar Fórmulas de Impacto</h1>
-            <p className="text-gray-600 mt-2">
-              Configure e gerencie as fórmulas de cálculo de impacto para campanhas
-            </p>
-          </div>
-          <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-            <DialogTrigger asChild>
-              <Button onClick={resetForm}>
-                <Plus className="h-4 w-4 mr-2" />
-                Nova Fórmula
-              </Button>
-            </DialogTrigger>
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-purple-50/20">
+        <PageHeader
+          icon={Calculator}
+          title="Gerenciar Fórmulas de Impacto"
+          description="Configure e gerencie as fórmulas de cálculo de impacto para campanhas"
+          badges={[
+            { label: `${models.length} fórmulas`, variant: "default" }
+          ]}
+          actions={
+            <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+              <DialogTrigger asChild>
+                <Button 
+                  onClick={resetForm}
+                  className="bg-white text-[#f48220] hover:bg-white/90 shadow-2xl hover:shadow-white/50 hover:scale-105 transition-all font-bold group"
+                >
+                  <Plus className="h-5 w-5 mr-2 group-hover:rotate-90 transition-transform" />
+                  Nova Fórmula
+                </Button>
+              </DialogTrigger>
             <DialogContent className="max-w-2xl">
               <DialogHeader>
                 <DialogTitle>Criar Nova Fórmula de Impacto</DialogTitle>
@@ -342,9 +348,11 @@ export default function ImpactModelsAdmin() {
               </DialogFooter>
             </DialogContent>
           </Dialog>
+          }
+        />
 
-          {/* Dialog de Edição */}
-          <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        {/* Dialog de Edição */}
+        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
             <DialogContent className="max-w-2xl">
               <DialogHeader>
                 <DialogTitle>Editar Fórmula de Impacto</DialogTitle>
@@ -447,7 +455,6 @@ export default function ImpactModelsAdmin() {
               </DialogFooter>
             </DialogContent>
           </Dialog>
-        </div>
 
         {/* Error Alert */}
         {error && (
@@ -457,55 +464,40 @@ export default function ImpactModelsAdmin() {
           </Alert>
         )}
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total de Fórmulas</CardTitle>
-              <Target className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{models.length}</div>
-              <p className="text-xs text-muted-foreground">
-                {models.filter(m => m.active).length} ativas
-              </p>
-            </CardContent>
-          </Card>
+        <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-8 pb-12 space-y-8">
+          {/* Stats Cards */}
+          <StatsGrid
+            columns={3}
+            stats={[
+              {
+                title: "Total de Fórmulas",
+                value: models.length.toString(),
+                subtitle: `${models.filter(m => m.active).length} ativas`,
+                icon: Target,
+                gradient: "bg-gradient-to-br from-[#f48220] to-[#e67516]",
+                badge: { label: "Fórmulas", icon: Calculator }
+              },
+              {
+                title: "Fórmulas em Uso",
+                value: usageStats.reduce((sum, stat) => sum + stat.usage_count, 0).toString(),
+                subtitle: "Propostas usando fórmulas",
+                icon: TrendingUp,
+                gradient: "bg-gradient-to-br from-[#ffb87a] to-[#ffc499]",
+                badge: { label: "Ativas", icon: CheckCircle }
+              },
+              {
+                title: "Última Atualização",
+                value: models.length > 0 ? new Date(Math.max(...models.map(m => new Date(m.updated_at).getTime()))).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) : '-',
+                subtitle: "Sistema de fórmulas",
+                icon: Settings,
+                gradient: "bg-gradient-to-br from-[#ff9d4d] to-[#ffb87a]"
+              }
+            ]}
+          />
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Fórmulas em Uso</CardTitle>
-              <TrendingUp className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {usageStats.reduce((sum, stat) => sum + stat.usage_count, 0)}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Propostas usando fórmulas
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Última Atualização</CardTitle>
-              <Settings className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {models.length > 0 ? new Date(Math.max(...models.map(m => new Date(m.updated_at).getTime()))).toLocaleDateString('pt-BR') : '-'}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Sistema de fórmulas
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Table */}
-        <Card>
-          <CardHeader>
+          {/* Table */}
+          <Card className="border-0 shadow-xl">
+            <CardHeader>
             <CardTitle>Fórmulas de Impacto</CardTitle>
             <CardDescription>
               Gerencie todas as fórmulas de cálculo de impacto disponíveis no sistema
@@ -597,7 +589,8 @@ export default function ImpactModelsAdmin() {
               </TableBody>
             </Table>
           </CardContent>
-        </Card>
+          </Card>
+        </div>
       </div>
     </DashboardLayout>
   );

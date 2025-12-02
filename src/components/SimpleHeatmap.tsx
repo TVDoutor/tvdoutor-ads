@@ -4,12 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { RefreshCw, MapPin, AlertCircle, CheckCircle, Layers } from 'lucide-react';
-import L from 'leaflet';
-
-// Importe os estilos do Leaflet
-import 'leaflet/dist/leaflet.css';
-// Importe a configuração do Leaflet
-import '@/lib/leaflet-config';
+import { configureLeaflet } from '@/lib/leaflet-config';
 
 // Dados mockados para demonstração
 const mockHeatmapData = [
@@ -30,6 +25,23 @@ export const SimpleHeatmap: React.FC<SimpleHeatmapProps> = ({ onClose }) => {
   const [mapView, setMapView] = useState<'markers' | 'heatmap'>('markers');
   const [loading, setLoading] = useState(false);
   const [apiStatus, setApiStatus] = useState<'checking' | 'working' | 'failed'>('checking');
+  const [L, setL] = useState<any>(null);
+  const [leafletReady, setLeafletReady] = useState(false);
+
+  // Carregar Leaflet dinamicamente
+  useEffect(() => {
+    const loadLeaflet = async () => {
+      try {
+        const leafletModule = await configureLeaflet();
+        setL(leafletModule);
+        setLeafletReady(true);
+      } catch (error) {
+        console.error('Erro ao carregar Leaflet:', error);
+      }
+    };
+
+    loadLeaflet();
+  }, []);
 
   // Testar API
   useEffect(() => {
@@ -62,6 +74,8 @@ export const SimpleHeatmap: React.FC<SimpleHeatmapProps> = ({ onClose }) => {
 
   // Criar ícones customizados
   const createCustomIcon = (intensity: number) => {
+    if (!L) return undefined;
+    
     const color = intensity > 0.7 ? '#ef4444' : 
                   intensity > 0.5 ? '#f59e0b' : 
                   intensity > 0.3 ? '#10b981' : '#3b82f6';
@@ -165,8 +179,16 @@ export const SimpleHeatmap: React.FC<SimpleHeatmapProps> = ({ onClose }) => {
         )}
 
         {/* Mapa */}
-        <div className="rounded-lg overflow-hidden border" style={{ height: '500px' }}>
-          <MapContainer 
+        {!leafletReady ? (
+          <div className="rounded-lg overflow-hidden border flex items-center justify-center" style={{ height: '500px' }}>
+            <div className="flex items-center gap-2">
+              <RefreshCw className="h-5 w-5 animate-spin" />
+              <span>Carregando mapa...</span>
+            </div>
+          </div>
+        ) : (
+          <div className="rounded-lg overflow-hidden border" style={{ height: '500px' }}>
+            <MapContainer 
             center={[-23.5505, -46.6333]} // São Paulo
             zoom={12} 
             style={{ height: '100%', width: '100%' }}
@@ -200,7 +222,7 @@ export const SimpleHeatmap: React.FC<SimpleHeatmapProps> = ({ onClose }) => {
             ))}
 
             {/* Heatmap (simulado com marcadores coloridos) */}
-            {mapView === 'heatmap' && (
+            {mapView === 'heatmap' && L && (
               <>
                 {/* Simular heatmap com marcadores coloridos e transparentes */}
                 {mockHeatmapData.map((point, index) => (
@@ -228,7 +250,8 @@ export const SimpleHeatmap: React.FC<SimpleHeatmapProps> = ({ onClose }) => {
               </>
             )}
           </MapContainer>
-        </div>
+          </div>
+        )}
         
         {/* Estatísticas */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4">

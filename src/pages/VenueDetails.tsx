@@ -363,7 +363,7 @@ const VenueDetails = () => {
                           <div className="flex items-start justify-between mb-3">
                             <div className="flex-1">
                               <h4 className="font-medium">
-                                {screen.name || screen.display_name || "Tela sem nome"}
+                                {screen.display_name || screen.name || "Tela sem nome"}
                               </h4>
                               <p className="text-sm text-muted-foreground font-mono">
                                 {screen.code || "Código não informado"}

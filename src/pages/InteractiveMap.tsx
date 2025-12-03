@@ -20,6 +20,7 @@ interface Screen {
   id: number;
   code: string;
   name: string;
+  display_name: string | null;
   city: string;
   state: string;
   class: string;
@@ -105,7 +106,7 @@ export default function InteractiveMap() {
       const { data, error } = await supabase
         .from('screens')
         .select(`
-          id, code, name, city, state, class, active, lat, lng,
+          id, code, name, display_name, city, state, class, active, lat, lng,
           proposal_screens(count)
         `)
         .order('code');
@@ -403,7 +404,7 @@ export default function InteractiveMap() {
                           </svg>
                         </div>
                         <div>
-                          ${screen.name ? '<h4 style="font-weight: 700; color: #111827; font-size: 16px; margin: 0 0 4px 0;">' + sanitize(screen.name) + '</h4>' : ''}
+                          ${(screen.display_name || screen.name) ? '<h4 style="font-weight: 700; color: #111827; font-size: 16px; margin: 0 0 4px 0;">' + sanitize(screen.display_name || screen.name) + '</h4>' : ''}
                           ${screen.code ? '<p style="font-size: 12px; color: #0891b2; margin: 0;">Código: ' + sanitize(screen.code) + '</p>' : '<p style="font-size: 12px; color: #6b7280; margin: 0;">Sem código</p>'}
                         </div>
                       </div>
@@ -676,7 +677,7 @@ export default function InteractiveMap() {
                           </svg>
                         </div>
                         <div>
-                          ${screen.name ? '<h4 style="font-weight: 700; color: #111827; font-size: 16px; margin: 0 0 4px 0;">' + sanitize(screen.name) + '</h4>' : ''}
+                          ${(screen.display_name || screen.name) ? '<h4 style="font-weight: 700; color: #111827; font-size: 16px; margin: 0 0 4px 0;">' + sanitize(screen.display_name || screen.name) + '</h4>' : ''}
                           ${screen.code ? '<p style="font-size: 12px; color: #0891b2; margin: 0;">Código: ' + sanitize(screen.code) + '</p>' : '<p style="font-size: 12px; color: #6b7280; margin: 0;">Sem código</p>'}
                         </div>
                       </div>
@@ -1034,7 +1035,7 @@ export default function InteractiveMap() {
               </svg>
             </div>
             <div>
-              ${screen.name ? '<h4 style="font-weight: 700; color: #111827; font-size: 16px; margin: 0 0 4px 0;">' + sanitize(screen.name) + '</h4>' : ''}
+              ${(screen.display_name || screen.name) ? '<h4 style="font-weight: 700; color: #111827; font-size: 16px; margin: 0 0 4px 0;">' + sanitize(screen.display_name || screen.name) + '</h4>' : ''}
               ${screen.code ? '<p style="font-size: 12px; color: #0891b2; margin: 0;">Código: ' + sanitize(screen.code) + '</p>' : '<p style="font-size: 12px; color: #6b7280; margin: 0;">Sem código</p>'}
             </div>
           </div>
@@ -1290,7 +1291,7 @@ export default function InteractiveMap() {
                         </svg>
                       </div>
                       <div>
-                        ${screen.name ? '<h4 style="font-weight: 700; color: #111827; font-size: 16px; margin: 0 0 4px 0;">' + sanitize(screen.name) + '</h4>' : ''}
+                        ${(screen.display_name || screen.name) ? '<h4 style="font-weight: 700; color: #111827; font-size: 16px; margin: 0 0 4px 0;">' + sanitize(screen.display_name || screen.name) + '</h4>' : ''}
                         ${screen.code ? '<p style="font-size: 12px; color: #0891b2; margin: 0;">Código: ' + sanitize(screen.code) + '</p>' : '<p style="font-size: 12px; color: #6b7280; margin: 0;">Sem código</p>'}
                       </div>
                     </div>
@@ -1422,7 +1423,7 @@ export default function InteractiveMap() {
                     </svg>
                   </div>
                   <div>
-                    ${screen.name ? '<h4 style="font-weight: 700; color: #111827; font-size: 16px; margin: 0 0 4px 0;">' + sanitize(screen.name) + '</h4>' : ''}
+                    ${(screen.display_name || screen.name) ? '<h4 style="font-weight: 700; color: #111827; font-size: 16px; margin: 0 0 4px 0;">' + sanitize(screen.display_name || screen.name) + '</h4>' : ''}
                     ${screen.code ? '<p style="font-size: 12px; color: #0891b2; margin: 0;">Código: ' + sanitize(screen.code) + '</p>' : '<p style="font-size: 12px; color: #6b7280; margin: 0;">Sem código</p>'}
                   </div>
                 </div>
@@ -2168,9 +2169,9 @@ export default function InteractiveMap() {
                           }}
                           title="Clique para focar no mapa"
                         >
-                          {screen.name ? (
+                          {(screen.display_name || screen.name) ? (
                             <>
-                              <span className="font-bold">{screen.name}</span>
+                              <span className="font-bold">{screen.display_name || screen.name}</span>
                               {screen.code && <div className="text-xs text-cyan-600 mt-1">Código: {screen.code}</div>}
                             </>
                           ) : screen.code ? (
@@ -2237,9 +2238,9 @@ export default function InteractiveMap() {
                           }}
                           title="Clique para focar no mapa"
                         >
-                          {screen.name ? (
+                          {(screen.display_name || screen.name) ? (
                             <>
-                              <span className="font-bold">{screen.name}</span>
+                              <span className="font-bold">{screen.display_name || screen.name}</span>
                               {screen.code && <div className="text-xs text-cyan-600 mt-1">Código: {screen.code}</div>}
                             </>
                           ) : screen.code ? (
@@ -2294,9 +2295,9 @@ export default function InteractiveMap() {
                       >
         <div className="flex items-center justify-between">
                           <div>
-                            {screen.name ? (
+                            {(screen.display_name || screen.name) ? (
                               <>
-                                <p className="font-bold text-sm">{screen.name}</p>
+                                <p className="font-bold text-sm">{screen.display_name || screen.name}</p>
                                 {screen.code && <p className="text-xs text-cyan-600">Código: {screen.code}</p>}
                               </>
                             ) : screen.code ? (

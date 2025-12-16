@@ -67,6 +67,8 @@ const Venues = () => {
   const [cityFilter, setCityFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [isUsingSampleData, setIsUsingSampleData] = useState(false);
+  // KPIs de telas — devem bater com o Inventário (base: v_screens_enriched paginada)
+  const [screenStats, setScreenStats] = useState({ total: 0, active: 0, inactive: 0, cities: 0 });
 
 
 
@@ -103,8 +105,54 @@ const Venues = () => {
 
       console.log('🔄 Iniciando busca de pontos de venda...');
 
-      // Usar a função utilitária com fallback automático
-      const data = await fetchAllScreens();
+      // Base oficial (mesma do Inventory): v_screens_enriched pode ter limite de 1000 linhas, então paginamos.
+      const fetchScreensInventoryBase = async () => {
+        const PAGE_SIZE = 1000;
+        let from = 0;
+        let all: any[] = [];
+        let lastError: any = null;
+
+        while (true) {
+          const { data, error } = await supabase
+            .from('v_screens_enriched')
+            .select(`
+              id,
+              code,
+              name,
+              display_name,
+              city,
+              state,
+              class,
+              active,
+              lat,
+              lng
+            `)
+            .order('code', { ascending: true })
+            .range(from, from + PAGE_SIZE - 1);
+
+          if (error) {
+            lastError = error;
+            break;
+          }
+
+          const chunk = (data ?? []) as any[];
+          all = all.concat(chunk);
+          if (chunk.length < PAGE_SIZE) break;
+          from += PAGE_SIZE;
+        }
+
+        if (lastError) throw lastError;
+        return all;
+      };
+
+      let data: any[] = [];
+      try {
+        data = await fetchScreensInventoryBase();
+      } catch (e) {
+        // Fallback: usar a função utilitária antiga (mantém compatibilidade se a view estiver indisponível)
+        console.warn('⚠️ Falha ao buscar v_screens_enriched. Usando fallback fetchAllScreens().', e);
+        data = await fetchAllScreens();
+      }
 
       console.log('✅ Dados recebidos:', data?.length || 0);
 
@@ -113,6 +161,7 @@ const Venues = () => {
         setVenues([]);
         setFilteredVenues([]);
         setIsUsingSampleData(false);
+        setScreenStats({ total: 0, active: 0, inactive: 0, cities: 0 });
         return;
       }
 
@@ -122,6 +171,21 @@ const Venues = () => {
       
       if (isSampleData) {
         console.log('ℹ️ Usando dados de exemplo devido a problemas de conectividade');
+      }
+
+      // Calcular KPIs de telas (base inventário) antes de aplicar placeholders de cidade/estado.
+      try {
+        const total = data.length;
+        const active = data.filter((s: any) => isActive(s.active)).length;
+        const inactive = total - active;
+        const cities = new Set(
+          data
+            .map((s: any) => (s?.city ?? '').toString().trim())
+            .filter((c: string) => Boolean(c))
+        ).size;
+        setScreenStats({ total, active, inactive, cities });
+      } catch {
+        setScreenStats({ total: data.length, active: 0, inactive: 0, cities: 0 });
       }
 
       // Agrupar telas por venue
@@ -398,7 +462,7 @@ const Venues = () => {
                   <div>
                     <p className="text-sm font-medium text-green-800">Total de Telas</p>
                     <p className="text-3xl font-bold text-green-900">
-                      {loading ? "..." : venues.reduce((acc, v) => acc + v.screenCount, 0)}
+                      {loading ? "..." : screenStats.total}
                     </p>
                     <p className="text-xs text-green-700">Todas as telas</p>
                   </div>
@@ -415,7 +479,7 @@ const Venues = () => {
                   <div>
                     <p className="text-sm font-medium text-purple-800">Telas Ativas</p>
                     <p className="text-3xl font-bold text-purple-900">
-                      {loading ? "..." : venues.reduce((acc, v) => acc + v.activeScreens, 0)}
+                      {loading ? "..." : screenStats.active}
                     </p>
                     <p className="text-xs text-purple-700">Em funcionamento</p>
                   </div>
@@ -432,7 +496,7 @@ const Venues = () => {
                   <div>
                     <p className="text-sm font-medium text-orange-800">Cidades</p>
                     <p className="text-3xl font-bold text-orange-900">
-                      {loading ? "..." : availableCities.length}
+                      {loading ? "..." : screenStats.cities}
                     </p>
                     <p className="text-xs text-orange-700">Diferentes localidades</p>
                   </div>

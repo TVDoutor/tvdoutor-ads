@@ -275,6 +275,7 @@ const ProposalDetails = () => {
               display_name,
               category,
               google_formatted_address,
+              address_raw,
               city,
               state,
               class,
@@ -428,11 +429,20 @@ const ProposalDetails = () => {
     if (!proposal) return;
 
     try {
+      const extractScreenCode = (screen: any): string => {
+        const code = String(screen?.code ?? '').trim();
+        if (code) return code.toUpperCase();
+        const name = String(screen?.name ?? '').trim();
+        // Em alguns cadastros antigos, o código pode estar em `name`
+        if (/^P\d{4,5}(\.\d+)?$/i.test(name)) return name.toUpperCase();
+        return '';
+      };
+
       // Preparar dados das telas
       const rows = (proposal.proposal_screens || []).map((ps) => {
         const screen = ps.screens;
-        // Garantir que o código seja uma string válida
-        const code = String(screen?.code || '').trim();
+        // Garantir que o código seja uma string válida (com fallback)
+        const code = extractScreenCode(screen);
         
         // Log para depuração
         if (!code) {
@@ -447,10 +457,16 @@ const ProposalDetails = () => {
         return {
           id: screen?.id || null,
           code: code || '',
-          name: screen?.name ?? screen?.display_name ?? '',
+          // "Nome" deve ser o nome de exibição do ponto (Inventário), não o "name" técnico
+          // (em muitos cadastros, `name` é só o código)
+          name: screen?.display_name ?? screen?.venues?.name ?? screen?.name ?? '',
           class: screen?.class ?? '',
           type: (screen as any)?.category ?? (screen as any)?.screen_type ?? '',
-          address: (screen as any)?.google_formatted_address ?? (screen as any)?.formatted_address ?? '',
+          address:
+            (screen as any)?.google_formatted_address ??
+            (screen as any)?.address_raw ??
+            (screen as any)?.formatted_address ??
+            '',
           city: screen?.city ?? '',
           state: screen?.state ?? '',
           venue_id: screen?.venue_id ?? null,
@@ -907,10 +923,9 @@ const ProposalDetails = () => {
 
           {/* Main Content Tabs */}
           <Tabs defaultValue="overview" className="space-y-6">
-            <TabsList className="grid w-full grid-cols-4 lg:w-auto">
+            <TabsList className="grid w-full grid-cols-3 lg:w-auto">
               <TabsTrigger value="overview">Resumo</TabsTrigger>
               <TabsTrigger value="financial">Financeiro</TabsTrigger>
-              <TabsTrigger value="screens">Telas ({proposal.proposal_screens?.length || 0})</TabsTrigger>
               <TabsTrigger value="status">Status</TabsTrigger>
             </TabsList>
 
@@ -1270,64 +1285,6 @@ const ProposalDetails = () => {
                   </CardContent>
                 </Card>
               )}
-            </TabsContent>
-
-            {/* Screens Tab */}
-            <TabsContent value="screens" className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Lista de Telas Selecionadas</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {proposal.proposal_screens && proposal.proposal_screens.length > 0 ? (
-                      <div className="divide-y">
-                        {proposal.proposal_screens.map((ps, index) => (
-                          <div key={ps.id} className="py-4 first:pt-0 last:pb-0">
-                            <div className="flex items-start justify-between">
-                              <div className="flex-1">
-                                <div className="flex items-center gap-3 mb-2">
-                                  <Badge variant="outline" className="font-mono">
-                                    #{ps.screens?.id}
-                                  </Badge>
-                                  <h4 className="font-semibold text-slate-900">
-                                    {ps.screens?.name || ps.screens?.display_name || 'Sem nome'}
-                                  </h4>
-                                  {ps.screens?.class && (
-                                    <Badge variant="secondary">{ps.screens.class}</Badge>
-                                  )}
-                                </div>
-                                
-                                {ps.screens?.google_formatted_address && (
-                                  <p className="text-sm text-slate-600 mb-1">
-                                    <MapPin className="h-3 w-3 inline mr-1" />
-                                    {ps.screens.google_formatted_address}
-                                  </p>
-                                )}
-                                
-                                <div className="flex gap-4 text-sm text-slate-500">
-                                  <span>{ps.screens?.city}</span>
-                                  <span>{ps.screens?.state}</span>
-                                  {ps.screens?.venues?.name && (
-                                    <span className="flex items-center gap-1">
-                                      <Building className="h-3 w-3" />
-                                      {ps.screens.venues.name}
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="text-center py-8 text-slate-500">
-                        Nenhuma tela selecionada
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
             </TabsContent>
 
             {/* Status Tab */}

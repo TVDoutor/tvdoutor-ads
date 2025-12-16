@@ -113,6 +113,8 @@ interface InventoryStats {
 const Reports = () => {
   const [selectedPeriod, setSelectedPeriod] = useState("30d");
   const [loading, setLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
   const [kpiData, setKpiData] = useState<KPIData>({
     activeScreens: 0,
     totalProposals: 0,
@@ -124,7 +126,14 @@ const Reports = () => {
     totalRevenue: 0
   });
   const [proposalsByMonth, setProposalsByMonth] = useState<ChartData[]>([]);
-  const [screensByCity, setScreensByCity] = useState<ChartData[]>([]);
+  const [screensByState, setScreensByState] = useState<ChartData[]>([]);
+  const [screensByStateMeta, setScreensByStateMeta] = useState<{
+    totalActiveScreens: number;
+    totalStates: number;
+    screensWithoutState: number;
+  }>({ totalActiveScreens: 0, totalStates: 0, screensWithoutState: 0 });
+  const [statesBreakdown, setStatesBreakdown] = useState<Array<{ uf: string; count: number }>>([]);
+  const [showAllStates, setShowAllStates] = useState(false);
   const [topClients, setTopClients] = useState<TopClient[]>([]);
   const [heatmapData, setHeatmapData] = useState<HeatmapData[]>([]);
   const [topUsers, setTopUsers] = useState<UserStats[]>([]);
@@ -133,18 +142,43 @@ const Reports = () => {
   const [agenciesData, setAgenciesData] = useState<ChartData[]>([]);
 
   useEffect(() => {
-    fetchReportsData();
+    fetchReportsData({ showLoader: true });
   }, [selectedPeriod]);
 
-  const fetchReportsData = async () => {
-    setLoading(true);
+  // Helper: PostgREST/Supabase pode limitar retornos (ex: 1000). Buscamos paginado para consistência com Inventory.tsx.
+  const fetchPaged = async (makeQuery: (from: number, to: number) => any) => {
+    const PAGE_SIZE = 1000;
+    let from = 0;
+    let allRows: any[] = [];
+    let lastError: any = null;
+
+    while (true) {
+      const { data, error } = await makeQuery(from, from + PAGE_SIZE - 1);
+      if (error) {
+        lastError = error;
+        break;
+      }
+      const chunk = (data ?? []) as any[];
+      allRows = allRows.concat(chunk);
+      if (chunk.length < PAGE_SIZE) break;
+      from += PAGE_SIZE;
+    }
+
+    if (lastError) throw lastError;
+    return allRows;
+  };
+
+  const fetchReportsData = async (opts?: { showLoader?: boolean }) => {
+    const showLoader = opts?.showLoader ?? false;
+    if (showLoader) setLoading(true);
+    else setIsRefreshing(true);
     try {
       console.log('📊 Buscando dados dos relatórios...');
       
       await Promise.all([
         fetchKPIData(),
         fetchProposalsByMonth(),
-        fetchScreensByCity(),
+        fetchScreensByState(),
         fetchTopClients(),
         fetchHeatmapData(),
         fetchTopUsers(),
@@ -154,25 +188,45 @@ const Reports = () => {
       ]);
       
       console.log('✅ Dados dos relatórios carregados');
+      setLastUpdatedAt(new Date());
     } catch (error: any) {
       console.error('💥 Erro ao carregar relatórios:', error);
       toast.error(`Erro ao carregar relatórios: ${error.message}`);
     } finally {
-      setLoading(false);
+      if (showLoader) setLoading(false);
+      setIsRefreshing(false);
     }
   };
 
   const fetchKPIData = async () => {
     try {
       // Buscar telas ativas com coordenadas válidas (usar v_screens_enriched para consistência)
-      const { data: screens, error: screensError } = await supabase
-        .from('v_screens_enriched')
-        .select('id, active, lat, lng')
-        .eq('active', true)
-        .not('lat', 'is', null)
-        .not('lng', 'is', null);
-
-      if (screensError) throw screensError;
+      let screens: any[] = [];
+      try {
+        screens = await fetchPaged((from, to) =>
+          supabase
+            .from('v_screens_enriched')
+            .select('id, active, lat, lng')
+            .eq('active', true)
+            .not('lat', 'is', null)
+            .not('lng', 'is', null)
+            .order('id', { ascending: true })
+            .range(from, to)
+        );
+      } catch (e: any) {
+        // Fallback para tabela screens se a view falhar
+        console.warn('⚠️ [Reports][KPI] Falha ao consultar v_screens_enriched, usando screens:', e);
+        screens = await fetchPaged((from, to) =>
+          supabase
+            .from('screens')
+            .select('id, active, lat, lng')
+            .eq('active', true as any)
+            .not('lat', 'is', null)
+            .not('lng', 'is', null)
+            .order('id', { ascending: true })
+            .range(from, to)
+        );
+      }
 
       // Buscar total de propostas
       const { data: proposals, error: proposalsError } = await supabase
@@ -267,83 +321,85 @@ const Reports = () => {
     }
   };
 
-  const fetchScreensByCity = async () => {
+  const fetchScreensByState = async () => {
     try {
       // Usar v_screens_enriched para consistência com inventário e venues
-      let { data: screens, error } = await supabase
-        .from('v_screens_enriched')
-        .select('city, city_norm, active')
-        .eq('active', true);
-
-      if (error) {
-        console.warn('⚠️ Erro na view v_screens_enriched, tentando tabela screens diretamente:', error);
-        // Fallback para tabela screens se a view falhar
-        const { data: fallbackScreens, error: fallbackError } = await supabase
-          .from('screens')
-          .select('city, city_norm')
-          .eq('active', true);
-        
-        if (fallbackError) {
-          console.error('❌ Erro também no fallback para tabela screens:', fallbackError);
-          throw fallbackError;
-        }
-        screens = fallbackScreens;
-        console.log('✅ Fallback para tabela screens funcionou, dados:', fallbackScreens?.length || 0);
-      } else {
-        console.log('✅ Dados da view v_screens_enriched carregados:', screens?.length || 0);
+      let screens: any[] = [];
+      try {
+        screens = await fetchPaged((from, to) =>
+          supabase
+            .from('v_screens_enriched')
+            .select('id, state, active')
+            .eq('active', true)
+            .order('id', { ascending: true })
+            .range(from, to)
+        );
+        console.log('✅ Dados da view v_screens_enriched carregados (paginado):', screens?.length || 0);
+      } catch (error: any) {
+        console.warn('⚠️ Erro na view v_screens_enriched (paginado), tentando tabela screens diretamente:', error);
+        screens = await fetchPaged((from, to) =>
+          supabase
+            .from('screens')
+            .select('id, state')
+            .eq('active', true as any)
+            .order('id', { ascending: true })
+            .range(from, to)
+        );
+        console.log('✅ Fallback para tabela screens funcionou (paginado), dados:', screens?.length || 0);
       }
 
       const totalActiveScreens = screens?.length || 0;
       console.log('📊 Total de telas ativas encontradas:', totalActiveScreens);
 
-      // Contar por cidade normalizada, mas usar city como fallback
-      const cityCount: { [key: string]: number } = {};
-      let screensWithCity = 0;
+      // Contar por UF/estado (ex: SP, RJ)
+      const stateCount: { [key: string]: number } = {};
+      let screensWithState = 0;
       
       screens?.forEach(screen => {
-        // Priorizar city_norm, mas usar city como fallback
-        const cityName = screen.city_norm || screen.city;
-        if (cityName && cityName.trim() !== '') {
-          cityCount[cityName] = (cityCount[cityName] || 0) + 1;
-          screensWithCity++;
+        const state = typeof screen.state === 'string' ? screen.state.trim().toUpperCase() : '';
+        if (state) {
+          stateCount[state] = (stateCount[state] || 0) + 1;
+          screensWithState++;
         }
       });
 
-      const screensWithoutCity = totalActiveScreens - screensWithCity;
+      const screensWithoutState = totalActiveScreens - screensWithState;
 
-      // Ordenar todas as cidades por quantidade
-      const allSortedCities = Object.entries(cityCount)
+      // Ordenar todos os estados por quantidade
+      const allSortedStates = Object.entries(stateCount)
         .sort(([,a], [,b]) => b - a);
 
-      // Pegar top 4 cidades
-      const top4Cities = allSortedCities.slice(0, 4);
+      setStatesBreakdown(allSortedStates.map(([uf, count]) => ({ uf, count })));
+
+      // Pegar top 4 estados
+      const top4States = allSortedStates.slice(0, 4);
       
-      // Calcular "Outras" (todas as cidades restantes)
-      const otherCities = allSortedCities.slice(4);
-      const otherCount = otherCities.reduce((sum, [, count]) => sum + count, 0);
+      // Calcular "Outros estados" (todos os estados restantes)
+      const otherStates = allSortedStates.slice(4);
+      const otherCount = otherStates.reduce((sum, [, count]) => sum + count, 0);
 
       const colors = ['#8B5CF6', '#06B6D4', '#10B981', '#F59E0B', '#EF4444'];
       
-      const chartData = top4Cities.map(([city, count], index) => ({
-        name: city,
+      const chartData = top4States.map(([uf, count], index) => ({
+        name: uf,
         value: count,
         color: colors[index]
       }));
 
-      // Adicionar "Outras" se houver cidades além das top 4
+      // Adicionar "Outros estados" se houver estados além dos top 4
       if (otherCount > 0) {
         chartData.push({
-          name: 'Outras',
+          name: 'Outros estados',
           value: otherCount,
           color: colors[4]
         });
       }
 
-      // Adicionar "Não informado" se houver telas sem cidade
-      if (screensWithoutCity > 0) {
+      // Adicionar "Estado não informado" se houver telas sem estado
+      if (screensWithoutState > 0) {
         chartData.push({
-          name: 'Não informado',
-          value: screensWithoutCity,
+          name: 'Estado não informado',
+          value: screensWithoutState,
           color: '#9CA3AF' // Cor cinza para "Não informado"
         });
       }
@@ -361,12 +417,19 @@ const Reports = () => {
         chartData: chartData.map(item => `${item.name}: ${item.value}`)
       });
 
-      setScreensByCity(chartData);
+      setScreensByStateMeta({
+        totalActiveScreens,
+        totalStates: Object.keys(stateCount).length,
+        screensWithoutState,
+      });
+      setScreensByState(chartData);
     } catch (error) {
-      console.error('❌ Erro ao buscar telas por cidade:', error);
+      console.error('❌ Erro ao buscar telas por estado:', error);
       
       // Em caso de erro, definir dados vazios para evitar quebra da interface
-      setScreensByCity([]);
+      setScreensByStateMeta({ totalActiveScreens: 0, totalStates: 0, screensWithoutState: 0 });
+      setStatesBreakdown([]);
+      setScreensByState([]);
     }
   };
 
@@ -454,33 +517,71 @@ const Reports = () => {
 
   const fetchTopUsers = async () => {
     try {
+      // Evitar join com profiles aqui (pode falhar por ausência de FK/relacionamento ou RLS).
+      // Estratégia: buscar propostas, agrupar por created_by e depois buscar profiles por IDs.
       const { data: proposals, error } = await supabase
         .from('proposals')
-        .select('created_by, net_business, profiles!inner(display_name)');
+        .select('created_by, net_business');
 
       if (error) throw error;
 
-      // Contar propostas e receita por usuário
-      const userData: { [key: string]: { proposals: number; revenue: number; name: string } } = {};
-      proposals?.forEach(proposal => {
-        const userId = proposal.created_by;
-        if (!userData[userId]) {
-          userData[userId] = { proposals: 0, revenue: 0, name: proposal.profiles?.display_name || 'Usuário' };
+      const userAgg: Record<string, { proposals: number; revenue: number }> = {};
+      let unknownCount = 0;
+      let unknownRevenue = 0;
+
+      (proposals ?? []).forEach((p: any) => {
+        const rawId = p.created_by;
+        const userId = typeof rawId === 'string' && rawId.trim() ? rawId.trim() : '';
+        const revenue = Number(p.net_business || 0) || 0;
+
+        if (!userId) {
+          unknownCount += 1;
+          unknownRevenue += revenue;
+          return;
         }
-        userData[userId].proposals++;
-        userData[userId].revenue += proposal.net_business || 0;
+
+        if (!userAgg[userId]) userAgg[userId] = { proposals: 0, revenue: 0 };
+        userAgg[userId].proposals += 1;
+        userAgg[userId].revenue += revenue;
       });
 
-      // Ordenar e pegar top 10
-      const topUsersData = Object.entries(userData)
-        .sort(([,a], [,b]) => b.proposals - a.proposals)
+      const userIds = Object.keys(userAgg);
+      let profilesById: Record<string, string> = {};
+
+      if (userIds.length > 0) {
+        const { data: profiles, error: profilesError } = await supabase
+          .from('profiles')
+          .select('id, display_name')
+          .in('id', userIds);
+
+        if (profilesError) {
+          console.warn('⚠️ [Reports][TopUsers] Falha ao buscar profiles por ids:', profilesError);
+        } else {
+          (profiles ?? []).forEach((pr: any) => {
+            if (pr?.id) profilesById[String(pr.id)] = pr.display_name || 'Usuário';
+          });
+        }
+      }
+
+      const topUsersData = Object.entries(userAgg)
+        .sort(([, a], [, b]) => b.proposals - a.proposals)
         .slice(0, 10)
         .map(([userId, data]) => ({
           user_id: userId,
-          user_name: data.name,
+          user_name: profilesById[userId] || `Usuário (${userId.slice(0, 8)}...)`,
           proposals_count: data.proposals,
-          revenue_generated: data.revenue
+          revenue_generated: data.revenue,
         }));
+
+      // Se houver propostas sem created_by, adiciona como uma linha separada (para não “sumir” do relatório)
+      if (unknownCount > 0) {
+        topUsersData.push({
+          user_id: 'unknown',
+          user_name: 'Usuário não informado',
+          proposals_count: unknownCount,
+          revenue_generated: unknownRevenue,
+        });
+      }
 
       setTopUsers(topUsersData);
     } catch (error) {
@@ -491,11 +592,25 @@ const Reports = () => {
   const fetchInventoryStats = async () => {
     try {
       // Usar v_screens_enriched para consistência com inventário e venues
-      const { data: screens, error } = await supabase
-        .from('v_screens_enriched')
-        .select('specialty, city, class, active');
-
-      if (error) throw error;
+      let screens: any[] = [];
+      try {
+        screens = await fetchPaged((from, to) =>
+          supabase
+            .from('v_screens_enriched')
+            .select('specialty, city, class, active')
+            .order('id', { ascending: true })
+            .range(from, to)
+        );
+      } catch (e: any) {
+        console.warn('⚠️ [Reports][InventoryStats] Falha ao consultar v_screens_enriched (paginado), usando screens:', e);
+        screens = await fetchPaged((from, to) =>
+          supabase
+            .from('screens')
+            .select('specialty, city, class, active')
+            .order('id', { ascending: true })
+            .range(from, to)
+        );
+      }
 
       // Agrupar por especialidade, região e classe
       const inventoryData: { [key: string]: InventoryStats } = {};
@@ -627,6 +742,14 @@ const Reports = () => {
                   <p className="text-sm text-gray-600 mt-1">
                     Insights detalhados sobre sua performance • Período: {selectedPeriod === '7d' ? 'Últimos 7 dias' : selectedPeriod === '30d' ? 'Últimos 30 dias' : selectedPeriod === '90d' ? 'Últimos 90 dias' : 'Último ano'}
                   </p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    {lastUpdatedAt ? (
+                      <>Última atualização: {lastUpdatedAt.toLocaleString('pt-BR')}</>
+                    ) : (
+                      <>Carregando dados...</>
+                    )}
+                    {isRefreshing ? <span className="ml-2 text-primary/80">Atualizando…</span> : null}
+                  </p>
             </div>
           </div>
 
@@ -645,11 +768,12 @@ const Reports = () => {
             
             <Button 
               variant="outline" 
-              onClick={fetchReportsData} 
+              onClick={() => fetchReportsData({ showLoader: false })} 
+              disabled={isRefreshing}
               className="gap-2 hover:bg-primary/5 hover:border-primary/20 transition-all duration-300"
             >
-                  <RefreshCw className="h-4 w-4" />
-                  Atualizar
+                  <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                  {isRefreshing ? 'Atualizando' : 'Atualizar'}
             </Button>
             
             <Button 
@@ -671,9 +795,11 @@ const Reports = () => {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                    <p className="text-sm font-medium text-gray-600">Telas Ativas</p>
-                    <p className="text-3xl font-bold text-gray-900 group-hover:text-primary transition-colors duration-300">{kpiData.activeScreens.toLocaleString()}</p>
-                    <p className="text-xs text-gray-500">Com coordenadas válidas</p>
+                    <p className="text-sm font-medium text-gray-600">Telas Ativas (Total)</p>
+                    <p className="text-3xl font-bold text-gray-900 group-hover:text-primary transition-colors duration-300">{screensByStateMeta.totalActiveScreens.toLocaleString()}</p>
+                    <p className="text-xs text-gray-500">
+                      Com coordenadas: {kpiData.activeScreens.toLocaleString()}
+                    </p>
                   </div>
                   <div className="p-3 bg-gradient-to-br from-blue-100 to-blue-50 rounded-xl group-hover:from-blue-200 group-hover:to-blue-100 transition-all duration-300">
                     <Monitor className="h-8 w-8 text-blue-600" />
@@ -716,21 +842,16 @@ const Reports = () => {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                    <p className="text-sm font-medium text-gray-600">Taxa de Conversão</p>
-                    <p className="text-3xl font-bold text-gray-900 group-hover:text-primary transition-colors duration-300">{kpiData.approvalRate}%</p>
+                    <p className="text-sm font-medium text-gray-600">Estados (UF)</p>
+                    <p className="text-3xl font-bold text-gray-900 group-hover:text-primary transition-colors duration-300">{screensByStateMeta.totalStates.toLocaleString()}</p>
                     <p className="text-xs text-gray-500">
-                    {kpiData.totalProposals > 0 ? 'Baseado em dados reais' : 'Sem dados'}
-                  </p>
+                      UF não informada: {screensByStateMeta.screensWithoutState.toLocaleString()}
+                    </p>
                 </div>
                   <div className="p-3 bg-gradient-to-br from-primary/10 to-primary/5 rounded-xl group-hover:from-primary/20 group-hover:to-primary/10 transition-all duration-300">
-                    <Target className="h-8 w-8 text-primary" />
+                    <Globe className="h-8 w-8 text-primary" />
                   </div>
                 </div>
-                {kpiData.totalProposals > 0 && (
-                  <div className="mt-4">
-                    <Progress value={kpiData.approvalRate} className="h-2" />
-              </div>
-                )}
             </CardContent>
           </Card>
         </div>
@@ -921,14 +1042,14 @@ const Reports = () => {
                       <div className="p-2 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl shadow-lg">
                         <PieChartIcon className="h-6 w-6 text-white" />
                       </div>
-                      Distribuição por Cidade
+                      Distribuição por Estado
                     </CardTitle>
                     <CardDescription className="text-gray-600">
-                      Distribuição geográfica das telas ativas
+                      Distribuição das telas ativas por UF (estado)
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
-                    {screensByCity.length > 0 ? (
+                    {screensByState.length > 0 ? (
                       <>
                         <ResponsiveContainer width="100%" height={320}>
                           <PieChart>
@@ -938,7 +1059,7 @@ const Reports = () => {
                               </filter>
                             </defs>
                             <Pie
-                              data={screensByCity}
+                              data={screensByState}
                               cx="50%"
                               cy="50%"
                               innerRadius={70}
@@ -947,7 +1068,7 @@ const Reports = () => {
                               dataKey="value"
                               filter="url(#pieShadow)"
                             >
-                              {screensByCity.map((entry, index) => (
+                              {screensByState.map((entry, index) => (
                                 <Cell 
                                   key={`cell-${index}`} 
                                   fill={entry.color}
@@ -972,21 +1093,68 @@ const Reports = () => {
                           </PieChart>
                         </ResponsiveContainer>
                         <div className="mt-6 space-y-3">
-                          {screensByCity.map((city, index) => (
+                          {screensByState.map((uf, index) => (
                             <div key={index} className="flex items-center justify-between text-sm p-3 rounded-xl bg-gradient-to-r from-gray-50 to-white hover:from-gray-100 hover:to-gray-50 transition-all duration-300 group/item border border-gray-100">
                               <div className="flex items-center gap-3">
                                 <div 
                                   className="w-5 h-5 rounded-full shadow-md border-2 border-white" 
-                                  style={{ backgroundColor: city.color }}
+                                  style={{ backgroundColor: uf.color }}
                                 />
-                                <span className="font-semibold text-gray-800 group-hover/item:text-gray-900 transition-colors">{city.name}</span>
+                                <span className="font-semibold text-gray-800 group-hover/item:text-gray-900 transition-colors">{uf.name}</span>
                               </div>
                               <Badge variant="secondary" className="text-xs font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors">
-                                {city.value} telas
+                                {uf.value} telas
                               </Badge>
                             </div>
                           ))}
                         </div>
+
+                        {/* Lista funcional (tabela) por UF */}
+                        {statesBreakdown.length > 0 && (
+                          <div className="mt-6 border-t border-gray-100 pt-5">
+                            <div className="flex items-center justify-between gap-3 mb-3">
+                              <div>
+                                <p className="text-sm font-semibold text-gray-900">Telas ativas por UF</p>
+                                <p className="text-xs text-gray-500">
+                                  Mostrando {showAllStates ? statesBreakdown.length : Math.min(8, statesBreakdown.length)} de {statesBreakdown.length} estados
+                                </p>
+                              </div>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setShowAllStates(v => !v)}
+                                className="gap-2"
+                              >
+                                {showAllStates ? 'Ver menos' : 'Ver todos'}
+                              </Button>
+                            </div>
+
+                            <div className="space-y-2">
+                              {(showAllStates ? statesBreakdown : statesBreakdown.slice(0, 8)).map((row) => {
+                                const pct =
+                                  screensByStateMeta.totalActiveScreens > 0
+                                    ? (row.count / screensByStateMeta.totalActiveScreens) * 100
+                                    : 0;
+                                return (
+                                  <div key={row.uf} className="p-3 rounded-xl bg-white border border-gray-100 hover:border-gray-200 transition-colors">
+                                    <div className="flex items-center justify-between">
+                                      <div className="flex items-center gap-2">
+                                        <Badge variant="secondary" className="bg-gray-100 text-gray-800">{row.uf}</Badge>
+                                        <span className="text-sm text-gray-600">
+                                          {row.count.toLocaleString()} telas
+                                        </span>
+                                      </div>
+                                      <span className="text-xs text-gray-500">{pct.toFixed(1)}%</span>
+                                    </div>
+                                    <div className="mt-2">
+                                      <Progress value={pct} className="h-2" />
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
                       </>
                     ) : (
                       <div className="h-[380px] flex items-center justify-center text-muted-foreground">
@@ -1075,8 +1243,8 @@ const Reports = () => {
                       
                       <div className="grid grid-cols-2 gap-4 text-center">
                         <div className="p-3 bg-blue-50 rounded-lg">
-                          <div className="text-lg font-bold text-blue-900">{screensByCity.length}</div>
-                          <div className="text-sm text-blue-700">Cidades</div>
+                          <div className="text-lg font-bold text-blue-900">{screensByStateMeta.totalStates}</div>
+                          <div className="text-sm text-blue-700">Estados (telas ativas)</div>
                         </div>
                         <div className="p-3 bg-purple-50 rounded-lg">
                           <div className="text-lg font-bold text-purple-900">{kpiData.activeScreens}</div>
@@ -1095,12 +1263,12 @@ const Reports = () => {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {screensByCity.length > 0 ? (
+              {screensByState.length > 0 ? (
                 <>
                         <ResponsiveContainer width="100%" height={200}>
                     <PieChart>
                       <Pie
-                        data={screensByCity}
+                        data={screensByState}
                         cx="50%"
                         cy="50%"
                               innerRadius={40}
@@ -1108,7 +1276,7 @@ const Reports = () => {
                               paddingAngle={2}
                         dataKey="value"
                       >
-                        {screensByCity.map((entry, index) => (
+                        {screensByState.map((entry, index) => (
                           <Cell key={`cell-${index}`} fill={entry.color} />
                         ))}
                       </Pie>
@@ -1116,16 +1284,16 @@ const Reports = () => {
                     </PieChart>
                   </ResponsiveContainer>
                   <div className="mt-4 space-y-2">
-                    {screensByCity.map((city, index) => (
+                    {screensByState.map((uf, index) => (
                       <div key={index} className="flex items-center justify-between text-sm">
                         <div className="flex items-center gap-2">
                           <div 
                             className="w-3 h-3 rounded-full" 
-                            style={{ backgroundColor: city.color }}
+                            style={{ backgroundColor: uf.color }}
                           />
-                          <span>{city.name}</span>
+                          <span>{uf.name}</span>
                         </div>
-                        <span className="font-medium">{city.value}</span>
+                        <span className="font-medium">{uf.value}</span>
                       </div>
                     ))}
                   </div>

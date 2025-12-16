@@ -231,6 +231,7 @@ const Inventory = () => {
   const [uploading, setUploading] = useState(false);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [replaceExistingOnImport, setReplaceExistingOnImport] = useState(true);
   const [exporting, setExporting] = useState(false);
   
   // Stats
@@ -290,18 +291,41 @@ const Inventory = () => {
       setError(null);
 
       console.log('🔍 Iniciando busca de dados das telas via VIEW...');
-      
-      const { data, error } = await supabase
-        .from('v_screens_enriched')
-        .select(`
-          id, code, name, display_name, city, state, cep, address, lat, lng, geom,
-          active, class, specialty, board_format, category, rede,
-          standard_rate_month, selling_rate_month, spots_per_hour, spot_duration_secs,
-          venue_name, venue_address, venue_country, venue_state, venue_district,
-          staging_nome_ponto, staging_audiencia, staging_especialidades,
-          staging_tipo_venue, staging_subtipo, staging_categoria
-        `)
-        .order('code', { ascending: true });
+      // PostgREST/Supabase pode limitar o retorno a 1000 linhas; por isso buscamos paginado.
+      const PAGE_SIZE = 1000;
+      let from = 0;
+      let all: InventoryRow[] = [];
+      let lastError: any = null;
+
+      while (true) {
+        const { data, error } = await supabase
+          .from('v_screens_enriched')
+          .select(`
+            id, code, name, display_name, city, state, cep, address, lat, lng, geom,
+            active, class, specialty, board_format, category, rede,
+            standard_rate_month, selling_rate_month, spots_per_hour, spot_duration_secs,
+            venue_name, venue_address, venue_country, venue_state, venue_district,
+            staging_nome_ponto, staging_audiencia, staging_especialidades,
+            staging_tipo_venue, staging_subtipo, staging_categoria
+          `)
+          .order('code', { ascending: true })
+          .range(from, from + PAGE_SIZE - 1);
+
+        if (error) {
+          lastError = error;
+          break;
+        }
+
+        const chunk = (data ?? []) as any[];
+        all = all.concat(chunk as InventoryRow[]);
+
+        // Se veio menos que o tamanho da página, terminou
+        if (chunk.length < PAGE_SIZE) break;
+        from += PAGE_SIZE;
+      }
+
+      const data = all;
+      const error = lastError;
 
       console.log('📊 Dados da VIEW recebidos:', { data, error });
       
@@ -807,82 +831,263 @@ const Inventory = () => {
     });
   };
 
-  const validateScreenData = (data: any[]): any[] => {
+  const normalizeHeaderKey = (value: any): string => {
+    return String(value ?? '')
+      .replace(/^\uFEFF/, '') // BOM
+      .trim()
+      .replace(/^"+|"+$/g, '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '') // remove acentos
+      .toLowerCase();
+  };
+
+  const parseBooleanActive = (value: any): boolean => {
+    if (value === null || value === undefined || value === '') return true;
+    if (typeof value === 'boolean') return value;
+    const normalized = String(value).toLowerCase().trim();
+    return normalized === 'sim' || normalized === 'ativo' || normalized === 'true' || normalized === '1' || normalized === 'yes';
+  };
+
+  const parseNumberBR = (value: any): number | null => {
+    if (value === null || value === undefined || value === '') return null;
+    if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+    let s = String(value).trim();
+    if (!s) return null;
+
+    // Remove símbolos e espaços
+    s = s.replace(/[^\d,\.\-]/g, '');
+    if (!s) return null;
+
+    // Se tiver vírgula e ponto, assumir formato BR: 1.234,56
+    if (s.includes(',') && s.includes('.')) {
+      s = s.replace(/\./g, '').replace(',', '.');
+    } else if (s.includes(',') && !s.includes('.')) {
+      // Formato BR decimal: -23,55
+      s = s.replace(',', '.');
+    }
+
+    const n = Number(s);
+    return Number.isFinite(n) ? n : null;
+  };
+
+  const parseMoneyBR = (value: any): number | null => {
+    return parseNumberBR(value);
+  };
+
+  const splitSpecialties = (value: any): string[] => {
+    if (value === null || value === undefined || value === '') return [];
+    if (Array.isArray(value)) return value.map(v => String(v).trim()).filter(Boolean);
+    const text = String(value).trim();
+    if (!text) return [];
+    // Export do JS geralmente vira "a,b,c"; alguns CSVs usam ";"
+    return text
+      .split(/[,;|]/g)
+      .map(s => s.trim())
+      .filter(Boolean);
+  };
+
+  const validateScreenData = (data: any[]): {
+    rows: any[];
+    skippedTemplateRows: number;
+    warnings: { cepNormalized: number; cepInvalid: number };
+  } => {
     const validatedData: any[] = [];
     const errors: string[] = [];
-    // Removido: allowedClasses - coluna 'class' não existe no banco
+    const allowedClassSet = new Set(ALLOWED_CLASSES.map(c => String(c).toUpperCase()));
+    const codeRegex = /^P\d{4,5}(\.\d+)?$/i;
+    let skippedTemplateRows = 0;
+    let cepNormalized = 0;
+    let cepInvalid = 0;
+    const sanitizeCode = (v: any): string => {
+      let s = String(v ?? '').trim();
+      // remove invisíveis comuns (zero-width etc)
+      s = s.replace(/[\u200B-\u200D\uFEFF]/g, '');
+      // remove espaços internos
+      s = s.replace(/\s+/g, '');
+      // alguns CSVs podem vir com vírgula na parte decimal: P2893,4
+      if (/^P\d{4,5},\d+$/i.test(s)) s = s.replace(',', '.');
+      return s;
+    };
+    const normalizeCep = (v: any): string | null => {
+      if (v === null || v === undefined) return null;
+      const raw = String(v).trim();
+      if (!raw) return null;
+      const digits = raw.replace(/\D/g, '');
+      if (!digits) return null;
+      if (digits.length !== 8) return null;
+      if (digits !== raw) cepNormalized++;
+      return digits;
+    };
 
     data.forEach((row, index) => {
       const rowNumber = index + 2; // +2 porque começamos na linha 2 (linha 1 é cabeçalho)
-      
-      // Validações obrigatórias
-      if (!row['Código'] || typeof row['Código'] !== 'string') {
+
+      // Normalizar chaves do row para ficar resiliente (Código vs Codigo vs code etc)
+      const r: any = {};
+      Object.keys(row || {}).forEach((k) => {
+        r[normalizeHeaderKey(k)] = row[k];
+      });
+
+      const codeRaw =
+        r['codigo'] ??
+        r['codigo do ponto'] ??
+        r['code'] ??
+        r['screen_code'];
+
+      const displayNameRaw =
+        r['nome de exibicao'] ??
+        r['nome de exibição'] ??
+        r['nome exibicao'] ??
+        r['display_name'] ??
+        r['display name'];
+
+      const code = sanitizeCode(codeRaw);
+      const display_name = String(displayNameRaw ?? '').trim();
+
+      if (!code) {
         errors.push(`Linha ${rowNumber}: Código é obrigatório`);
         return;
       }
-      
-      if (!row['Nome de Exibição'] || typeof row['Nome de Exibição'] !== 'string') {
+
+      // Ignorar linhas de template/exemplo (ex: PXXX.1, PXXXX.2 etc)
+      // Em alguns arquivos, o "X" pode vir como caractere visualmente igual porém diferente (ex: cirílico),
+      // então a regra robusta é: após "P" deve haver 4-5 dígitos (antes do opcional ".#").
+      const codeBody = code.slice(1);
+      const [basePart, decimalPart] = codeBody.split('.', 2);
+      const baseLooksValid = /^\d{4,5}$/.test(basePart);
+      const decimalLooksValid = decimalPart === undefined ? true : /^\d+$/.test(decimalPart);
+      if (!baseLooksValid || !decimalLooksValid) {
+        skippedTemplateRows++;
+        return;
+      }
+
+      if (!codeRegex.test(code)) {
+        const hint = /^TVD/i.test(code)
+          ? ' (Dica: o padrão do sistema é P####/P##### — ex: P2000 ou P2893.4. O template antigo "TVD001" não é aceito pelo banco.)'
+          : '';
+        errors.push(`Linha ${rowNumber}: Código inválido (${code}). Esperado: P#### ou P##### (opcional .#)${hint}`);
+        return;
+      }
+      if (!display_name) {
         errors.push(`Linha ${rowNumber}: Nome de Exibição é obrigatório`);
         return;
       }
 
-      // Removido: Validação da classe - coluna não existe no banco
-
-      // Validar coordenadas se fornecidas
-      if (row['Latitude'] && (isNaN(Number(row['Latitude'])) || Number(row['Latitude']) < -90 || Number(row['Latitude']) > 90)) {
+      const lat = parseNumberBR(r['latitude']);
+      const lng = parseNumberBR(r['longitude']);
+      if (lat !== null && (lat < -90 || lat > 90)) {
         errors.push(`Linha ${rowNumber}: Latitude deve ser um número entre -90 e 90`);
         return;
       }
-
-      if (row['Longitude'] && (isNaN(Number(row['Longitude'])) || Number(row['Longitude']) < -180 || Number(row['Longitude']) > 180)) {
+      if (lng !== null && (lng < -180 || lng > 180)) {
         errors.push(`Linha ${rowNumber}: Longitude deve ser um número entre -180 e 180`);
         return;
       }
 
-      // Validar status ativo
-      const activeValue = row['Ativo'];
-      let active = true; // padrão
-      if (activeValue) {
-        if (typeof activeValue === 'string') {
-          const normalizedActive = activeValue.toLowerCase().trim();
-          active = normalizedActive === 'sim' || normalizedActive === 'ativo' || normalizedActive === 'true' || normalizedActive === '1';
-        } else if (typeof activeValue === 'boolean') {
-          active = activeValue;
+      const classRaw = r['classe'] ?? r['class'];
+      let classValue: any = null;
+      if (classRaw !== null && classRaw !== undefined && String(classRaw).trim() !== '') {
+        let c = String(classRaw).trim().toUpperCase();
+        // aceita "CLASSE A", "Classe AB", etc
+        c = c.replace(/^CLASSE\s+/i, '').trim();
+        if (!allowedClassSet.has(c)) {
+          errors.push(`Linha ${rowNumber}: Classe inválida (${c}). Valores aceitos: ${Array.from(allowedClassSet).join(', ')}`);
+          return;
         }
+        classValue = c;
+      } else {
+        classValue = 'ND';
       }
 
-      // Criar objeto da tela validado
-      const validatedScreen = {
-        name: row['Código'].toString().trim(),
-        display_name: row['Nome de Exibição'].toString().trim(),
-        address: row['Endereço'] ? row['Endereço'].toString().trim() : null,
-        city: row['Cidade'] ? row['Cidade'].toString().trim() : null,
-        state: row['Estado'] ? row['Estado'].toString().trim() : null,
-        zip_code: row['CEP'] ? row['CEP'].toString().trim() : null,
-        // Removido: class: row['Classe'] ? row['Classe'].toString().trim() : 'ND', - coluna não existe no banco
-        specialty: row['Especialidade'] ? row['Especialidade'].toString().trim() : null,
-        active: active,
-        lat: row['Latitude'] ? Number(row['Latitude']) : null,
-        lng: row['Longitude'] ? Number(row['Longitude']) : null,
-        google_place_id: row['Google Place ID'] ? row['Google Place ID'].toString().trim() : null,
-        google_maps_url: row['Google Maps URL'] ? row['Google Maps URL'].toString().trim() : null,
-        // Dados de taxa se fornecidos
-        rates: {
-          standard_rate_month: row['Taxa Padrão (Mês)'] ? Number(row['Taxa Padrão (Mês)']) : null,
-          selling_rate_month: row['Taxa Venda (Mês)'] ? Number(row['Taxa Venda (Mês)']) : null,
-          spots_per_hour: row['Spots por Hora'] ? Number(row['Spots por Hora']) : null,
-          spot_duration_secs: row['Duração Spot (seg)'] ? Number(row['Duração Spot (seg)']) : null
-        }
+      const active = parseBooleanActive(r['ativo'] ?? r['active']);
+
+      const address_raw = (r['endereco'] ?? r['endereço'] ?? r['address'] ?? r['address_raw'] ?? '').toString().trim() || null;
+      const city = (r['cidade'] ?? r['city'] ?? '').toString().trim() || null;
+      const state = (r['estado'] ?? r['uf'] ?? r['state'] ?? '').toString().trim() || null;
+      const cepRaw = r['cep'] ?? '';
+      const cep = normalizeCep(cepRaw);
+      if (cepRaw !== null && cepRaw !== undefined && String(cepRaw).trim() !== '' && cep === null) {
+        // Não bloqueia a importação: apenas evita violar o constraint do banco.
+        // (Usuário pode corrigir no Excel/CSV depois se quiser.)
+        cepInvalid++;
+      }
+
+      const specialty = splitSpecialties(r['especialidade'] ?? r['especialidades'] ?? r['specialty']);
+
+      const google_place_id = (r['google place id'] ?? r['google_place_id'] ?? '').toString().trim() || null;
+      const google_formatted_address =
+        (r['google formatted address'] ?? r['google_formatted_address'] ?? '').toString().trim() || null;
+
+      const rates = {
+        standard_rate_month: parseMoneyBR(r['taxa padrao (mes)'] ?? r['taxa padrao (mês)'] ?? r['standard_rate_month']),
+        selling_rate_month: parseMoneyBR(r['taxa venda (mes)'] ?? r['taxa venda (mês)'] ?? r['selling_rate_month']),
+        spots_per_hour: parseNumberBR(r['spots por hora'] ?? r['spots_per_hour']),
+        spot_duration_secs: parseNumberBR(r['duracao spot (seg)'] ?? r['duracao spot (seg)'] ?? r['spot_duration_secs']),
       };
 
-      validatedData.push(validatedScreen);
+      const validatedScreen = {
+        code,
+        name: code, // mantém compatibilidade com dados antigos que usam `name` como código
+        display_name,
+        address_raw,
+        city,
+        state,
+        cep,
+        class: classValue,
+        specialty: specialty.length ? specialty : [],
+        active,
+        lat,
+        lng,
+        google_place_id,
+        google_formatted_address,
+        updated_at: new Date().toISOString(),
+      };
+
+      validatedData.push({ screen: validatedScreen, rates });
     });
 
     if (errors.length > 0) {
-      throw new Error(`Erros encontrados na planilha:\n${errors.join('\n')}`);
+      const max = 30;
+      const shown = errors.slice(0, max);
+      const suffix = errors.length > max ? `\n... e mais ${errors.length - max} erro(s).` : '';
+      throw new Error(`Erros encontrados na planilha (${errors.length}):\n${shown.join('\n')}${suffix}`);
     }
 
-    return validatedData;
+    return { rows: validatedData, skippedTemplateRows, warnings: { cepNormalized, cepInvalid } };
+  };
+
+  const parseDelimitedLine = (line: string, delimiter: string): string[] => {
+    const out: string[] = [];
+    let cur = '';
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      const next = line[i + 1];
+      if (ch === '"') {
+        if (inQuotes && next === '"') {
+          cur += '"';
+          i++;
+          continue;
+        }
+        inQuotes = !inQuotes;
+        continue;
+      }
+      if (!inQuotes && ch === delimiter) {
+        out.push(cur);
+        cur = '';
+        continue;
+      }
+      cur += ch;
+    }
+    out.push(cur);
+    return out.map(v => v.trim());
+  };
+
+  const detectDelimiter = (headerLine: string): string => {
+    // Heurística simples: CSV PT-BR costuma usar ';'
+    const semicolons = (headerLine.match(/;/g) || []).length;
+    const commas = (headerLine.match(/,/g) || []).length;
+    return semicolons > commas ? ';' : ',';
   };
 
   const processCSVFile = async (file: File): Promise<any[]> => {
@@ -890,18 +1095,20 @@ const Inventory = () => {
       const reader = new FileReader();
       reader.onload = (e) => {
         try {
-          const text = e.target?.result as string;
-          const lines = text.split('\n').filter(line => line.trim());
+          const text = String(e.target?.result ?? '');
+          const clean = text.replace(/^\uFEFF/, '');
+          const lines = clean.split(/\r?\n/).filter(line => line.trim());
           
           if (lines.length < 2) {
             throw new Error('Arquivo CSV deve ter pelo menos uma linha de cabeçalho e uma linha de dados');
           }
           
-          const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
-          const data = [];
+          const delimiter = detectDelimiter(lines[0]);
+          const headers = parseDelimitedLine(lines[0], delimiter).map(h => h.replace(/"/g, '').trim());
+          const data: any[] = [];
           
           for (let i = 1; i < lines.length; i++) {
-            const values = lines[i].split(',').map(v => v.trim().replace(/"/g, ''));
+            const values = parseDelimitedLine(lines[i], delimiter).map(v => v.replace(/"/g, '').trim());
             const row: any = {};
             
             headers.forEach((header, index) => {
@@ -929,6 +1136,13 @@ const Inventory = () => {
         variant: "destructive",
       });
       return;
+    }
+
+    if (replaceExistingOnImport) {
+      const ok = window.confirm(
+        'ATENÇÃO: "Substituir base" vai INATIVAR todas as telas atuais e então reativar/atualizar somente as telas presentes no arquivo.\n\nDeseja continuar?'
+      );
+      if (!ok) return;
     }
 
     setUploading(true);
@@ -977,117 +1191,170 @@ const Inventory = () => {
       });
 
       // Validar dados
-      const validatedData = validateScreenData(jsonData);
+      const { rows: validatedData, skippedTemplateRows, warnings } = validateScreenData(jsonData);
+      if (!validatedData || validatedData.length === 0) {
+        throw new Error(
+          skippedTemplateRows > 0
+            ? `O arquivo não contém linhas válidas para importar (as ${skippedTemplateRows} linhas com código de template/exemplo foram ignoradas).`
+            : 'O arquivo não contém linhas válidas para importar.'
+        );
+      }
+      if ((warnings?.cepNormalized ?? 0) > 0 || (warnings?.cepInvalid ?? 0) > 0) {
+        toast({
+          title: "Aviso (CEP)",
+          description: `${(warnings?.cepNormalized ?? 0) ? `${warnings.cepNormalized} CEP(s) foram normalizados (removidos separadores e espaços). ` : ''}${(warnings?.cepInvalid ?? 0) ? `${warnings.cepInvalid} CEP(s) inválido(s) foram ignorados (salvos como vazio) para não quebrar a importação.` : ''}`.trim(),
+        });
+      }
+
+      // Deduplicar por "code" antes do upsert para evitar:
+      // "ON CONFLICT DO UPDATE command cannot affect row a second time"
+      // (acontece quando o mesmo código aparece mais de uma vez no mesmo lote)
+      const dedupeResult = (() => {
+        const byCode = new Map<string, any>();
+        let duplicates = 0;
+        let missingCode = 0;
+
+        for (const row of validatedData) {
+          const codeRaw = row?.screen?.code;
+          const code = String(codeRaw ?? '').trim();
+          if (!code) {
+            missingCode++;
+            continue;
+          }
+          if (byCode.has(code)) duplicates++;
+          // última ocorrência vence (mais perto do fim do arquivo)
+          byCode.set(code, row);
+        }
+
+        return { deduped: Array.from(byCode.values()), duplicates, missingCode };
+      })();
+
+      const dedupedValidatedData = dedupeResult.deduped;
+      if (dedupeResult.duplicates > 0 || dedupeResult.missingCode > 0) {
+        toast({
+          title: "Aviso (deduplicação)",
+          description: `${dedupeResult.duplicates ? `${dedupeResult.duplicates} linha(s) duplicada(s) por Código foram consolidadas (última ocorrência venceu). ` : ''}${dedupeResult.missingCode ? `${dedupeResult.missingCode} linha(s) sem Código foram ignoradas.` : ''}`.trim(),
+        });
+      }
+      if (!dedupedValidatedData || dedupedValidatedData.length === 0) {
+        throw new Error('Após deduplicação, não restaram linhas válidas para importar. Verifique a coluna "Código".');
+      }
       setUploadProgress(40);
 
       toast({
         title: "Salvando",
-        description: "Inserindo telas no banco de dados...",
+        description: replaceExistingOnImport
+          ? "Substituindo base (inativando telas atuais) e atualizando no banco..."
+          : "Atualizando/Inserindo telas no banco...",
       });
 
-      // Processar inserção das telas
-      let insertedCount = 0;
-      let duplicateCount = 0;
-      let errorCount = 0;
-      const errors: string[] = [];
-      const totalItems = validatedData.length;
+      const totalItems = dedupedValidatedData.length;
+      const screensPayload = dedupedValidatedData.map((x: any) => x.screen);
 
-      for (let i = 0; i < validatedData.length; i++) {
-        const screenData = validatedData[i];
-        
-        try {
-          // Verificar se já existe uma tela com o mesmo código
-          const { data: existingScreen } = await supabase
-            .from('screens')
-            .select('id, name')
-            .eq('name', screenData.name)
-            .single();
+      // "Replace" seguro: inativar tudo e reativar/atualizar o que veio no arquivo (evita quebra de FK)
+      if (replaceExistingOnImport) {
+        setUploadProgress(45);
+        const { error: deactivateError } = await supabase
+          .from('screens')
+          .update({ active: false, updated_at: new Date().toISOString() })
+          .neq('id', 0);
+        if (deactivateError) throw deactivateError;
+      }
 
-          if (existingScreen) {
-            duplicateCount++;
-            continue;
-          }
+      const BATCH_SIZE = 200;
+      const codeToId = new Map<string, number>();
+      let upsertedRows = 0;
 
-          // Separar dados de taxa
-          const { rates, ...screenInsertData } = screenData;
+      for (let start = 0; start < screensPayload.length; start += BATCH_SIZE) {
+        const batch = screensPayload.slice(start, start + BATCH_SIZE);
+        const { data: upserted, error: upsertError } = await supabase
+          .from('screens')
+          .upsert(batch, { onConflict: 'code' })
+          .select('id,code');
 
-          // Inserir tela
-          const { data: insertedScreen, error: insertError } = await supabase
-            .from('screens')
-            .insert(screenInsertData)
-            .select('id')
-            .single();
+        if (upsertError) throw upsertError;
 
-          if (insertError) {
-            throw insertError;
-          }
+        (upserted ?? []).forEach((r: any) => {
+          if (r?.code && r?.id) codeToId.set(String(r.code), Number(r.id));
+        });
+        upsertedRows += (upserted ?? []).length;
 
-          // Inserir taxa se fornecida
-          if (insertedScreen && rates && (rates.standard_rate_month || rates.selling_rate_month)) {
-            const rateData = {
-              screen_id: insertedScreen.id,
-              standard_rate_month: rates.standard_rate_month || 1500,
-              selling_rate_month: rates.selling_rate_month || 1800,
-              spots_per_hour: rates.spots_per_hour || 12,
-              spot_duration_secs: rates.spot_duration_secs || 30
-            };
-
-            const { error: rateError } = await supabase
-              .from('screen_rates')
-              .insert(rateData);
-
-            if (rateError) {
-              console.warn(`Erro ao inserir taxa para tela ${screenData.name}:`, rateError);
-            }
-          }
-
-          insertedCount++;
-
-        } catch (error: any) {
-          errorCount++;
-          errors.push(`${screenData.name}: ${error.message}`);
-          console.error(`Erro ao inserir tela ${screenData.name}:`, error);
-        }
-        
-        // Atualizar progresso
-        const progress = 40 + ((i + 1) / totalItems) * 50;
+        const progress = 45 + ((start + batch.length) / totalItems) * 35;
         setUploadProgress(progress);
       }
 
-      setUploadProgress(100);
+      // Atualizar taxas (screen_rates) — substitui para as telas importadas
+      setUploadProgress(82);
+      let ratesInserted = 0;
+      let ratesSkipped = 0;
 
-      // Mostrar resultado
-      let resultMessage = `${insertedCount} telas adicionadas`;
-      if (duplicateCount > 0) {
-        resultMessage += `, ${duplicateCount} duplicatas ignoradas`;
-      }
-      if (errorCount > 0) {
-        resultMessage += `, ${errorCount} erros`;
-      }
+      const rateRows: any[] = [];
+      dedupedValidatedData.forEach((x: any) => {
+        const code = x?.screen?.code;
+        const screenId = codeToId.get(String(code));
+        if (!screenId) return;
 
-      if (insertedCount > 0) {
-        toast({
-          title: "Sucesso",
-          description: resultMessage,
+        const rates = x?.rates ?? {};
+        const hasAny =
+          rates.standard_rate_month !== null ||
+          rates.selling_rate_month !== null ||
+          rates.spots_per_hour !== null ||
+          rates.spot_duration_secs !== null;
+
+        if (!hasAny) {
+          ratesSkipped++;
+          return;
+        }
+
+        rateRows.push({
+          screen_id: screenId,
+          standard_rate_month: rates.standard_rate_month,
+          selling_rate_month: rates.selling_rate_month,
+          spots_per_hour: rates.spots_per_hour,
+          spot_duration_secs: rates.spot_duration_secs,
         });
-        
-        // Fechar modal e recarregar dados
-        setUploadModalOpen(false);
-        setUploadFile(null);
-        setUploadProgress(0);
-        await fetchScreens();
-      } else {
+      });
+
+      try {
+        const importedIds = Array.from(codeToId.values());
+        for (let start = 0; start < importedIds.length; start += BATCH_SIZE) {
+          const batchIds = importedIds.slice(start, start + BATCH_SIZE);
+          const { error: delError } = await supabase
+            .from('screen_rates')
+            .delete()
+            .in('screen_id', batchIds);
+          if (delError) throw delError;
+        }
+
+        for (let start = 0; start < rateRows.length; start += BATCH_SIZE) {
+          const batchRates = rateRows.slice(start, start + BATCH_SIZE);
+          const { error: insError } = await supabase
+            .from('screen_rates')
+            .insert(batchRates);
+          if (insError) throw insError;
+          ratesInserted += batchRates.length;
+        }
+      } catch (rateErr) {
+        console.warn('⚠️ Importou telas, mas falhou ao atualizar screen_rates:', rateErr);
         toast({
           title: "Aviso",
-          description: "Nenhuma tela nova foi adicionada. " + resultMessage,
+          description: "As telas foram importadas, mas houve erro ao atualizar as taxas (screen_rates). Verifique permissões/RLS.",
           variant: "destructive",
         });
       }
 
-      // Se houver erros, mostrar detalhes
-      if (errors.length > 0) {
-        console.error('Erros durante importação:', errors);
-      }
+      setUploadProgress(100);
+
+      toast({
+        title: "Importação concluída",
+        description: `${totalItems} linha(s) válidas • ${skippedTemplateRows ? `${skippedTemplateRows} ignoradas (template) • ` : ''}${upsertedRows} tela(s) upsertadas • ${ratesInserted} taxa(s) atualizada(s) • ${ratesSkipped} sem taxas no arquivo`,
+      });
+
+      // Fechar modal e recarregar dados
+      setUploadModalOpen(false);
+      setUploadFile(null);
+      setUploadProgress(0);
+      await fetchScreens();
       
     } catch (err: any) {
       console.error('Error uploading file:', err);
@@ -2187,13 +2454,24 @@ const Inventory = () => {
                 </div>
                 <div className="text-xs text-muted-foreground space-y-1">
                   <p>• Colunas obrigatórias: <code>Código</code>, <code>Nome de Exibição</code></p>
-                  <p>• Colunas opcionais: <code>Cidade</code>, <code>Estado</code>, <code>Endereço</code>, <code>Classe</code>, <code>Ativo</code></p>
-                  <p>• Use vírgulas para separar valores e aspas para textos com vírgulas</p>
+                  <p>• Colunas opcionais: <code>Cidade</code>, <code>Estado</code>, <code>Endereço</code>, <code>CEP</code>, <code>Classe</code>, <code>Especialidade</code>, <code>Ativo</code>, <code>Latitude</code>, <code>Longitude</code></p>
+                  <p>• CSV pode usar <code>;</code> ou <code>,</code> como separador. Para decimais, aceitamos <code>,</code> (ex: -23,55) ou <code>.</code> (ex: -23.55)</p>
                   <p>• Para <code>Ativo</code>: use "Sim" ou "Não" (padrão: Sim)</p>
                 </div>
               </div>
             </div>
             <DialogFooter>
+              <div className="flex-1 flex items-center gap-2 justify-start">
+                <Switch
+                  id="replace-import"
+                  checked={replaceExistingOnImport}
+                  onCheckedChange={(checked) => setReplaceExistingOnImport(checked)}
+                  disabled={uploading}
+                />
+                <Label htmlFor="replace-import" className="text-sm">
+                  Substituir base (inativar telas atuais antes de importar)
+                </Label>
+              </div>
               <Button 
                 variant="outline" 
                 onClick={() => {

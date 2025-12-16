@@ -292,6 +292,38 @@ export const NewProposalWizardImproved: React.FC<NewProposalWizardProps> = ({
     console.log('🔍 Buscando telas com filtros:', filters);
     
     try {
+      const matchesAnyClassPrefix = (screenClass: any, selected: string[]) => {
+        if (!selected || selected.length === 0) return true;
+        const sc = String(screenClass ?? '').toUpperCase().trim();
+        if (!sc) return false;
+        return selected.some((c) => {
+          const prefix = String(c ?? '').toUpperCase().trim();
+          return prefix ? sc.startsWith(prefix) : false;
+        });
+      };
+
+      const fetchPaged = async (makeQuery: (from: number, to: number) => any) => {
+        const PAGE_SIZE = 1000;
+        let from = 0;
+        let allRows: any[] = [];
+        let lastError: any = null;
+
+        while (true) {
+          const { data, error } = await makeQuery(from, from + PAGE_SIZE - 1);
+          if (error) {
+            lastError = error;
+            break;
+          }
+          const chunk = (data ?? []) as any[];
+          allRows = allRows.concat(chunk);
+          if (chunk.length < PAGE_SIZE) break;
+          from += PAGE_SIZE;
+        }
+
+        if (lastError) throw lastError;
+        return allRows;
+      };
+
       // Prioridade: lista de CEPs
       if (filters.cepListText && filters.cepListText.trim()) {
         toast.info('Processando lista de CEPs...');
@@ -322,7 +354,7 @@ export const NewProposalWizardImproved: React.FC<NewProposalWizardProps> = ({
         }));
         // Filtros adicionais
         if (filters.selectedClasses.length > 0) {
-          processedScreens = processedScreens.filter((s: any) => filters.selectedClasses.includes(s.class));
+          processedScreens = processedScreens.filter((s: any) => matchesAnyClassPrefix(s.class, filters.selectedClasses));
         }
         setAvailableScreens(processedScreens);
         toast.success(`${processedScreens.length} tela(s) encontradas via CEPs`);
@@ -371,8 +403,8 @@ export const NewProposalWizardImproved: React.FC<NewProposalWizardProps> = ({
           
           // Aplicar filtros adicionais (classe, especialidade) se especificados
           if (filters.selectedClasses.length > 0) {
-            processedScreens = processedScreens.filter((screen: any) => 
-              filters.selectedClasses.includes(screen.class)
+            processedScreens = processedScreens.filter((screen: any) =>
+              matchesAnyClassPrefix(screen.class, filters.selectedClasses)
             );
           }
           
@@ -448,7 +480,14 @@ export const NewProposalWizardImproved: React.FC<NewProposalWizardProps> = ({
 
         // Filtro por classe
         if (filters.selectedClasses.length > 0) {
-          selectQuery = selectQuery.in('class', filters.selectedClasses as any);
+          // Regra: seleção por "contém" (prefixo). Ex: A => A, AB, ABC...
+          const parts = filters.selectedClasses
+            .map((c) => String(c ?? '').toUpperCase().trim())
+            .filter(Boolean)
+            .map((c) => `class.ilike.${c}%`);
+          if (parts.length > 0) {
+            selectQuery = selectQuery.or(parts.join(','));
+          }
         }
 
         // Filtro por especialidade
@@ -459,7 +498,71 @@ export const NewProposalWizardImproved: React.FC<NewProposalWizardProps> = ({
         // Sempre filtrar apenas telas ativas
         selectQuery = selectQuery.eq('active', true as any);
 
-        const { data: screens, error } = await selectQuery.limit(500);
+        // Paginar para não ficar preso no limite (500/1000) e trazer todas as telas ativas do inventário
+        const runQuery = async () => {
+          const filtersSnapshot = { ...filters };
+          return await fetchPaged((from, to) => {
+            let q = supabase.from('v_screens_enriched').select(`
+              id,
+              name,
+              display_name,
+              code,
+              city,
+              state,
+              class,
+              specialty,
+              venue_name,
+              address
+            `);
+
+            // Filtros de texto
+            if (filtersSnapshot.nameOrCode.trim()) {
+              const searchTerm = filtersSnapshot.nameOrCode.trim();
+              q = q.or(`name.ilike.%${searchTerm}%,display_name.ilike.%${searchTerm}%,code.ilike.%${searchTerm}%`);
+            }
+
+            if (filtersSnapshot.address.trim()) {
+              q = q.ilike('address', `%${filtersSnapshot.address.trim()}%`);
+            }
+
+            if (filtersSnapshot.city.trim()) {
+              q = q.ilike('city', `%${filtersSnapshot.city.trim()}%`);
+            }
+
+            if (filtersSnapshot.state.trim()) {
+              q = q.ilike('state', `%${filtersSnapshot.state.trim()}%`);
+            }
+
+            // Filtro por classe (prefixo)
+            if (filtersSnapshot.selectedClasses.length > 0) {
+              const parts = filtersSnapshot.selectedClasses
+                .map((c) => String(c ?? '').toUpperCase().trim())
+                .filter(Boolean)
+                .map((c) => `class.ilike.${c}%`);
+              if (parts.length > 0) {
+                q = q.or(parts.join(','));
+              }
+            }
+
+            // Filtro por especialidade
+            if (filtersSnapshot.selectedSpecialties.length > 0) {
+              q = q.overlaps('specialty', filtersSnapshot.selectedSpecialties);
+            }
+
+            // Apenas telas ativas
+            q = q.eq('active', true as any);
+
+            return q.order('id', { ascending: true }).range(from, to);
+          });
+        };
+
+        let screens: any[] | null = null;
+        let error: any = null;
+        try {
+          screens = await runQuery();
+        } catch (e: any) {
+          error = e;
+        }
 
         // Fallback para tabela screens se a view não existir
         if (error && (error.code === '42P01' || error.message.includes('does not exist'))) {
@@ -532,7 +635,13 @@ export const NewProposalWizardImproved: React.FC<NewProposalWizardProps> = ({
       }
 
       if (filters.selectedClasses.length > 0) {
-        selectQuery = selectQuery.in('class', filters.selectedClasses as any);
+        const parts = filters.selectedClasses
+          .map((c) => String(c ?? '').toUpperCase().trim())
+          .filter(Boolean)
+          .map((c) => `class.ilike.${c}%`);
+        if (parts.length > 0) {
+          selectQuery = selectQuery.or(parts.join(','));
+        }
       }
 
       if (filters.selectedSpecialties.length > 0) {
@@ -541,16 +650,34 @@ export const NewProposalWizardImproved: React.FC<NewProposalWizardProps> = ({
 
       selectQuery = selectQuery.eq('active', true as any);
 
-      const { data: screens, error } = await selectQuery.limit(500);
+      // Paginar para trazer todas as telas (sem travar em 500/1000)
+      const PAGE_SIZE = 1000;
+      let from = 0;
+      let allRows: any[] = [];
+      let lastError: any = null;
 
-      if (error) {
-        console.error('Erro detalhado:', error);
-        toast.error('Erro ao buscar telas: ' + error.message);
-      } else if (screens) {
-        setAvailableScreens(screens);
-        console.log('✅ Telas carregadas (fallback) com filtros:', screens.length);
+      while (true) {
+        const { data: chunk, error } = await selectQuery
+          .order('id', { ascending: true })
+          .range(from, from + PAGE_SIZE - 1);
+
+        if (error) {
+          lastError = error;
+          break;
+        }
+
+        const rows = (chunk ?? []) as any[];
+        allRows = allRows.concat(rows);
+        if (rows.length < PAGE_SIZE) break;
+        from += PAGE_SIZE;
+      }
+
+      if (lastError) {
+        console.error('Erro detalhado:', lastError);
+        toast.error('Erro ao buscar telas: ' + lastError.message);
       } else {
-        setAvailableScreens([]);
+        setAvailableScreens(allRows);
+        console.log('✅ Telas carregadas (fallback) com filtros:', allRows.length);
       }
     } catch (error) {
       console.error('Erro na busca fallback:', error);

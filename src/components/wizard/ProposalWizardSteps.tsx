@@ -445,6 +445,70 @@ export const ScreenSelectionStep: React.FC<ScreenSelectionStepProps> = ({
   const [hasSearched, setHasSearched] = useState(false);
   // Seleção temporária para permitir múltiplas buscas e adicionar pontos incrementalmente
   const [tempSelectedScreens, setTempSelectedScreens] = useState<number[]>([]);
+  // Cache local das telas já vistas/retornadas em buscas anteriores.
+  // Isso garante que o "Mapa/Inventário" e o passo 04 consigam exibir o resumo completo
+  // mesmo depois do usuário trocar de aba (Rápido/Raio/CEP/Avançado) e os `screens` mudarem.
+  const [screenCache, setScreenCache] = useState<Map<number, any>>(() => new Map());
+
+  // Sempre que chegam novos resultados, merge no cache
+  useEffect(() => {
+    if (!Array.isArray(screens) || screens.length === 0) return;
+    setScreenCache(prev => {
+      const next = new Map(prev);
+      for (const s of screens) {
+        if (s?.id != null) next.set(Number(s.id), s);
+      }
+      return next;
+    });
+  }, [screens]);
+
+  // Garantir que telas já adicionadas tenham dados no cache (para resumo por praça)
+  useEffect(() => {
+    const selectedIds = Array.isArray(data.selectedScreens) ? (data.selectedScreens as number[]) : [];
+    if (selectedIds.length === 0) return;
+
+    const missing = selectedIds.filter(id => !screenCache.has(Number(id)));
+    if (missing.length === 0) return;
+
+    const fetchMissing = async () => {
+      try {
+        // Tentar pela view primeiro (mesma base do Inventário)
+        const { data: rows, error } = await supabase
+          .from('v_screens_enriched')
+          .select('id, name, display_name, code, city, state, class, active, venue_name, address')
+          .in('id', missing as any);
+
+        if (error) throw error;
+        if (rows && rows.length > 0) {
+          setScreenCache(prev => {
+            const next = new Map(prev);
+            for (const r of rows as any[]) next.set(Number(r.id), r);
+            return next;
+          });
+        }
+      } catch (e: any) {
+        // fallback para tabela screens caso a view esteja indisponível
+        try {
+          const { data: rows2 } = await supabase
+            .from('screens')
+            .select('id, name, display_name, code, city, state, class, active, venue_id, address_raw')
+            .in('id', missing as any);
+          if (rows2 && rows2.length > 0) {
+            setScreenCache(prev => {
+              const next = new Map(prev);
+              for (const r of rows2 as any[]) next.set(Number(r.id), r);
+              return next;
+            });
+          }
+        } catch {
+          // silêncio: o resumo vai mostrar apenas o que estiver no cache
+        }
+      }
+    };
+
+    fetchMissing();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data.selectedScreens]);
 
   const combinedSelectedIds = useMemo(
     () => combineIds<number>(data.selectedScreens as number[], tempSelectedScreens),
@@ -514,32 +578,20 @@ export const ScreenSelectionStep: React.FC<ScreenSelectionStepProps> = ({
       return;
     }
     const combined = combineIds<number>(data.selectedScreens as number[], tempSelectedScreens);
-    // Calcula audiência mensal base somando os alcances dos locais selecionados
-    const computeMonthlyAudienceForSelected = (selectedIds: number[]) => {
-      const selected = screens.filter(s => selectedIds.includes(s.id));
-      let total = 0;
-      for (const s of selected) {
-        const venueMonthly = s?.venue_info?.audience_monthly;
-        const audienceMonthly = s?.audience_monthly ?? s?.audienceMonthly;
-        const weeklyAudience = s?.audience_weekly ?? s?.weekly_rate ?? s?.weeklyAudience ?? s?.audience;
-        if (typeof venueMonthly === 'number' && isFinite(venueMonthly)) {
-          total += venueMonthly;
-        } else if (typeof audienceMonthly === 'number' && isFinite(audienceMonthly)) {
-          total += audienceMonthly;
-        } else if (typeof weeklyAudience === 'number' && isFinite(weeklyAudience)) {
-          // Aproximação simples: 4 semanas por mês
-          total += weeklyAudience * 4;
-        }
+    // Atualiza cache com os itens visíveis na busca atual que foram selecionados
+    setScreenCache(prev => {
+      const next = new Map(prev);
+      for (const id of tempSelectedScreens) {
+        const found = screens.find((s: any) => Number(s?.id) === Number(id));
+        if (found) next.set(Number(id), found);
       }
-      return total;
-    };
+      return next;
+    });
 
-    const monthlyAudience = computeMonthlyAudienceForSelected(combined);
     onUpdate({ 
       selectedScreens: combined,
       valor_insercao_config: {
         ...(data.valor_insercao_config ?? {}),
-        audiencia_mes_base: monthlyAudience,
         qtd_telas: combined.length,
       }
     });
@@ -549,8 +601,10 @@ export const ScreenSelectionStep: React.FC<ScreenSelectionStepProps> = ({
   };
 
   const getUniqueLocations = (selectedIds: number[]) => {
-    const selectedScreensData = screens.filter(s => selectedIds.includes(s.id));
-    const locations = selectedScreensData.map(s => `${s.city}, ${s.state}`);
+    const selectedScreensData = selectedIds
+      .map((id) => screenCache.get(Number(id)))
+      .filter(Boolean);
+    const locations = (selectedScreensData as any[]).map(s => `${s.city}, ${s.state}`);
     return [...new Set(locations)];
   };
 
@@ -730,7 +784,11 @@ export const ScreenSelectionStep: React.FC<ScreenSelectionStepProps> = ({
               <CardContent>
                 {(() => {
                   const selectedScreensByLocation: Record<string, any[]> = {};
-                  screens.filter(s => data.selectedScreens.includes(s.id)).forEach(s => {
+                  const selectedFromCache = (data.selectedScreens as number[])
+                    .map((id) => screenCache.get(Number(id)))
+                    .filter(Boolean) as any[];
+
+                  selectedFromCache.forEach(s => {
                     const key = `${s.city}, ${s.state}`;
                     if (!selectedScreensByLocation[key]) selectedScreensByLocation[key] = [];
                     selectedScreensByLocation[key].push(s);
@@ -738,7 +796,7 @@ export const ScreenSelectionStep: React.FC<ScreenSelectionStepProps> = ({
                   const entries = Object.entries(selectedScreensByLocation);
                   if (entries.length === 0) {
                     return (
-                      <p className="text-sm text-gray-600">Nenhum ponto adicionado nas telas atualmente carregadas.</p>
+                      <p className="text-sm text-gray-600">Nenhum ponto encontrado no cache local. Tente clicar em "Atualizar/Buscar Telas" e adicionar novamente.</p>
                     );
                   }
                   return (

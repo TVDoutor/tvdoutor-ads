@@ -103,22 +103,49 @@ export default function InteractiveMap() {
       console.log('📊 Buscando telas...');
       
       // Buscar telas com dados de propostas para calcular calor
-      const { data, error } = await supabase
-        .from('screens')
-        .select(`
-          id, code, name, display_name, city, state, class, active, lat, lng,
-          proposal_screens(count)
-        `)
-        .order('code');
+      // PostgREST/Supabase pode limitar o retorno a 1000 linhas; buscar paginado.
+      const PAGE_SIZE = 1000;
+      let from = 0;
+      let all: any[] = [];
+      let lastError: any = null;
+
+      while (true) {
+        const { data, error } = await supabase
+          .from('screens')
+          .select(`
+            id, code, name, display_name, city, state, class, active, lat, lng,
+            proposal_screens(count)
+          `)
+          .order('code')
+          // Alinhar com o Inventário (v_screens_enriched): considerar apenas telas com geolocalização
+          // para que os totais/ativas batam entre as telas.
+          .not('lat', 'is', null)
+          .not('lng', 'is', null)
+          .range(from, from + PAGE_SIZE - 1);
+
+        if (error) {
+          lastError = error;
+          break;
+        }
+
+        const chunk = data ?? [];
+        all = all.concat(chunk);
+
+        if (chunk.length < PAGE_SIZE) break;
+        from += PAGE_SIZE;
+      }
+
+      const data = all;
+      const error = lastError;
 
       if (error) throw error;
 
       if (data) {
         // Calcular intensidade de calor baseada no número de propostas
+        const maxProposals = Math.max(...data.map(s => s.proposal_screens?.[0]?.count || 0), 0);
         const screensWithHeat = data.map(screen => {
           const proposalCount = screen.proposal_screens?.[0]?.count || 0;
           // Normalizar intensidade (0-1) baseada no número de propostas
-          const maxProposals = Math.max(...data.map(s => s.proposal_screens?.[0]?.count || 0));
           const heatIntensity = maxProposals > 0 ? proposalCount / maxProposals : 0;
           
           return {

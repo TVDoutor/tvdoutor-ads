@@ -130,6 +130,13 @@ const NewProposal = () => {
         try {
           const selectedIds = Array.isArray(selected) ? selected : [];
           const rows = await getScreensByIds(selectedIds as number[]);
+          const extractScreenCode = (r: any): string => {
+            const code = String(r?.code ?? '').trim();
+            if (code) return code.toUpperCase();
+            const name = String(r?.name ?? '').trim();
+            if (/^P\d{4,5}(\.\d+)?$/i.test(name)) return name.toUpperCase();
+            return '';
+          };
 
           const wb = new ExcelJS.Workbook();
           const ws = wb.addWorksheet('Pontos');
@@ -146,11 +153,17 @@ const NewProposal = () => {
           ];
           const list = (rows || []).map((r: any) => ({
             id: r.id,
-            code: r.code ?? '',
-            name: r.name ?? r.display_name ?? '',
+            code: extractScreenCode(r),
+            // Preferir o nome de exibição (Inventário) para o "Nome" do ponto
+            name: r.display_name ?? r.venue_name ?? r.name ?? '',
             class: r.class ?? '',
             type: r.category ?? r.screen_type ?? '',
-            address: r.formatted_address ?? r.google_formatted_address ?? `${r.city ?? ''}${r.state ? ', ' + r.state : ''}`,
+            address:
+              r.address ??
+              r.address_raw ??
+              r.google_formatted_address ??
+              r.formatted_address ??
+              `${r.city ?? ''}${r.state ? ', ' + r.state : ''}`,
             city: r.city ?? '',
             state: r.state ?? '',
             venue_id: r.venue_id ?? '',

@@ -43,7 +43,9 @@ interface ScreenFiltersProps {
   loading?: boolean;
 }
 
-const AVAILABLE_CLASSES = ['A', 'B', 'C', 'D', 'E'];
+// Classes sociais suportadas no sistema (mesmo conjunto usado no Inventário/importação)
+// Mantém ordem “do topo para baixo” e inclui faixas intermediárias e ND.
+const AVAILABLE_CLASSES = ['A', 'AB', 'ABC', 'B', 'BC', 'C', 'CD', 'D', 'E', 'ND'];
 
 export const ScreenFilters: React.FC<ScreenFiltersProps> = ({
   filters,
@@ -56,6 +58,11 @@ export const ScreenFilters: React.FC<ScreenFiltersProps> = ({
   const [availableStates, setAvailableStates] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState<string>('quick');
   const [quickQuery, setQuickQuery] = useState<string>(filters.nameOrCode || '');
+
+  // Manter o input de "Pesquisa Rápida" sincronizado com o estado externo
+  useEffect(() => {
+    setQuickQuery(filters.nameOrCode || '');
+  }, [filters.nameOrCode]);
 
   // Carregar dados para os filtros
   useEffect(() => {
@@ -94,6 +101,52 @@ export const ScreenFilters: React.FC<ScreenFiltersProps> = ({
     onFiltersChange({ ...filters, ...updates });
   };
 
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab);
+
+    // Evitar colisão de filtros entre abas:
+    // quando troca de aba, limpamos os campos específicos das outras abas,
+    // mantendo classes/especialidades (que são filtros globais).
+    if (tab === 'radius') {
+      updateFilters({
+        cepListText: '',
+        nameOrCode: '',
+        address: '',
+        city: '',
+        state: '',
+      });
+      return;
+    }
+
+    if (tab === 'cep') {
+      updateFilters({
+        radiusSearchAddress: '',
+        nameOrCode: '',
+        address: '',
+        city: '',
+        state: '',
+      });
+      return;
+    }
+
+    if (tab === 'quick') {
+      updateFilters({
+        radiusSearchAddress: '',
+        cepListText: '',
+        city: '',
+        state: '',
+      });
+      return;
+    }
+
+    if (tab === 'advanced') {
+      updateFilters({
+        radiusSearchAddress: '',
+        cepListText: '',
+      });
+    }
+  };
+
   const updateQuickQuery = (value: string) => {
     setQuickQuery(value);
     updateFilters({ nameOrCode: value, address: value });
@@ -130,7 +183,7 @@ export const ScreenFilters: React.FC<ScreenFiltersProps> = ({
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
           <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="quick">Rápido</TabsTrigger>
             <TabsTrigger value="radius">Raio</TabsTrigger>

@@ -225,41 +225,55 @@ export const NewProposalWizardImproved: React.FC<NewProposalWizardProps> = ({
   // Buscar todos os projetos ativos
   const fetchAllProjects = async () => {
     setLoading(true);
-    console.log('🔍 Buscando todos os projetos ativos...');
+    console.log('🔍 Buscando projetos...');
     
     try {
-      // Buscar todos os projetos ativos
-      const { data: projects, error } = await supabase
-        .from('agencia_projetos')
-        .select(`
-          id,
-          nome_projeto,
-          descricao,
-          data_inicio,
-          data_fim,
-          orcamento_projeto,
-          status_projeto,
-          cliente_final,
-          responsavel_projeto,
-          agencias (
+      // Paginar para trazer todos os projetos (sem travar em limites padrão)
+      const PAGE_SIZE = 1000;
+      let from = 0;
+      let allProjects: any[] = [];
+
+      while (true) {
+        const { data: chunk, error } = await supabase
+          .from('agencia_projetos')
+          .select(`
             id,
-            nome_agencia
-          )
-        `)
-        .eq('status_projeto', 'ativo' as any)
-        .order('created_at', { ascending: false })
-        .limit(50);
+            nome_projeto,
+            descricao,
+            data_inicio,
+            data_fim,
+            orcamento_projeto,
+            status_projeto,
+            cliente_final,
+            responsavel_projeto,
+            created_at,
+            agencias (
+              id,
+              nome_agencia
+            )
+          `)
+          .order('created_at', { ascending: false })
+          .range(from, from + PAGE_SIZE - 1);
 
-      console.log('📊 Projetos encontrados:', projects);
-      console.log('❌ Erro na busca:', error);
+        if (error) {
+          console.error('Erro detalhado:', error);
+          toast.error('Erro ao buscar projetos: ' + error.message);
+          allProjects = [];
+          break;
+        }
 
-      if (error) {
-        console.error('Erro detalhado:', error);
-        toast.error('Erro ao buscar projetos: ' + error.message);
-      } else if (projects && projects.length > 0) {
+        const rows = (chunk ?? []) as any[];
+        allProjects = allProjects.concat(rows);
+        if (rows.length < PAGE_SIZE) break;
+        from += PAGE_SIZE;
+      }
+
+      console.log('📊 Projetos encontrados:', allProjects?.length ?? 0);
+
+      if (allProjects && allProjects.length > 0) {
         // Enriquecer com dados dos responsáveis
         const projectsWithResponsaveis = await Promise.all(
-          projects.map(async (project: any) => {
+          allProjects.map(async (project: any) => {
             if (project.responsavel_projeto) {
               const { data: responsavel } = await supabase
                 .from('pessoas_projeto')

@@ -1,0 +1,18 @@
+{
+  "status": "commited",
+  "type": "frontend",
+  "scope": "codebase",
+  "localEndpoint": "http://localhost:8080",
+  "loginUser": "suporte@tvdoutor.com.br",
+  "loginPassword": "Suporte@2026!",
+  "executionArgs": {
+    "projectName": "tvdoutor-ads",
+    "projectPath": "C:\\Users\\hilca\\OneDrive\\Documentos\\GitHub\\TVDoutor-ADS-2\\tvdoutor-ads",
+    "testIds": [],
+    "additionalInstruction": "Execute o plano de testes do arquivo testsprite_tests/testsprit e_frontend_test_plan.json. Priorize casos P0 e P1, registre falhas e evidencias.",
+    "envs": {
+      "API_KEY": "sk-user-8XZ3V7eg7FtlTijkDJyRMidbFacIB_1mkTtm7cmkOMmiQBvtHQtMTYhiUmi3FxlfAU7tO_By7AYvBK1AqT5DMOyD0fV2PhBS1MDB6j20cRTQn51zAn6WylqyR8xZMdoiUns"
+    }
+  },
+  "proxy": "http://c8c95dc9-b163-42b5-aeb5-423fcd58402c:IcAda1c7WkYIjnrc0YMPfyB1EPE01y3L@tun.testsprite.com:8080"
+}

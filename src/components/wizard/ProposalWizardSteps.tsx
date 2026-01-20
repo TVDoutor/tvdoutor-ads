@@ -322,7 +322,7 @@ export const ProjectSelectionStep: React.FC<ProjectSelectionStepProps> = ({
         <p className="text-gray-600">Toda proposta deve estar vinculada a um projeto</p>
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mt-4 max-w-2xl mx-auto pdf-dense-text">
           <p className="text-sm text-blue-700">
-            <strong>Todos os projetos ativos</strong> estão listados abaixo. 
+            <strong>Todos os projetos disponíveis</strong> estão listados abaixo. 
             Selecione aquele que melhor se adequa à sua proposta comercial.
             <br />
             <span className="text-blue-600 font-medium">
@@ -398,13 +398,13 @@ export const ProjectSelectionStep: React.FC<ProjectSelectionStepProps> = ({
       ) : (
         <div className="text-center py-12">
           <Building2 className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-          <h4 className="text-lg font-semibold text-gray-900 mb-2">Nenhum projeto ativo encontrado</h4>
+          <h4 className="text-lg font-semibold text-gray-900 mb-2">Nenhum projeto encontrado</h4>
           <p className="text-gray-600 mb-4">
-            Não há projetos ativos disponíveis no momento.
+            Não há projetos disponíveis no momento.
           </p>
           <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 max-w-md mx-auto">
             <p className="text-sm text-amber-700">
-              <strong>Dica:</strong> Certifique-se de que existem projetos com status "ativo" no sistema.
+              <strong>Dica:</strong> Verifique se existem projetos cadastrados no sistema e se você tem permissão para visualizá-los.
             </p>
           </div>
         </div>

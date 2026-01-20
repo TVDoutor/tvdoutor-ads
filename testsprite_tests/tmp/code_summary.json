@@ -1,0 +1,153 @@
+{
+  "tech_stack": [
+    "TypeScript",
+    "React 18",
+    "Vite",
+    "Tailwind CSS",
+    "shadcn/ui",
+    "Radix UI",
+    "Supabase (Auth, Database, Storage)",
+    "Mapbox GL",
+    "Leaflet + Heatmap",
+    "Recharts",
+    "html2pdf.js",
+    "Puppeteer",
+    "React Query",
+    "React Hook Form",
+    "Zod"
+  ],
+  "features": [
+    {
+      "name": "Auth and roles",
+      "description": "Autenticacao e controle de acesso por role via Supabase.",
+      "files": [
+        "src/contexts/AuthContext.tsx",
+        "src/components/ProtectedRoute.tsx",
+        "src/lib/auth.ts"
+      ]
+    },
+    {
+      "name": "Routing and pages",
+      "description": "Rotas principais e paginas do app.",
+      "files": [
+        "src/App.tsx",
+        "src/pages/Login.tsx",
+        "src/pages/ResetPassword.tsx",
+        "src/pages/Index.tsx",
+        "src/pages/NewProposal.tsx",
+        "src/pages/Propostas.tsx",
+        "src/pages/ProposalDetails.tsx",
+        "src/pages/InteractiveMap.tsx",
+        "src/pages/Inventory.tsx",
+        "src/pages/Reports.tsx",
+        "src/pages/Venues.tsx",
+        "src/pages/Campaigns.tsx",
+        "src/pages/Agencias.tsx",
+        "src/pages/AgenciasProjetos.tsx",
+        "src/pages/ProjectManagement.tsx",
+        "src/pages/PessoasProjeto.tsx",
+        "src/pages/UserManagement.tsx",
+        "src/pages/ImpactModelsAdmin.tsx",
+        "src/pages/HeatmapPage.tsx",
+        "src/pages/Profile.tsx",
+        "src/pages/Settings.tsx"
+      ]
+    },
+    {
+      "name": "Proposals and wizard",
+      "description": "Criacao, validacao e detalhes de propostas.",
+      "files": [
+        "src/components/NewProposalWizardImproved.tsx",
+        "src/components/wizard/ProposalWizardSteps.tsx",
+        "src/lib/proposta-service.ts",
+        "src/lib/proposal-normalizer.ts",
+        "src/utils/validations/proposal.ts",
+        "src/utils/validations/proposal-wizard.ts"
+      ]
+    },
+    {
+      "name": "Campaigns and venues",
+      "description": "Gestao de campanhas e venues.",
+      "files": [
+        "src/lib/project-management-service.ts",
+        "src/pages/Campaigns.tsx",
+        "src/pages/CampaignDetails.tsx",
+        "src/pages/Venues.tsx",
+        "src/pages/VenueDetails.tsx"
+      ]
+    },
+    {
+      "name": "Inventory and screens",
+      "description": "Inventario de telas e armazenamento de imagens.",
+      "files": [
+        "src/pages/Inventory.tsx",
+        "src/lib/screen-service.ts",
+        "src/lib/screen-fallback-service.ts",
+        "src/lib/storage.ts"
+      ]
+    },
+    {
+      "name": "Maps and heatmap",
+      "description": "Mapa interativo e heatmap geoespacial.",
+      "files": [
+        "src/pages/InteractiveMap.tsx",
+        "src/pages/HeatmapPage.tsx",
+        "src/components/HeatmapTest.tsx",
+        "src/lib/leaflet-config.ts",
+        "src/lib/geocoding.ts",
+        "src/lib/location-service.ts"
+      ]
+    },
+    {
+      "name": "Agencies and projects",
+      "description": "Cadastro de agencias, projetos e pessoas por projeto.",
+      "files": [
+        "src/pages/Agencias.tsx",
+        "src/pages/AgenciasProjetos.tsx",
+        "src/pages/ProjectManagement.tsx",
+        "src/pages/PessoasProjeto.tsx",
+        "src/lib/agencia-service.ts",
+        "src/lib/pessoas-projeto-service.ts"
+      ]
+    },
+    {
+      "name": "Reports and analytics",
+      "description": "Relatorios, filtros e dados de dashboard.",
+      "files": [
+        "src/pages/Reports.tsx",
+        "src/lib/dashboard-service.ts",
+        "src/lib/search-service.ts",
+        "src/hooks/useDashboardStats.ts",
+        "src/hooks/useRevenueData.ts"
+      ]
+    },
+    {
+      "name": "Email and notifications",
+      "description": "Envio e processamento de emails.",
+      "files": [
+        "src/lib/email-service.ts"
+      ]
+    },
+    {
+      "name": "PDF generation",
+      "description": "Geracao de PDF para propostas e relatorios.",
+      "files": [
+        "src/lib/pdf-service.ts",
+        "src/lib/pdf.ts",
+        "src/hooks/use-html2pdf.ts",
+        "src/styles/pdf.css"
+      ]
+    },
+    {
+      "name": "User administration",
+      "description": "Gestao de usuarios e modelos de impacto.",
+      "files": [
+        "src/pages/Users.tsx",
+        "src/pages/UserManagement.tsx",
+        "src/pages/ImpactModelsAdmin.tsx",
+        "src/lib/admin-operations.ts",
+        "src/lib/impact-models-service.ts"
+      ]
+    }
+  ]
+}

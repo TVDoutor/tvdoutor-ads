@@ -21,13 +21,32 @@ const HeatmapLayer: React.FC<{ data: HeatmapData; L: any }> = ({ data, L }) => {
   const map = useMap();
 
   useEffect(() => {
-    if (data && data.length > 0 && L) {
-      let heatLayer: any = null;
-      
-      // Carregar leaflet.heat dinamicamente
-      import('leaflet.heat').then(() => {
-        // Criar camada de heatmap usando leaflet.heat
-        heatLayer = (L as any).heatLayer(data, {
+    if (!data || data.length === 0 || !L) return;
+
+    let heatLayer: any = null;
+    let cancelled = false;
+
+    const loadAndAddHeatLayer = async () => {
+      try {
+        // Garantir que L está disponível globalmente antes de importar leaflet.heat
+        if (typeof window !== 'undefined') {
+          (window as any).L = L;
+        }
+
+        // Importar leaflet.heat (isso adiciona o método heatLayer ao objeto L global)
+        await import('leaflet.heat');
+
+        if (cancelled) {
+          return;
+        }
+
+        // Verificar se o método heatLayer foi adicionado ao objeto L
+        if (typeof L.heatLayer !== 'function') {
+          console.error('Erro ao adicionar heatmap: heatLayer não está disponível após importar leaflet.heat');
+          return;
+        }
+
+        heatLayer = L.heatLayer(data, {
           radius: 25,
           blur: 15,
           maxZoom: 18,
@@ -40,15 +59,21 @@ const HeatmapLayer: React.FC<{ data: HeatmapData; L: any }> = ({ data, L }) => {
             1.0: 'red'
           }
         }).addTo(map);
-      });
 
-      // Cleanup
-      return () => {
-        if (heatLayer) {
-          map.removeLayer(heatLayer);
-        }
-      };
-    }
+        console.log('✅ Heatmap layer adicionado com', data.length, 'pontos');
+      } catch (error) {
+        console.error('Erro ao carregar leaflet.heat:', error);
+      }
+    };
+
+    loadAndAddHeatLayer();
+
+    return () => {
+      cancelled = true;
+      if (heatLayer) {
+        map.removeLayer(heatLayer);
+      }
+    };
   }, [data, map, L]);
 
   return null;

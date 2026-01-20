@@ -19,6 +19,8 @@
     "deploy:supabase": "npx supabase db push",
     "deploy:auto": "node scripts/deploy.js",
     "deploy:auto:preview": "node scripts/deploy.js --preview",
+    "types:supabase": "npx supabase gen types typescript --project-id vaogzhwzucijiyvyglls > src/integrations/supabase/types.ts",
+    "types:update": "npm run types:supabase && echo Types atualizados com sucesso!",
     "lint": "eslint .",
     "preview": "vite preview",
     "postbuild": "echo 'Build completed successfully!'",

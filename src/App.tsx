@@ -36,6 +36,7 @@ import NotFound from "./pages/NotFound";
 import { HeatmapTest } from "./components/HeatmapTest";
 import { SimpleHeatmap } from "./components/SimpleHeatmap";
 import Pharmacies from "./pages/Pharmacies";
+import ProfissionaisSaude from "./pages/ProfissionaisSaude";
 
 const queryClient = new QueryClient();
 
@@ -139,6 +140,12 @@ const App = () => {
             <Route path="/farmacias" element={
               <ProtectedRoute>
                 <Pharmacies />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/profissionais-saude" element={
+              <ProtectedRoute>
+                <ProfissionaisSaude />
               </ProtectedRoute>
             } />
             

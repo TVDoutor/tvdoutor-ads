@@ -900,6 +900,75 @@ export type Database = {
           },
         ]
       }
+      farmacias: {
+        Row: {
+          bairro: string | null
+          cep: string | null
+          cidade: string | null
+          cnpj: string
+          complemento: string | null
+          created_at: string | null
+          endereco: string | null
+          fantasia: string
+          google_formatted_address: string | null
+          grupo: string | null
+          id: number
+          lat: number | null
+          latitude: number | null
+          lng: number | null
+          localizacao: unknown
+          longitude: number | null
+          nome: string | null
+          numero: string | null
+          tipo_logradouro: string | null
+          uf: string | null
+        }
+        Insert: {
+          bairro?: string | null
+          cep?: string | null
+          cidade?: string | null
+          cnpj: string
+          complemento?: string | null
+          created_at?: string | null
+          endereco?: string | null
+          fantasia: string
+          google_formatted_address?: string | null
+          grupo?: string | null
+          id?: number
+          lat?: number | null
+          latitude?: number | null
+          lng?: number | null
+          localizacao?: unknown
+          longitude?: number | null
+          nome?: string | null
+          numero?: string | null
+          tipo_logradouro?: string | null
+          uf?: string | null
+        }
+        Update: {
+          bairro?: string | null
+          cep?: string | null
+          cidade?: string | null
+          cnpj?: string
+          complemento?: string | null
+          created_at?: string | null
+          endereco?: string | null
+          fantasia?: string
+          google_formatted_address?: string | null
+          grupo?: string | null
+          id?: number
+          lat?: number | null
+          latitude?: number | null
+          lng?: number | null
+          localizacao?: unknown
+          longitude?: number | null
+          nome?: string | null
+          numero?: string | null
+          tipo_logradouro?: string | null
+          uf?: string | null
+        }
+        Relationships: []
+      }
       grupos_cpm: {
         Row: {
           ativo: boolean | null
@@ -969,6 +1038,51 @@ export type Database = {
           scope?: string | null
           state?: string | null
           state_uf?: string | null
+        }
+        Relationships: []
+      }
+      impact_models: {
+        Row: {
+          active: boolean | null
+          color_scheme: Json | null
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          examples: string[] | null
+          id: number
+          multiplier: number
+          name: string
+          traffic_level: string
+          updated_at: string | null
+          updated_by: string | null
+        }
+        Insert: {
+          active?: boolean | null
+          color_scheme?: Json | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          examples?: string[] | null
+          id?: number
+          multiplier?: number
+          name: string
+          traffic_level: string
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Update: {
+          active?: boolean | null
+          color_scheme?: Json | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          examples?: string[] | null
+          id?: number
+          multiplier?: number
+          name?: string
+          traffic_level?: string
+          updated_at?: string | null
+          updated_by?: string | null
         }
         Relationships: []
       }
@@ -1195,6 +1309,13 @@ export type Database = {
             foreignKeyName: "price_rules_venue_id_fkey"
             columns: ["venue_id"]
             isOneToOne: false
+            referencedRelation: "mv_venue_farmacia_distancia"
+            referencedColumns: ["venue_id"]
+          },
+          {
+            foreignKeyName: "price_rules_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
             referencedRelation: "safe_venues"
             referencedColumns: ["id"]
           },
@@ -1211,6 +1332,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "venues"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "price_rules_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "view_detalhes_profissionais"
+            referencedColumns: ["venue_id"]
           },
           {
             foreignKeyName: "price_rules_venue_id_fkey"
@@ -1282,6 +1410,194 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "roles"
             referencedColumns: ["name"]
+          },
+        ]
+      }
+      profissionais_saude: {
+        Row: {
+          ativo: boolean | null
+          created_at: string | null
+          created_by: string | null
+          email: string | null
+          id: string
+          nome: string
+          registro_profissional: string
+          telefone: string | null
+          tipo_profissional: string
+          tipo_registro: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          ativo?: boolean | null
+          created_at?: string | null
+          created_by?: string | null
+          email?: string | null
+          id?: string
+          nome: string
+          registro_profissional: string
+          telefone?: string | null
+          tipo_profissional: string
+          tipo_registro?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          ativo?: boolean | null
+          created_at?: string | null
+          created_by?: string | null
+          email?: string | null
+          id?: string
+          nome?: string
+          registro_profissional?: string
+          telefone?: string | null
+          tipo_profissional?: string
+          tipo_registro?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      profissional_especialidades: {
+        Row: {
+          profissional_id: string
+          specialty_id: string
+        }
+        Insert: {
+          profissional_id: string
+          specialty_id: string
+        }
+        Update: {
+          profissional_id?: string
+          specialty_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_prof"
+            columns: ["profissional_id"]
+            isOneToOne: false
+            referencedRelation: "profissionais_saude"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_prof"
+            columns: ["profissional_id"]
+            isOneToOne: false
+            referencedRelation: "view_detalhes_profissionais"
+            referencedColumns: ["profissional_id"]
+          },
+          {
+            foreignKeyName: "fk_spec"
+            columns: ["specialty_id"]
+            isOneToOne: false
+            referencedRelation: "specialties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_spec"
+            columns: ["specialty_id"]
+            isOneToOne: false
+            referencedRelation: "vw_venue_specialties"
+            referencedColumns: ["specialty_id"]
+          },
+        ]
+      }
+      profissional_venue: {
+        Row: {
+          cargo_na_unidade: string | null
+          created_at: string | null
+          id: string
+          profissional_id: string
+          venue_id: number
+        }
+        Insert: {
+          cargo_na_unidade?: string | null
+          created_at?: string | null
+          id?: string
+          profissional_id: string
+          venue_id: number
+        }
+        Update: {
+          cargo_na_unidade?: string | null
+          created_at?: string | null
+          id?: string
+          profissional_id?: string
+          venue_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profissional_venue_profissional_fkey"
+            columns: ["profissional_id"]
+            isOneToOne: false
+            referencedRelation: "profissionais_saude"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profissional_venue_profissional_fkey"
+            columns: ["profissional_id"]
+            isOneToOne: false
+            referencedRelation: "view_detalhes_profissionais"
+            referencedColumns: ["profissional_id"]
+          },
+          {
+            foreignKeyName: "profissional_venue_venue_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "_audit_venues_state_unmapped"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profissional_venue_venue_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "mv_venue_farmacia_distancia"
+            referencedColumns: ["venue_id"]
+          },
+          {
+            foreignKeyName: "profissional_venue_venue_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "safe_venues"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profissional_venue_venue_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "screens_enriched"
+            referencedColumns: ["venue_id"]
+          },
+          {
+            foreignKeyName: "profissional_venue_venue_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profissional_venue_venue_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "view_detalhes_profissionais"
+            referencedColumns: ["venue_id"]
+          },
+          {
+            foreignKeyName: "profissional_venue_venue_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "vw_inventory_full"
+            referencedColumns: ["venue_id"]
+          },
+          {
+            foreignKeyName: "profissional_venue_venue_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "vw_screens_full"
+            referencedColumns: ["venue_id"]
+          },
+          {
+            foreignKeyName: "profissional_venue_venue_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "vw_venue_specialties"
+            referencedColumns: ["venue_id"]
           },
         ]
       }
@@ -1493,20 +1809,20 @@ export type Database = {
           customer_name: string
           days_business: number | null
           days_calendar: number | null
+          dias_uteis_mes_base: number | null
           discount_fixed: number | null
           discount_pct: number | null
-          dias_uteis_mes_base: number | null
           email_sent_at: string | null
           end_date: string | null
           film_seconds: number | null
           filters: Json
           gross_business: number | null
           gross_calendar: number | null
+          horas_operacao_dia: number | null
           id: number
           impact_formula: string | null
           impacts_business: number | null
           impacts_calendar: number | null
-          horas_operacao_dia: number | null
           insertions_per_hour: number | null
           net_business: number | null
           net_calendar: number | null
@@ -1536,20 +1852,20 @@ export type Database = {
           customer_name: string
           days_business?: number | null
           days_calendar?: number | null
+          dias_uteis_mes_base?: number | null
           discount_fixed?: number | null
           discount_pct?: number | null
-          dias_uteis_mes_base?: number | null
           email_sent_at?: string | null
           end_date?: string | null
           film_seconds?: number | null
           filters: Json
           gross_business?: number | null
           gross_calendar?: number | null
+          horas_operacao_dia?: number | null
           id?: number
           impact_formula?: string | null
           impacts_business?: number | null
           impacts_calendar?: number | null
-          horas_operacao_dia?: number | null
           insertions_per_hour?: number | null
           net_business?: number | null
           net_calendar?: number | null
@@ -1579,20 +1895,20 @@ export type Database = {
           customer_name?: string
           days_business?: number | null
           days_calendar?: number | null
+          dias_uteis_mes_base?: number | null
           discount_fixed?: number | null
           discount_pct?: number | null
-          dias_uteis_mes_base?: number | null
           email_sent_at?: string | null
           end_date?: string | null
           film_seconds?: number | null
           filters?: Json
           gross_business?: number | null
           gross_calendar?: number | null
+          horas_operacao_dia?: number | null
           id?: number
           impact_formula?: string | null
           impacts_business?: number | null
           impacts_calendar?: number | null
-          horas_operacao_dia?: number | null
           insertions_per_hour?: number | null
           net_business?: number | null
           net_calendar?: number | null
@@ -1636,55 +1952,49 @@ export type Database = {
         Row: {
           acao_id: string | null
           audiencia_mes_base: number | null
-          desconto_percentual: number | null
           created_at: string | null
+          desconto_percentual: number | null
           id: string
-          observacoes: string | null
-          preco_total: number
           insercoes_hora_linha: number | null
-          preco_unitario: number
+          observacoes: string | null
           proposta_id: number
-          quantidade: number | null
           qtd_telas: number | null
+          quantidade: number | null
           servico_id: string
           tipo_servico_proposta: string | null
-          valor_manual_insercao_avulsa: number | null
+          valor_manual_insercao_avulsa: number
           valor_manual_insercao_especial: number | null
         }
         Insert: {
           acao_id?: string | null
           audiencia_mes_base?: number | null
-          desconto_percentual?: number | null
           created_at?: string | null
+          desconto_percentual?: number | null
           id?: string
-          observacoes?: string | null
-          preco_total: number
           insercoes_hora_linha?: number | null
-          preco_unitario: number
+          observacoes?: string | null
           proposta_id: number
-          quantidade?: number | null
           qtd_telas?: number | null
+          quantidade?: number | null
           servico_id: string
           tipo_servico_proposta?: string | null
-          valor_manual_insercao_avulsa?: number | null
+          valor_manual_insercao_avulsa: number
           valor_manual_insercao_especial?: number | null
         }
         Update: {
           acao_id?: string | null
           audiencia_mes_base?: number | null
-          desconto_percentual?: number | null
           created_at?: string | null
+          desconto_percentual?: number | null
           id?: string
-          observacoes?: string | null
-          preco_total?: number
           insercoes_hora_linha?: number | null
-          preco_unitario?: number
+          observacoes?: string | null
           proposta_id?: number
-          quantidade?: number | null
           qtd_telas?: number | null
+          quantidade?: number | null
           servico_id?: string
           tipo_servico_proposta?: string | null
-          valor_manual_insercao_avulsa?: number | null
+          valor_manual_insercao_avulsa?: number
           valor_manual_insercao_especial?: number | null
         }
         Relationships: [
@@ -1753,7 +2063,7 @@ export type Database = {
       screen_availability: {
         Row: {
           available_from: string
-          available_period: unknown | null
+          available_period: unknown
           available_to: string
           created_at: string | null
           created_by: string | null
@@ -1762,7 +2072,7 @@ export type Database = {
         }
         Insert: {
           available_from: string
-          available_period?: unknown | null
+          available_period?: unknown
           available_to: string
           created_at?: string | null
           created_by?: string | null
@@ -1771,7 +2081,7 @@ export type Database = {
         }
         Update: {
           available_from?: string
-          available_period?: unknown | null
+          available_period?: unknown
           available_to?: string
           created_at?: string | null
           created_by?: string | null
@@ -1868,7 +2178,7 @@ export type Database = {
       screen_bookings: {
         Row: {
           booked_from: string
-          booked_period: unknown | null
+          booked_period: unknown
           booked_to: string
           created_at: string | null
           created_by: string | null
@@ -1878,7 +2188,7 @@ export type Database = {
         }
         Insert: {
           booked_from: string
-          booked_period?: unknown | null
+          booked_period?: unknown
           booked_to: string
           created_at?: string | null
           created_by?: string | null
@@ -1888,7 +2198,7 @@ export type Database = {
         }
         Update: {
           booked_from?: string
-          booked_period?: unknown | null
+          booked_period?: unknown
           booked_to?: string
           created_at?: string | null
           created_by?: string | null
@@ -2100,7 +2410,7 @@ export type Database = {
           max_spots_per_day: number | null
           min_spots_per_day: number | null
           mode_of_operation: string | null
-          rate_period: unknown | null
+          rate_period: unknown
           screen_id: number | null
           selling_rate_month: number | null
           spot_duration_secs: number | null
@@ -2116,7 +2426,7 @@ export type Database = {
           max_spots_per_day?: number | null
           min_spots_per_day?: number | null
           mode_of_operation?: string | null
-          rate_period?: unknown | null
+          rate_period?: unknown
           screen_id?: number | null
           selling_rate_month?: number | null
           spot_duration_secs?: number | null
@@ -2132,7 +2442,7 @@ export type Database = {
           max_spots_per_day?: number | null
           min_spots_per_day?: number | null
           mode_of_operation?: string | null
-          rate_period?: unknown | null
+          rate_period?: unknown
           screen_id?: number | null
           selling_rate_month?: number | null
           spot_duration_secs?: number | null
@@ -2245,9 +2555,9 @@ export type Database = {
           display_name: string | null
           endereco_completo: string | null
           facing: string | null
-          geo: unknown | null
-          geom: unknown | null
-          geom_geog: unknown | null
+          geo: unknown
+          geom: unknown
+          geom_geog: unknown
           google_formatted_address: string | null
           google_place_id: string | null
           id: number
@@ -2287,9 +2597,9 @@ export type Database = {
           display_name?: string | null
           endereco_completo?: string | null
           facing?: string | null
-          geo?: unknown | null
-          geom?: unknown | null
-          geom_geog?: unknown | null
+          geo?: unknown
+          geom?: unknown
+          geom_geog?: unknown
           google_formatted_address?: string | null
           google_place_id?: string | null
           id?: number
@@ -2329,9 +2639,9 @@ export type Database = {
           display_name?: string | null
           endereco_completo?: string | null
           facing?: string | null
-          geo?: unknown | null
-          geom?: unknown | null
-          geom_geog?: unknown | null
+          geo?: unknown
+          geom?: unknown
+          geom_geog?: unknown
           google_formatted_address?: string | null
           google_place_id?: string | null
           id?: number
@@ -2365,6 +2675,13 @@ export type Database = {
             foreignKeyName: "screens_venue_id_fkey"
             columns: ["venue_id"]
             isOneToOne: false
+            referencedRelation: "mv_venue_farmacia_distancia"
+            referencedColumns: ["venue_id"]
+          },
+          {
+            foreignKeyName: "screens_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
             referencedRelation: "safe_venues"
             referencedColumns: ["id"]
           },
@@ -2381,6 +2698,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "venues"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "screens_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "view_detalhes_profissionais"
+            referencedColumns: ["venue_id"]
           },
           {
             foreignKeyName: "screens_venue_id_fkey"
@@ -2422,7 +2746,7 @@ export type Database = {
           created_at: string | null
           display_name: string | null
           facing: string | null
-          geom: unknown | null
+          geom: unknown
           google_formatted_address: string | null
           google_place_id: string | null
           id: number | null
@@ -2460,7 +2784,7 @@ export type Database = {
           created_at?: string | null
           display_name?: string | null
           facing?: string | null
-          geom?: unknown | null
+          geom?: unknown
           google_formatted_address?: string | null
           google_place_id?: string | null
           id?: number | null
@@ -2498,7 +2822,7 @@ export type Database = {
           created_at?: string | null
           display_name?: string | null
           facing?: string | null
-          geom?: unknown | null
+          geom?: unknown
           google_formatted_address?: string | null
           google_place_id?: string | null
           id?: number | null
@@ -2539,7 +2863,7 @@ export type Database = {
           created_at: string | null
           display_name: string | null
           facing: string | null
-          geom: unknown | null
+          geom: unknown
           google_formatted_address: string | null
           google_place_id: string | null
           id: number | null
@@ -2577,7 +2901,7 @@ export type Database = {
           created_at?: string | null
           display_name?: string | null
           facing?: string | null
-          geom?: unknown | null
+          geom?: unknown
           google_formatted_address?: string | null
           google_place_id?: string | null
           id?: number | null
@@ -2615,7 +2939,7 @@ export type Database = {
           created_at?: string | null
           display_name?: string | null
           facing?: string | null
-          geom?: unknown | null
+          geom?: unknown
           google_formatted_address?: string | null
           google_place_id?: string | null
           id?: number | null
@@ -2657,7 +2981,7 @@ export type Database = {
           created_at: string | null
           display_name: string | null
           facing: string | null
-          geom: unknown | null
+          geom: unknown
           google_formatted_address: string | null
           google_place_id: string | null
           id: number | null
@@ -2696,7 +3020,7 @@ export type Database = {
           created_at?: string | null
           display_name?: string | null
           facing?: string | null
-          geom?: unknown | null
+          geom?: unknown
           google_formatted_address?: string | null
           google_place_id?: string | null
           id?: number | null
@@ -2735,7 +3059,7 @@ export type Database = {
           created_at?: string | null
           display_name?: string | null
           facing?: string | null
-          geom?: unknown | null
+          geom?: unknown
           google_formatted_address?: string | null
           google_place_id?: string | null
           id?: number | null
@@ -3155,14 +3479,14 @@ export type Database = {
       }
       stg_screens_new: {
         Row: {
-          "ACEITA CONV├èNIO": string | null
-          AUDI├èNCIA: string | null
+          "ACEITA CONVÊNIO": string | null
+          AUDIÊNCIA: string | null
           "CAPITAL/INTERIOR": string | null
           CEP: string | null
           CIDADE: string | null
           CLASSE: string | null
           code_norm: string | null
-          "C├ôDIGO DE PONTO": string | null
+          "CÓDIGO DE PONTO": string | null
           display_name: string | null
           endereco_completo: string | null
           "ESPECIALIDADE 1": string | null
@@ -3174,22 +3498,22 @@ export type Database = {
           LATITUDE: string | null
           LONGITUDE: string | null
           "Nome do Ponto": string | null
-          PROGRAM├üTICA: string | null
+          PROGRAMÁTICA: string | null
           REDE: string | null
-          REGI├âO: string | null
-          RESTRI├ç├òES: string | null
-          "Tipo de Espa├ºo": string | null
+          REGIÃO: string | null
+          RESTRIÇÕES: string | null
+          "Tipo de Espaço": string | null
           UF: string | null
         }
         Insert: {
-          "ACEITA CONV├èNIO"?: string | null
-          AUDI├èNCIA?: string | null
+          "ACEITA CONVÊNIO"?: string | null
+          AUDIÊNCIA?: string | null
           "CAPITAL/INTERIOR"?: string | null
           CEP?: string | null
           CIDADE?: string | null
           CLASSE?: string | null
           code_norm?: string | null
-          "C├ôDIGO DE PONTO"?: string | null
+          "CÓDIGO DE PONTO"?: string | null
           display_name?: string | null
           endereco_completo?: string | null
           "ESPECIALIDADE 1"?: string | null
@@ -3201,22 +3525,22 @@ export type Database = {
           LATITUDE?: string | null
           LONGITUDE?: string | null
           "Nome do Ponto"?: string | null
-          PROGRAM├üTICA?: string | null
+          PROGRAMÁTICA?: string | null
           REDE?: string | null
-          REGI├âO?: string | null
-          RESTRI├ç├òES?: string | null
-          "Tipo de Espa├ºo"?: string | null
+          REGIÃO?: string | null
+          RESTRIÇÕES?: string | null
+          "Tipo de Espaço"?: string | null
           UF?: string | null
         }
         Update: {
-          "ACEITA CONV├èNIO"?: string | null
-          AUDI├èNCIA?: string | null
+          "ACEITA CONVÊNIO"?: string | null
+          AUDIÊNCIA?: string | null
           "CAPITAL/INTERIOR"?: string | null
           CEP?: string | null
           CIDADE?: string | null
           CLASSE?: string | null
           code_norm?: string | null
-          "C├ôDIGO DE PONTO"?: string | null
+          "CÓDIGO DE PONTO"?: string | null
           display_name?: string | null
           endereco_completo?: string | null
           "ESPECIALIDADE 1"?: string | null
@@ -3228,11 +3552,11 @@ export type Database = {
           LATITUDE?: string | null
           LONGITUDE?: string | null
           "Nome do Ponto"?: string | null
-          PROGRAM├üTICA?: string | null
+          PROGRAMÁTICA?: string | null
           REDE?: string | null
-          REGI├âO?: string | null
-          RESTRI├ç├òES?: string | null
-          "Tipo de Espa├ºo"?: string | null
+          REGIÃO?: string | null
+          RESTRIÇÕES?: string | null
+          "Tipo de Espaço"?: string | null
           UF?: string | null
         }
         Relationships: []
@@ -3357,6 +3681,87 @@ export type Database = {
         }
         Relationships: []
       }
+      user_session_history: {
+        Row: {
+          created_at: string | null
+          duration_minutes: number | null
+          ended_at: string | null
+          ended_by: string | null
+          id: string
+          ip_address: unknown
+          session_token: string
+          started_at: string
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          duration_minutes?: number | null
+          ended_at?: string | null
+          ended_by?: string | null
+          id?: string
+          ip_address?: unknown
+          session_token: string
+          started_at: string
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          duration_minutes?: number | null
+          ended_at?: string | null
+          ended_by?: string | null
+          id?: string
+          ip_address?: unknown
+          session_token?: string
+          started_at?: string
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_sessions: {
+        Row: {
+          created_at: string | null
+          expires_at: string
+          id: string
+          ip_address: unknown
+          is_active: boolean | null
+          last_seen_at: string
+          session_token: string
+          started_at: string
+          updated_at: string | null
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          expires_at: string
+          id?: string
+          ip_address?: unknown
+          is_active?: boolean | null
+          last_seen_at?: string
+          session_token: string
+          started_at?: string
+          updated_at?: string | null
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          expires_at?: string
+          id?: string
+          ip_address?: unknown
+          is_active?: boolean | null
+          last_seen_at?: string
+          session_token?: string
+          started_at?: string
+          updated_at?: string | null
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       venue_audience_monthly: {
         Row: {
           audience: number
@@ -3394,6 +3799,13 @@ export type Database = {
             foreignKeyName: "venue_audience_monthly_venue_id_fkey"
             columns: ["venue_id"]
             isOneToOne: false
+            referencedRelation: "mv_venue_farmacia_distancia"
+            referencedColumns: ["venue_id"]
+          },
+          {
+            foreignKeyName: "venue_audience_monthly_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
             referencedRelation: "safe_venues"
             referencedColumns: ["id"]
           },
@@ -3410,6 +3822,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "venues"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "venue_audience_monthly_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "view_detalhes_profissionais"
+            referencedColumns: ["venue_id"]
           },
           {
             foreignKeyName: "venue_audience_monthly_venue_id_fkey"
@@ -3473,6 +3892,13 @@ export type Database = {
             foreignKeyName: "fk_venue"
             columns: ["venue_id"]
             isOneToOne: false
+            referencedRelation: "mv_venue_farmacia_distancia"
+            referencedColumns: ["venue_id"]
+          },
+          {
+            foreignKeyName: "fk_venue"
+            columns: ["venue_id"]
+            isOneToOne: false
             referencedRelation: "safe_venues"
             referencedColumns: ["id"]
           },
@@ -3489,6 +3915,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "venues"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_venue"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "view_detalhes_profissionais"
+            referencedColumns: ["venue_id"]
           },
           {
             foreignKeyName: "fk_venue"
@@ -3522,7 +3955,7 @@ export type Database = {
           country: string | null
           created_at: string | null
           district: string | null
-          geom: unknown | null
+          geom: unknown
           google_formatted_address: string | null
           google_place_id: string | null
           id: number
@@ -3545,7 +3978,7 @@ export type Database = {
           country?: string | null
           created_at?: string | null
           district?: string | null
-          geom?: unknown | null
+          geom?: unknown
           google_formatted_address?: string | null
           google_place_id?: string | null
           id?: number
@@ -3568,7 +4001,7 @@ export type Database = {
           country?: string | null
           created_at?: string | null
           district?: string | null
-          geom?: unknown | null
+          geom?: unknown
           google_formatted_address?: string | null
           google_place_id?: string | null
           id?: number
@@ -3692,10 +4125,10 @@ export type Database = {
       geography_columns: {
         Row: {
           coord_dimension: number | null
-          f_geography_column: unknown | null
-          f_table_catalog: unknown | null
-          f_table_name: unknown | null
-          f_table_schema: unknown | null
+          f_geography_column: unknown
+          f_table_catalog: unknown
+          f_table_name: unknown
+          f_table_schema: unknown
           srid: number | null
           type: string | null
         }
@@ -3704,30 +4137,42 @@ export type Database = {
       geometry_columns: {
         Row: {
           coord_dimension: number | null
-          f_geometry_column: unknown | null
+          f_geometry_column: unknown
           f_table_catalog: string | null
-          f_table_name: unknown | null
-          f_table_schema: unknown | null
+          f_table_name: unknown
+          f_table_schema: unknown
           srid: number | null
           type: string | null
         }
         Insert: {
           coord_dimension?: number | null
-          f_geometry_column?: unknown | null
+          f_geometry_column?: unknown
           f_table_catalog?: string | null
-          f_table_name?: unknown | null
-          f_table_schema?: unknown | null
+          f_table_name?: unknown
+          f_table_schema?: unknown
           srid?: number | null
           type?: string | null
         }
         Update: {
           coord_dimension?: number | null
-          f_geometry_column?: unknown | null
+          f_geometry_column?: unknown
           f_table_catalog?: string | null
-          f_table_name?: unknown | null
-          f_table_schema?: unknown | null
+          f_table_name?: unknown
+          f_table_schema?: unknown
           srid?: number | null
           type?: string | null
+        }
+        Relationships: []
+      }
+      mv_venue_farmacia_distancia: {
+        Row: {
+          cidade_farmacia: string | null
+          distancia_km: number | null
+          farmacia_id: number | null
+          grupo: string | null
+          nome_farmacia: string | null
+          nome_venue: string | null
+          venue_id: number | null
         }
         Relationships: []
       }
@@ -3948,7 +4393,7 @@ export type Database = {
           city: string | null
           code: string | null
           display_name: string | null
-          geom: unknown | null
+          geom: unknown
           id: number | null
           is_screen_active: boolean | null
           lat: number | null
@@ -4046,6 +4491,48 @@ export type Database = {
         }
         Relationships: []
       }
+      v_farmacias_public: {
+        Row: {
+          bairro: string | null
+          cep: string | null
+          cidade: string | null
+          endereco: string | null
+          grupo: string | null
+          id: number | null
+          latitude: number | null
+          longitude: number | null
+          nome: string | null
+          numero: string | null
+          uf: string | null
+        }
+        Insert: {
+          bairro?: string | null
+          cep?: string | null
+          cidade?: string | null
+          endereco?: string | null
+          grupo?: string | null
+          id?: number | null
+          latitude?: number | null
+          longitude?: number | null
+          nome?: string | null
+          numero?: string | null
+          uf?: string | null
+        }
+        Update: {
+          bairro?: string | null
+          cep?: string | null
+          cidade?: string | null
+          endereco?: string | null
+          grupo?: string | null
+          id?: number | null
+          latitude?: number | null
+          longitude?: number | null
+          nome?: string | null
+          numero?: string | null
+          uf?: string | null
+        }
+        Relationships: []
+      }
       v_proposal_items: {
         Row: {
           agencia_id: string | null
@@ -4133,7 +4620,7 @@ export type Database = {
           code: string | null
           created_at: string | null
           display_name: string | null
-          geom: unknown | null
+          geom: unknown
           id: number | null
           lat: number | null
           lng: number | null
@@ -4168,6 +4655,69 @@ export type Database = {
         }
         Relationships: []
       }
+      view_detalhes_profissionais: {
+        Row: {
+          cargo_na_unidade: string | null
+          especialidades: string[] | null
+          profissional_id: string | null
+          profissional_nome: string | null
+          registro_profissional: string | null
+          tipo_profissional: string | null
+          tipo_registro: string | null
+          venue_cidade: string | null
+          venue_id: number | null
+          venue_nome: string | null
+        }
+        Relationships: []
+      }
+      view_farmacias_detalhe: {
+        Row: {
+          cep: string | null
+          cidade: string | null
+          cnpj: string | null
+          created_at: string | null
+          endereco_formatado: string | null
+          fantasia: string | null
+          grupo: string | null
+          id: number | null
+          latitude: number | null
+          localizacao: unknown
+          longitude: number | null
+          status_operacional: string | null
+          uf: string | null
+        }
+        Insert: {
+          cep?: string | null
+          cidade?: string | null
+          cnpj?: string | null
+          created_at?: string | null
+          endereco_formatado?: never
+          fantasia?: string | null
+          grupo?: string | null
+          id?: number | null
+          latitude?: never
+          localizacao?: unknown
+          longitude?: never
+          status_operacional?: never
+          uf?: string | null
+        }
+        Update: {
+          cep?: string | null
+          cidade?: string | null
+          cnpj?: string | null
+          created_at?: string | null
+          endereco_formatado?: never
+          fantasia?: string | null
+          grupo?: string | null
+          id?: number | null
+          latitude?: never
+          localizacao?: unknown
+          longitude?: never
+          status_operacional?: never
+          uf?: string | null
+        }
+        Relationships: []
+      }
       vw_inventory_full: {
         Row: {
           active: boolean | null
@@ -4180,7 +4730,7 @@ export type Database = {
           classes_map: string[] | null
           code: string | null
           display_name: string | null
-          geom: unknown | null
+          geom: unknown
           id: number | null
           lat: number | null
           lng: number | null
@@ -4246,6 +4796,13 @@ export type Database = {
             foreignKeyName: "screens_venue_id_fkey"
             columns: ["venue_id"]
             isOneToOne: false
+            referencedRelation: "mv_venue_farmacia_distancia"
+            referencedColumns: ["venue_id"]
+          },
+          {
+            foreignKeyName: "screens_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
             referencedRelation: "safe_venues"
             referencedColumns: ["id"]
           },
@@ -4262,6 +4819,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "venues"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "screens_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "view_detalhes_profissionais"
+            referencedColumns: ["venue_id"]
           },
           {
             foreignKeyName: "screens_venue_id_fkey"
@@ -4301,7 +4865,7 @@ export type Database = {
           created_at: string | null
           display_name: string | null
           future_bookings: number | null
-          geom: unknown | null
+          geom: unknown
           id: number | null
           lat: number | null
           lng: number | null
@@ -4338,7 +4902,7 @@ export type Database = {
           city: string | null
           class: Database["public"]["Enums"]["class_band"] | null
           code: string | null
-          geom: unknown | null
+          geom: unknown
           id: number | null
           lat: number | null
           lng: number | null
@@ -4378,8 +4942,8 @@ export type Database = {
           created_at: string | null
           display_name: string | null
           facing: string | null
-          geo: unknown | null
-          geom: unknown | null
+          geo: unknown
+          geom: unknown
           google_formatted_address: string | null
           google_place_id: string | null
           id: number | null
@@ -4418,8 +4982,8 @@ export type Database = {
           created_at?: string | null
           display_name?: string | null
           facing?: string | null
-          geo?: unknown | null
-          geom?: unknown | null
+          geo?: unknown
+          geom?: unknown
           google_formatted_address?: string | null
           google_place_id?: string | null
           id?: number | null
@@ -4458,8 +5022,8 @@ export type Database = {
           created_at?: string | null
           display_name?: string | null
           facing?: string | null
-          geo?: unknown | null
-          geom?: unknown | null
+          geo?: unknown
+          geom?: unknown
           google_formatted_address?: string | null
           google_place_id?: string | null
           id?: number | null
@@ -4493,6 +5057,13 @@ export type Database = {
             foreignKeyName: "screens_venue_id_fkey"
             columns: ["venue_id"]
             isOneToOne: false
+            referencedRelation: "mv_venue_farmacia_distancia"
+            referencedColumns: ["venue_id"]
+          },
+          {
+            foreignKeyName: "screens_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
             referencedRelation: "safe_venues"
             referencedColumns: ["id"]
           },
@@ -4509,6 +5080,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "venues"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "screens_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "view_detalhes_profissionais"
+            referencedColumns: ["venue_id"]
           },
           {
             foreignKeyName: "screens_venue_id_fkey"
@@ -4579,25 +5157,19 @@ export type Database = {
         Args: { col: string; tbl: unknown }
         Returns: unknown
       }
-      _postgis_pgsql_version: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
-      _postgis_scripts_pgsql_version: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
+      _postgis_pgsql_version: { Args: never; Returns: string }
+      _postgis_scripts_pgsql_version: { Args: never; Returns: string }
       _postgis_selectivity: {
         Args: { att_name: string; geom: unknown; mode?: string; tbl: unknown }
         Returns: number
       }
+      _postgis_stats: {
+        Args: { ""?: string; att_name: string; tbl: unknown }
+        Returns: string
+      }
       _st_3dintersects: {
         Args: { geom1: unknown; geom2: unknown }
         Returns: boolean
-      }
-      _st_bestsrid: {
-        Args: { "": unknown }
-        Returns: number
       }
       _st_contains: {
         Args: { geom1: unknown; geom2: unknown }
@@ -4607,18 +5179,12 @@ export type Database = {
         Args: { geom1: unknown; geom2: unknown }
         Returns: boolean
       }
-      _st_coveredby: {
-        Args:
-          | { geog1: unknown; geog2: unknown }
-          | { geom1: unknown; geom2: unknown }
-        Returns: boolean
-      }
-      _st_covers: {
-        Args:
-          | { geog1: unknown; geog2: unknown }
-          | { geom1: unknown; geom2: unknown }
-        Returns: boolean
-      }
+      _st_coveredby:
+        | { Args: { geog1: unknown; geog2: unknown }; Returns: boolean }
+        | { Args: { geom1: unknown; geom2: unknown }; Returns: boolean }
+      _st_covers:
+        | { Args: { geog1: unknown; geog2: unknown }; Returns: boolean }
+        | { Args: { geom1: unknown; geom2: unknown }; Returns: boolean }
       _st_crosses: {
         Args: { geom1: unknown; geom2: unknown }
         Returns: boolean
@@ -4632,10 +5198,7 @@ export type Database = {
         }
         Returns: boolean
       }
-      _st_equals: {
-        Args: { geom1: unknown; geom2: unknown }
-        Returns: boolean
-      }
+      _st_equals: { Args: { geom1: unknown; geom2: unknown }; Returns: boolean }
       _st_intersects: {
         Args: { geom1: unknown; geom2: unknown }
         Returns: boolean
@@ -4660,14 +5223,7 @@ export type Database = {
         Args: { geom1: unknown; geom2: unknown }
         Returns: boolean
       }
-      _st_pointoutside: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      _st_sortablehash: {
-        Args: { geom: unknown }
-        Returns: number
-      }
+      _st_sortablehash: { Args: { geom: unknown }; Returns: number }
       _st_touches: {
         Args: { geom1: unknown; geom2: unknown }
         Returns: boolean
@@ -4681,16 +5237,10 @@ export type Database = {
         }
         Returns: unknown
       }
-      _st_within: {
-        Args: { geom1: unknown; geom2: unknown }
-        Returns: boolean
-      }
-      _strip_state_noise: {
-        Args: { src: string }
-        Returns: string
-      }
+      _st_within: { Args: { geom1: unknown; geom2: unknown }; Returns: boolean }
+      _strip_state_noise: { Args: { src: string }; Returns: string }
       accounts_admin_list: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           avatar_url: string
           created_at: string
@@ -4706,13 +5256,10 @@ export type Database = {
         Args: { screen_data: Json }
         Returns: Record<string, unknown>
       }
-      addauth: {
-        Args: { "": string }
-        Returns: boolean
-      }
-      addgeometrycolumn: {
-        Args:
-          | {
+      addauth: { Args: { "": string }; Returns: boolean }
+      addgeometrycolumn:
+        | {
+            Args: {
               catalog_name: string
               column_name: string
               new_dim: number
@@ -4722,7 +5269,10 @@ export type Database = {
               table_name: string
               use_typmod?: boolean
             }
-          | {
+            Returns: string
+          }
+        | {
+            Args: {
               column_name: string
               new_dim: number
               new_srid: number
@@ -4731,7 +5281,10 @@ export type Database = {
               table_name: string
               use_typmod?: boolean
             }
-          | {
+            Returns: string
+          }
+        | {
+            Args: {
               column_name: string
               new_dim: number
               new_srid: number
@@ -4739,70 +5292,30 @@ export type Database = {
               table_name: string
               use_typmod?: boolean
             }
-        Returns: string
-      }
-      array_distinct_nonempty: {
-        Args: { a: string[] }
-        Returns: string[]
-      }
-      box: {
-        Args: { "": unknown } | { "": unknown }
-        Returns: unknown
-      }
-      box2d: {
-        Args: { "": unknown } | { "": unknown }
-        Returns: unknown
-      }
-      box2d_in: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      box2d_out: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      box2df_in: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      box2df_out: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      box3d: {
-        Args: { "": unknown } | { "": unknown }
-        Returns: unknown
-      }
-      box3d_in: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      box3d_out: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      box3dtobox: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
+            Returns: string
+          }
+      array_distinct_nonempty: { Args: { a: string[] }; Returns: string[] }
       business_days_between: {
         Args: { p_end: string; p_start: string }
         Returns: number
       }
-      bytea: {
-        Args: { "": unknown } | { "": unknown }
-        Returns: string
-      }
-      can_delete_other_users: {
-        Args: Record<PropertyKey, never>
-        Returns: boolean
-      }
-      can_edit_other_users: {
-        Args: Record<PropertyKey, never>
-        Returns: boolean
-      }
+      calcular_proposta:
+        | {
+            Args: { p_proposal_id: number }
+            Returns: {
+              error: true
+            } & "Could not choose the best candidate function between: public.calcular_proposta(p_proposal_id => int8), public.calcular_proposta(p_proposal_id => uuid). Try renaming the parameters or the function itself in the database so function overloading can be resolved"[]
+          }
+        | {
+            Args: { p_proposal_id: string }
+            Returns: {
+              error: true
+            } & "Could not choose the best candidate function between: public.calcular_proposta(p_proposal_id => int8), public.calcular_proposta(p_proposal_id => uuid). Try renaming the parameters or the function itself in the database so function overloading can be resolved"[]
+          }
+      can_delete_other_users: { Args: never; Returns: boolean }
+      can_edit_other_users: { Args: never; Returns: boolean }
       check_auth: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           is_authenticated: boolean
           user_email: string
@@ -4810,10 +5323,8 @@ export type Database = {
           user_role: string
         }[]
       }
-      clean_text_array: {
-        Args: { arr: string[] }
-        Returns: string[]
-      }
+      clean_text_array: { Args: { arr: string[] }; Returns: string[] }
+      cleanup_expired_sessions: { Args: never; Returns: number }
       create_email_log: {
         Args: {
           p_email_type: string
@@ -4846,57 +5357,44 @@ export type Database = {
         }
         Returns: Json
       }
-      debug_permissions: {
-        Args: Record<PropertyKey, never>
-        Returns: Json
-      }
-      delete_screen_as_admin: {
-        Args: { screen_id: number }
-        Returns: boolean
-      }
-      delete_user_by_email: {
-        Args: { user_email: string }
-        Returns: string
-      }
-      disablelongtransactions: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
-      dropgeometrycolumn: {
-        Args:
-          | {
+      debug_permissions: { Args: never; Returns: Json }
+      delete_screen_as_admin: { Args: { screen_id: number }; Returns: boolean }
+      delete_user_by_email: { Args: { user_email: string }; Returns: string }
+      disablelongtransactions: { Args: never; Returns: string }
+      dropgeometrycolumn:
+        | {
+            Args: {
               catalog_name: string
               column_name: string
               schema_name: string
               table_name: string
             }
-          | { column_name: string; schema_name: string; table_name: string }
-          | { column_name: string; table_name: string }
-        Returns: string
-      }
-      dropgeometrytable: {
-        Args:
-          | { catalog_name: string; schema_name: string; table_name: string }
-          | { schema_name: string; table_name: string }
-          | { table_name: string }
-        Returns: string
-      }
-      enablelongtransactions: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
-      ensure_all_users_have_profiles: {
-        Args: Record<PropertyKey, never>
-        Returns: undefined
-      }
-      ensure_profile: {
-        Args: Record<PropertyKey, never>
-        Returns: undefined
-      }
-      equals: {
-        Args: { geom1: unknown; geom2: unknown }
-        Returns: boolean
-      }
+            Returns: string
+          }
+        | {
+            Args: {
+              column_name: string
+              schema_name: string
+              table_name: string
+            }
+            Returns: string
+          }
+        | { Args: { column_name: string; table_name: string }; Returns: string }
+      dropgeometrytable:
+        | {
+            Args: {
+              catalog_name: string
+              schema_name: string
+              table_name: string
+            }
+            Returns: string
+          }
+        | { Args: { schema_name: string; table_name: string }; Returns: string }
+        | { Args: { table_name: string }; Returns: string }
+      enablelongtransactions: { Args: never; Returns: string }
+      ensure_all_users_have_profiles: { Args: never; Returns: undefined }
+      ensure_profile: { Args: never; Returns: undefined }
+      equals: { Args: { geom1: unknown; geom2: unknown }; Returns: boolean }
       find_nearby_screens: {
         Args: { lat_in: number; lng_in: number; radius_meters_in: number }
         Returns: {
@@ -4925,9 +5423,9 @@ export type Database = {
         }
         Returns: number
       }
-      find_screens_v2: {
-        Args:
-          | {
+      find_screens_v2:
+        | {
+            Args: {
               city_in: string
               class_in: Database["public"]["Enums"]["class_band"]
               lat_in: number
@@ -4935,7 +5433,18 @@ export type Database = {
               only_active?: boolean
               radius_km_in: number
             }
-          | {
+            Returns: {
+              city: string
+              class: Database["public"]["Enums"]["class_band"]
+              code: string
+              distance_m: number
+              id: number
+              name: string
+              state: string
+            }[]
+          }
+        | {
+            Args: {
               city_in: string
               class_in: string
               lat_in: number
@@ -4943,7 +5452,20 @@ export type Database = {
               only_active?: boolean
               radius_km_in: number
             }
-          | {
+            Returns: {
+              active: boolean
+              city: string
+              class: string
+              display_name: string
+              distance_m: number
+              lat: number
+              lng: number
+              screen_code: string
+              screen_id: number
+            }[]
+          }
+        | {
+            Args: {
               in_center_lat: number
               in_center_lng: number
               in_city: string
@@ -4954,18 +5476,17 @@ export type Database = {
               in_specialty_any?: string[]
               in_start_date?: string
             }
-        Returns: {
-          active: boolean
-          city: string
-          class: string
-          display_name: string
-          distance_m: number
-          lat: number
-          lng: number
-          screen_code: string
-          screen_id: number
-        }[]
-      }
+            Returns: {
+              address_norm: string
+              class: Database["public"]["Enums"]["class_band"]
+              code: string
+              distance_m: number
+              lat: number
+              lng: number
+              name: string
+              screen_id: number
+            }[]
+          }
       find_screens_v3: {
         Args: {
           city_in: string
@@ -5005,284 +5526,9 @@ export type Database = {
           venue_id: number
         }[]
       }
-      gbt_bit_compress: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_bool_compress: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_bool_fetch: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_bpchar_compress: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_bytea_compress: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_cash_compress: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_cash_fetch: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_date_compress: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_date_fetch: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_decompress: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_enum_compress: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_enum_fetch: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_float4_compress: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_float4_fetch: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_float8_compress: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_float8_fetch: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_inet_compress: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_int2_compress: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_int2_fetch: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_int4_compress: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_int4_fetch: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_int8_compress: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_int8_fetch: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_intv_compress: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_intv_decompress: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_intv_fetch: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_macad_compress: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_macad_fetch: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_macad8_compress: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_macad8_fetch: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_numeric_compress: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_oid_compress: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_oid_fetch: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_text_compress: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_time_compress: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_time_fetch: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_timetz_compress: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_ts_compress: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_ts_fetch: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_tstz_compress: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_uuid_compress: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_uuid_fetch: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_var_decompress: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_var_fetch: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbtreekey_var_in: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbtreekey_var_out: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbtreekey16_in: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbtreekey16_out: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbtreekey2_in: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbtreekey2_out: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbtreekey32_in: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbtreekey32_out: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbtreekey4_in: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbtreekey4_out: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbtreekey8_in: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbtreekey8_out: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      geography: {
-        Args: { "": string } | { "": unknown }
-        Returns: unknown
-      }
-      geography_analyze: {
-        Args: { "": unknown }
-        Returns: boolean
-      }
-      geography_gist_compress: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      geography_gist_decompress: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      geography_out: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      geography_send: {
-        Args: { "": unknown }
-        Returns: string
-      }
-      geography_spgist_compress_nd: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      geography_typmod_in: {
-        Args: { "": unknown[] }
-        Returns: number
-      }
-      geography_typmod_out: {
-        Args: { "": number }
-        Returns: unknown
-      }
-      geometry: {
-        Args:
-          | { "": string }
-          | { "": string }
-          | { "": unknown }
-          | { "": unknown }
-          | { "": unknown }
-          | { "": unknown }
-          | { "": unknown }
-          | { "": unknown }
-        Returns: unknown
-      }
+      geometry: { Args: { "": string }; Returns: unknown }
       geometry_above: {
         Args: { geom1: unknown; geom2: unknown }
-        Returns: boolean
-      }
-      geometry_analyze: {
-        Args: { "": unknown }
         Returns: boolean
       }
       geometry_below: {
@@ -5321,37 +5567,9 @@ export type Database = {
         Args: { geom1: unknown; geom2: unknown }
         Returns: boolean
       }
-      geometry_gist_compress_2d: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      geometry_gist_compress_nd: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      geometry_gist_decompress_2d: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      geometry_gist_decompress_nd: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      geometry_gist_sortsupport_2d: {
-        Args: { "": unknown }
-        Returns: undefined
-      }
       geometry_gt: {
         Args: { geom1: unknown; geom2: unknown }
         Returns: boolean
-      }
-      geometry_hash: {
-        Args: { "": unknown }
-        Returns: number
-      }
-      geometry_in: {
-        Args: { "": unknown }
-        Returns: unknown
       }
       geometry_le: {
         Args: { geom1: unknown; geom2: unknown }
@@ -5364,10 +5582,6 @@ export type Database = {
       geometry_lt: {
         Args: { geom1: unknown; geom2: unknown }
         Returns: boolean
-      }
-      geometry_out: {
-        Args: { "": unknown }
-        Returns: unknown
       }
       geometry_overabove: {
         Args: { geom1: unknown; geom2: unknown }
@@ -5393,10 +5607,6 @@ export type Database = {
         Args: { geom1: unknown; geom2: unknown }
         Returns: boolean
       }
-      geometry_recv: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
       geometry_right: {
         Args: { geom1: unknown; geom2: unknown }
         Returns: boolean
@@ -5409,49 +5619,22 @@ export type Database = {
         Args: { geom1: unknown; geom2: unknown }
         Returns: boolean
       }
-      geometry_send: {
-        Args: { "": unknown }
-        Returns: string
-      }
-      geometry_sortsupport: {
-        Args: { "": unknown }
-        Returns: undefined
-      }
-      geometry_spgist_compress_2d: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      geometry_spgist_compress_3d: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      geometry_spgist_compress_nd: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      geometry_typmod_in: {
-        Args: { "": unknown[] }
-        Returns: number
-      }
-      geometry_typmod_out: {
-        Args: { "": number }
-        Returns: unknown
-      }
       geometry_within: {
         Args: { geom1: unknown; geom2: unknown }
         Returns: boolean
       }
-      geometrytype: {
-        Args: { "": unknown } | { "": unknown }
-        Returns: string
-      }
-      geomfromewkb: {
-        Args: { "": string }
-        Returns: unknown
-      }
-      geomfromewkt: {
-        Args: { "": string }
-        Returns: unknown
+      geomfromewkt: { Args: { "": string }; Returns: unknown }
+      get_active_impact_models: {
+        Args: never
+        Returns: {
+          color_scheme: Json
+          description: string
+          examples: string[]
+          id: number
+          multiplier: number
+          name: string
+          traffic_level: string
+        }[]
       }
       get_available_cities: {
         Args: { p_end_date?: string; p_start_date?: string }
@@ -5461,10 +5644,7 @@ export type Database = {
           screen_count: number
         }[]
       }
-      get_current_user_role: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
+      get_current_user_role: { Args: never; Returns: string }
       get_equipe_stats: {
         Args: { projeto_uuid: string }
         Returns: {
@@ -5504,9 +5684,13 @@ export type Database = {
           total_screens: number
         }[]
       }
-      get_my_role: {
-        Args: Record<PropertyKey, never>
-        Returns: string
+      get_my_role: { Args: never; Returns: string }
+      get_online_users_stats: {
+        Args: never
+        Returns: {
+          sessions_data: Json
+          total_online: number
+        }[]
       }
       get_pending_emails: {
         Args: { p_limit?: number }
@@ -5522,14 +5706,7 @@ export type Database = {
           subject: string
         }[]
       }
-      get_proj4_from_srid: {
-        Args: { "": number }
-        Returns: string
-      }
-      get_proposal_details: {
-        Args: { p_proposal_id: number }
-        Returns: Json
-      }
+      get_proposal_details: { Args: { p_proposal_id: number }; Returns: Json }
       get_proposal_stats: {
         Args: { p_proposal_id: number }
         Returns: {
@@ -5548,88 +5725,48 @@ export type Database = {
           tag: string
         }[]
       }
-      get_user_role: {
-        Args: Record<PropertyKey, never> | { _user_id?: string }
-        Returns: string
+      get_user_role:
+        | { Args: never; Returns: string }
+        | { Args: { _user_id?: string }; Returns: string }
+      get_user_session_history: {
+        Args: { p_user_id?: string }
+        Returns: {
+          duration_minutes: number
+          email: string
+          ended_at: string
+          ended_by: string
+          full_name: string
+          ip_address: unknown
+          started_at: string
+          user_agent: string
+          user_id: string
+        }[]
       }
-      get_venue_details: {
-        Args: { venue_id_in: number }
-        Returns: Json
-      }
-      gettransactionid: {
-        Args: Record<PropertyKey, never>
-        Returns: unknown
-      }
-      gidx_in: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gidx_out: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gtrgm_compress: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gtrgm_decompress: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gtrgm_in: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gtrgm_options: {
-        Args: { "": unknown }
-        Returns: undefined
-      }
-      gtrgm_out: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      has_role: {
-        Args:
-          | { _role: Database["public"]["Enums"]["app_role"]; _user_id: string }
-          | { _role: string; _user_id: string }
-        Returns: boolean
-      }
-      import_from_staging: {
-        Args: Record<PropertyKey, never>
-        Returns: undefined
-      }
-      is_admin: {
-        Args: Record<PropertyKey, never> | { uid: string }
-        Returns: boolean
-      }
-      is_manager: {
-        Args: Record<PropertyKey, never>
-        Returns: boolean
-      }
-      is_manager_or_above: {
-        Args: Record<PropertyKey, never>
-        Returns: boolean
-      }
+      get_venue_details: { Args: { venue_id_in: number }; Returns: Json }
+      gettransactionid: { Args: never; Returns: unknown }
+      has_role:
+        | {
+            Args: {
+              _role: Database["public"]["Enums"]["app_role"]
+              _user_id: string
+            }
+            Returns: boolean
+          }
+        | { Args: { _role: string; _user_id: string }; Returns: boolean }
+      import_from_staging: { Args: never; Returns: undefined }
+      is_admin:
+        | { Args: never; Returns: boolean }
+        | { Args: { uid: string }; Returns: boolean }
+      is_manager: { Args: never; Returns: boolean }
+      is_manager_or_above: { Args: never; Returns: boolean }
       is_screen_free: {
         Args: { in_from: string; in_screen_id: number; in_to: string }
         Returns: boolean
       }
-      is_super_admin: {
-        Args: Record<PropertyKey, never> | { uid: string }
-        Returns: boolean
-      }
-      json: {
-        Args: { "": unknown }
-        Returns: Json
-      }
-      jsonb: {
-        Args: { "": unknown }
-        Returns: Json
-      }
-      jwt_role: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
+      is_super_admin:
+        | { Args: never; Returns: boolean }
+        | { Args: { uid: string }; Returns: boolean }
+      jwt_role: { Args: never; Returns: string }
       list_venue_summaries: {
         Args: { limit_count?: number; offset_count?: number; search?: string }
         Returns: {
@@ -5645,16 +5782,10 @@ export type Database = {
           venue_name: string
         }[]
       }
-      longtransactionsenabled: {
-        Args: Record<PropertyKey, never>
-        Returns: boolean
-      }
-      make_proposal_snapshot: {
-        Args: { p_id: number }
-        Returns: Json
-      }
+      longtransactionsenabled: { Args: never; Returns: boolean }
+      make_proposal_snapshot: { Args: { p_id: number }; Returns: Json }
       my_account: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           avatar_url: string
           display_name: string
@@ -5665,86 +5796,23 @@ export type Database = {
         }[]
       }
       my_identities: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           provider: string
           provider_id: string
         }[]
       }
-      norm_specialty_term: {
-        Args: { p: string }
-        Returns: string
-      }
-      norm_text_imm: {
-        Args: { t: string }
-        Returns: string
-      }
-      norm_txt: {
-        Args: { t: string }
-        Returns: string
-      }
-      norm_uf_br: {
-        Args: { src: string }
-        Returns: string
-      }
-      norm_uf_br_smart: {
-        Args: { src: string }
-        Returns: string
-      }
+      norm_specialty_term: { Args: { p: string }; Returns: string }
+      norm_text_imm: { Args: { t: string }; Returns: string }
+      norm_txt: { Args: { t: string }; Returns: string }
+      norm_uf_br: { Args: { src: string }; Returns: string }
+      norm_uf_br_smart: { Args: { src: string }; Returns: string }
       normalize_medical_specialties: {
         Args: { specialty_text: string }
         Returns: string[]
       }
-      path: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
       period_label: {
         Args: { p_end: string; p_start: string }
-        Returns: string
-      }
-      pgis_asflatgeobuf_finalfn: {
-        Args: { "": unknown }
-        Returns: string
-      }
-      pgis_asgeobuf_finalfn: {
-        Args: { "": unknown }
-        Returns: string
-      }
-      pgis_asmvt_finalfn: {
-        Args: { "": unknown }
-        Returns: string
-      }
-      pgis_asmvt_serialfn: {
-        Args: { "": unknown }
-        Returns: string
-      }
-      pgis_geometry_clusterintersecting_finalfn: {
-        Args: { "": unknown }
-        Returns: unknown[]
-      }
-      pgis_geometry_clusterwithin_finalfn: {
-        Args: { "": unknown }
-        Returns: unknown[]
-      }
-      pgis_geometry_collect_finalfn: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      pgis_geometry_makeline_finalfn: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      pgis_geometry_polygonize_finalfn: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      pgis_geometry_union_parallel_finalfn: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      pgis_geometry_union_parallel_serialfn: {
-        Args: { "": unknown }
         Returns: string
       }
       pick_price_rule: {
@@ -5772,29 +5840,17 @@ export type Database = {
           uplift: number
           venue_id: number | null
         }
+        SetofOptions: {
+          from: "*"
+          to: "price_rules"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
-      point: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      polygon: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      populate_email_logs_missing_fields: {
-        Args: Record<PropertyKey, never>
-        Returns: undefined
-      }
-      populate_geometry_columns: {
-        Args:
-          | { tbl_oid: unknown; use_typmod?: boolean }
-          | { use_typmod?: boolean }
-        Returns: string
-      }
-      postgis_addbbox: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
+      populate_email_logs_missing_fields: { Args: never; Returns: undefined }
+      populate_geometry_columns:
+        | { Args: { tbl_oid: unknown; use_typmod?: boolean }; Returns: number }
+        | { Args: { use_typmod?: boolean }; Returns: string }
       postgis_constraint_dims: {
         Args: { geomcolumn: string; geomschema: string; geomtable: string }
         Returns: number
@@ -5807,90 +5863,21 @@ export type Database = {
         Args: { geomcolumn: string; geomschema: string; geomtable: string }
         Returns: string
       }
-      postgis_dropbbox: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      postgis_extensions_upgrade: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
-      postgis_full_version: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
-      postgis_geos_noop: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      postgis_geos_version: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
-      postgis_getbbox: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      postgis_hasbbox: {
-        Args: { "": unknown }
-        Returns: boolean
-      }
-      postgis_index_supportfn: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      postgis_lib_build_date: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
-      postgis_lib_revision: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
-      postgis_lib_version: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
-      postgis_libjson_version: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
-      postgis_liblwgeom_version: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
-      postgis_libprotobuf_version: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
-      postgis_libxml_version: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
-      postgis_noop: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      postgis_proj_version: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
-      postgis_scripts_build_date: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
-      postgis_scripts_installed: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
-      postgis_scripts_released: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
-      postgis_svn_version: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
+      postgis_extensions_upgrade: { Args: never; Returns: string }
+      postgis_full_version: { Args: never; Returns: string }
+      postgis_geos_version: { Args: never; Returns: string }
+      postgis_lib_build_date: { Args: never; Returns: string }
+      postgis_lib_revision: { Args: never; Returns: string }
+      postgis_lib_version: { Args: never; Returns: string }
+      postgis_libjson_version: { Args: never; Returns: string }
+      postgis_liblwgeom_version: { Args: never; Returns: string }
+      postgis_libprotobuf_version: { Args: never; Returns: string }
+      postgis_libxml_version: { Args: never; Returns: string }
+      postgis_proj_version: { Args: never; Returns: string }
+      postgis_scripts_build_date: { Args: never; Returns: string }
+      postgis_scripts_installed: { Args: never; Returns: string }
+      postgis_scripts_released: { Args: never; Returns: string }
+      postgis_svn_version: { Args: never; Returns: string }
       postgis_type_name: {
         Args: {
           coord_dimension: number
@@ -5899,34 +5886,13 @@ export type Database = {
         }
         Returns: string
       }
-      postgis_typmod_dims: {
-        Args: { "": number }
-        Returns: number
-      }
-      postgis_typmod_srid: {
-        Args: { "": number }
-        Returns: number
-      }
-      postgis_typmod_type: {
-        Args: { "": number }
-        Returns: string
-      }
-      postgis_version: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
-      postgis_wagyu_version: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
+      postgis_version: { Args: never; Returns: string }
+      postgis_wagyu_version: { Args: never; Returns: string }
       promote_to_super_admin: {
         Args: { p_user_id: string }
         Returns: undefined
       }
-      proposal_summary: {
-        Args: { p_id: number }
-        Returns: Json
-      }
+      proposal_summary: { Args: { p_id: number }; Returns: Json }
       quote_price_detailed: {
         Args: {
           city_in: string
@@ -5957,25 +5923,11 @@ export type Database = {
           updated_at: string
         }[]
       }
-      set_limit: {
-        Args: { "": number }
-        Returns: number
-      }
-      show_limit: {
-        Args: Record<PropertyKey, never>
-        Returns: number
-      }
-      show_trgm: {
-        Args: { "": string }
-        Returns: string[]
-      }
-      spheroid_in: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      spheroid_out: {
-        Args: { "": unknown }
-        Returns: unknown
+      show_limit: { Args: never; Returns: number }
+      show_trgm: { Args: { "": string }; Returns: string[] }
+      snapshot_proposta_calculada: {
+        Args: { p_proposal_id: number }
+        Returns: Json
       }
       st_3dclosestpoint: {
         Args: { geom1: unknown; geom2: unknown }
@@ -5989,10 +5941,6 @@ export type Database = {
         Args: { geom1: unknown; geom2: unknown }
         Returns: boolean
       }
-      st_3dlength: {
-        Args: { "": unknown }
-        Returns: number
-      }
       st_3dlongestline: {
         Args: { geom1: unknown; geom2: unknown }
         Returns: unknown
@@ -6005,10 +5953,6 @@ export type Database = {
         Args: { geom1: unknown; geom2: unknown }
         Returns: number
       }
-      st_3dperimeter: {
-        Args: { "": unknown }
-        Returns: number
-      }
       st_3dshortestline: {
         Args: { geom1: unknown; geom2: unknown }
         Returns: unknown
@@ -6017,63 +5961,57 @@ export type Database = {
         Args: { geom1: unknown; geom2: unknown }
         Returns: unknown
       }
-      st_angle: {
-        Args:
-          | { line1: unknown; line2: unknown }
-          | { pt1: unknown; pt2: unknown; pt3: unknown; pt4?: unknown }
-        Returns: number
-      }
-      st_area: {
-        Args:
-          | { "": string }
-          | { "": unknown }
-          | { geog: unknown; use_spheroid?: boolean }
-        Returns: number
-      }
-      st_area2d: {
-        Args: { "": unknown }
-        Returns: number
-      }
-      st_asbinary: {
-        Args: { "": unknown } | { "": unknown }
-        Returns: string
-      }
+      st_angle:
+        | { Args: { line1: unknown; line2: unknown }; Returns: number }
+        | {
+            Args: { pt1: unknown; pt2: unknown; pt3: unknown; pt4?: unknown }
+            Returns: number
+          }
+      st_area:
+        | { Args: { geog: unknown; use_spheroid?: boolean }; Returns: number }
+        | { Args: { "": string }; Returns: number }
       st_asencodedpolyline: {
         Args: { geom: unknown; nprecision?: number }
         Returns: string
       }
-      st_asewkb: {
-        Args: { "": unknown }
-        Returns: string
-      }
-      st_asewkt: {
-        Args: { "": string } | { "": unknown } | { "": unknown }
-        Returns: string
-      }
-      st_asgeojson: {
-        Args:
-          | { "": string }
-          | { geog: unknown; maxdecimaldigits?: number; options?: number }
-          | { geom: unknown; maxdecimaldigits?: number; options?: number }
-          | {
+      st_asewkt: { Args: { "": string }; Returns: string }
+      st_asgeojson:
+        | {
+            Args: { geog: unknown; maxdecimaldigits?: number; options?: number }
+            Returns: string
+          }
+        | {
+            Args: { geom: unknown; maxdecimaldigits?: number; options?: number }
+            Returns: string
+          }
+        | {
+            Args: {
               geom_column?: string
               maxdecimaldigits?: number
               pretty_bool?: boolean
               r: Record<string, unknown>
             }
-        Returns: string
-      }
-      st_asgml: {
-        Args:
-          | { "": string }
-          | {
+            Returns: string
+          }
+        | { Args: { "": string }; Returns: string }
+      st_asgml:
+        | {
+            Args: {
               geog: unknown
               id?: string
               maxdecimaldigits?: number
               nprefix?: string
               options?: number
             }
-          | {
+            Returns: string
+          }
+        | {
+            Args: { geom: unknown; maxdecimaldigits?: number; options?: number }
+            Returns: string
+          }
+        | { Args: { "": string }; Returns: string }
+        | {
+            Args: {
               geog: unknown
               id?: string
               maxdecimaldigits?: number
@@ -6081,7 +6019,10 @@ export type Database = {
               options?: number
               version: number
             }
-          | {
+            Returns: string
+          }
+        | {
+            Args: {
               geom: unknown
               id?: string
               maxdecimaldigits?: number
@@ -6089,28 +6030,23 @@ export type Database = {
               options?: number
               version: number
             }
-          | { geom: unknown; maxdecimaldigits?: number; options?: number }
-        Returns: string
-      }
-      st_ashexewkb: {
-        Args: { "": unknown }
-        Returns: string
-      }
-      st_askml: {
-        Args:
-          | { "": string }
-          | { geog: unknown; maxdecimaldigits?: number; nprefix?: string }
-          | { geom: unknown; maxdecimaldigits?: number; nprefix?: string }
-        Returns: string
-      }
+            Returns: string
+          }
+      st_askml:
+        | {
+            Args: { geog: unknown; maxdecimaldigits?: number; nprefix?: string }
+            Returns: string
+          }
+        | {
+            Args: { geom: unknown; maxdecimaldigits?: number; nprefix?: string }
+            Returns: string
+          }
+        | { Args: { "": string }; Returns: string }
       st_aslatlontext: {
         Args: { geom: unknown; tmpl?: string }
         Returns: string
       }
-      st_asmarc21: {
-        Args: { format?: string; geom: unknown }
-        Returns: string
-      }
+      st_asmarc21: { Args: { format?: string; geom: unknown }; Returns: string }
       st_asmvtgeom: {
         Args: {
           bounds: unknown
@@ -6121,20 +6057,31 @@ export type Database = {
         }
         Returns: unknown
       }
-      st_assvg: {
-        Args:
-          | { "": string }
-          | { geog: unknown; maxdecimaldigits?: number; rel?: number }
-          | { geom: unknown; maxdecimaldigits?: number; rel?: number }
-        Returns: string
-      }
-      st_astext: {
-        Args: { "": string } | { "": unknown } | { "": unknown }
-        Returns: string
-      }
-      st_astwkb: {
-        Args:
-          | {
+      st_assvg:
+        | {
+            Args: { geog: unknown; maxdecimaldigits?: number; rel?: number }
+            Returns: string
+          }
+        | {
+            Args: { geom: unknown; maxdecimaldigits?: number; rel?: number }
+            Returns: string
+          }
+        | { Args: { "": string }; Returns: string }
+      st_astext: { Args: { "": string }; Returns: string }
+      st_astwkb:
+        | {
+            Args: {
+              geom: unknown
+              prec?: number
+              prec_m?: number
+              prec_z?: number
+              with_boxes?: boolean
+              with_sizes?: boolean
+            }
+            Returns: string
+          }
+        | {
+            Args: {
               geom: unknown[]
               ids: number[]
               prec?: number
@@ -6143,52 +6090,29 @@ export type Database = {
               with_boxes?: boolean
               with_sizes?: boolean
             }
-          | {
-              geom: unknown
-              prec?: number
-              prec_m?: number
-              prec_z?: number
-              with_boxes?: boolean
-              with_sizes?: boolean
-            }
-        Returns: string
-      }
+            Returns: string
+          }
       st_asx3d: {
         Args: { geom: unknown; maxdecimaldigits?: number; options?: number }
         Returns: string
       }
-      st_azimuth: {
-        Args:
-          | { geog1: unknown; geog2: unknown }
-          | { geom1: unknown; geom2: unknown }
-        Returns: number
-      }
-      st_boundary: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
+      st_azimuth:
+        | { Args: { geog1: unknown; geog2: unknown }; Returns: number }
+        | { Args: { geom1: unknown; geom2: unknown }; Returns: number }
       st_boundingdiagonal: {
         Args: { fits?: boolean; geom: unknown }
         Returns: unknown
       }
-      st_buffer: {
-        Args:
-          | { geom: unknown; options?: string; radius: number }
-          | { geom: unknown; quadsegs: number; radius: number }
-        Returns: unknown
-      }
-      st_buildarea: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      st_centroid: {
-        Args: { "": string } | { "": unknown }
-        Returns: unknown
-      }
-      st_cleangeometry: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
+      st_buffer:
+        | {
+            Args: { geom: unknown; options?: string; radius: number }
+            Returns: unknown
+          }
+        | {
+            Args: { geom: unknown; quadsegs: number; radius: number }
+            Returns: unknown
+          }
+      st_centroid: { Args: { "": string }; Returns: unknown }
       st_clipbybox2d: {
         Args: { box: unknown; geom: unknown }
         Returns: unknown
@@ -6197,22 +6121,7 @@ export type Database = {
         Args: { geom1: unknown; geom2: unknown }
         Returns: unknown
       }
-      st_clusterintersecting: {
-        Args: { "": unknown[] }
-        Returns: unknown[]
-      }
-      st_collect: {
-        Args: { "": unknown[] } | { geom1: unknown; geom2: unknown }
-        Returns: unknown
-      }
-      st_collectionextract: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      st_collectionhomogenize: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
+      st_collect: { Args: { geom1: unknown; geom2: unknown }; Returns: unknown }
       st_concavehull: {
         Args: {
           param_allow_holes?: boolean
@@ -6229,30 +6138,14 @@ export type Database = {
         Args: { geom1: unknown; geom2: unknown }
         Returns: boolean
       }
-      st_convexhull: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      st_coorddim: {
-        Args: { geometry: unknown }
-        Returns: number
-      }
-      st_coveredby: {
-        Args:
-          | { geog1: unknown; geog2: unknown }
-          | { geom1: unknown; geom2: unknown }
-        Returns: boolean
-      }
-      st_covers: {
-        Args:
-          | { geog1: unknown; geog2: unknown }
-          | { geom1: unknown; geom2: unknown }
-        Returns: boolean
-      }
-      st_crosses: {
-        Args: { geom1: unknown; geom2: unknown }
-        Returns: boolean
-      }
+      st_coorddim: { Args: { geometry: unknown }; Returns: number }
+      st_coveredby:
+        | { Args: { geog1: unknown; geog2: unknown }; Returns: boolean }
+        | { Args: { geom1: unknown; geom2: unknown }; Returns: boolean }
+      st_covers:
+        | { Args: { geog1: unknown; geog2: unknown }; Returns: boolean }
+        | { Args: { geom1: unknown; geom2: unknown }; Returns: boolean }
+      st_crosses: { Args: { geom1: unknown; geom2: unknown }; Returns: boolean }
       st_curvetoline: {
         Args: { flags?: number; geom: unknown; tol?: number; toltype?: number }
         Returns: unknown
@@ -6265,45 +6158,25 @@ export type Database = {
         Args: { geom1: unknown; geom2: unknown; gridsize?: number }
         Returns: unknown
       }
-      st_dimension: {
-        Args: { "": unknown }
-        Returns: number
-      }
       st_disjoint: {
         Args: { geom1: unknown; geom2: unknown }
         Returns: boolean
       }
-      st_distance: {
-        Args:
-          | { geog1: unknown; geog2: unknown; use_spheroid?: boolean }
-          | { geom1: unknown; geom2: unknown }
-        Returns: number
-      }
-      st_distancesphere: {
-        Args:
-          | { geom1: unknown; geom2: unknown }
-          | { geom1: unknown; geom2: unknown; radius: number }
-        Returns: number
-      }
+      st_distance:
+        | {
+            Args: { geog1: unknown; geog2: unknown; use_spheroid?: boolean }
+            Returns: number
+          }
+        | { Args: { geom1: unknown; geom2: unknown }; Returns: number }
+      st_distancesphere:
+        | { Args: { geom1: unknown; geom2: unknown }; Returns: number }
+        | {
+            Args: { geom1: unknown; geom2: unknown; radius: number }
+            Returns: number
+          }
       st_distancespheroid: {
         Args: { geom1: unknown; geom2: unknown }
         Returns: number
-      }
-      st_dump: {
-        Args: { "": unknown }
-        Returns: Database["public"]["CompositeTypes"]["geometry_dump"][]
-      }
-      st_dumppoints: {
-        Args: { "": unknown }
-        Returns: Database["public"]["CompositeTypes"]["geometry_dump"][]
-      }
-      st_dumprings: {
-        Args: { "": unknown }
-        Returns: Database["public"]["CompositeTypes"]["geometry_dump"][]
-      }
-      st_dumpsegments: {
-        Args: { "": unknown }
-        Returns: Database["public"]["CompositeTypes"]["geometry_dump"][]
       }
       st_dwithin: {
         Args: {
@@ -6314,41 +6187,24 @@ export type Database = {
         }
         Returns: boolean
       }
-      st_endpoint: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      st_envelope: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      st_equals: {
-        Args: { geom1: unknown; geom2: unknown }
-        Returns: boolean
-      }
-      st_expand: {
-        Args:
-          | { box: unknown; dx: number; dy: number }
-          | { box: unknown; dx: number; dy: number; dz?: number }
-          | { dm?: number; dx: number; dy: number; dz?: number; geom: unknown }
-        Returns: unknown
-      }
-      st_exteriorring: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      st_flipcoordinates: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      st_force2d: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      st_force3d: {
-        Args: { geom: unknown; zvalue?: number }
-        Returns: unknown
-      }
+      st_equals: { Args: { geom1: unknown; geom2: unknown }; Returns: boolean }
+      st_expand:
+        | { Args: { box: unknown; dx: number; dy: number }; Returns: unknown }
+        | {
+            Args: { box: unknown; dx: number; dy: number; dz?: number }
+            Returns: unknown
+          }
+        | {
+            Args: {
+              dm?: number
+              dx: number
+              dy: number
+              dz?: number
+              geom: unknown
+            }
+            Returns: unknown
+          }
+      st_force3d: { Args: { geom: unknown; zvalue?: number }; Returns: unknown }
       st_force3dm: {
         Args: { geom: unknown; mvalue?: number }
         Returns: unknown
@@ -6361,62 +6217,18 @@ export type Database = {
         Args: { geom: unknown; mvalue?: number; zvalue?: number }
         Returns: unknown
       }
-      st_forcecollection: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      st_forcecurve: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      st_forcepolygonccw: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      st_forcepolygoncw: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      st_forcerhr: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      st_forcesfs: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      st_generatepoints: {
-        Args:
-          | { area: unknown; npoints: number }
-          | { area: unknown; npoints: number; seed: number }
-        Returns: unknown
-      }
-      st_geogfromtext: {
-        Args: { "": string }
-        Returns: unknown
-      }
-      st_geogfromwkb: {
-        Args: { "": string }
-        Returns: unknown
-      }
-      st_geographyfromtext: {
-        Args: { "": string }
-        Returns: unknown
-      }
-      st_geohash: {
-        Args:
-          | { geog: unknown; maxchars?: number }
-          | { geom: unknown; maxchars?: number }
-        Returns: string
-      }
-      st_geomcollfromtext: {
-        Args: { "": string }
-        Returns: unknown
-      }
-      st_geomcollfromwkb: {
-        Args: { "": string }
-        Returns: unknown
-      }
+      st_generatepoints:
+        | { Args: { area: unknown; npoints: number }; Returns: unknown }
+        | {
+            Args: { area: unknown; npoints: number; seed: number }
+            Returns: unknown
+          }
+      st_geogfromtext: { Args: { "": string }; Returns: unknown }
+      st_geographyfromtext: { Args: { "": string }; Returns: unknown }
+      st_geohash:
+        | { Args: { geog: unknown; maxchars?: number }; Returns: string }
+        | { Args: { geom: unknown; maxchars?: number }; Returns: string }
+      st_geomcollfromtext: { Args: { "": string }; Returns: unknown }
       st_geometricmedian: {
         Args: {
           fail_if_not_converged?: boolean
@@ -6426,58 +6238,18 @@ export type Database = {
         }
         Returns: unknown
       }
-      st_geometryfromtext: {
-        Args: { "": string }
-        Returns: unknown
-      }
-      st_geometrytype: {
-        Args: { "": unknown }
-        Returns: string
-      }
-      st_geomfromewkb: {
-        Args: { "": string }
-        Returns: unknown
-      }
-      st_geomfromewkt: {
-        Args: { "": string }
-        Returns: unknown
-      }
-      st_geomfromgeojson: {
-        Args: { "": Json } | { "": Json } | { "": string }
-        Returns: unknown
-      }
-      st_geomfromgml: {
-        Args: { "": string }
-        Returns: unknown
-      }
-      st_geomfromkml: {
-        Args: { "": string }
-        Returns: unknown
-      }
-      st_geomfrommarc21: {
-        Args: { marc21xml: string }
-        Returns: unknown
-      }
-      st_geomfromtext: {
-        Args: { "": string }
-        Returns: unknown
-      }
-      st_geomfromtwkb: {
-        Args: { "": string }
-        Returns: unknown
-      }
-      st_geomfromwkb: {
-        Args: { "": string }
-        Returns: unknown
-      }
-      st_gmltosql: {
-        Args: { "": string }
-        Returns: unknown
-      }
-      st_hasarc: {
-        Args: { geometry: unknown }
-        Returns: boolean
-      }
+      st_geometryfromtext: { Args: { "": string }; Returns: unknown }
+      st_geomfromewkt: { Args: { "": string }; Returns: unknown }
+      st_geomfromgeojson:
+        | { Args: { "": Json }; Returns: unknown }
+        | { Args: { "": Json }; Returns: unknown }
+        | { Args: { "": string }; Returns: unknown }
+      st_geomfromgml: { Args: { "": string }; Returns: unknown }
+      st_geomfromkml: { Args: { "": string }; Returns: unknown }
+      st_geomfrommarc21: { Args: { marc21xml: string }; Returns: unknown }
+      st_geomfromtext: { Args: { "": string }; Returns: unknown }
+      st_gmltosql: { Args: { "": string }; Returns: unknown }
+      st_hasarc: { Args: { geometry: unknown }; Returns: boolean }
       st_hausdorffdistance: {
         Args: { geom1: unknown; geom2: unknown }
         Returns: number
@@ -6498,71 +6270,23 @@ export type Database = {
         Args: { geom1: unknown; geom2: unknown; gridsize?: number }
         Returns: unknown
       }
-      st_intersects: {
-        Args:
-          | { geog1: unknown; geog2: unknown }
-          | { geom1: unknown; geom2: unknown }
-        Returns: boolean
-      }
-      st_isclosed: {
-        Args: { "": unknown }
-        Returns: boolean
-      }
-      st_iscollection: {
-        Args: { "": unknown }
-        Returns: boolean
-      }
-      st_isempty: {
-        Args: { "": unknown }
-        Returns: boolean
-      }
-      st_ispolygonccw: {
-        Args: { "": unknown }
-        Returns: boolean
-      }
-      st_ispolygoncw: {
-        Args: { "": unknown }
-        Returns: boolean
-      }
-      st_isring: {
-        Args: { "": unknown }
-        Returns: boolean
-      }
-      st_issimple: {
-        Args: { "": unknown }
-        Returns: boolean
-      }
-      st_isvalid: {
-        Args: { "": unknown }
-        Returns: boolean
-      }
+      st_intersects:
+        | { Args: { geog1: unknown; geog2: unknown }; Returns: boolean }
+        | { Args: { geom1: unknown; geom2: unknown }; Returns: boolean }
       st_isvaliddetail: {
         Args: { flags?: number; geom: unknown }
         Returns: Database["public"]["CompositeTypes"]["valid_detail"]
+        SetofOptions: {
+          from: "*"
+          to: "valid_detail"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
-      st_isvalidreason: {
-        Args: { "": unknown }
-        Returns: string
-      }
-      st_isvalidtrajectory: {
-        Args: { "": unknown }
-        Returns: boolean
-      }
-      st_length: {
-        Args:
-          | { "": string }
-          | { "": unknown }
-          | { geog: unknown; use_spheroid?: boolean }
-        Returns: number
-      }
-      st_length2d: {
-        Args: { "": unknown }
-        Returns: number
-      }
-      st_letters: {
-        Args: { font?: Json; letters: string }
-        Returns: unknown
-      }
+      st_length:
+        | { Args: { geog: unknown; use_spheroid?: boolean }; Returns: number }
+        | { Args: { "": string }; Returns: number }
+      st_letters: { Args: { font?: Json; letters: string }; Returns: unknown }
       st_linecrossingdirection: {
         Args: { line1: unknown; line2: unknown }
         Returns: number
@@ -6571,34 +6295,12 @@ export type Database = {
         Args: { nprecision?: number; txtin: string }
         Returns: unknown
       }
-      st_linefrommultipoint: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      st_linefromtext: {
-        Args: { "": string }
-        Returns: unknown
-      }
-      st_linefromwkb: {
-        Args: { "": string }
-        Returns: unknown
-      }
+      st_linefromtext: { Args: { "": string }; Returns: unknown }
       st_linelocatepoint: {
         Args: { geom1: unknown; geom2: unknown }
         Returns: number
       }
-      st_linemerge: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      st_linestringfromwkb: {
-        Args: { "": string }
-        Returns: unknown
-      }
-      st_linetocurve: {
-        Args: { geometry: unknown }
-        Returns: unknown
-      }
+      st_linetocurve: { Args: { geometry: unknown }; Returns: unknown }
       st_locatealong: {
         Args: { geometry: unknown; leftrightoffset?: number; measure: number }
         Returns: unknown
@@ -6620,146 +6322,34 @@ export type Database = {
         Args: { geom1: unknown; geom2: unknown }
         Returns: unknown
       }
-      st_m: {
-        Args: { "": unknown }
-        Returns: number
-      }
       st_makebox2d: {
         Args: { geom1: unknown; geom2: unknown }
         Returns: unknown
       }
       st_makeline: {
-        Args: { "": unknown[] } | { geom1: unknown; geom2: unknown }
-        Returns: unknown
-      }
-      st_makepolygon: {
-        Args: { "": unknown }
+        Args: { geom1: unknown; geom2: unknown }
         Returns: unknown
       }
       st_makevalid: {
-        Args: { "": unknown } | { geom: unknown; params: string }
+        Args: { geom: unknown; params: string }
         Returns: unknown
       }
       st_maxdistance: {
         Args: { geom1: unknown; geom2: unknown }
         Returns: number
       }
-      st_maximuminscribedcircle: {
-        Args: { "": unknown }
-        Returns: Record<string, unknown>
-      }
-      st_memsize: {
-        Args: { "": unknown }
-        Returns: number
-      }
       st_minimumboundingcircle: {
         Args: { inputgeom: unknown; segs_per_quarter?: number }
         Returns: unknown
       }
-      st_minimumboundingradius: {
-        Args: { "": unknown }
-        Returns: Record<string, unknown>
-      }
-      st_minimumclearance: {
-        Args: { "": unknown }
-        Returns: number
-      }
-      st_minimumclearanceline: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      st_mlinefromtext: {
-        Args: { "": string }
-        Returns: unknown
-      }
-      st_mlinefromwkb: {
-        Args: { "": string }
-        Returns: unknown
-      }
-      st_mpointfromtext: {
-        Args: { "": string }
-        Returns: unknown
-      }
-      st_mpointfromwkb: {
-        Args: { "": string }
-        Returns: unknown
-      }
-      st_mpolyfromtext: {
-        Args: { "": string }
-        Returns: unknown
-      }
-      st_mpolyfromwkb: {
-        Args: { "": string }
-        Returns: unknown
-      }
-      st_multi: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      st_multilinefromwkb: {
-        Args: { "": string }
-        Returns: unknown
-      }
-      st_multilinestringfromtext: {
-        Args: { "": string }
-        Returns: unknown
-      }
-      st_multipointfromtext: {
-        Args: { "": string }
-        Returns: unknown
-      }
-      st_multipointfromwkb: {
-        Args: { "": string }
-        Returns: unknown
-      }
-      st_multipolyfromwkb: {
-        Args: { "": string }
-        Returns: unknown
-      }
-      st_multipolygonfromtext: {
-        Args: { "": string }
-        Returns: unknown
-      }
-      st_ndims: {
-        Args: { "": unknown }
-        Returns: number
-      }
-      st_node: {
-        Args: { g: unknown }
-        Returns: unknown
-      }
-      st_normalize: {
-        Args: { geom: unknown }
-        Returns: unknown
-      }
-      st_npoints: {
-        Args: { "": unknown }
-        Returns: number
-      }
-      st_nrings: {
-        Args: { "": unknown }
-        Returns: number
-      }
-      st_numgeometries: {
-        Args: { "": unknown }
-        Returns: number
-      }
-      st_numinteriorring: {
-        Args: { "": unknown }
-        Returns: number
-      }
-      st_numinteriorrings: {
-        Args: { "": unknown }
-        Returns: number
-      }
-      st_numpatches: {
-        Args: { "": unknown }
-        Returns: number
-      }
-      st_numpoints: {
-        Args: { "": unknown }
-        Returns: number
-      }
+      st_mlinefromtext: { Args: { "": string }; Returns: unknown }
+      st_mpointfromtext: { Args: { "": string }; Returns: unknown }
+      st_mpolyfromtext: { Args: { "": string }; Returns: unknown }
+      st_multilinestringfromtext: { Args: { "": string }; Returns: unknown }
+      st_multipointfromtext: { Args: { "": string }; Returns: unknown }
+      st_multipolygonfromtext: { Args: { "": string }; Returns: unknown }
+      st_node: { Args: { g: unknown }; Returns: unknown }
+      st_normalize: { Args: { geom: unknown }; Returns: unknown }
       st_offsetcurve: {
         Args: { distance: number; line: unknown; params?: string }
         Returns: unknown
@@ -6768,30 +6358,15 @@ export type Database = {
         Args: { geom1: unknown; geom2: unknown }
         Returns: boolean
       }
-      st_orientedenvelope: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
       st_overlaps: {
         Args: { geom1: unknown; geom2: unknown }
         Returns: boolean
       }
       st_perimeter: {
-        Args: { "": unknown } | { geog: unknown; use_spheroid?: boolean }
+        Args: { geog: unknown; use_spheroid?: boolean }
         Returns: number
       }
-      st_perimeter2d: {
-        Args: { "": unknown }
-        Returns: number
-      }
-      st_pointfromtext: {
-        Args: { "": string }
-        Returns: unknown
-      }
-      st_pointfromwkb: {
-        Args: { "": string }
-        Returns: unknown
-      }
+      st_pointfromtext: { Args: { "": string }; Returns: unknown }
       st_pointm: {
         Args: {
           mcoordinate: number
@@ -6799,14 +6374,6 @@ export type Database = {
           xcoordinate: number
           ycoordinate: number
         }
-        Returns: unknown
-      }
-      st_pointonsurface: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      st_points: {
-        Args: { "": unknown }
         Returns: unknown
       }
       st_pointz: {
@@ -6828,26 +6395,8 @@ export type Database = {
         }
         Returns: unknown
       }
-      st_polyfromtext: {
-        Args: { "": string }
-        Returns: unknown
-      }
-      st_polyfromwkb: {
-        Args: { "": string }
-        Returns: unknown
-      }
-      st_polygonfromtext: {
-        Args: { "": string }
-        Returns: unknown
-      }
-      st_polygonfromwkb: {
-        Args: { "": string }
-        Returns: unknown
-      }
-      st_polygonize: {
-        Args: { "": unknown[] }
-        Returns: unknown
-      }
+      st_polyfromtext: { Args: { "": string }; Returns: unknown }
+      st_polygonfromtext: { Args: { "": string }; Returns: unknown }
       st_project: {
         Args: { azimuth: number; distance: number; geog: unknown }
         Returns: unknown
@@ -6866,32 +6415,20 @@ export type Database = {
         Args: { geom: unknown; gridsize: number }
         Returns: unknown
       }
-      st_relate: {
-        Args: { geom1: unknown; geom2: unknown }
-        Returns: string
-      }
+      st_relate: { Args: { geom1: unknown; geom2: unknown }; Returns: string }
       st_removerepeatedpoints: {
         Args: { geom: unknown; tolerance?: number }
-        Returns: unknown
-      }
-      st_reverse: {
-        Args: { "": unknown }
         Returns: unknown
       }
       st_segmentize: {
         Args: { geog: unknown; max_segment_length: number }
         Returns: unknown
       }
-      st_setsrid: {
-        Args: { geog: unknown; srid: number } | { geom: unknown; srid: number }
-        Returns: unknown
-      }
+      st_setsrid:
+        | { Args: { geog: unknown; srid: number }; Returns: unknown }
+        | { Args: { geom: unknown; srid: number }; Returns: unknown }
       st_sharedpaths: {
         Args: { geom1: unknown; geom2: unknown }
-        Returns: unknown
-      }
-      st_shiftlongitude: {
-        Args: { "": unknown }
         Returns: unknown
       }
       st_shortestline: {
@@ -6902,10 +6439,7 @@ export type Database = {
         Args: { geom: unknown; is_outer?: boolean; vertex_fraction: number }
         Returns: unknown
       }
-      st_split: {
-        Args: { geom1: unknown; geom2: unknown }
-        Returns: unknown
-      }
+      st_split: { Args: { geom1: unknown; geom2: unknown }; Returns: unknown }
       st_square: {
         Args: { cell_i: number; cell_j: number; origin?: unknown; size: number }
         Returns: unknown
@@ -6914,21 +6448,12 @@ export type Database = {
         Args: { bounds: unknown; size: number }
         Returns: Record<string, unknown>[]
       }
-      st_srid: {
-        Args: { geog: unknown } | { geom: unknown }
-        Returns: number
-      }
-      st_startpoint: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
+      st_srid:
+        | { Args: { geog: unknown }; Returns: number }
+        | { Args: { geom: unknown }; Returns: number }
       st_subdivide: {
         Args: { geom: unknown; gridsize?: number; maxvertices?: number }
         Returns: unknown[]
-      }
-      st_summary: {
-        Args: { "": unknown } | { "": unknown }
-        Returns: string
       }
       st_swapordinates: {
         Args: { geom: unknown; ords: unknown }
@@ -6952,28 +6477,24 @@ export type Database = {
         }
         Returns: unknown
       }
-      st_touches: {
-        Args: { geom1: unknown; geom2: unknown }
-        Returns: boolean
-      }
-      st_transform: {
-        Args:
-          | { from_proj: string; geom: unknown; to_proj: string }
-          | { from_proj: string; geom: unknown; to_srid: number }
-          | { geom: unknown; to_proj: string }
-        Returns: unknown
-      }
-      st_triangulatepolygon: {
-        Args: { g1: unknown }
-        Returns: unknown
-      }
-      st_union: {
-        Args:
-          | { "": unknown[] }
-          | { geom1: unknown; geom2: unknown }
-          | { geom1: unknown; geom2: unknown; gridsize: number }
-        Returns: unknown
-      }
+      st_touches: { Args: { geom1: unknown; geom2: unknown }; Returns: boolean }
+      st_transform:
+        | {
+            Args: { from_proj: string; geom: unknown; to_proj: string }
+            Returns: unknown
+          }
+        | {
+            Args: { from_proj: string; geom: unknown; to_srid: number }
+            Returns: unknown
+          }
+        | { Args: { geom: unknown; to_proj: string }; Returns: unknown }
+      st_triangulatepolygon: { Args: { g1: unknown }; Returns: unknown }
+      st_union:
+        | { Args: { geom1: unknown; geom2: unknown }; Returns: unknown }
+        | {
+            Args: { geom1: unknown; geom2: unknown; gridsize: number }
+            Returns: unknown
+          }
       st_voronoilines: {
         Args: { extend_to?: unknown; g1: unknown; tolerance?: number }
         Returns: unknown
@@ -6982,82 +6503,16 @@ export type Database = {
         Args: { extend_to?: unknown; g1: unknown; tolerance?: number }
         Returns: unknown
       }
-      st_within: {
-        Args: { geom1: unknown; geom2: unknown }
-        Returns: boolean
-      }
-      st_wkbtosql: {
-        Args: { wkb: string }
-        Returns: unknown
-      }
-      st_wkttosql: {
-        Args: { "": string }
-        Returns: unknown
-      }
+      st_within: { Args: { geom1: unknown; geom2: unknown }; Returns: boolean }
+      st_wkbtosql: { Args: { wkb: string }; Returns: unknown }
+      st_wkttosql: { Args: { "": string }; Returns: unknown }
       st_wrapx: {
         Args: { geom: unknown; move: number; wrap: number }
         Returns: unknown
       }
-      st_x: {
-        Args: { "": unknown }
-        Returns: number
-      }
-      st_xmax: {
-        Args: { "": unknown }
-        Returns: number
-      }
-      st_xmin: {
-        Args: { "": unknown }
-        Returns: number
-      }
-      st_y: {
-        Args: { "": unknown }
-        Returns: number
-      }
-      st_ymax: {
-        Args: { "": unknown }
-        Returns: number
-      }
-      st_ymin: {
-        Args: { "": unknown }
-        Returns: number
-      }
-      st_z: {
-        Args: { "": unknown }
-        Returns: number
-      }
-      st_zmax: {
-        Args: { "": unknown }
-        Returns: number
-      }
-      st_zmflag: {
-        Args: { "": unknown }
-        Returns: number
-      }
-      st_zmin: {
-        Args: { "": unknown }
-        Returns: number
-      }
-      strip_braces_quotes: {
-        Args: { t: string }
-        Returns: string
-      }
-      text: {
-        Args: { "": unknown }
-        Returns: string
-      }
-      unaccent: {
-        Args: { "": string }
-        Returns: string
-      }
-      unaccent_init: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      unlockrows: {
-        Args: { "": string }
-        Returns: number
-      }
+      strip_braces_quotes: { Args: { t: string }; Returns: string }
+      unaccent: { Args: { "": string }; Returns: string }
+      unlockrows: { Args: { "": string }; Returns: number }
       update_email_status: {
         Args: { p_error_message?: string; p_log_id: number; p_status: string }
         Returns: boolean
@@ -7068,6 +6523,10 @@ export type Database = {
           p_notes?: string
           p_proposal_id: number
         }
+        Returns: boolean
+      }
+      update_user_last_seen: {
+        Args: { p_session_token: string }
         Returns: boolean
       }
       updategeometrysrid: {
@@ -7109,12 +6568,12 @@ export type Database = {
     CompositeTypes: {
       geometry_dump: {
         path: number[] | null
-        geom: unknown | null
+        geom: unknown
       }
       valid_detail: {
         valid: boolean | null
         reason: string | null
-        location: unknown | null
+        location: unknown
       }
     }
   }

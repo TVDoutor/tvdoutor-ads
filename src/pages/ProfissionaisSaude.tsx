@@ -45,6 +45,7 @@ import {
 } from 'lucide-react';
 import { ProfissionalFormDialog } from '@/components/profissionais/ProfissionalFormDialog';
 import { ProfissionalVinculoDialog } from '@/components/profissionais/ProfissionalVinculoDialog';
+import { DashboardLayout } from '@/components/DashboardLayout';
 
 export default function ProfissionaisSaude() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -92,40 +93,45 @@ export default function ProfissionaisSaude() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 p-6">
-        <Card>
-          <CardContent className="flex items-center justify-center p-12">
-            <RefreshCw className="h-6 w-6 animate-spin mr-2" />
-            <span>Carregando profissionais...</span>
-          </CardContent>
-        </Card>
-      </div>
+      <DashboardLayout>
+        <div className="min-h-screen bg-gray-50 p-6">
+          <Card>
+            <CardContent className="flex items-center justify-center p-12">
+              <RefreshCw className="h-6 w-6 animate-spin mr-2" />
+              <span>Carregando profissionais...</span>
+            </CardContent>
+          </Card>
+        </div>
+      </DashboardLayout>
     );
   }
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-50 p-6">
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center gap-2 text-red-600 mb-2">
-              <AlertCircle className="h-5 w-5" />
-              <span className="font-medium">Erro ao carregar profissionais</span>
-            </div>
-            <p className="text-red-600 text-sm mb-4">{(error as Error).message}</p>
-            <Button onClick={() => refetch()}>
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Tentar Novamente
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
+      <DashboardLayout>
+        <div className="min-h-screen bg-gray-50 p-6">
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center gap-2 text-red-600 mb-2">
+                <AlertCircle className="h-5 w-5" />
+                <span className="font-medium">Erro ao carregar profissionais</span>
+              </div>
+              <p className="text-red-600 text-sm mb-4">{(error as Error).message}</p>
+              <Button onClick={() => refetch()}>
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Tentar Novamente
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </DashboardLayout>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="p-6 space-y-6">
+    <DashboardLayout>
+      <div className="min-h-screen bg-gray-50">
+        <div className="p-6 space-y-6">
         {/* Header */}
         <div>
           <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
@@ -338,6 +344,7 @@ export default function ProfissionaisSaude() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+      </div>
+    </DashboardLayout>
   );
 }

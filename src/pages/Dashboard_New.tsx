@@ -19,6 +19,29 @@ const Dashboard_New = () => {
   const { profile } = useAuth();
   const { data: stats, isLoading: loading } = useDashboardStatsWithFallback();
 
+  // Formata o nome para exibir Nome + Sobrenome com primeira letra maiúscula
+  const formatName = (name: string | undefined) => {
+    if (!name) return 'Usuário';
+    
+    // Se for um email ou username, tenta extrair o nome
+    if (name.includes('@') || name.includes('.')) {
+      const parts = name.split(/[@.]/);
+      const firstName = parts[0] || '';
+      const lastName = parts[1] || '';
+      return `${capitalize(firstName)} ${capitalize(lastName)}`.trim();
+    }
+    
+    // Se já for um nome completo, apenas capitaliza
+    return name.split(' ').map(capitalize).join(' ');
+  };
+
+  const capitalize = (str: string) => {
+    if (!str) return '';
+    return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
+  };
+
+  const displayName = formatName(profile?.name || profile?.email);
+
   const quickActions = [
     { icon: Monitor, label: "Inventário", path: "/inventory", color: "text-orange-600 bg-orange-50" },
     { icon: BarChart3, label: "Relatórios", path: "/reports", color: "text-orange-600 bg-orange-50" },
@@ -49,7 +72,7 @@ const Dashboard_New = () => {
               <div>
                 <p className="text-white/90 text-sm font-medium">BEM-VINDO,</p>
                 <h1 className="text-white text-3xl md:text-4xl font-bold mt-1">
-                  {profile?.name || 'Usuário'}
+                  {displayName}
                 </h1>
               </div>
               <Badge className="bg-green-500/20 text-white border-green-400/50 backdrop-blur-sm px-4 py-2">

@@ -143,7 +143,10 @@ export default function ProfissionaisSaude() {
           }}
           actions={
             <Button
-              onClick={handleNew}
+              onClick={() => {
+                setSelectedProfissional(null);
+                setIsFormOpen(true);
+              }}
               className="bg-white text-[#f48220] hover:bg-white/90 shadow-xl hover:shadow-2xl transition-all rounded-2xl font-bold"
             >
               <Plus className="h-5 w-5 mr-2" />

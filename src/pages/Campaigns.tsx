@@ -467,57 +467,57 @@ export default function Campaigns() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
           {/* Stats Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-blue-800">Total</p>
-                    <p className="text-2xl font-bold text-blue-900">{campaigns.length}</p>
+            <Card className="bg-white border-0 shadow-lg hover:shadow-2xl transition-all hover:-translate-y-1 rounded-2xl">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="p-3 bg-blue-50 rounded-xl">
+                    <Target className="h-6 w-6 text-blue-600" />
                   </div>
-                  <Target className="h-8 w-8 text-blue-600" />
                 </div>
+                <h3 className="text-gray-600 text-sm font-medium">Total</h3>
+                <p className="text-3xl font-bold text-gray-900 mt-2">{campaigns.length}</p>
               </CardContent>
             </Card>
             
-            <Card className="bg-gradient-to-br from-green-50 to-green-100 border-green-200">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-green-800">Ativas</p>
-                    <p className="text-2xl font-bold text-green-900">
-                      {campaigns.filter(c => c.status === 'active').length}
-                    </p>
+            <Card className="bg-white border-0 shadow-lg hover:shadow-2xl transition-all hover:-translate-y-1 rounded-2xl">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="p-3 bg-green-50 rounded-xl">
+                    <PlayCircle className="h-6 w-6 text-green-600" />
                   </div>
-                  <PlayCircle className="h-8 w-8 text-green-600" />
                 </div>
+                <h3 className="text-gray-600 text-sm font-medium">Ativas</h3>
+                <p className="text-3xl font-bold text-gray-900 mt-2">
+                  {campaigns.filter(c => c.status === 'active').length}
+                </p>
               </CardContent>
             </Card>
             
-            <Card className="bg-gradient-to-br from-yellow-50 to-yellow-100 border-yellow-200">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-yellow-800">Pausadas</p>
-                    <p className="text-2xl font-bold text-yellow-900">
-                      {campaigns.filter(c => c.status === 'paused').length}
-                    </p>
+            <Card className="bg-white border-0 shadow-lg hover:shadow-2xl transition-all hover:-translate-y-1 rounded-2xl">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="p-3 bg-yellow-50 rounded-xl">
+                    <PauseCircle className="h-6 w-6 text-yellow-600" />
                   </div>
-                  <PauseCircle className="h-8 w-8 text-yellow-600" />
                 </div>
+                <h3 className="text-gray-600 text-sm font-medium">Pausadas</h3>
+                <p className="text-3xl font-bold text-gray-900 mt-2">
+                  {campaigns.filter(c => c.status === 'paused').length}
+                </p>
               </CardContent>
             </Card>
             
-            <Card className="bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-purple-800">Concluídas</p>
-                    <p className="text-2xl font-bold text-purple-900">
-                      {campaigns.filter(c => c.status === 'completed').length}
-                    </p>
+            <Card className="bg-white border-0 shadow-lg hover:shadow-2xl transition-all hover:-translate-y-1 rounded-2xl">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="p-3 bg-purple-50 rounded-xl">
+                    <CheckCircle2 className="h-6 w-6 text-purple-600" />
                   </div>
-                  <CheckCircle2 className="h-8 w-8 text-purple-600" />
                 </div>
+                <h3 className="text-gray-600 text-sm font-medium">Concluídas</h3>
+                <p className="text-3xl font-bold text-gray-900 mt-2">
+                  {campaigns.filter(c => c.status === 'completed').length}
+                </p>
               </CardContent>
             </Card>
           </div>

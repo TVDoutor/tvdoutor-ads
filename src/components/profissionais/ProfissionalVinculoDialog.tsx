@@ -62,17 +62,33 @@ export function ProfissionalVinculoDialog({ profissional, open, onClose }: Profi
   const desvincularMutation = useDesvincularProfissionalVenue();
 
   // Buscar todos os venues
-  const { data: venues, isLoading: loadingVenues } = useQuery({
+  const { data: venues, isLoading: loadingVenues, error: venuesError } = useQuery({
     queryKey: ['venues'],
     queryFn: async () => {
+      console.log('🔍 Buscando venues...');
       const { data, error } = await supabase
         .from('venues')
-        .select('id, name, city, state')
+        .select('id, name, cidade, state')
         .order('name', { ascending: true });
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Erro ao buscar venues:', error);
+        throw error;
+      }
+      
+      console.log('✅ Venues carregados:', data?.length || 0, 'registros');
+      console.log('📋 Venues:', data);
       return data || [];
     }
+  });
+
+  // Debug: Log dos venues e vínculos
+  console.log('🔍 Debug Venues:', {
+    venues: venues?.length || 0,
+    vinculos: vinculos?.length || 0,
+    loadingVenues,
+    loadingVinculos,
+    venuesError: venuesError?.message
   });
 
   const handleVincular = async () => {
@@ -99,6 +115,14 @@ export function ProfissionalVinculoDialog({ profissional, open, onClose }: Profi
   const venuesDisponiveis = venues?.filter(
     venue => !vinculos?.some(v => v.venue_id === venue.id)
   );
+
+  // Debug: Log dos venues disponíveis após filtro
+  console.log('🎯 Venues Disponíveis após filtro:', {
+    total: venues?.length || 0,
+    vinculados: vinculos?.length || 0,
+    disponiveis: venuesDisponiveis?.length || 0,
+    venuesDisponiveis
+  });
 
   return (
     <>
@@ -132,7 +156,7 @@ export function ProfissionalVinculoDialog({ profissional, open, onClose }: Profi
                   <SelectContent>
                     {venuesDisponiveis?.map(venue => (
                       <SelectItem key={venue.id} value={venue.id.toString()}>
-                        {venue.name} - {venue.city}/{venue.state}
+                        {venue.name} - {venue.cidade}/{venue.state}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -192,7 +216,7 @@ export function ProfissionalVinculoDialog({ profissional, open, onClose }: Profi
                           <MapPin className="h-4 w-4 text-gray-400" />
                           <h4 className="font-medium">{vinculo.venues?.name}</h4>
                           <Badge variant="outline">
-                            {vinculo.venues?.city}/{vinculo.venues?.state}
+                            {vinculo.venues?.cidade}/{vinculo.venues?.state}
                           </Badge>
                         </div>
 

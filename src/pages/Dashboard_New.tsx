@@ -12,7 +12,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useDashboardStatsWithFallback } from "@/hooks/useDashboardStats";
 import { RecentProposals } from "@/components/RecentProposals";
-import { AlertsCenter } from "@/components/AlertsCenter";
+import { AlertsCenterLimited } from "@/components/AlertsCenterLimited";
 
 const Dashboard_New = () => {
   const navigate = useNavigate();
@@ -68,7 +68,7 @@ const Dashboard_New = () => {
           {/* Cards de Estatísticas */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {/* Total de Propostas */}
-            <Card className="bg-white border-0 shadow-lg hover:shadow-xl transition-shadow">
+            <Card className="bg-white border-0 shadow-lg hover:shadow-2xl transition-all hover:-translate-y-1 rounded-2xl">
               <CardContent className="p-6">
                 <div className="flex items-center justify-between mb-4">
                   <div className="p-3 bg-orange-50 rounded-xl">
@@ -88,7 +88,7 @@ const Dashboard_New = () => {
             </Card>
 
             {/* Propostas Aceitas */}
-            <Card className="bg-white border-0 shadow-lg hover:shadow-xl transition-shadow">
+            <Card className="bg-white border-0 shadow-lg hover:shadow-2xl transition-all hover:-translate-y-1 rounded-2xl">
               <CardContent className="p-6">
                 <div className="flex items-center justify-between mb-4">
                   <div className="p-3 bg-blue-50 rounded-xl">
@@ -108,7 +108,7 @@ const Dashboard_New = () => {
             </Card>
 
             {/* Taxa de Conversão */}
-            <Card className="bg-white border-0 shadow-lg hover:shadow-xl transition-shadow">
+            <Card className="bg-white border-0 shadow-lg hover:shadow-2xl transition-all hover:-translate-y-1 rounded-2xl">
               <CardContent className="p-6">
                 <div className="flex items-center justify-between mb-4">
                   <div className="p-3 bg-purple-50 rounded-xl">
@@ -125,7 +125,7 @@ const Dashboard_New = () => {
             </Card>
 
             {/* Agências Ativas */}
-            <Card className="bg-white border-0 shadow-lg hover:shadow-xl transition-shadow">
+            <Card className="bg-white border-0 shadow-lg hover:shadow-2xl transition-all hover:-translate-y-1 rounded-2xl">
               <CardContent className="p-6">
                 <div className="flex items-center justify-between mb-4">
                   <div className="p-3 bg-green-50 rounded-xl">
@@ -148,14 +148,14 @@ const Dashboard_New = () => {
           <Button
             onClick={() => navigate('/nova-proposta')}
             size="lg"
-            className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white shadow-lg hover:shadow-xl transition-all h-14 text-base font-bold"
+            className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white shadow-xl hover:shadow-2xl transition-all hover:-translate-y-0.5 h-14 text-base font-bold rounded-2xl"
           >
             <Plus className="h-5 w-5 mr-2" />
             Nova Proposta
           </Button>
 
           {/* Centro de Alertas */}
-          <Card className="bg-red-50 border-red-200 shadow-lg">
+          <Card className="bg-red-50/50 border-red-200 shadow-lg hover:shadow-xl transition-shadow rounded-2xl">
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-red-600">
                 <AlertTriangle className="h-5 w-5" />
@@ -163,12 +163,12 @@ const Dashboard_New = () => {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <AlertsCenter />
+              <AlertsCenterLimited />
             </CardContent>
           </Card>
 
           {/* Propostas Recentes */}
-          <Card className="bg-white border-0 shadow-lg">
+          <Card className="bg-white border-0 shadow-lg hover:shadow-xl transition-shadow rounded-2xl">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <CardTitle className="flex items-center gap-2">
@@ -198,7 +198,7 @@ const Dashboard_New = () => {
               {quickActions.map((action, index) => (
                 <Card
                   key={index}
-                  className="bg-white border-0 shadow-md hover:shadow-lg transition-all cursor-pointer group"
+                  className="bg-white border-0 shadow-md hover:shadow-xl transition-all cursor-pointer group hover:-translate-y-1 rounded-2xl"
                   onClick={() => navigate(action.path)}
                 >
                   <CardContent className="p-6 flex flex-col items-center text-center">

@@ -160,42 +160,42 @@ export default function ProfissionaisSaude() {
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Card className="bg-white border-0 shadow-lg hover:shadow-2xl transition-all hover:-translate-y-1 rounded-2xl">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600 flex items-center gap-2">
-                <Users className="h-4 w-4" />
-                Total de Profissionais
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold">{profissionais?.length || 0}</div>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div className="p-3 bg-blue-50 rounded-xl">
+                  <Users className="h-6 w-6 text-blue-600" />
+                </div>
+              </div>
+              <h3 className="text-gray-600 text-sm font-medium">Total de Profissionais</h3>
+              <p className="text-3xl font-bold text-gray-900 mt-2">{profissionais?.length || 0}</p>
             </CardContent>
           </Card>
 
           <Card className="bg-white border-0 shadow-lg hover:shadow-2xl transition-all hover:-translate-y-1 rounded-2xl">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600 flex items-center gap-2">
-                <UserCheck className="h-4 w-4" />
-                Ativos
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-green-600">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div className="p-3 bg-green-50 rounded-xl">
+                  <UserCheck className="h-6 w-6 text-green-600" />
+                </div>
+              </div>
+              <h3 className="text-gray-600 text-sm font-medium">Ativos</h3>
+              <p className="text-3xl font-bold text-gray-900 mt-2">
                 {profissionais?.filter(p => p.ativo).length || 0}
-              </div>
+              </p>
             </CardContent>
           </Card>
 
           <Card className="bg-white border-0 shadow-lg hover:shadow-2xl transition-all hover:-translate-y-1 rounded-2xl">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600 flex items-center gap-2">
-                <Building2 className="h-4 w-4" />
-                Tipos de Profissionais
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-blue-600">
-                {new Set(profissionais?.map(p => p.tipo_profissional)).size || 0}
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div className="p-3 bg-purple-50 rounded-xl">
+                  <Building2 className="h-6 w-6 text-purple-600" />
+                </div>
               </div>
+              <h3 className="text-gray-600 text-sm font-medium">Tipos de Profissionais</h3>
+              <p className="text-3xl font-bold text-gray-900 mt-2">
+                {new Set(profissionais?.map(p => p.tipo_profissional)).size || 0}
+              </p>
             </CardContent>
           </Card>
         </div>

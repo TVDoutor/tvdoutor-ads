@@ -47,6 +47,7 @@ import { ProfissionalFormDialog } from '@/components/profissionais/ProfissionalF
 import { ProfissionalVinculoDialog } from '@/components/profissionais/ProfissionalVinculoDialog';
 import { VinculosPopover } from '@/components/profissionais/VinculosPopover';
 import { DashboardLayout } from '@/components/DashboardLayout';
+import { PageHeader } from '@/components/PageHeader';
 
 export default function ProfissionaisSaude() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -96,7 +97,7 @@ export default function ProfissionaisSaude() {
     return (
       <DashboardLayout>
         <div className="min-h-screen bg-gray-50 p-6">
-          <Card>
+          <Card className="rounded-2xl shadow-lg">
             <CardContent className="flex items-center justify-center p-12">
               <RefreshCw className="h-6 w-6 animate-spin mr-2" />
               <span>Carregando profissionais...</span>
@@ -111,14 +112,14 @@ export default function ProfissionaisSaude() {
     return (
       <DashboardLayout>
         <div className="min-h-screen bg-gray-50 p-6">
-          <Card>
+          <Card className="rounded-2xl shadow-lg">
             <CardContent className="p-6">
               <div className="flex items-center gap-2 text-red-600 mb-2">
                 <AlertCircle className="h-5 w-5" />
                 <span className="font-medium">Erro ao carregar profissionais</span>
               </div>
               <p className="text-red-600 text-sm mb-4">{(error as Error).message}</p>
-              <Button onClick={() => refetch()}>
+              <Button onClick={() => refetch()} className="rounded-xl">
                 <RefreshCw className="h-4 w-4 mr-2" />
                 Tentar Novamente
               </Button>
@@ -132,21 +133,30 @@ export default function ProfissionaisSaude() {
   return (
     <DashboardLayout>
       <div className="min-h-screen bg-gray-50">
-        <div className="p-6 space-y-6">
-        {/* Header */}
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
-            <Stethoscope className="h-8 w-8 text-blue-600" />
-            Profissionais da Saúde
-          </h1>
-          <p className="text-gray-600 mt-2">
-            Gerencie os profissionais da saúde e seus vínculos com unidades de saúde
-          </p>
-        </div>
+        <PageHeader
+          title="Profissionais da Saúde"
+          subtitle="Gerencie os profissionais da saúde e seus vínculos com unidades de saúde"
+          icon={Stethoscope}
+          badge={{ 
+            label: `${profissionais?.filter(p => p.ativo).length || 0} ativos`, 
+            color: "bg-green-500/20 text-white border-green-400/50" 
+          }}
+          actions={
+            <Button
+              onClick={handleNew}
+              className="bg-white text-[#f48220] hover:bg-white/90 shadow-xl hover:shadow-2xl transition-all rounded-2xl font-bold"
+            >
+              <Plus className="h-5 w-5 mr-2" />
+              Novo Profissional
+            </Button>
+          }
+        />
+
+        <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-8 py-6 space-y-6">
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card>
+          <Card className="bg-white border-0 shadow-lg hover:shadow-2xl transition-all hover:-translate-y-1 rounded-2xl">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-gray-600 flex items-center gap-2">
                 <Users className="h-4 w-4" />
@@ -158,7 +168,7 @@ export default function ProfissionaisSaude() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="bg-white border-0 shadow-lg hover:shadow-2xl transition-all hover:-translate-y-1 rounded-2xl">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-gray-600 flex items-center gap-2">
                 <UserCheck className="h-4 w-4" />
@@ -172,7 +182,7 @@ export default function ProfissionaisSaude() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="bg-white border-0 shadow-lg hover:shadow-2xl transition-all hover:-translate-y-1 rounded-2xl">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-gray-600 flex items-center gap-2">
                 <Building2 className="h-4 w-4" />
@@ -188,7 +198,7 @@ export default function ProfissionaisSaude() {
         </div>
 
         {/* Actions Bar */}
-        <Card>
+        <Card className="bg-white border-0 shadow-lg hover:shadow-xl transition-all rounded-2xl">
           <CardContent className="p-4">
             <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
               <div className="relative flex-1 w-full md:max-w-md">
@@ -197,26 +207,15 @@ export default function ProfissionaisSaude() {
                   placeholder="Buscar por nome, registro ou tipo..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
+                  className="pl-10 rounded-xl"
                 />
               </div>
-
-              <Button
-                onClick={() => {
-                  setSelectedProfissional(null);
-                  setIsFormOpen(true);
-                }}
-                className="w-full md:w-auto"
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Novo Profissional
-              </Button>
             </div>
           </CardContent>
         </Card>
 
         {/* Lista de Profissionais */}
-        <Card>
+        <Card className="bg-white border-0 shadow-lg hover:shadow-xl transition-all rounded-2xl">
           <CardHeader>
             <CardTitle>
               Profissionais Cadastrados ({profissionaisFiltrados?.length || 0})
@@ -228,7 +227,7 @@ export default function ProfissionaisSaude() {
                 {profissionaisFiltrados.map((profissional) => (
                   <div
                     key={profissional.id}
-                    className="p-4 border rounded-lg hover:bg-gray-50 transition-colors"
+                    className="p-4 border rounded-2xl hover:bg-gray-50 hover:shadow-md transition-all"
                   >
                     <div className="flex items-start justify-between">
                       <div className="flex-1">

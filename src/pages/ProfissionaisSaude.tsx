@@ -45,6 +45,7 @@ import {
 } from 'lucide-react';
 import { ProfissionalFormDialog } from '@/components/profissionais/ProfissionalFormDialog';
 import { ProfissionalVinculoDialog } from '@/components/profissionais/ProfissionalVinculoDialog';
+import { VinculosPopover } from '@/components/profissionais/VinculosPopover';
 import { DashboardLayout } from '@/components/DashboardLayout';
 
 export default function ProfissionaisSaude() {
@@ -231,13 +232,17 @@ export default function ProfissionaisSaude() {
                   >
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-2">
+                        <div className="flex items-center gap-3 mb-3">
                           <h3 className="text-lg font-semibold">{profissional.nome}</h3>
                           {profissional.ativo ? (
                             <Badge variant="default" className="bg-green-500">Ativo</Badge>
                           ) : (
                             <Badge variant="secondary">Inativo</Badge>
                           )}
+                          <VinculosPopover 
+                            profissionalId={profissional.id} 
+                            profissionalNome={profissional.nome}
+                          />
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">

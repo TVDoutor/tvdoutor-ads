@@ -177,7 +177,7 @@ export function useProfissionalVenues(profissionalId: string | null) {
           venues (
             id,
             name,
-            city,
+            cidade,
             state
           )
         `)
@@ -198,13 +198,26 @@ export function useVincularProfissionalVenue() {
 
   return useMutation({
     mutationFn: async (data: ProfissionalVenueFormData) => {
+      console.log('🔗 Tentando vincular profissional:', data);
+      
       const { data: vinculo, error } = await supabase
         .from('profissional_venue')
         .insert(data)
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Erro ao vincular:', {
+          error,
+          code: error.code,
+          message: error.message,
+          details: error.details,
+          hint: error.hint
+        });
+        throw error;
+      }
+      
+      console.log('✅ Vínculo criado com sucesso:', vinculo);
       return vinculo;
     },
     onSuccess: (_, variables) => {
@@ -213,7 +226,7 @@ export function useVincularProfissionalVenue() {
       toast.success('Profissional vinculado ao venue com sucesso!');
     },
     onError: (error: any) => {
-      console.error('Erro ao vincular profissional:', error);
+      console.error('❌ Erro final ao vincular profissional:', error);
       toast.error(`Erro ao vincular profissional: ${error.message}`);
     }
   });

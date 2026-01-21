@@ -3,7 +3,8 @@ import {
   Monitor, MapPin, FileText, TrendingUp, Users, 
   Activity, DollarSign, Eye, Zap, Target, 
   ArrowUpRight, ArrowDownRight, Sparkles, 
-  BarChart3, PieChart, Clock, Calendar, Plus
+  BarChart3, PieChart, Clock, Calendar, Plus,
+  AlertTriangle, Stethoscope, Settings, Package
 } from "lucide-react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { RecentProposals } from "@/components/RecentProposals";
@@ -21,7 +22,7 @@ import { useDashboardStatsWithFallback } from "@/hooks/useDashboardStats";
 
 const Index = () => {
   const navigate = useNavigate();
-  const { isAdmin } = useAuth();
+  const { isAdmin, profile } = useAuth();
   const { data: stats, isLoading: loading, error } = useDashboardStatsWithFallback();
   
   // Safe admin check with fallback

@@ -43,7 +43,7 @@ const Dashboard_New = () => {
     <DashboardLayout>
       <div className="min-h-screen bg-gray-50">
         {/* Header com Saudação */}
-        <div className="bg-gradient-to-r from-orange-500 to-orange-600 p-6 md:p-8">
+        <div className="bg-gradient-to-r from-orange-500 to-orange-600 p-6 md:p-8 rounded-b-3xl shadow-xl">
           <div className="max-w-7xl mx-auto">
             <div className="flex items-center justify-between">
               <div>

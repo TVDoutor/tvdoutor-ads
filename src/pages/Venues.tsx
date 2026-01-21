@@ -439,71 +439,63 @@ const Venues = () => {
 
           {/* Enhanced Stats */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200 hover:shadow-lg transition-shadow">
+            <Card className="bg-white border-0 shadow-lg hover:shadow-2xl transition-all hover:-translate-y-1 rounded-2xl">
               <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-blue-800">Total de Pontos</p>
-                    <p className="text-3xl font-bold text-blue-900">
-                      {loading ? "..." : venues.length}
-                    </p>
-                    <p className="text-xs text-blue-700">Pontos de venda únicos</p>
-                  </div>
-                  <div className="p-3 bg-blue-200 rounded-lg">
-                    <Building2 className="h-8 w-8 text-blue-700" />
+                <div className="flex items-center justify-between mb-3">
+                  <div className="p-3 bg-blue-50 rounded-xl">
+                    <Building2 className="h-6 w-6 text-blue-600" />
                   </div>
                 </div>
+                <h3 className="text-gray-600 text-sm font-medium">Total de Pontos</h3>
+                <p className="text-3xl font-bold text-gray-900 mt-2">
+                  {loading ? "..." : venues.length}
+                </p>
+                <p className="text-xs text-gray-500 mt-1">Pontos de venda únicos</p>
               </CardContent>
             </Card>
             
-            <Card className="bg-gradient-to-br from-green-50 to-green-100 border-green-200 hover:shadow-lg transition-shadow">
+            <Card className="bg-white border-0 shadow-lg hover:shadow-2xl transition-all hover:-translate-y-1 rounded-2xl">
               <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-green-800">Total de Telas</p>
-                    <p className="text-3xl font-bold text-green-900">
-                      {loading ? "..." : screenStats.total}
-                    </p>
-                    <p className="text-xs text-green-700">Todas as telas</p>
-                  </div>
-                  <div className="p-3 bg-green-200 rounded-lg">
-                    <Package className="h-8 w-8 text-green-700" />
+                <div className="flex items-center justify-between mb-3">
+                  <div className="p-3 bg-green-50 rounded-xl">
+                    <Package className="h-6 w-6 text-green-600" />
                   </div>
                 </div>
+                <h3 className="text-gray-600 text-sm font-medium">Total de Telas</h3>
+                <p className="text-3xl font-bold text-gray-900 mt-2">
+                  {loading ? "..." : screenStats.total}
+                </p>
+                <p className="text-xs text-gray-500 mt-1">Todas as telas</p>
               </CardContent>
             </Card>
             
-            <Card className="bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200 hover:shadow-lg transition-shadow">
+            <Card className="bg-white border-0 shadow-lg hover:shadow-2xl transition-all hover:-translate-y-1 rounded-2xl">
               <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-purple-800">Telas Ativas</p>
-                    <p className="text-3xl font-bold text-purple-900">
-                      {loading ? "..." : screenStats.active}
-                    </p>
-                    <p className="text-xs text-purple-700">Em funcionamento</p>
-                  </div>
-                  <div className="p-3 bg-purple-200 rounded-lg">
-                    <Zap className="h-8 w-8 text-purple-700" />
+                <div className="flex items-center justify-between mb-3">
+                  <div className="p-3 bg-purple-50 rounded-xl">
+                    <Zap className="h-6 w-6 text-purple-600" />
                   </div>
                 </div>
+                <h3 className="text-gray-600 text-sm font-medium">Telas Ativas</h3>
+                <p className="text-3xl font-bold text-gray-900 mt-2">
+                  {loading ? "..." : screenStats.active}
+                </p>
+                <p className="text-xs text-gray-500 mt-1">Em funcionamento</p>
               </CardContent>
             </Card>
             
-            <Card className="bg-gradient-to-br from-orange-50 to-orange-100 border-orange-200 hover:shadow-lg transition-shadow">
+            <Card className="bg-white border-0 shadow-lg hover:shadow-2xl transition-all hover:-translate-y-1 rounded-2xl">
               <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-orange-800">Cidades</p>
-                    <p className="text-3xl font-bold text-orange-900">
-                      {loading ? "..." : screenStats.cities}
-                    </p>
-                    <p className="text-xs text-orange-700">Diferentes localidades</p>
-                  </div>
-                  <div className="p-3 bg-orange-200 rounded-lg">
-                    <MapPin className="h-8 w-8 text-orange-700" />
+                <div className="flex items-center justify-between mb-3">
+                  <div className="p-3 bg-orange-50 rounded-xl">
+                    <MapPin className="h-6 w-6 text-[#f48220]" />
                   </div>
                 </div>
+                <h3 className="text-gray-600 text-sm font-medium">Cidades</h3>
+                <p className="text-3xl font-bold text-gray-900 mt-2">
+                  {loading ? "..." : screenStats.cities}
+                </p>
+                <p className="text-xs text-gray-500 mt-1">Diferentes localidades</p>
               </CardContent>
             </Card>
           </div>

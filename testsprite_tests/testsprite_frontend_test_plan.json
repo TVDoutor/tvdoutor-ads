@@ -1,0 +1,436 @@
+[
+  {
+    "id": "TC001",
+    "title": "User login with valid credentials",
+    "description": "Verify that a user can successfully log in with correct username/email and password and is redirected based on their assigned role.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to the login page"
+      },
+      {
+        "type": "action",
+        "description": "Enter valid username/email and password"
+      },
+      {
+        "type": "action",
+        "description": "Click on the login button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify login is successful and user is redirected to the dashboard according to their role"
+      }
+    ]
+  },
+  {
+    "id": "TC002",
+    "title": "Login failure with invalid credentials",
+    "description": "Ensure login fails gracefully when invalid username/email or password is entered and appropriate error messages are displayed.",
+    "category": "error handling",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to the login page"
+      },
+      {
+        "type": "action",
+        "description": "Enter invalid username/email and/or password"
+      },
+      {
+        "type": "action",
+        "description": "Click on the login button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify login is unsuccessful and correct error message is shown"
+      }
+    ]
+  },
+  {
+    "id": "TC003",
+    "title": "Role-based access restriction enforcement",
+    "description": "Verify that users are restricted from accessing routes and pages not permitted by their roles, and appropriate access denied messages or redirects occur.",
+    "category": "security",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Log in as user with limited role (e.g., client)"
+      },
+      {
+        "type": "action",
+        "description": "Attempt to access admin-only pages such as User Management, Impact Models Admin"
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm access is denied or redirected and appropriate message is displayed"
+      },
+      {
+        "type": "action",
+        "description": "Repeat for manager and admin roles to verify restrictions for super_admin and unauthorized routes"
+      }
+    ]
+  },
+  {
+    "id": "TC004",
+    "title": "Create new advertising proposal via wizard - happy path",
+    "description": "Test the creation of a new advertising proposal using the guided wizard, verifying input validation, step progression, data saving, and PDF generation success.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to the New Proposal page"
+      },
+      {
+        "type": "action",
+        "description": "Fill in all mandatory fields for step 1 and advance to next step"
+      },
+      {
+        "type": "action",
+        "description": "Complete all subsequent wizard steps providing valid data and proceed through them"
+      },
+      {
+        "type": "action",
+        "description": "Submit the proposal at the final step"
+      },
+      {
+        "type": "assertion",
+        "description": "Validate proposal is saved successfully in the database"
+      },
+      {
+        "type": "action",
+        "description": "Generate PDF for the created proposal"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the generated PDF matches the required layout and contains correct data"
+      }
+    ]
+  },
+  {
+    "id": "TC005",
+    "title": "Proposal wizard prevents advancing on missing mandatory fields",
+    "description": "Verify that the wizard does not allow proceeding to next steps if mandatory fields are incomplete or contain invalid data.",
+    "category": "error handling",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to the New Proposal wizard"
+      },
+      {
+        "type": "action",
+        "description": "Leave one or more mandatory fields empty or enter invalid data on current step"
+      },
+      {
+        "type": "action",
+        "description": "Attempt to advance to the next step"
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm wizard prevents moving forward and displays relevant validation messages"
+      }
+    ]
+  },
+  {
+    "id": "TC006",
+    "title": "Create and edit campaigns and link venues",
+    "description": "Verify manager-level user can create new advertising campaigns, edit existing ones, and successfully link venues to campaigns with proper validation.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Log in as manager"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to the Campaigns page and create a new campaign with valid details"
+      },
+      {
+        "type": "assertion",
+        "description": "Validate campaign is created and listed"
+      },
+      {
+        "type": "action",
+        "description": "Edit the newly created campaign details"
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm edited changes are saved and displayed correctly"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to Venues page and link one or more venues to the campaign"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify venues are associated properly with the campaign"
+      }
+    ]
+  },
+  {
+    "id": "TC007",
+    "title": "Inventory screen image upload with validation",
+    "description": "Validate that inventory managers can upload screen images, and the system enforces file type and size restrictions with appropriate error handling.",
+    "category": "error handling",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Login as inventory manager"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to Inventory page and attempt to upload an image file within allowed size and format"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the image uploads successfully and is displayed"
+      },
+      {
+        "type": "action",
+        "description": "Attempt to upload an unsupported file type or file exceeding size limits"
+      },
+      {
+        "type": "assertion",
+        "description": "Validate the system displays appropriate error messages and does not accept the file"
+      }
+    ]
+  },
+  {
+    "id": "TC008",
+    "title": "Interactive map loads with geospatial points and heatmap rendering",
+    "description": "Verify that the interactive maps load correctly with displayed geospatial points and heatmap layers, and that filters apply properly to the data visualizations.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to Interactive Map page"
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm the map loads and displays geospatial points accurately"
+      },
+      {
+        "type": "action",
+        "description": "Enable heatmap layer on the map"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify that heatmap renders aggregated data correctly"
+      },
+      {
+        "type": "action",
+        "description": "Apply various filters on map data (e.g., by venue, campaign)"
+      },
+      {
+        "type": "assertion",
+        "description": "Validate the points and heatmap update according to filters"
+      }
+    ]
+  },
+  {
+    "id": "TC009",
+    "title": "Generate reports with filters and export to PDF",
+    "description": "Check that users can apply filters on report data, generate reports accordingly, and export the reports as PDFs maintaining correct formatting and data.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to Reports page"
+      },
+      {
+        "type": "action",
+        "description": "Apply filters such as date range, campaign, and venue"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify that report data matches the filter criteria"
+      },
+      {
+        "type": "action",
+        "description": "Export the report to PDF format"
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm the generated PDF file opens without error and matches the expected layout and data"
+      }
+    ]
+  },
+  {
+    "id": "TC010",
+    "title": "User profile update and password change validation",
+    "description": "Ensure users can update their profile details and change their password with all validations enforced, and that changes persist correctly.",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Log in as a normal user"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to Profile page"
+      },
+      {
+        "type": "action",
+        "description": "Update profile fields such as name, email with valid data and save"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify that the profile updates are saved and reflected correctly"
+      },
+      {
+        "type": "action",
+        "description": "Attempt to change password with mismatched confirmation or invalid strength"
+      },
+      {
+        "type": "assertion",
+        "description": "Validate appropriate error messages prevent password change"
+      },
+      {
+        "type": "action",
+        "description": "Change password with valid current password, matching new password and confirmation"
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm password change success and subsequent login with new password"
+      }
+    ]
+  },
+  {
+    "id": "TC011",
+    "title": "Manage agencies, projects, and associating people",
+    "description": "Validate creation, editing, and association workflows for agencies, projects, and people by authorized users.",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Log in as admin or manager"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to Agencies page and add a new agency with valid details"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the agency is created and listed"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to Projects management and create a new project linked to the agency"
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm project creation and linkage to agency"
+      },
+      {
+        "type": "action",
+        "description": "Assign people to projects with proper role assignments"
+      },
+      {
+        "type": "assertion",
+        "description": "Validate people are correctly associated with projects"
+      }
+    ]
+  },
+  {
+    "id": "TC012",
+    "title": "Dashboard data visualization and live data refresh",
+    "description": "Check that the dashboard loads key business metrics accurately and performs live backend data refresh without errors or UI glitches.",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Access the dashboard page after login"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify all key metrics are displayed correctly according to backend data"
+      },
+      {
+        "type": "action",
+        "description": "Observe dashboard data refresh cycle"
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm live data refresh updates the dashboard real-time without errors or UI breaks"
+      }
+    ]
+  },
+  {
+    "id": "TC013",
+    "title": "Email notification system sends transactional emails",
+    "description": "Verify that triggered transactional emails (e.g., proposal submission confirmation, password change alerts) are generated and sent properly.",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Perform an action that triggers an email notification, such as submitting a new proposal"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify that an email notification is sent and received with correct content"
+      },
+      {
+        "type": "action",
+        "description": "Change user password and observe for alert email"
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm transactional email is sent on password change alert"
+      }
+    ]
+  },
+  {
+    "id": "TC014",
+    "title": "Admin user management and impact model administration",
+    "description": "Validate that admin users can create, edit, and delete users and manage impact models with fine-grained permission controls.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Login as admin"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to User Management page"
+      },
+      {
+        "type": "action",
+        "description": "Create a new user with specific roles and permissions"
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm the new user appears in the list with correct roles"
+      },
+      {
+        "type": "action",
+        "description": "Modify the roles and permissions of an existing user"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify changes persist and affect user access appropriately"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to Impact Models Administration and create or edit impact models"
+      },
+      {
+        "type": "assertion",
+        "description": "Validate impact models save correctly and access control enforces restrictions"
+      }
+    ]
+  }
+]

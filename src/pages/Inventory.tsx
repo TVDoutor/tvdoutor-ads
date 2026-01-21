@@ -1491,7 +1491,7 @@ const Inventory = () => {
       <DashboardLayout>
         <div className="p-6">
           <div className="flex items-center justify-center min-h-[400px]">
-            <Card className="w-full max-w-md">
+            <Card className="w-full max-w-md rounded-2xl shadow-lg">
               <CardContent className="p-6 text-center">
                 <AlertCircle className="h-12 w-12 text-destructive mx-auto mb-4" />
                 <h3 className="text-lg font-semibold mb-2">Erro ao Carregar</h3>
@@ -1607,10 +1607,10 @@ const Inventory = () => {
           />
 
           {/* Filters and Search */}
-          <Card className="border-0 shadow-xl">
+          <Card className="border-0 shadow-lg hover:shadow-2xl transition-all rounded-2xl">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-xl">
-                <div className="p-2 bg-[#f48220]/10 rounded-lg">
+                <div className="p-2 bg-[#f48220]/10 rounded-xl">
                   <Filter className="h-5 w-5 text-[#f48220]" />
                 </div>
                 Filtros e Busca
@@ -1701,11 +1701,11 @@ const Inventory = () => {
         </Card>
 
           {/* Table */}
-          <Card className="border-0 shadow-xl">
+          <Card className="border-0 shadow-lg hover:shadow-2xl transition-all rounded-2xl">
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle className="flex items-center gap-2 text-xl">
-                  <div className="p-2 bg-[#f48220]/10 rounded-lg">
+                  <div className="p-2 bg-[#f48220]/10 rounded-xl">
                     <BarChart3 className="h-5 w-5 text-[#f48220]" />
                   </div>
                   Lista de Telas

@@ -19,7 +19,8 @@ import {
   User,
   LogOut,
   Target,
-  Pill
+  Pill,
+  Stethoscope
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -55,6 +56,11 @@ const menuItems = [
     label: "Farmácias",
     icon: Pill,
     href: "/farmacias"
+  },
+  {
+    label: "Profissionais da Saúde",
+    icon: Stethoscope,
+    href: "/profissionais-saude"
   },
   {
     label: "Propostas",

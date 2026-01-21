@@ -759,10 +759,10 @@ const handleApplyFilters = useCallback(() => {
             ]}
           />
 
-          <Card className="border-0 shadow-xl">
+          <Card className="border-0 shadow-lg hover:shadow-2xl transition-all rounded-2xl">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-xl">
-                <div className="p-2 bg-[#f48220]/10 rounded-lg">
+                <div className="p-2 bg-[#f48220]/10 rounded-xl">
                   <Search className="h-5 w-5 text-[#f48220]" />
                 </div>
                 Filtros e Busca

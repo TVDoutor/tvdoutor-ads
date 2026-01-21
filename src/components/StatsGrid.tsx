@@ -28,28 +28,38 @@ export const StatsGrid = ({ stats, columns = 4 }: StatsGridProps) => {
     6: "grid-cols-2 md:grid-cols-3 lg:grid-cols-6"
   };
 
+  // Extrai a cor do gradiente (ex: "from-[#f48220]" -> "orange")
+  const getIconColorClasses = (gradient: string) => {
+    if (gradient.includes('#f48220') || gradient.includes('orange')) return { bg: 'bg-orange-50', text: 'text-[#f48220]' };
+    if (gradient.includes('slate') || gradient.includes('gray')) return { bg: 'bg-gray-50', text: 'text-gray-600' };
+    if (gradient.includes('blue')) return { bg: 'bg-blue-50', text: 'text-blue-600' };
+    if (gradient.includes('green')) return { bg: 'bg-green-50', text: 'text-green-600' };
+    if (gradient.includes('purple')) return { bg: 'bg-purple-50', text: 'text-purple-600' };
+    if (gradient.includes('red')) return { bg: 'bg-red-50', text: 'text-red-600' };
+    if (gradient.includes('yellow')) return { bg: 'bg-yellow-50', text: 'text-yellow-600' };
+    return { bg: 'bg-gray-50', text: 'text-gray-600' }; // fallback
+  };
+
   return (
     <div className={`grid ${gridCols[columns]} gap-4 md:gap-6`}>
       {stats.map((stat, index) => {
         const Icon = stat.icon;
         const BadgeIcon = stat.badge?.icon;
+        const colors = getIconColorClasses(stat.gradient);
 
         return (
           <Card
             key={index}
-            className={`group relative overflow-hidden border-0 shadow-xl hover:shadow-2xl transition-all duration-500 hover:-translate-y-2 ${stat.gradient} ${stat.onClick ? 'cursor-pointer' : ''}`}
+            className={`bg-white border-0 shadow-lg hover:shadow-2xl transition-all hover:-translate-y-1 rounded-2xl ${stat.onClick ? 'cursor-pointer' : ''}`}
             onClick={stat.onClick}
           >
-            <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-            <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full blur-2xl -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-700" />
-
-            <CardContent className="p-4 md:p-6 relative z-10">
-              <div className="flex items-start justify-between mb-3 md:mb-4">
-                <div className="p-2 md:p-3 bg-white/20 backdrop-blur-sm rounded-xl md:rounded-2xl group-hover:scale-110 group-hover:rotate-6 transition-all duration-500">
-                  <Icon className="h-4 w-4 md:h-6 md:w-6 text-white" />
+            <CardContent className="p-4 md:p-6">
+              <div className="flex items-center justify-between mb-3 md:mb-4">
+                <div className={`p-2 md:p-3 ${colors.bg} rounded-xl`}>
+                  <Icon className={`h-5 w-5 md:h-6 md:w-6 ${colors.text}`} />
                 </div>
                 {stat.badge && (
-                  <Badge className="bg-white/20 text-white border-white/30 backdrop-blur-sm text-xs">
+                  <Badge variant="outline" className={`${colors.text} border-${colors.text.replace('text-', '')}-200 ${colors.bg} text-xs`}>
                     {BadgeIcon && <BadgeIcon className="h-3 w-3 mr-1" />}
                     {stat.badge.label}
                   </Badge>
@@ -57,13 +67,13 @@ export const StatsGrid = ({ stats, columns = 4 }: StatsGridProps) => {
               </div>
 
               <div className="space-y-1">
-                <p className="text-white/80 text-xs md:text-sm font-medium">{stat.title}</p>
+                <h3 className="text-gray-600 text-xs md:text-sm font-medium">{stat.title}</h3>
                 <div className="flex items-baseline gap-2">
-                  <h3 className="text-3xl md:text-4xl font-black text-white">
+                  <p className="text-2xl md:text-3xl font-bold text-gray-900">
                     {stat.value}
-                  </h3>
+                  </p>
                   {stat.subtitle && (
-                    <span className="text-white/60 text-xs md:text-sm">{stat.subtitle}</span>
+                    <span className="text-gray-500 text-xs">{stat.subtitle}</span>
                   )}
                 </div>
               </div>

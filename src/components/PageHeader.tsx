@@ -1,59 +1,61 @@
-import { ReactNode } from "react";
+/**
+ * Componente de Header Padrão para Páginas
+ * Mantém identidade visual consistente em todo o sistema
+ */
+
 import { LucideIcon } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { Badge } from "./ui/badge";
+import { Button } from "./ui/button";
+import { ReactNode } from "react";
 
 interface PageHeaderProps {
-  icon: LucideIcon;
   title: string;
-  description: string;
+  subtitle?: string;
+  icon?: LucideIcon;
+  badge?: {
+    label: string;
+    variant?: "default" | "secondary" | "outline" | "destructive";
+    color?: string;
+  };
   actions?: ReactNode;
-  badges?: Array<{ label: string; variant?: "default" | "secondary" | "success" }>;
 }
 
-export const PageHeader = ({ icon: Icon, title, description, actions, badges }: PageHeaderProps) => {
+export function PageHeader({ 
+  title, 
+  subtitle, 
+  icon: Icon, 
+  badge,
+  actions 
+}: PageHeaderProps) {
   return (
-    <div className="relative overflow-hidden bg-gradient-to-br from-[#f48220] via-[#ff9d4d] to-[#ffb87a] p-8 md:p-12 mb-8">
-      <div className="absolute inset-0 bg-grid-white/10 [mask-image:linear-gradient(0deg,transparent,black)]" />
-      <div className="absolute inset-x-0 top-0 h-[180px] bg-gradient-to-br from-[#f48220]/95 via-[#ff9d4d]/85 to-transparent" />
-      
-      {/* Floating Orbs Animation */}
-      <div className="absolute top-0 left-0 w-96 h-96 bg-[#ff9d4d]/25 rounded-full blur-3xl animate-pulse" />
-      <div className="absolute bottom-0 right-0 w-96 h-96 bg-[#ffb87a]/25 rounded-full blur-3xl animate-pulse delay-1000" />
-      
-      <div className="relative z-10 max-w-7xl mx-auto">
-        <div className="flex items-center justify-between flex-wrap gap-6">
-          <div className="space-y-3">
-            <div className="flex items-center gap-3">
-              <div className="p-3 bg-white/20 backdrop-blur-sm rounded-2xl border border-white/30 shadow-2xl">
+    <div className="bg-gradient-to-r from-orange-500 to-orange-600 p-6 md:p-8 rounded-b-3xl shadow-xl mb-6">
+      <div className="max-w-7xl mx-auto">
+        <div className="flex items-center justify-between flex-wrap gap-4">
+          <div className="flex items-center gap-4">
+            {Icon && (
+              <div className="p-3 bg-white/20 backdrop-blur-sm rounded-2xl">
                 <Icon className="h-8 w-8 text-white" />
               </div>
-              <div>
-                <h1 className="text-4xl md:text-5xl font-black text-white tracking-tight">
-                  {title}
-                </h1>
-                <p className="text-white/90 text-lg font-medium mt-1">
-                  {description}
+            )}
+            <div>
+              <h1 className="text-white text-3xl md:text-4xl font-bold">
+                {title}
+              </h1>
+              {subtitle && (
+                <p className="text-white/90 text-sm md:text-base mt-1">
+                  {subtitle}
                 </p>
-              </div>
+              )}
             </div>
-            {badges && badges.length > 0 && (
-              <div className="flex items-center gap-2 pl-1">
-                {badges.map((badge, index) => (
-                  <Badge
-                    key={index}
-                    className={
-                      badge.variant === "success"
-                        ? "bg-green-500/20 text-white border-green-400/30 backdrop-blur-sm hover:bg-green-500/30 transition-all"
-                        : "bg-white/20 text-white border-white/30 backdrop-blur-sm hover:bg-white/30 transition-all"
-                    }
-                  >
-                    {badge.label}
-                  </Badge>
-                ))}
-              </div>
+            {badge && (
+              <Badge 
+                variant={badge.variant || "secondary"}
+                className={`${badge.color || 'bg-white/20 text-white border-white/30'} backdrop-blur-sm px-4 py-1.5`}
+              >
+                {badge.label}
+              </Badge>
             )}
           </div>
-          
           {actions && (
             <div className="flex gap-3">
               {actions}
@@ -63,5 +65,28 @@ export const PageHeader = ({ icon: Icon, title, description, actions, badges }: 
       </div>
     </div>
   );
+}
+
+/**
+ * Classes CSS padrão para Cards
+ */
+export const cardStyles = {
+  base: "bg-white border-0 shadow-lg hover:shadow-2xl transition-all hover:-translate-y-1 rounded-2xl",
+  content: "p-6",
+  header: "pb-3",
 };
 
+/**
+ * Classes CSS padrão para Botões de Ação
+ */
+export const buttonStyles = {
+  primary: "bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white shadow-xl hover:shadow-2xl transition-all hover:-translate-y-0.5 rounded-2xl font-bold",
+  secondary: "bg-white text-orange-600 border-2 border-orange-200 hover:bg-orange-50 hover:border-orange-300 shadow-lg hover:shadow-xl transition-all hover:-translate-y-0.5 rounded-2xl font-semibold",
+};
+
+/**
+ * Classes CSS padrão para Inputs
+ */
+export const inputStyles = {
+  base: "rounded-xl border-gray-200 focus:border-orange-500 focus:ring-orange-500",
+};

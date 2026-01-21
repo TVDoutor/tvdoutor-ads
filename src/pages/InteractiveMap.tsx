@@ -158,17 +158,7 @@ export default function InteractiveMap() {
         setScreens(screensWithHeat);
         setFilteredScreens(screensWithHeat);
         
-        // Preparar dados para heatmap - apenas telas com coordenadas válidas
-        const heatData: [number, number, number][] = screensWithHeat
-          .filter(screen => screen.lat !== null && screen.lng !== null)
-          .map(screen => [
-            screen.lat!,
-            screen.lng!,
-            screen.heat_intensity || 0
-          ]);
-        setHeatmapData(heatData);
-        
-        console.log(`✅ ${screensWithHeat.length} telas carregadas com dados de calor (${heatData.length} com coordenadas válidas)`);
+        console.log(`✅ ${screensWithHeat.length} telas carregadas com dados de calor`);
       }
       
     } catch (error: any) {
@@ -178,6 +168,33 @@ export default function InteractiveMap() {
       setLoading(false);
     }
   };
+
+  const buildHeatmapData = (source: Screen[]): [number, number, number][] => {
+    const withUsage = source.filter(screen =>
+      screen.lat !== null &&
+      screen.lng !== null &&
+      (screen.proposal_count || 0) > 0
+    );
+
+    const maxProposals = Math.max(...withUsage.map(s => s.proposal_count || 0), 0);
+
+    return withUsage.map(screen => [
+      screen.lat!,
+      screen.lng!,
+      maxProposals > 0 ? (screen.proposal_count || 0) / maxProposals : 0
+    ]);
+  };
+
+  useEffect(() => {
+    if (layerMode === 'pharmacies') {
+      setHeatmapData([]);
+      return;
+    }
+
+    const source = filteredScreens.length > 0 ? filteredScreens : screens;
+    const heatData = buildHeatmapData(source);
+    setHeatmapData(heatData);
+  }, [filteredScreens, screens, layerMode]);
 
   const fetchPharmacies = async () => {
     try {
@@ -948,7 +965,7 @@ export default function InteractiveMap() {
         return;
       }
 
-      if (layerOptions.isHeatmap) {
+      if (layerOptions.isHeatmap || layerOptions.isHeatmapMarker) {
         map.removeLayer(layer);
       }
     });
@@ -958,19 +975,29 @@ export default function InteractiveMap() {
     // Add heatmap layer if in heatmap mode
     if (viewMode === 'heatmap' && heatmapData.length > 0) {
       try {
-        // Import leaflet.heat
+        // Garantir que L está disponível globalmente antes de importar leaflet.heat
+        if (typeof window !== 'undefined') {
+          (window as any).L = L;
+        }
+
+        // Importar leaflet.heat (isso adiciona o método heatLayer ao objeto L global)
         await import('leaflet.heat');
-        
-        const heatLayer = (L as any).heatLayer(heatmapData, {
+
+        // Verificar se o método heatLayer foi adicionado ao objeto L
+        if (typeof L.heatLayer !== 'function') {
+          throw new Error('Erro ao adicionar heatmap: heatLayer não está disponível após importar leaflet.heat');
+        }
+
+        const heatLayer = L.heatLayer(heatmapData, {
           radius: 30,
           blur: 20,
           maxZoom: 15,
           max: 1.0,
           gradient: {
             0.0: 'blue',
-            0.3: 'cyan', 
-            0.5: 'lime',
-            0.7: 'yellow',
+            0.25: 'green',
+            0.5: 'yellow',
+            0.75: 'orange',
             1.0: 'red'
           }
         });
@@ -978,6 +1005,54 @@ export default function InteractiveMap() {
         heatLayer.options.isHeatmap = true;
         map.addLayer(heatLayer);
         console.log('🔥 Heatmap layer added with', heatmapData.length, 'points');
+
+        const getHeatColor = (intensity: number) => {
+          if (intensity >= 0.75) return '#ef4444';
+          if (intensity >= 0.55) return '#f97316';
+          if (intensity >= 0.35) return '#f59e0b';
+          if (intensity >= 0.2) return '#10b981';
+          return '#3b82f6';
+        };
+
+        const getMarkerRadius = (intensity: number) => {
+          return Math.max(4, Math.min(10, 4 + intensity * 8));
+        };
+
+        const getMarkerOpacity = (intensity: number) => {
+          return Math.max(0.35, Math.min(0.9, 0.35 + intensity * 0.6));
+        };
+
+        if (layerMode === 'venues' || layerMode === 'both') {
+          const source = filteredScreens.length > 0 ? filteredScreens : screens;
+          const venuesToDraw = source.filter(screen =>
+            screen.lat !== null &&
+            screen.lng !== null &&
+            (screen.proposal_count || 0) > 0
+          );
+
+          venuesToDraw.forEach(screen => {
+            const intensity = screen.heat_intensity ?? 0;
+            const color = getHeatColor(intensity);
+            const marker = L.circleMarker([screen.lat!, screen.lng!], {
+              radius: getMarkerRadius(intensity),
+              color,
+              fillColor: color,
+              fillOpacity: getMarkerOpacity(intensity),
+              weight: 1,
+              isHeatmapMarker: true
+            });
+
+            marker.bindPopup(`
+              <div style="padding: 8px; min-width: 180px;">
+                <div style="font-weight: 600; color: #111827;">${sanitize(screen.display_name || screen.name)}</div>
+                <div style="font-size: 12px; color: #6b7280;">Código: ${sanitize(screen.code)}</div>
+                <div style="font-size: 12px; color: #374151;">Propostas: ${screen.proposal_count || 0}</div>
+              </div>
+            `);
+
+            marker.addTo(map);
+          });
+        }
       } catch (error) {
         console.error('❌ Erro ao adicionar heatmap:', error);
         toast.error('Erro ao carregar heatmap');

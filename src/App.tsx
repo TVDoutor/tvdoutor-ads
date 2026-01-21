@@ -7,7 +7,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { startEmailProcessing } from "@/lib/email-service";
-import Index from "./pages/Index";
+import Index from "./pages/Dashboard_New";
 import LandingPage from "./pages/LandingPage";
 import SearchResults from "./pages/SearchResults";
 import NewProposal from "./pages/NewProposal";
@@ -36,6 +36,7 @@ import NotFound from "./pages/NotFound";
 import { HeatmapTest } from "./components/HeatmapTest";
 import { SimpleHeatmap } from "./components/SimpleHeatmap";
 import Pharmacies from "./pages/Pharmacies";
+import ProfissionaisSaude from "./pages/ProfissionaisSaude";
 
 const queryClient = new QueryClient();
 
@@ -139,6 +140,12 @@ const App = () => {
             <Route path="/farmacias" element={
               <ProtectedRoute>
                 <Pharmacies />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/profissionais-saude" element={
+              <ProtectedRoute>
+                <ProfissionaisSaude />
               </ProtectedRoute>
             } />
             

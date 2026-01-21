@@ -369,134 +369,116 @@ const Propostas = () => {
           {/* Stats Cards com Efeito Glassmorphism */}
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 relative z-10 mb-4" style={{ isolation: 'isolate' }}>
             <Card 
-              className="group border-0 shadow-xl hover:shadow-2xl transition-all duration-500 hover:-translate-y-2 cursor-pointer bg-gradient-to-br rounded-2xl from-[#f48220] to-[#e67516] overflow-hidden relative rounded-2xl"
+              className="bg-white border-0 shadow-lg hover:shadow-2xl transition-all hover:-translate-y-1 rounded-2xl cursor-pointer"
               onClick={(e) => {
                 e.stopPropagation();
                 console.log('🖱️ Card Total clicado');
                 setStatusFilter("all");
               }}
             >
-              <div className="absolute inset-0 bg-gradient-to-br from-[#ff9d4d]/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-              <CardContent className="p-4 relative z-10">
-                <div className="flex items-center space-x-2">
-                  <div className="p-2 bg-white/20 rounded-lg group-hover:scale-110 transition-transform">
-                    <BarChart3 className="h-4 w-4 text-white" />
-                  </div>
-                  <div className="flex-1">
-                    <div className="text-3xl font-black text-white">{stats.total}</div>
-                    <div className="text-xs text-white/80 font-medium">Total</div>
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="p-2 bg-orange-50 rounded-xl">
+                    <BarChart3 className="h-5 w-5 text-[#f48220]" />
                   </div>
                 </div>
+                <h3 className="text-gray-600 text-xs font-medium mb-1">Total</h3>
+                <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
               </CardContent>
             </Card>
             
             <Card 
-              className="group border-0 shadow-xl hover:shadow-2xl transition-all duration-500 hover:-translate-y-2 cursor-pointer bg-gradient-to-br rounded-2xl from-slate-500 to-slate-600 overflow-hidden relative rounded-2xl"
+              className="bg-white border-0 shadow-lg hover:shadow-2xl transition-all hover:-translate-y-1 rounded-2xl cursor-pointer"
               onClick={(e) => {
                 e.stopPropagation();
                 console.log('🖱️ Card Rascunho clicado');
                 setStatusFilter('rascunho');
               }}
             >
-              <div className="absolute inset-0 bg-gradient-to-br from-slate-400/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-              <CardContent className="p-4 relative z-10">
-                <div className="flex items-center space-x-2">
-                  <div className="p-2 bg-white/20 rounded-lg group-hover:scale-110 transition-transform">
-                    <FileText className="h-4 w-4 text-white" />
-                  </div>
-                  <div className="flex-1">
-                    <div className="text-3xl font-black text-white">{stats.rascunho}</div>
-                    <div className="text-xs text-white/80 font-medium">Rascunho</div>
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="p-2 bg-gray-50 rounded-xl">
+                    <FileText className="h-5 w-5 text-gray-600" />
                   </div>
                 </div>
+                <h3 className="text-gray-600 text-xs font-medium mb-1">Rascunho</h3>
+                <p className="text-2xl font-bold text-gray-900">{stats.rascunho}</p>
               </CardContent>
             </Card>
             
             <Card 
-              className="group border-0 shadow-xl hover:shadow-2xl transition-all duration-500 hover:-translate-y-2 cursor-pointer bg-gradient-to-br rounded-2xl from-[#ff9d4d] to-[#ffb87a] overflow-hidden relative"
+              className="bg-white border-0 shadow-lg hover:shadow-2xl transition-all hover:-translate-y-1 rounded-2xl cursor-pointer"
               onClick={(e) => {
                 e.stopPropagation();
                 console.log('🖱️ Card Enviadas clicado');
                 setStatusFilter('enviada');
               }}
             >
-              <div className="absolute inset-0 bg-gradient-to-br from-[#ffc499]/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-              <CardContent className="p-4 relative z-10">
-                <div className="flex items-center space-x-2">
-                  <div className="p-2 bg-white/20 rounded-lg group-hover:scale-110 transition-transform">
-                    <Send className="h-4 w-4 text-white" />
-                  </div>
-                  <div className="flex-1">
-                    <div className="text-3xl font-black text-white">{stats.enviada}</div>
-                    <div className="text-xs text-white/80 font-medium">Enviadas</div>
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="p-2 bg-blue-50 rounded-xl">
+                    <Send className="h-5 w-5 text-blue-600" />
                   </div>
                 </div>
+                <h3 className="text-gray-600 text-xs font-medium mb-1">Enviadas</h3>
+                <p className="text-2xl font-bold text-gray-900">{stats.enviada}</p>
               </CardContent>
             </Card>
             
             <Card 
-              className="group border-0 shadow-xl hover:shadow-2xl transition-all duration-500 hover:-translate-y-2 cursor-pointer bg-gradient-to-br rounded-2xl from-[#d66912] to-[#b85a0f] overflow-hidden relative"
+              className="bg-white border-0 shadow-lg hover:shadow-2xl transition-all hover:-translate-y-1 rounded-2xl cursor-pointer"
               onClick={(e) => {
                 e.stopPropagation();
                 console.log('🖱️ Card Análise clicado');
                 setStatusFilter('em_analise');
               }}
             >
-              <div className="absolute inset-0 bg-gradient-to-br from-[#e67516]/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-              <CardContent className="p-4 relative z-10">
-                <div className="flex items-center space-x-2">
-                  <div className="p-2 bg-white/20 rounded-lg group-hover:scale-110 transition-transform">
-                    <Eye className="h-4 w-4 text-white" />
-                  </div>
-                  <div className="flex-1">
-                    <div className="text-3xl font-black text-white">{stats.em_analise}</div>
-                    <div className="text-xs text-white/80 font-medium">Análise</div>
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="p-2 bg-yellow-50 rounded-xl">
+                    <Eye className="h-5 w-5 text-yellow-600" />
                   </div>
                 </div>
+                <h3 className="text-gray-600 text-xs font-medium mb-1">Análise</h3>
+                <p className="text-2xl font-bold text-gray-900">{stats.em_analise}</p>
               </CardContent>
             </Card>
             
             <Card 
-              className="group border-0 shadow-xl hover:shadow-2xl transition-all duration-500 hover:-translate-y-2 cursor-pointer bg-gradient-to-br rounded-2xl from-[#ffb87a] to-[#ffc499] overflow-hidden relative"
+              className="bg-white border-0 shadow-lg hover:shadow-2xl transition-all hover:-translate-y-1 rounded-2xl cursor-pointer"
               onClick={(e) => {
                 e.stopPropagation();
                 console.log('🖱️ Card Aceitas clicado');
                 setStatusFilter('aceita');
               }}
             >
-              <div className="absolute inset-0 bg-gradient-to-br from-[#ffd4b8]/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-              <CardContent className="p-4 relative z-10">
-                <div className="flex items-center space-x-2">
-                  <div className="p-2 bg-white/20 rounded-lg group-hover:scale-110 transition-transform">
-                    <Target className="h-4 w-4 text-white" />
-                  </div>
-                  <div className="flex-1">
-                    <div className="text-3xl font-black text-white">{stats.aceita}</div>
-                    <div className="text-xs text-white/80 font-medium">Aceitas</div>
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="p-2 bg-green-50 rounded-xl">
+                    <Target className="h-5 w-5 text-green-600" />
                   </div>
                 </div>
+                <h3 className="text-gray-600 text-xs font-medium mb-1">Aceitas</h3>
+                <p className="text-2xl font-bold text-gray-900">{stats.aceita}</p>
               </CardContent>
             </Card>
             
             <Card 
-              className="group border-0 shadow-xl hover:shadow-2xl transition-all duration-500 hover:-translate-y-2 cursor-pointer bg-gradient-to-br rounded-2xl from-red-500 to-red-600 overflow-hidden relative"
+              className="bg-white border-0 shadow-lg hover:shadow-2xl transition-all hover:-translate-y-1 rounded-2xl cursor-pointer"
               onClick={(e) => {
                 e.stopPropagation();
                 console.log('🖱️ Card Rejeitadas clicado');
                 setStatusFilter('rejeitada');
               }}
             >
-              <div className="absolute inset-0 bg-gradient-to-br from-red-400/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-              <CardContent className="p-4 relative z-10">
-                <div className="flex items-center space-x-2">
-                  <div className="p-2 bg-white/20 rounded-lg group-hover:scale-110 transition-transform">
-                    <Trash2 className="h-4 w-4 text-white" />
-                  </div>
-                  <div className="flex-1">
-                    <div className="text-3xl font-black text-white">{stats.rejeitada}</div>
-                    <div className="text-xs text-white/80 font-medium">Rejeitadas</div>
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="p-2 bg-red-50 rounded-xl">
+                    <Trash2 className="h-5 w-5 text-red-600" />
                   </div>
                 </div>
+                <h3 className="text-gray-600 text-xs font-medium mb-1">Rejeitadas</h3>
+                <p className="text-2xl font-bold text-gray-900">{stats.rejeitada}</p>
               </CardContent>
             </Card>
           </div>

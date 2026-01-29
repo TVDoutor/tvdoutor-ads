@@ -1,0 +1,1 @@
+{"query":"{ organization { players(first: 5, orderBy: { field: LAST_SEEN_AT }) { nodes { id name lastSeen isConnected } } } }"}

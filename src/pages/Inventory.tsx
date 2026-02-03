@@ -17,10 +17,15 @@ import { Switch } from "@/components/ui/switch";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Search, Filter, Eye, Edit, Monitor, Building, AlertCircle, Trash2, Upload, Download, Plus, RefreshCw, FileSpreadsheet, CheckCircle, XCircle, Loader2, MapPin, Users, TrendingUp, BarChart3 } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTvdPlayerStatus } from "@/hooks/useTvdPlayerStatus";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import { addScreenAsAdmin, deleteScreenAsAdmin } from "@/lib/admin-operations";
 import * as ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
@@ -205,6 +210,7 @@ interface Screen {
 
 const Inventory = () => {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const { profile, isAdmin, isManager } = useAuth();
   const [screens, setScreens] = useState<Screen[]>([]);
   const [filteredScreens, setFilteredScreens] = useState<Screen[]>([]);
@@ -230,6 +236,9 @@ const Inventory = () => {
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
+
+  const venueCodes = [...new Set(filteredScreens.map((s) => s.code).filter(Boolean))];
+  const { data: tvdStatusMap, isLoading: tvdStatusLoading, isError: tvdStatusError, error: tvdStatusErr } = useTvdPlayerStatus(venueCodes);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [replaceExistingOnImport, setReplaceExistingOnImport] = useState(true);
   const [exporting, setExporting] = useState(false);
@@ -696,6 +705,7 @@ const Inventory = () => {
       }
 
       setScreens([data, ...screens]);
+      const addedCode = (data && typeof data === "object" && (data as any).code) ?? newScreen.code ?? null;
       toast({
         title: "Sucesso",
         description: "Tela adicionada com sucesso!",
@@ -703,7 +713,43 @@ const Inventory = () => {
       setAddModalOpen(false);
       setNewScreen({});
       setSpecialtyText('');
-      
+
+      if (addedCode && String(addedCode).trim()) {
+        supabase.functions
+          .invoke("tvd-verify-sync-player", { body: { code: String(addedCode).trim() } })
+          .then(({ data: res, error }) => {
+            const payload = res as { found?: boolean; error?: string } | null;
+            queryClient.invalidateQueries({ queryKey: ["tvd-player-status"] });
+            if (payload?.found) queryClient.invalidateQueries({ queryKey: ["real-alerts"] });
+            if (error) {
+              toast({
+                title: "Verificação TV Doutor",
+                description: "Não foi possível verificar no app.tvdoutor. Tente novamente mais tarde.",
+                variant: "destructive",
+              });
+              return;
+            }
+            if (payload?.found) {
+              toast({
+                title: "Sincronizado com TV Doutor",
+                description: "Tela encontrada no app.tvdoutor e status de conexão sincronizado.",
+              });
+            } else {
+              toast({
+                title: "TV Doutor",
+                description: "Código não encontrado no app.tvdoutor. Verifique o código do ponto se precisar da coluna Conexão (TVD).",
+              });
+            }
+          })
+          .catch(() => {
+            queryClient.invalidateQueries({ queryKey: ["tvd-player-status"] });
+            toast({
+              title: "Verificação TV Doutor",
+              description: "Não foi possível verificar no app.tvdoutor. Tente novamente mais tarde.",
+              variant: "destructive",
+            });
+          });
+      }
     } catch (err: unknown) {
       console.error('Error adding screen:', err);
       let errorMessage = 'Erro desconhecido';
@@ -1723,6 +1769,27 @@ const Inventory = () => {
             </div>
           </CardHeader>
           <CardContent>
+            {tvdStatusError && (
+              <Alert variant="destructive" className="mb-4">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  <p className="mb-1">Não foi possível carregar o status de conexão TVD. Confira se a Edge Function <code className="font-mono text-xs">tvd-player-status</code> está deployada, se você está logado e se o sync <code className="font-mono text-xs">tvd-sync-players</code> populou a tabela.</p>
+                  {tvdStatusErr && (
+                    <p className="mt-2 text-xs opacity-90 font-mono break-all">
+                      {[tvdStatusErr?.code, tvdStatusErr?.message].filter(Boolean).join(' — ') || String(tvdStatusErr)}
+                    </p>
+                  )}
+                </AlertDescription>
+              </Alert>
+            )}
+            {!tvdStatusError && !tvdStatusLoading && venueCodes.length > 0 && (!tvdStatusMap || Object.keys(tvdStatusMap).length === 0) && (
+              <Alert className="mb-4 border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-200">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  Nenhum dado de conexão TVD encontrado. Execute a Edge Function <code className="font-mono text-xs">tvd-sync-players</code> (com header <code className="font-mono text-xs">x-cron-secret</code>) para popular a tabela <code className="font-mono text-xs">tvd_player_status</code>. No Supabase: Functions → tvd-sync-players → Invoke, ou configure um cron que chame a URL com o secret.
+                </AlertDescription>
+              </Alert>
+            )}
             <div className="overflow-x-auto -mx-6 px-6">
               <Table className="min-w-full">
                 <TableHeader>
@@ -1731,6 +1798,7 @@ const Inventory = () => {
                     <TableHead className="min-w-[220px]">Localização</TableHead>
                     <TableHead className="min-w-[90px]">Status</TableHead>
                     <TableHead className="min-w-[80px]">Classe</TableHead>
+                    <TableHead className="min-w-[140px]">Conexão (TVD)</TableHead>
                     <TableHead className="min-w-[130px]">Rates</TableHead>
                     {((searchTerm && searchTerm.trim() !== '') || statusFilter !== "all" || classFilter !== "all" || specialtyFilter !== "all") && (
                       <TableHead className="min-w-[350px]">Especialidades</TableHead>
@@ -1748,6 +1816,7 @@ const Inventory = () => {
                         <TableCell><Skeleton className="h-4 w-40" /></TableCell>
                         <TableCell><Skeleton className="h-4 w-16" /></TableCell>
                         <TableCell><Skeleton className="h-4 w-12" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                         <TableCell><Skeleton className="h-4 w-12" /></TableCell>
                         {hasFilters && (
                           <TableCell><Skeleton className="h-4 w-40" /></TableCell>
@@ -1804,6 +1873,44 @@ const Inventory = () => {
                           <Badge variant="outline" className="font-mono">
                             {screen.class || 'ND'}
                           </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {tvdStatusLoading ? (
+                            <Skeleton className="h-4 w-20" />
+                          ) : (() => {
+                            const st = tvdStatusMap?.[screen.code];
+                            if (!st) return (
+                              <span
+                                className="text-muted-foreground text-xs"
+                                title={tvdStatusError ? 'Status TVD indisponível' : 'Sem registro de conexão TVD para este código'}
+                              >
+                                —
+                              </span>
+                            );
+                            return (
+                              <div className="text-xs space-y-0.5">
+                                {st.is_connected ? (
+                                  <Badge variant="default" className="bg-green-100 text-green-800 hover:bg-green-100 text-xs">
+                                    <CheckCircle className="h-3 w-3 mr-1" />
+                                    Online
+                                  </Badge>
+                                ) : (
+                                  <Badge variant="secondary" className="bg-amber-100 text-amber-800 hover:bg-amber-100 text-xs">
+                                    <XCircle className="h-3 w-3 mr-1" />
+                                    Offline
+                                  </Badge>
+                                )}
+                                {st.last_seen && (
+                                  <p className="text-muted-foreground">
+                                    {format(new Date(st.last_seen), "dd/MM HH:mm", { locale: ptBR })}
+                                  </p>
+                                )}
+                                {st.sync_progress != null && (
+                                  <p className="text-muted-foreground">Sync {st.sync_progress}%</p>
+                                )}
+                              </div>
+                            );
+                          })()}
                         </TableCell>
                         <TableCell>
                           {screen.screen_rates ? (

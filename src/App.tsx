@@ -4,10 +4,12 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import "@/styles/design-tokens.css";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { startEmailProcessing } from "@/lib/email-service";
-import Index from "./pages/Dashboard_New";
+import Dashboard from "./pages/Dashboard";
+import DashboardNew from "./pages/Dashboard_New";
 import LandingPage from "./pages/LandingPage";
 import SearchResults from "./pages/SearchResults";
 import NewProposal from "./pages/NewProposal";
@@ -79,7 +81,14 @@ const App = () => {
             {/* Rotas protegidas - Dashboard */}
             <Route path="/dashboard" element={
               <ProtectedRoute>
-                <Index />
+                <Dashboard />
+              </ProtectedRoute>
+            } />
+            
+            {/* Dashboard novo layout (corpo clínico) - alternativo */}
+            <Route path="/dashboard-old" element={
+              <ProtectedRoute>
+                <DashboardNew />
               </ProtectedRoute>
             } />
             

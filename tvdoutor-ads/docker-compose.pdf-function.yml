@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  pdf-proposal-pro:
+    build:
+      context: ./supabase/functions/pdf-proposal-pro
+      dockerfile: Dockerfile
+    container_name: pdf-proposal-pro
+    ports:
+      - "8001:8000"
+    environment:
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      - DENO_DEPLOYMENT_ID=docker-local
+    restart: unless-stopped
+    networks:
+      - supabase-network
+
+networks:
+  supabase-network:
+    driver: bridge

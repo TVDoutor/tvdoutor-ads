@@ -1,0 +1,97 @@
+{
+  "tech_stack": [
+    "TypeScript",
+    "React",
+    "Vite",
+    "TanStack Query",
+    "Supabase",
+    "PostgreSQL",
+    "Tailwind CSS",
+    "shadcn/ui",
+    "React Router",
+    "Leaflet",
+    "Mapbox"
+  ],
+  "features": [
+    {
+      "name": "Authentication",
+      "description": "Login, reset password, protected routes, auth context",
+      "files": ["src/pages/Login.tsx", "src/pages/ResetPassword.tsx", "src/contexts/AuthContext.tsx", "src/components/ProtectedRoute.tsx", "src/lib/auth.ts"]
+    },
+    {
+      "name": "Dashboard",
+      "description": "Dashboard with KPIs, filters, proposals table, alerts, real-time data",
+      "files": ["src/pages/Dashboard.tsx", "src/pages/Dashboard_New.tsx", "src/components/dashboard/KpiCard.tsx", "src/components/dashboard/ProposalsTable.tsx", "src/components/dashboard/FilterBar.tsx", "src/hooks/useDashboardStats.ts", "src/hooks/useDashboardFilters.ts", "src/lib/dashboard-service.ts"]
+    },
+    {
+      "name": "Proposals",
+      "description": "Create and manage advertising proposals, wizard, proposal details, PDF export",
+      "files": ["src/pages/NewProposal.tsx", "src/pages/Propostas.tsx", "src/pages/ProposalDetails.tsx", "src/components/NewProposalWizardImproved.tsx", "src/components/wizard/ProposalWizardSteps.tsx", "src/components/wizard/ScreenSelectionStep.tsx", "src/lib/proposta-service.ts", "src/lib/pdf.ts"]
+    },
+    {
+      "name": "Inventory and Screens",
+      "description": "Screen inventory, screen management, filters, image upload",
+      "files": ["src/pages/Inventory.tsx", "src/pages/ScreenManagement.tsx", "src/components/ScreenFilters.tsx", "src/components/ScreenForm.tsx", "src/lib/screen-service.ts", "src/lib/screen-fallback-service.ts"]
+    },
+    {
+      "name": "Venues",
+      "description": "Points of sale (venues) list, details, grouping by venue",
+      "files": ["src/pages/Venues.tsx", "src/pages/VenueDetails.tsx"]
+    },
+    {
+      "name": "Interactive Map",
+      "description": "Map with venues/pharmacies layers, heatmap, geospatial search",
+      "files": ["src/pages/InteractiveMap.tsx", "src/pages/HeatmapPage.tsx", "src/components/HeatmapComponent.tsx", "src/components/GeospatialSearch.tsx", "src/hooks/useHeatmapData.ts", "src/lib/leaflet-config.ts"]
+    },
+    {
+      "name": "Reports",
+      "description": "Reports with filters, KPIs, export to PDF",
+      "files": ["src/pages/Reports.tsx"]
+    },
+    {
+      "name": "Campaigns",
+      "description": "Campaign management, campaign details, link venues",
+      "files": ["src/pages/Campaigns.tsx", "src/pages/CampaignDetails.tsx"]
+    },
+    {
+      "name": "Agencies and Projects",
+      "description": "Agencies, agency projects, project management, people association",
+      "files": ["src/pages/Agencias.tsx", "src/pages/AgenciasProjetos.tsx", "src/pages/ProjectManagement.tsx", "src/pages/PessoasProjeto.tsx", "src/lib/agencia-service.ts", "src/lib/project-management-service.ts"]
+    },
+    {
+      "name": "Profissionais Saúde (Corpo Clínico)",
+      "description": "Healthcare professionals CRUD, link to venues, specialties",
+      "files": ["src/pages/ProfissionaisSaude.tsx", "src/components/profissionais/ProfissionalFormDialog.tsx", "src/components/profissionais/ProfissionalVinculoDialog.tsx", "src/hooks/useProfissionaisSaude.ts", "src/hooks/useCorpoClinico.ts"]
+    },
+    {
+      "name": "User Management",
+      "description": "User list, admin user management, roles",
+      "files": ["src/pages/Users.tsx", "src/pages/UserManagement.tsx", "src/components/admin/UserSessionDashboard.tsx"]
+    },
+    {
+      "name": "Settings and Profile",
+      "description": "User profile, password change, app settings",
+      "files": ["src/pages/Profile.tsx", "src/pages/Settings.tsx", "src/components/ChangePasswordModal.tsx"]
+    },
+    {
+      "name": "Landing and Search",
+      "description": "Landing page, public search results, audience calculator",
+      "files": ["src/pages/LandingPage.tsx", "src/pages/SearchResults.tsx", "src/components/landing/AudienceCalculator.tsx", "src/components/landing/SearchInterface.tsx"]
+    },
+    {
+      "name": "Email and Notifications",
+      "description": "Email stats, email service, transactional emails",
+      "files": ["src/hooks/useEmailStats.ts", "src/lib/email-service.ts", "src/components/EmailStatsCard.tsx"]
+    },
+    {
+      "name": "Impact Models",
+      "description": "Impact models administration",
+      "files": ["src/pages/ImpactModelsAdmin.tsx", "src/lib/impact-models-service.ts", "src/hooks/useImpactModels.ts"]
+    },
+    {
+      "name": "User Sessions",
+      "description": "Session tracking, heartbeat, session history",
+      "files": ["src/lib/user-session-service.ts", "src/lib/userSessionManager.ts", "src/hooks/useUserSession.ts", "src/hooks/useSessionMonitor.ts"]
+    }
+  ]
+}

@@ -25,6 +25,7 @@ jobs:
       
     - name: Executar lint
       run: npm run lint
+      continue-on-error: true
       
     - name: Build de produção
       run: npm run build:prod

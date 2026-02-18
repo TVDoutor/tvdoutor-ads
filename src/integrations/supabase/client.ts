@@ -10,16 +10,14 @@ const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 if (!validateEnvironment()) {
   console.error('🚨 Erro de Configuração: Variáveis de ambiente do Supabase não configuradas');
   console.error('📋 Para corrigir:');
-  console.error('   1. Acesse o dashboard da Vercel');
-  console.error('   2. Vá em Settings → Environment Variables');
-  console.error('   3. Adicione VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY');
-  console.error('   4. Faça redeploy do projeto');
+  console.error('   1. Crie arquivo .env na raiz com VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY');
+  console.error('   2. Ou configure na Vercel: Settings → Environment Variables');
 }
 
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
-export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, {
+export const supabase = createClient<Database>(SUPABASE_URL!, SUPABASE_ANON_KEY!, {
   auth: {
     storage: localStorage,
     persistSession: true,

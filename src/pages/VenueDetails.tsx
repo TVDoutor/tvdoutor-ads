@@ -67,6 +67,12 @@ interface VenueDetail {
     venue_type_grandchildren: string;
     specialty: string[];
     address_raw: string;
+    ambiente?: string | null;
+    audiencia_pacientes?: number | null;
+    audiencia_local?: number | null;
+    audiencia_hcp?: number | null;
+    audiencia_medica?: number | null;
+    aceita_convenio?: boolean | null;
   }[];
   screenCount: number;
   activeScreens: number;
@@ -138,14 +144,20 @@ const VenueDetails = () => {
             name: screen.name || screen.display_name || `ID-${screen.id}`,
             display_name: screen.display_name || screen.venue_name || 'Sem nome',
             class: screen.class || 'ND',
-            active: isActive(screen.active), // <<< normalizado
+            active: isActive(screen.active),
             lat: screen.lat,
             lng: screen.lng,
             venue_type_parent: screen.venue_type_parent || 'Não informado',
             venue_type_child: screen.venue_type_child || '',
             venue_type_grandchildren: screen.venue_type_grandchildren || '',
-            specialty: specialties,  // <<< array normalizado
-            address_raw: screen.address_raw || ''
+            specialty: specialties,
+            address_raw: (screen as any).address_raw ?? (screen as any).address ?? '',
+            ambiente: (screen as any).ambiente ?? undefined,
+            audiencia_pacientes: (screen as any).audiencia_pacientes ?? undefined,
+            audiencia_local: (screen as any).audiencia_local ?? undefined,
+            audiencia_hcp: (screen as any).audiencia_hcp ?? undefined,
+            audiencia_medica: (screen as any).audiencia_medica ?? undefined,
+            aceita_convenio: (screen as any).aceita_convenio ?? undefined
           };
         }),
         screenCount: venueScreens.length,
@@ -404,8 +416,35 @@ const VenueDetails = () => {
                               <span className="text-muted-foreground">Endereço:</span>
                               <p>{screen.address_raw || "N/A"}</p>
                             </div>
+                            {screen.ambiente && (
+                              <div>
+                                <span className="text-muted-foreground">Ambiente:</span>
+                                <p>{screen.ambiente}</p>
+                              </div>
+                            )}
+                            {screen.aceita_convenio != null && (
+                              <div>
+                                <span className="text-muted-foreground">Aceita convênio:</span>
+                                <p>{screen.aceita_convenio ? "Sim" : "Não"}</p>
+                              </div>
+                            )}
                           </div>
-                          
+                          {(screen.audiencia_pacientes != null || screen.audiencia_local != null || screen.audiencia_hcp != null || screen.audiencia_medica != null) && (
+                            <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
+                              {screen.audiencia_pacientes != null && screen.audiencia_pacientes > 0 && (
+                                <div><span className="text-muted-foreground">Audiência Pacientes:</span> {screen.audiencia_pacientes.toLocaleString('pt-BR')}</div>
+                              )}
+                              {screen.audiencia_local != null && screen.audiencia_local > 0 && (
+                                <div><span className="text-muted-foreground">Audiência Local:</span> {screen.audiencia_local.toLocaleString('pt-BR')}</div>
+                              )}
+                              {screen.audiencia_hcp != null && screen.audiencia_hcp > 0 && (
+                                <div><span className="text-muted-foreground">Audiência HCP:</span> {screen.audiencia_hcp.toLocaleString('pt-BR')}</div>
+                              )}
+                              {screen.audiencia_medica != null && screen.audiencia_medica > 0 && (
+                                <div><span className="text-muted-foreground">Audiência Médica:</span> {screen.audiencia_medica.toLocaleString('pt-BR')}</div>
+                              )}
+                            </div>
+                          )}
                           {screen.specialty && screen.specialty.length > 0 && (
                             <div className="mt-3">
                               <span className="text-sm text-muted-foreground">Especialidades:</span>

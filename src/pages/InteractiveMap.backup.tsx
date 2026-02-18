@@ -525,21 +525,16 @@ export default function InteractiveMap() {
         console.warn('⚠️ Função Supabase indisponível:', supabaseError);
       }
 
-      // Fallback para token público válido
-      console.log('🔄 Usando token público de fallback...');
-        const fallbackToken = 'pk.eyJ1IjoidHZkb3V0b3JhZHMiLCJhIjoiY21ldTk2YzVjMDRpaTJsbXdoN3Rhd3NhNiJ9.XCRdHGYU-V1nyGOlepho4Q';
-      
-      // Testar se o token funciona
-      const testResponse = await fetch(`https://api.mapbox.com/styles/v1/mapbox/streets-v11?access_token=${fallbackToken}`);
-      
-      if (testResponse.ok) {
-        console.log('✅ Token de fallback validado');
-        setMapboxToken(fallbackToken);
+      // Fallback: usar token do .env se disponível
+      const envToken = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN;
+      if (envToken) {
+        console.log('🔄 Usando token do VITE_MAPBOX_ACCESS_TOKEN');
+        setMapboxToken(envToken);
         setMapError(null);
-      } else {
-        console.error('❌ Token de fallback inválido');
-        setMapError('Token do Mapbox inválido. Verifique as configurações.');
+        return;
       }
+      
+      setMapError('Token do Mapbox não configurado. Configure VITE_MAPBOX_ACCESS_TOKEN no .env ou MAPBOX_PUBLIC_TOKEN no Supabase.');
 
     } catch (error) {
       console.error('💥 Erro geral ao buscar token do Mapbox:', error);

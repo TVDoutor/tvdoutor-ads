@@ -10,6 +10,8 @@ interface ScreenItem {
     city?: string;
     state?: string;
     class?: string;
+    ambiente?: string | null;
+    aceita_convenio?: boolean | null;
   };
 }
 
@@ -153,6 +155,12 @@ export function InventoryCard({
                     )}
                     {showScreenType && (
                       <div className="text-xs text-slate-600">Tipo: {ps.screens?.screen_type || '-'}</div>
+                    )}
+                    {(ps.screens as any)?.ambiente && (
+                      <div className="text-xs text-slate-600">Ambiente: {(ps.screens as any).ambiente}</div>
+                    )}
+                    {(ps.screens as any)?.aceita_convenio != null && (
+                      <div className="text-xs text-slate-600">Convênio: {(ps.screens as any).aceita_convenio ? 'Sim' : 'Não'}</div>
                     )}
                   </div>
                   <div className="col-span-2 text-slate-700">{ps.screens?.city || '-'}</div>

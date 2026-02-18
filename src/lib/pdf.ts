@@ -241,6 +241,12 @@ export async function generateProPDF(proposalId: number, _logoUrl?: string): Pro
             state,
             class,
             venue_id,
+            ambiente,
+            audiencia_pacientes,
+            audiencia_local,
+            audiencia_hcp,
+            audiencia_medica,
+            aceita_convenio,
             venues (
               name,
               type

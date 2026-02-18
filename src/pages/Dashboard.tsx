@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { DashboardLayout } from "@/components/DashboardLayout";
+import { PageHeader, buttonStyles } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Plus, MapPin, RefreshCw } from "lucide-react";
+import { Plus, MapPin, RefreshCw, LayoutDashboard } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useDashboardStatsWithFallback } from "@/hooks/useDashboardStats";
@@ -109,59 +109,40 @@ const Dashboard = () => {
   return (
     <DashboardLayout>
       <div className="min-h-screen bg-gray-50">
-        {/* Page Header */}
-        <div className="bg-white border-b border-gray-200 px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="p-3 bg-orange-50 rounded-xl">
-                <div className="grid grid-cols-2 gap-1">
-                  <div className="w-2 h-2 bg-orange-500 rounded-sm"></div>
-                  <div className="w-2 h-2 bg-orange-500 rounded-sm"></div>
-                  <div className="w-2 h-2 bg-orange-500 rounded-sm"></div>
-                  <div className="w-2 h-2 bg-orange-500 rounded-sm"></div>
-                </div>
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-                <p className="text-gray-600">Visão Completa do Sistema</p>
-                <div className="flex items-center gap-4 mt-2">
-                  <Badge className="bg-green-100 text-green-700 border-green-200">
-                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse mr-2" />
-                    Atualizado agora
-                  </Badge>
-                  <Badge className="bg-blue-100 text-blue-700 border-blue-200">
-                    Sistema Online
-                  </Badge>
-                </div>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <Button 
+        {/* Page Header - mesmo estilo laranja com cantos arredondados do Inventário */}
+        <PageHeader
+          title="Dashboard"
+          subtitle="Visão Completa do Sistema"
+          icon={LayoutDashboard}
+          badge={{ label: "Atualizado agora", color: "bg-white/20 text-white border-white/30" }}
+          actions={
+            <>
+              <Button
                 onClick={() => navigate('/nova-proposta')}
-                className="bg-orange-500 hover:bg-orange-600 text-white"
+                className={buttonStyles.primary}
               >
                 <Plus className="h-4 w-4 mr-2" />
                 Nova Proposta
               </Button>
-              <Button 
+              <Button
                 variant="outline"
                 onClick={() => navigate('/mapa-interativo')}
-                className="border-orange-200 text-orange-600 hover:bg-orange-50"
+                className={buttonStyles.secondary}
               >
                 <MapPin className="h-4 w-4 mr-2" />
                 Mapa
               </Button>
-              <Button 
+              <Button
                 variant="outline"
                 onClick={handleRefreshData}
-                className="border-gray-200 text-gray-600 hover:bg-gray-50"
+                className={buttonStyles.secondary}
               >
                 <RefreshCw className="h-4 w-4 mr-2" />
                 Atualizar
               </Button>
-            </div>
-          </div>
-        </div>
+            </>
+          }
+        />
 
         {/* Filter Bar */}
         <FilterBar 

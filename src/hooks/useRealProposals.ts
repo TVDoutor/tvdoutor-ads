@@ -8,6 +8,7 @@ export interface ProposalWithDetails extends Proposal {
   organizationName?: string;
   city?: string;
   state?: string;
+  created_by_name?: string;
 }
 
 /**
@@ -30,12 +31,33 @@ export const useRealProposals = (limit: number = 10) => {
         throw new Error(`Erro ao carregar propostas: ${error.message}`);
       }
 
+      // Buscar nomes dos responsáveis (created_by) na tabela profiles
+      const createdByIds = [...new Set((data || []).map(p => p.created_by).filter(Boolean))] as string[];
+      let nameMap: Record<string, string> = {};
+
+      if (createdByIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('id, full_name, display_name')
+          .in('id', createdByIds);
+
+        if (profiles) {
+          nameMap = Object.fromEntries(
+            profiles.map(p => [
+              p.id,
+              p.full_name || p.display_name || 'Usuário'
+            ])
+          );
+        }
+      }
+
       // Mapear para o formato esperado pelos componentes
       const mappedProposals: ProposalWithDetails[] = (data || []).map(proposal => ({
         ...proposal,
         organizationName: proposal.customer_name || 'Organização não informada',
         city: proposal.city || undefined,
         state: undefined, // A tabela proposals não tem estado separado
+        created_by_name: proposal.created_by ? nameMap[proposal.created_by] : undefined,
       }));
 
       console.log('✅ Propostas carregadas:', mappedProposals.length);

@@ -127,7 +127,7 @@ export function SearchResultsPreview({ screens, loading, onAddToCart, onViewAllS
                     <div>
                       <p className="text-sm font-medium text-foreground">Alcance</p>
                       <p className="text-sm text-muted-foreground">
-                        {screen.reach.toLocaleString()} pessoas/semana
+                        {screen.audience.toLocaleString()} pessoas/mês
                       </p>
                     </div>
                   </div>

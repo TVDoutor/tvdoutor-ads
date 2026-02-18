@@ -280,6 +280,12 @@ const ProposalDetails = () => {
               state,
               class,
               venue_id,
+              ambiente,
+              audiencia_pacientes,
+              audiencia_local,
+              audiencia_hcp,
+              audiencia_medica,
+              aceita_convenio,
               venues (
                 id,
                 name

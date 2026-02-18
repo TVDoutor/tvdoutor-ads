@@ -175,6 +175,14 @@ type InventoryRow = {
   staging_tipo_venue: string | null;
   staging_subtipo: string | null;
   staging_categoria: string | null;
+
+  // Novos campos venue/details
+  ambiente: string | null;
+  audiencia_pacientes: number | null;
+  audiencia_local: number | null;
+  audiencia_hcp: number | null;
+  audiencia_medica: number | null;
+  aceita_convenio: boolean | null;
 };
 
 interface Screen {
@@ -206,6 +214,14 @@ interface Screen {
     address?: string;
     audience_monthly?: number;
   };
+  /** Audiência mensal (editável; espelhada de venue_info.audience_monthly / staging_audiencia) */
+  audience_monthly?: number | null;
+  ambiente?: string | null;
+  audiencia_pacientes?: number | null;
+  audiencia_local?: number | null;
+  audiencia_hcp?: number | null;
+  audiencia_medica?: number | null;
+  aceita_convenio?: boolean | null;
 }
 
 const Inventory = () => {
@@ -241,6 +257,8 @@ const Inventory = () => {
   const { data: tvdStatusMap, isLoading: tvdStatusLoading, isError: tvdStatusError, error: tvdStatusErr } = useTvdPlayerStatus(venueCodes);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [replaceExistingOnImport, setReplaceExistingOnImport] = useState(true);
+  /** 'full' = inventário completo; 'audience' = lista de audiência (atualizar ou cadastrar por código) */
+  const [uploadMode, setUploadMode] = useState<'full' | 'audience'>('full');
   const [exporting, setExporting] = useState(false);
   
   // Stats
@@ -315,7 +333,8 @@ const Inventory = () => {
             standard_rate_month, selling_rate_month, spots_per_hour, spot_duration_secs,
             venue_name, venue_address, venue_country, venue_state, venue_district,
             staging_nome_ponto, staging_audiencia, staging_especialidades,
-            staging_tipo_venue, staging_subtipo, staging_categoria
+            staging_tipo_venue, staging_subtipo, staging_categoria,
+            ambiente, audiencia_pacientes, audiencia_local, audiencia_hcp, audiencia_medica, aceita_convenio
           `)
           .order('code', { ascending: true })
           .range(from, from + PAGE_SIZE - 1);
@@ -382,7 +401,15 @@ const Inventory = () => {
             audience_monthly: r.staging_audiencia ?? undefined,
           },
 
-          // campos opcionais que seu tipo Screen já tem
+          audience_monthly: r.staging_audiencia ?? undefined,
+
+          ambiente: r.ambiente ?? undefined,
+          audiencia_pacientes: r.audiencia_pacientes ?? undefined,
+          audiencia_local: r.audiencia_local ?? undefined,
+          audiencia_hcp: r.audiencia_hcp ?? undefined,
+          audiencia_medica: r.audiencia_medica ?? undefined,
+          aceita_convenio: r.aceita_convenio ?? undefined,
+
           lat: r.lat ?? undefined,
           lng: r.lng ?? undefined,
           venue_id: undefined, // Não temos venue_id na view atual
@@ -548,7 +575,8 @@ const Inventory = () => {
       const selectedClass = editingScreen.class;
       
       // Primeiro tentar atualizar com a classe
-      let updateData = {
+      const audienceVal = editingScreen.audience_monthly ?? editingScreen.venue_info?.audience_monthly;
+      let updateData: Record<string, unknown> = {
         code: editingScreen.code || null,
         name: editingScreen.code || null,
         display_name: editingScreen.display_name || null,
@@ -563,7 +591,16 @@ const Inventory = () => {
         specialty: specialties.length > 0 ? specialties : null,
         lat: editingScreen.lat ?? null,
         lng: editingScreen.lng ?? null,
+        ambiente: editingScreen.ambiente ?? null,
+        audiencia_pacientes: editingScreen.audiencia_pacientes ?? null,
+        audiencia_local: editingScreen.audiencia_local ?? null,
+        audiencia_hcp: editingScreen.audiencia_hcp ?? null,
+        audiencia_medica: editingScreen.audiencia_medica ?? null,
+        aceita_convenio: editingScreen.aceita_convenio ?? null,
       };
+      if (typeof audienceVal === 'number' || audienceVal === null) {
+        updateData.audience_monthly = audienceVal;
+      }
       
       console.log('📝 Update data:', updateData);
       
@@ -575,29 +612,51 @@ const Inventory = () => {
       // Se a coluna class não existir, tentar novamente sem ela
       if (error && error.code === 'PGRST204' && error.message.includes("Could not find the 'class' column")) {
         console.log('⚠️ Coluna class não existe, atualizando sem ela...');
-        
-        // Remover a classe do updateData
-        const { class: _, ...updateDataWithoutClass } = updateData;
-        
+        const { class: _c, ...rest } = updateData as { class?: unknown; [k: string]: unknown };
         const { error: errorWithoutClass } = await supabase
           .from('screens')
-          .update(updateDataWithoutClass)
+          .update(rest)
           .eq('id', editingScreen.id);
-        
         if (errorWithoutClass) {
           console.error('🚫 Database update error (without class):', errorWithoutClass);
           throw errorWithoutClass;
         }
-        
         console.log('✅ Tela atualizada sem a coluna class');
+      } else if (error && error.code === 'PGRST204' && (error.message.includes("Could not find the 'audience_monthly' column") || error.message?.includes('audience_monthly'))) {
+        console.log('⚠️ Coluna audience_monthly não existe, atualizando sem ela...');
+        const { audience_monthly: _a, ...rest } = updateData as { audience_monthly?: unknown; [k: string]: unknown };
+        const { error: err2 } = await supabase
+          .from('screens')
+          .update(rest)
+          .eq('id', editingScreen.id);
+        if (err2) {
+          console.error('🚫 Database update error (without audience_monthly):', err2);
+          throw err2;
+        }
+        console.log('✅ Tela atualizada sem a coluna audience_monthly');
       } else if (error) {
         console.error('🚫 Database update error:', error);
         throw error;
       } else {
-        console.log('✅ Tela atualizada com sucesso (incluindo classe)');
+        console.log('✅ Tela atualizada com sucesso');
       }
 
-      const updatedScreen = { ...editingScreen, specialty: specialties, class: selectedClass };
+      const updatedScreen = {
+        ...editingScreen,
+        specialty: specialties,
+        class: selectedClass,
+        audience_monthly: editingScreen.audience_monthly ?? editingScreen.venue_info?.audience_monthly ?? undefined,
+        venue_info: {
+          ...editingScreen.venue_info,
+          audience_monthly: editingScreen.audience_monthly ?? editingScreen.venue_info?.audience_monthly,
+        },
+        ambiente: editingScreen.ambiente ?? null,
+        audiencia_pacientes: editingScreen.audiencia_pacientes ?? null,
+        audiencia_local: editingScreen.audiencia_local ?? null,
+        audiencia_hcp: editingScreen.audiencia_hcp ?? null,
+        audiencia_medica: editingScreen.audiencia_medica ?? null,
+        aceita_convenio: editingScreen.aceita_convenio ?? null,
+      };
       setScreens(screens.map(screen => 
         screen.id === editingScreen.id ? updatedScreen : screen
       ));
@@ -651,8 +710,8 @@ const Inventory = () => {
       // Use the selected class directly
       const selectedClass = newScreen.class || 'ND';
       
-      // Primeiro tentar inserir com a classe
-      let insertData = {
+      const audienceMonthly = newScreen.audience_monthly != null && newScreen.audience_monthly !== '' ? Number(newScreen.audience_monthly) : null;
+      let insertData: Record<string, unknown> = {
         code: newScreen.code || null,
         name: newScreen.code || null,
         display_name: newScreen.display_name || null,
@@ -667,8 +726,17 @@ const Inventory = () => {
         specialty: specialties.length > 0 ? specialties : null,
         lat: newScreen.lat || null,
         lng: newScreen.lng || null,
+        ambiente: newScreen.ambiente ?? null,
+        audiencia_pacientes: newScreen.audiencia_pacientes ?? null,
+        audiencia_local: newScreen.audiencia_local ?? null,
+        audiencia_hcp: newScreen.audiencia_hcp ?? null,
+        audiencia_medica: newScreen.audiencia_medica ?? null,
+        aceita_convenio: newScreen.aceita_convenio ?? null,
       };
-      
+      if (typeof audienceMonthly === 'number' && !Number.isNaN(audienceMonthly)) {
+        insertData.audience_monthly = audienceMonthly;
+      }
+
       // Try using the admin function first, fallback to direct insert
       let data;
       try {
@@ -679,9 +747,7 @@ const Inventory = () => {
         // Se o erro for relacionado à coluna class, tentar sem ela
         if (adminError && (adminError as any).code === 'PGRST204' && (adminError as any).message?.includes("Could not find the 'class' column")) {
           console.log('⚠️ Coluna class não existe, inserindo sem ela...');
-          
-          // Remover a classe do insertData
-          const { class: _, ...insertDataWithoutClass } = insertData;
+          const { class: _c, ...insertDataWithoutClass } = insertData;
           
           const { data: directData, error } = await supabase
             .from('screens')
@@ -1071,9 +1137,15 @@ const Inventory = () => {
         spot_duration_secs: parseNumberBR(r['duracao spot (seg)'] ?? r['duracao spot (seg)'] ?? r['spot_duration_secs']),
       };
 
+      const parseAceitaConvenio = (v: any): boolean | null => {
+        if (v === null || v === undefined || v === '') return null;
+        const s = String(v).toLowerCase().trim();
+        return s === 'sim' || s === 's' || s === 'true' || s === '1' || s === 'yes';
+      };
+
       const validatedScreen = {
         code,
-        name: code, // mantém compatibilidade com dados antigos que usam `name` como código
+        name: code,
         display_name,
         address_raw,
         city,
@@ -1086,6 +1158,12 @@ const Inventory = () => {
         lng,
         google_place_id,
         google_formatted_address,
+        ambiente: (r['ambiente'] ?? '').toString().trim() || null,
+        audiencia_pacientes: parseNumberBR(r['audiencia pacientes'] ?? r['audiencia_pacientes']),
+        audiencia_local: parseNumberBR(r['audiencia local'] ?? r['audiencia_local']),
+        audiencia_hcp: parseNumberBR(r['audiencia hcp'] ?? r['audiencia_hcp']),
+        audiencia_medica: parseNumberBR(r['audiencia medica'] ?? r['audiencia_medica']),
+        aceita_convenio: parseAceitaConvenio(r['aceita convenio'] ?? r['aceita_convenio'] ?? r['aceita_convenio']),
         updated_at: new Date().toISOString(),
       };
 
@@ -1172,6 +1250,189 @@ const Inventory = () => {
       reader.onerror = () => reject(new Error('Erro ao ler arquivo CSV'));
       reader.readAsText(file, 'UTF-8');
     });
+  };
+
+  /** Valida e normaliza linhas de uma planilha "Lista de audiência": Código + Audiência obrigatórios. */
+  const validateAudienceListData = (data: any[]): { rows: { code: string; audience_monthly: number; display_name?: string; city?: string; state?: string; address_raw?: string }[]; errors: string[] } => {
+    const rows: { code: string; audience_monthly: number; display_name?: string; city?: string; state?: string; address_raw?: string }[] = [];
+    const errors: string[] = [];
+    const sanitizeCode = (v: any): string => {
+      let s = String(v ?? '').trim().replace(/[\u200B-\u200D\uFEFF]/g, '').replace(/\s+/g, '');
+      if (/^P\d{4,5},\d+$/i.test(s)) s = s.replace(',', '.');
+      return s;
+    };
+
+    data.forEach((row, index) => {
+      const rowNumber = index + 2;
+      const r: any = {};
+      Object.keys(row || {}).forEach((k) => {
+        r[normalizeHeaderKey(k)] = row[k];
+      });
+
+      const codeRaw = r['codigo'] ?? r['codigo do ponto'] ?? r['code'] ?? r['screen_code'];
+      const code = sanitizeCode(codeRaw);
+      const audRaw = r['audiencia'] ?? r['audiência'] ?? r['audience'] ?? r['audiencia mensal'] ?? r['audience_monthly'];
+      const audience = parseNumberBR(audRaw) ?? (typeof audRaw === 'number' && Number.isFinite(audRaw) ? audRaw : null);
+
+      if (!code) {
+        errors.push(`Linha ${rowNumber}: Código é obrigatório`);
+        return;
+      }
+      if (audience === null || audience === undefined) {
+        errors.push(`Linha ${rowNumber}: Audiência é obrigatória e deve ser um número`);
+        return;
+      }
+      if (audience < 0) {
+        errors.push(`Linha ${rowNumber}: Audiência não pode ser negativa`);
+        return;
+      }
+
+      const display_name = (r['nome de exibicao'] ?? r['nome de exibição'] ?? r['display_name'] ?? '').toString().trim() || undefined;
+      const city = (r['cidade'] ?? r['city'] ?? '').toString().trim() || undefined;
+      const state = (r['estado'] ?? r['uf'] ?? r['state'] ?? '').toString().trim() || undefined;
+      const address_raw = (r['endereco'] ?? r['endereço'] ?? r['address'] ?? '').toString().trim() || undefined;
+
+      rows.push({ code, audience_monthly: Math.round(audience), display_name, city, state, address_raw });
+    });
+
+    return { rows, errors };
+  };
+
+  /** Importar lista de audiência: se o código já existe, atualiza audience_monthly; senão, cadastra nova tela. */
+  const handleUploadAudienceList = async () => {
+    if (!uploadFile || !isAdmin()) {
+      toast({
+        title: "Acesso Negado",
+        description: "Apenas super administradores podem importar lista de audiência.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setUploading(true);
+    setUploadProgress(0);
+
+    try {
+      toast({ title: "Lendo arquivo...", description: "Processando planilha de audiência..." });
+
+      let jsonData: any[] = [];
+      if (uploadFile.type === 'text/csv' || uploadFile.name.endsWith('.csv')) {
+        jsonData = await processCSVFile(uploadFile);
+      } else {
+        const data = await uploadFile.arrayBuffer();
+        const workbook = new ExcelJS.Workbook();
+        await workbook.xlsx.load(data);
+        const worksheet = workbook.getWorksheet(1);
+        if (worksheet) {
+          worksheet.eachRow((row, rowNumber) => {
+            if (rowNumber === 1) return;
+            const rowData: any = {};
+            row.eachCell((cell, colNumber) => {
+              const headerCell = worksheet.getCell(1, colNumber);
+              const header = headerCell.text || headerCell.value?.toString() || `col${colNumber}`;
+              rowData[header] = cell.text || cell.value;
+            });
+            jsonData.push(rowData);
+          });
+        }
+      }
+
+      if (!jsonData?.length) {
+        throw new Error('Arquivo está vazio ou não contém dados.');
+      }
+
+      setUploadProgress(15);
+      const { rows: validatedRows, errors } = validateAudienceListData(jsonData);
+      if (errors.length > 0) {
+        const msg = errors.slice(0, 15).join('\n') + (errors.length > 15 ? `\n... e mais ${errors.length - 15} erro(s).` : '');
+        throw new Error(msg);
+      }
+
+      const deduped = (() => {
+        const byCode = new Map<string, typeof validatedRows[0]>();
+        validatedRows.forEach((row) => byCode.set(row.code, row));
+        return Array.from(byCode.values());
+      })();
+
+      if (deduped.length === 0) {
+        throw new Error('Nenhuma linha válida após deduplicação por Código.');
+      }
+
+      setUploadProgress(25);
+      toast({ title: "Verificando códigos no banco...", description: "" });
+
+      const codes = deduped.map((r) => r.code);
+      const BATCH = 200;
+      const existingByCode = new Map<string, { id: number }>();
+      for (let i = 0; i < codes.length; i += BATCH) {
+        const chunk = codes.slice(i, i + BATCH);
+        const { data: existing } = await supabase
+          .from('screens')
+          .select('id, code')
+          .in('code', chunk);
+        (existing ?? []).forEach((row: any) => {
+          if (row?.code != null) existingByCode.set(String(row.code).trim(), { id: row.id });
+        });
+        setUploadProgress(25 + (i / codes.length) * 25);
+      }
+
+      let updated = 0;
+      let inserted = 0;
+
+      setUploadProgress(50);
+      for (let i = 0; i < deduped.length; i += BATCH) {
+        const chunk = deduped.slice(i, i + BATCH);
+        for (const row of chunk) {
+          const existing = existingByCode.get(row.code);
+          if (existing) {
+            const { error } = await supabase
+              .from('screens')
+              .update({ audience_monthly: row.audience_monthly, updated_at: new Date().toISOString() })
+              .eq('id', existing.id);
+            if (error) throw error;
+            updated++;
+          } else {
+            const insertPayload = {
+              code: row.code,
+              name: row.code,
+              display_name: row.display_name ?? row.code,
+              city: row.city ?? null,
+              state: row.state ?? null,
+              address_raw: row.address_raw ?? null,
+              audience_monthly: row.audience_monthly,
+              active: true,
+              lat: null,
+              lng: null,
+              venue_type_grandchildren: 'TV Doutor',
+            };
+            const { error } = await supabase.from('screens').insert(insertPayload).select('id').single();
+            if (error) throw error;
+            inserted++;
+          }
+        }
+        setUploadProgress(50 + ((i + chunk.length) / deduped.length) * 45);
+      }
+
+      setUploadProgress(100);
+      toast({
+        title: "Lista de audiência importada",
+        description: `${updated} tela(s) atualizada(s), ${inserted} tela(s) cadastrada(s). Total: ${deduped.length} linha(s).`,
+      });
+      setUploadModalOpen(false);
+      setUploadFile(null);
+      setUploadProgress(0);
+      await fetchScreens();
+    } catch (err: any) {
+      console.error('Erro ao importar lista de audiência:', err);
+      toast({
+        title: "Erro",
+        description: err?.message ?? 'Falha ao processar a lista de audiência.',
+        variant: "destructive",
+      });
+    } finally {
+      setUploading(false);
+      setUploadProgress(0);
+    }
   };
 
   const handleUploadScreens = async () => {
@@ -1468,9 +1729,14 @@ const Inventory = () => {
         'Cidade': screen.city || '',
         'Estado': screen.state || '',
         'CEP': screen.zip_code || '',
-        // Removido: 'Classe': screen.class || '', - coluna não existe no banco
         'Especialidade': screen.specialty || '',
         'Ativo': screen.active ? 'Sim' : 'Não',
+        'Ambiente': screen.ambiente || '',
+        'Audiência Pacientes': screen.audiencia_pacientes ?? '',
+        'Audiência Local': screen.audiencia_local ?? '',
+        'Audiência HCP': screen.audiencia_hcp ?? '',
+        'Audiência Médica': screen.audiencia_medica ?? '',
+        'Aceita convênio': screen.aceita_convenio == null ? '' : (screen.aceita_convenio ? 'Sim' : 'Não'),
         'Latitude': screen.lat || '',
         'Longitude': screen.lng || '',
         'Taxa Padrão (Mês)': screen.screen_rates?.standard_rate_month || '',
@@ -1799,7 +2065,9 @@ const Inventory = () => {
                     <TableHead className="min-w-[90px]">Status</TableHead>
                     <TableHead className="min-w-[80px]">Classe</TableHead>
                     <TableHead className="min-w-[140px]">Conexão (TVD)</TableHead>
-                    <TableHead className="min-w-[130px]">Rates</TableHead>
+                    <TableHead className="min-w-[100px]">Audiência</TableHead>
+                    <TableHead className="min-w-[100px]">Ambiente</TableHead>
+                    <TableHead className="min-w-[90px]">Convênio</TableHead>
                     {((searchTerm && searchTerm.trim() !== '') || statusFilter !== "all" || classFilter !== "all" || specialtyFilter !== "all") && (
                       <TableHead className="min-w-[350px]">Especialidades</TableHead>
                     )}
@@ -1817,7 +2085,9 @@ const Inventory = () => {
                         <TableCell><Skeleton className="h-4 w-16" /></TableCell>
                         <TableCell><Skeleton className="h-4 w-12" /></TableCell>
                         <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                        <TableCell><Skeleton className="h-4 w-12" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-14" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-14" /></TableCell>
                         {hasFilters && (
                           <TableCell><Skeleton className="h-4 w-40" /></TableCell>
                         )}
@@ -1912,18 +2182,27 @@ const Inventory = () => {
                             );
                           })()}
                         </TableCell>
-                        <TableCell>
-                          {screen.screen_rates ? (
-                            <div className="text-xs space-y-1">
-                              <div className="font-medium">
-                                R$ {screen.screen_rates.standard_rate_month?.toLocaleString('pt-BR') || 'N/A'}
-                              </div>
-                              <div className="text-muted-foreground">
-                                {screen.screen_rates.spots_per_hour || 'N/A'} spots/h
-                              </div>
-                            </div>
+                        <TableCell className="text-right">
+                          {(screen.audience_monthly ?? screen.venue_info?.audience_monthly) != null && Number(screen.audience_monthly ?? screen.venue_info?.audience_monthly) > 0 ? (
+                            <span className="text-sm font-medium" title="Audiência mensal">
+                              {(screen.audience_monthly ?? screen.venue_info?.audience_monthly)?.toLocaleString('pt-BR')}
+                            </span>
                           ) : (
-                            <span className="text-muted-foreground text-xs">Não definido</span>
+                            <span className="text-muted-foreground text-xs">—</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-sm truncate max-w-[100px]" title={screen.ambiente ?? ''}>
+                          {screen.ambiente ? screen.ambiente : <span className="text-muted-foreground">—</span>}
+                        </TableCell>
+                        <TableCell>
+                          {screen.aceita_convenio === true ? (
+                            <Badge variant="default" className="text-xs">
+                              Sim
+                            </Badge>
+                          ) : (
+                            <Badge className="text-xs bg-red-600 hover:bg-red-600 text-white">
+                              Não
+                            </Badge>
                           )}
                         </TableCell>
                         {hasFilters && (
@@ -2098,6 +2377,19 @@ const Inventory = () => {
                     </div>
                   </div>
                   
+                  {(selectedScreen.ambiente || selectedScreen.aceita_convenio != null || selectedScreen.audiencia_pacientes != null || selectedScreen.audiencia_local != null || selectedScreen.audiencia_hcp != null || selectedScreen.audiencia_medica != null) && (
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium text-muted-foreground">Detalhes do ambiente</Label>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                        {selectedScreen.ambiente && <div><span className="text-muted-foreground">Ambiente:</span> {selectedScreen.ambiente}</div>}
+                        {selectedScreen.aceita_convenio != null && <div><span className="text-muted-foreground">Aceita convênio:</span> {selectedScreen.aceita_convenio ? 'Sim' : 'Não'}</div>}
+                        {selectedScreen.audiencia_pacientes != null && selectedScreen.audiencia_pacientes > 0 && <div><span className="text-muted-foreground">Audiência Pacientes:</span> {selectedScreen.audiencia_pacientes?.toLocaleString('pt-BR')}</div>}
+                        {selectedScreen.audiencia_local != null && selectedScreen.audiencia_local > 0 && <div><span className="text-muted-foreground">Audiência Local:</span> {selectedScreen.audiencia_local?.toLocaleString('pt-BR')}</div>}
+                        {selectedScreen.audiencia_hcp != null && selectedScreen.audiencia_hcp > 0 && <div><span className="text-muted-foreground">Audiência HCP:</span> {selectedScreen.audiencia_hcp?.toLocaleString('pt-BR')}</div>}
+                        {selectedScreen.audiencia_medica != null && selectedScreen.audiencia_medica > 0 && <div><span className="text-muted-foreground">Audiência Médica:</span> {selectedScreen.audiencia_medica?.toLocaleString('pt-BR')}</div>}
+                      </div>
+                    </div>
+                  )}
                   <div className="space-y-2">
                     <Label className="text-sm font-medium text-muted-foreground">
                       Especialidades ({selectedScreen.specialty?.length || 0} total)
@@ -2290,6 +2582,85 @@ const Inventory = () => {
                     />
                   </div>
                 </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="audience_monthly">Audiência mensal</Label>
+                  <Input
+                    id="audience_monthly"
+                    type="number"
+                    min={0}
+                    step={1}
+                    value={editingScreen.audience_monthly ?? editingScreen.venue_info?.audience_monthly ?? ''}
+                    onChange={(e) => {
+                      const v = e.target.value === '' ? null : parseInt(e.target.value, 10);
+                      updateEditingScreen('audience_monthly', Number.isNaN(v) ? null : v);
+                    }}
+                    placeholder="Ex: 45000"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Estimativa de audiência mensal do ponto (pessoas/mês)
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="ambiente">Ambiente</Label>
+                  <Input
+                    id="ambiente"
+                    value={editingScreen.ambiente ?? ''}
+                    onChange={(e) => updateEditingScreen('ambiente', e.target.value || null)}
+                    placeholder="Ex: sala de espera, consultório"
+                  />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="audiencia_pacientes">Audiência Pacientes</Label>
+                    <Input
+                      id="audiencia_pacientes"
+                      type="number"
+                      min={0}
+                      value={editingScreen.audiencia_pacientes ?? ''}
+                      onChange={(e) => updateEditingScreen('audiencia_pacientes', e.target.value === '' ? null : parseInt(e.target.value, 10))}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="audiencia_local">Audiência Local</Label>
+                    <Input
+                      id="audiencia_local"
+                      type="number"
+                      min={0}
+                      value={editingScreen.audiencia_local ?? ''}
+                      onChange={(e) => updateEditingScreen('audiencia_local', e.target.value === '' ? null : parseInt(e.target.value, 10))}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="audiencia_hcp">Audiência HCP</Label>
+                    <Input
+                      id="audiencia_hcp"
+                      type="number"
+                      min={0}
+                      value={editingScreen.audiencia_hcp ?? ''}
+                      onChange={(e) => updateEditingScreen('audiencia_hcp', e.target.value === '' ? null : parseInt(e.target.value, 10))}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="audiencia_medica">Audiência Médica</Label>
+                    <Input
+                      id="audiencia_medica"
+                      type="number"
+                      min={0}
+                      value={editingScreen.audiencia_medica ?? ''}
+                      onChange={(e) => updateEditingScreen('audiencia_medica', e.target.value === '' ? null : parseInt(e.target.value, 10))}
+                    />
+                  </div>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id="aceita_convenio"
+                    checked={editingScreen.aceita_convenio ?? false}
+                    onCheckedChange={(checked) => updateEditingScreen('aceita_convenio', checked)}
+                  />
+                  <Label htmlFor="aceita_convenio">Aceita convênio</Label>
+                </div>
                 
                 <div className="space-y-2">
                   <Label htmlFor="specialty">Especialidades (separadas por vírgula)</Label>
@@ -2431,6 +2802,54 @@ const Inventory = () => {
                   </SelectContent>
                 </Select>
               </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="new-audience_monthly">Audiência mensal</Label>
+                <Input
+                  id="new-audience_monthly"
+                  type="number"
+                  min={0}
+                  step={1}
+                  value={newScreen.audience_monthly ?? ''}
+                  onChange={(e) => {
+                    const v = e.target.value === '' ? undefined : parseInt(e.target.value, 10);
+                    updateNewScreen('audience_monthly', (v !== undefined && !Number.isNaN(v)) ? v : undefined);
+                  }}
+                  placeholder="Ex: 45000"
+                />
+                <p className="text-xs text-muted-foreground">Estimativa de audiência mensal do ponto (pessoas/mês)</p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="new-ambiente">Ambiente</Label>
+                <Input
+                  id="new-ambiente"
+                  value={newScreen.ambiente ?? ''}
+                  onChange={(e) => updateNewScreen('ambiente', e.target.value || null)}
+                  placeholder="Ex: sala de espera, consultório"
+                />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="new-audiencia_pacientes">Audiência Pacientes</Label>
+                  <Input id="new-audiencia_pacientes" type="number" min={0} value={newScreen.audiencia_pacientes ?? ''} onChange={(e) => updateNewScreen('audiencia_pacientes', e.target.value === '' ? null : parseInt(e.target.value, 10))} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="new-audiencia_local">Audiência Local</Label>
+                  <Input id="new-audiencia_local" type="number" min={0} value={newScreen.audiencia_local ?? ''} onChange={(e) => updateNewScreen('audiencia_local', e.target.value === '' ? null : parseInt(e.target.value, 10))} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="new-audiencia_hcp">Audiência HCP</Label>
+                  <Input id="new-audiencia_hcp" type="number" min={0} value={newScreen.audiencia_hcp ?? ''} onChange={(e) => updateNewScreen('audiencia_hcp', e.target.value === '' ? null : parseInt(e.target.value, 10))} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="new-audiencia_medica">Audiência Médica</Label>
+                  <Input id="new-audiencia_medica" type="number" min={0} value={newScreen.audiencia_medica ?? ''} onChange={(e) => updateNewScreen('audiencia_medica', e.target.value === '' ? null : parseInt(e.target.value, 10))} />
+                </div>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Switch id="new-aceita_convenio" checked={newScreen.aceita_convenio ?? false} onCheckedChange={(checked) => updateNewScreen('aceita_convenio', checked)} />
+                <Label htmlFor="new-aceita_convenio">Aceita convênio</Label>
+              </div>
               
               <div className="space-y-2">
                 <Label htmlFor="new-specialty">Especialidades (separadas por vírgula)</Label>
@@ -2470,19 +2889,28 @@ const Inventory = () => {
           </DialogContent>
         </Dialog>
 
-        {/* Modal de Upload de CSV */}
-        <Dialog open={uploadModalOpen} onOpenChange={setUploadModalOpen}>
+        {/* Modal de Upload de CSV / Lista de audiência */}
+        <Dialog open={uploadModalOpen} onOpenChange={(open) => { setUploadModalOpen(open); if (!open) setUploadFile(null); setUploadProgress(0); }}>
           <DialogContent className="max-w-lg">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <FileSpreadsheet className="h-5 w-5" />
-                Upload de Arquivo CSV
+                Importar planilha
               </DialogTitle>
               <DialogDescription>
-                Importe múltiplas telas através de um arquivo CSV ou Excel
+                {uploadMode === 'audience'
+                  ? 'Envie uma lista com Código e Audiência. Telas existentes terão a audiência atualizada; códigos novos serão cadastrados.'
+                  : 'Importe múltiplas telas através de um arquivo CSV ou Excel'}
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-6">
+              <Tabs value={uploadMode} onValueChange={(v) => setUploadMode(v as 'full' | 'audience')} className="w-full">
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="full">Inventário completo</TabsTrigger>
+                  <TabsTrigger value="audience">Lista de audiência</TabsTrigger>
+                </TabsList>
+              </Tabs>
+
               {/* Área de upload */}
               <div className="space-y-4">
                 <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6 text-center">
@@ -2548,10 +2976,17 @@ const Inventory = () => {
                     variant="outline"
                     size="sm"
                     onClick={() => {
-                      const link = document.createElement('a');
-                      link.href = '/template-inventario.csv';
-                      link.download = 'template-inventario.csv';
-                      link.click();
+                      if (uploadMode === 'audience') {
+                        const link = document.createElement('a');
+                        link.href = '/template-audiencia.csv';
+                        link.download = 'template-audiencia.csv';
+                        link.click();
+                      } else {
+                        const link = document.createElement('a');
+                        link.href = '/template-inventario.csv';
+                        link.download = 'template-inventario.csv';
+                        link.click();
+                      }
                     }}
                     className="gap-1"
                   >
@@ -2560,25 +2995,37 @@ const Inventory = () => {
                   </Button>
                 </div>
                 <div className="text-xs text-muted-foreground space-y-1">
-                  <p>• Colunas obrigatórias: <code>Código</code>, <code>Nome de Exibição</code></p>
-                  <p>• Colunas opcionais: <code>Cidade</code>, <code>Estado</code>, <code>Endereço</code>, <code>CEP</code>, <code>Classe</code>, <code>Especialidade</code>, <code>Ativo</code>, <code>Latitude</code>, <code>Longitude</code></p>
-                  <p>• CSV pode usar <code>;</code> ou <code>,</code> como separador. Para decimais, aceitamos <code>,</code> (ex: -23,55) ou <code>.</code> (ex: -23.55)</p>
-                  <p>• Para <code>Ativo</code>: use "Sim" ou "Não" (padrão: Sim)</p>
+                  {uploadMode === 'audience' ? (
+                    <>
+                      <p>• Colunas obrigatórias: <code>Código</code> (ex: P2000, P2000.1), <code>Audiência</code> (número inteiro, ex: 45000)</p>
+                      <p>• Opcionais para novos cadastros: <code>Nome de Exibição</code>, <code>Cidade</code>, <code>Estado</code>, <code>Endereço</code></p>
+                      <p>• Se o código já existir no sistema, apenas a audiência será atualizada. Se não existir, a tela será cadastrada com os dados da linha.</p>
+                    </>
+                  ) : (
+                    <>
+                      <p>• Colunas obrigatórias: <code>Código</code>, <code>Nome de Exibição</code></p>
+                      <p>• Colunas opcionais: <code>Cidade</code>, <code>Estado</code>, <code>Endereço</code>, <code>CEP</code>, <code>Classe</code>, <code>Especialidade</code>, <code>Ativo</code>, <code>Latitude</code>, <code>Longitude</code>, <code>Ambiente</code>, <code>Audiência Pacientes</code>, <code>Audiência Local</code>, <code>Audiência HCP</code>, <code>Audiência Médica</code>, <code>Aceita convênio</code> (Sim/Não)</p>
+                      <p>• CSV pode usar <code>;</code> ou <code>,</code> como separador. Para decimais, aceitamos <code>,</code> (ex: -23,55) ou <code>.</code> (ex: -23.55)</p>
+                      <p>• Para <code>Ativo</code>: use "Sim" ou "Não" (padrão: Sim)</p>
+                    </>
+                  )}
                 </div>
               </div>
             </div>
             <DialogFooter>
-              <div className="flex-1 flex items-center gap-2 justify-start">
-                <Switch
-                  id="replace-import"
-                  checked={replaceExistingOnImport}
-                  onCheckedChange={(checked) => setReplaceExistingOnImport(checked)}
-                  disabled={uploading}
-                />
-                <Label htmlFor="replace-import" className="text-sm">
-                  Substituir base (inativar telas atuais antes de importar)
-                </Label>
-              </div>
+              {uploadMode === 'full' && (
+                <div className="flex-1 flex items-center gap-2 justify-start">
+                  <Switch
+                    id="replace-import"
+                    checked={replaceExistingOnImport}
+                    onCheckedChange={(checked) => setReplaceExistingOnImport(checked)}
+                    disabled={uploading}
+                  />
+                  <Label htmlFor="replace-import" className="text-sm">
+                    Substituir base (inativar telas atuais antes de importar)
+                  </Label>
+                </div>
+              )}
               <Button 
                 variant="outline" 
                 onClick={() => {
@@ -2591,7 +3038,7 @@ const Inventory = () => {
                 Cancelar
               </Button>
               <Button 
-                onClick={handleUploadScreens}
+                onClick={uploadMode === 'audience' ? handleUploadAudienceList : handleUploadScreens}
                 disabled={!uploadFile || uploading}
                 className="gap-2"
               >
@@ -2603,7 +3050,7 @@ const Inventory = () => {
                 ) : (
                   <>
                     <Upload className="h-4 w-4" />
-                    Importar Arquivo
+                    {uploadMode === 'audience' ? 'Importar audiência' : 'Importar Arquivo'}
                   </>
                 )}
               </Button>

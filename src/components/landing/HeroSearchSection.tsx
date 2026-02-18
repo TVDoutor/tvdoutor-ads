@@ -268,21 +268,21 @@ export function HeroSearchSection({ onSearchResults }: HeroSearchSectionProps) {
                           <Play className="w-4 h-4 text-blue-500" />
                           <div>
                             <p className="text-gray-600">exibições</p>
-                            <p className="font-semibold">{formatNumber(screen.reach * 15)}</p>
+                            <p className="font-semibold">{formatNumber(screen.audience * 15)}</p>
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
                           <Users className="w-4 h-4 text-green-500" />
                           <div>
-                            <p className="text-gray-600">alcance</p>
-                            <p className="font-semibold">{formatNumber(screen.reach)}</p>
+                            <p className="text-gray-600">audiência</p>
+                            <p className="font-semibold">{formatNumber(screen.audience)}</p>
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
                           <RefreshCw className="w-4 h-4 text-orange-500" />
                           <div>
                             <p className="text-gray-600">frequência</p>
-                            <p className="font-semibold">{Math.round(screen.reach / 200)}</p>
+                            <p className="font-semibold">{Math.round(screen.audience / 200)}</p>
                           </div>
                         </div>
                       </div>

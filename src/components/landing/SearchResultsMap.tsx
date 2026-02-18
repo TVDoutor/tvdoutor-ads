@@ -78,11 +78,8 @@ export function SearchResultsMap({ screens, centerLat, centerLng, radiusKm, load
       const token = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN;
       
       if (!token) {
-        console.warn('⚠️ Token do Mapbox não configurado, usando fallback');
-        // Usar um token público temporário para demonstração
-        const fallbackToken = 'pk.eyJ1IjoidHZkb3V0b3JhZHMiLCJhIjoiY21ldTk2YzVjMDRpaTJsbXdoN3Rhd3NhNiJ9.XCRdHGYU-V1nyGOlepho4Q';
-        setMapboxToken(fallbackToken);
-        setMapError(null);
+        console.warn('⚠️ Token do Mapbox não configurado. Configure VITE_MAPBOX_ACCESS_TOKEN no .env');
+        setMapError('Token do Mapbox não configurado. Configure VITE_MAPBOX_ACCESS_TOKEN.');
         return;
       }
 
@@ -203,7 +200,7 @@ export function SearchResultsMap({ screens, centerLat, centerLng, radiusKm, load
             <div><strong>Localização:</strong> ${screen.city}, ${screen.state}</div>
             <div><strong>Distância:</strong> ${screen.distance}km</div>
             <div><strong>Classe:</strong> ${screen.class}</div>
-            <div><strong>Alcance:</strong> ${screen.reach.toLocaleString()} pessoas/semana</div>
+            <div><strong>Audiência:</strong> ${screen.audience.toLocaleString()} pessoas/mês</div>
             <div><strong>Preço:</strong> R$ ${screen.price.toFixed(2)}/semana</div>
           </div>
         </div>

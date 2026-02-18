@@ -177,7 +177,7 @@ export function GeospatialSearch({ onResults, onNavigateToMap }: GeospatialSearc
                   <div className="text-right">
                     <p className="text-sm font-medium">R$ {screen.price.toFixed(2)}/semana</p>
                     <p className="text-xs text-muted-foreground">
-                      {screen.reach.toLocaleString()} pessoas/semana
+                      {screen.audience.toLocaleString()} pessoas/mês
                     </p>
                   </div>
                 </div>

@@ -8,7 +8,6 @@ import {
   Clock, 
   CheckCircle, 
   X,
-  Monitor,
   FileText,
   AlertCircle,
   ExternalLink,
@@ -26,7 +25,6 @@ interface AlertQueueProps {
 }
 
 const categoryIcons = {
-  inactive_screen: Monitor,
   no_response_proposal: FileText,
   integration_error: AlertCircle,
   player_offline: WifiOff,
@@ -79,7 +77,7 @@ export const AlertQueue = ({
   }, [realAlerts, propGroups, filterDismissedAlerts]);
   
   const groups = propGroups || filteredGroups;
-  const [activeTab, setActiveTab] = useState(groups[0]?.category || 'inactive_screen');
+  const [activeTab, setActiveTab] = useState(groups[0]?.category || 'no_response_proposal');
   const [selectedAlerts, setSelectedAlerts] = useState<string[]>([]);
   const [confirmDialog, setConfirmDialog] = useState<{
     open: boolean;

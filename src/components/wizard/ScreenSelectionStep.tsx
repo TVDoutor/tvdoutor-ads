@@ -12,6 +12,7 @@ import { CitySelectionModal } from "@/components/ui/city-selection-modal";
 import { AddressRadiusSearch } from "@/components/ui/address-radius-search";
 import { parseCepXls, parseCepText, batchFindScreensByCEPs } from '@/lib/cep-batch';
 import { combineIds } from "@/utils/ids";
+import { getVenueIdsWithPharmacyInRadius } from '@/lib/venue-pharmacy-radius-service';
 
 interface Screen {
   id: number;
@@ -26,6 +27,7 @@ interface Screen {
   class_name?: string;
   lat?: number;
   lng?: number;
+  venue_id?: number | null;
   specialty?: string[]; // Array de especialidades
   address_raw?: string; // Endereço da tela
 }
@@ -61,10 +63,34 @@ export const ScreenSelectionStep = ({ data, onUpdate }: ScreenSelectionStepProps
   const [cepProcessing, setCepProcessing] = useState(false);
   const [cepSummary, setCepSummary] = useState<{valid: number; invalid: number; venues: number; screens: number} | null>(null);
   const [cepText, setCepText] = useState('');
+  const [pharmacyRadiusFilter, setPharmacyRadiusFilter] = useState<string>('');
+  const [venueIdsWithPharmacyInRadius, setVenueIdsWithPharmacyInRadius] = useState<number[]>([]);
+  const [pharmacyRadiusLoading, setPharmacyRadiusLoading] = useState(false);
 
   useEffect(() => {
     fetchScreens();
   }, []);
+
+  useEffect(() => {
+    if (!pharmacyRadiusFilter) {
+      setVenueIdsWithPharmacyInRadius([]);
+      return;
+    }
+    const km = parseInt(pharmacyRadiusFilter, 10);
+    if (Number.isNaN(km) || km < 1) {
+      setVenueIdsWithPharmacyInRadius([]);
+      return;
+    }
+    setPharmacyRadiusLoading(true);
+    getVenueIdsWithPharmacyInRadius(km)
+      .then(ids => setVenueIdsWithPharmacyInRadius(ids))
+      .catch(err => {
+        console.error('Erro ao carregar venues por raio de farmácia:', err);
+        toast.error('Não foi possível aplicar o filtro de raio farmácia.');
+        setVenueIdsWithPharmacyInRadius([]);
+      })
+      .finally(() => setPharmacyRadiusLoading(false));
+  }, [pharmacyRadiusFilter]);
 
   const fetchScreens = async () => {
     try {
@@ -84,7 +110,8 @@ export const ScreenSelectionStep = ({ data, onUpdate }: ScreenSelectionStepProps
           active,
           class,
           specialty,
-          address
+          address,
+          venue_id
         `)
         .not('lat', 'is', null)
         .not('lng', 'is', null)
@@ -104,6 +131,7 @@ export const ScreenSelectionStep = ({ data, onUpdate }: ScreenSelectionStepProps
           active: Boolean(s.active),
           lat: s.lat,
           lng: s.lng,
+          venue_id: s.venue_id ?? undefined,
           class: s.class || 'ND',
           class_name: s.class || 'ND',
           specialty: Array.isArray(s.specialty)
@@ -219,6 +247,12 @@ export const ScreenSelectionStep = ({ data, onUpdate }: ScreenSelectionStepProps
   };
 
   const filteredScreens = screens.filter(screen => {
+    // Filtro por raio de farmácia: apenas telas em venues com farmácia a até X km
+    if (pharmacyRadiusFilter && venueIdsWithPharmacyInRadius.length >= 0) {
+      const set = new Set(venueIdsWithPharmacyInRadius);
+      if (screen.venue_id == null || !set.has(screen.venue_id)) return false;
+    }
+
     // Se a busca por raio estiver ativa, mostrar apenas as telas encontradas na busca
     if (radiusSearchActive) {
       return radiusSearchResults.some(result => result.id === screen.id.toString());
@@ -499,6 +533,39 @@ export const ScreenSelectionStep = ({ data, onUpdate }: ScreenSelectionStepProps
                 )}
               </Button>
             </div>
+          </div>
+
+          {/* Raio farmácia: apenas telas em venues com farmácia a até X km */}
+          <div className="space-y-2 pt-2 border-t">
+            <label className="text-sm font-medium flex items-center gap-2">
+              <MapPin className="w-4 h-4" />
+              Com farmácia a até
+            </label>
+            <Select
+              value={pharmacyRadiusFilter}
+              onValueChange={setPharmacyRadiusFilter}
+              disabled={pharmacyRadiusLoading}
+            >
+              <SelectTrigger className="w-full max-w-[200px]">
+                <SelectValue placeholder="Todos (sem filtro)" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">Todos (sem filtro)</SelectItem>
+                <SelectItem value="1">1 km</SelectItem>
+                <SelectItem value="2">2 km</SelectItem>
+                <SelectItem value="3">3 km</SelectItem>
+                <SelectItem value="4">4 km</SelectItem>
+                <SelectItem value="5">5 km</SelectItem>
+              </SelectContent>
+            </Select>
+            {pharmacyRadiusLoading && (
+              <p className="text-xs text-muted-foreground">Carregando…</p>
+            )}
+            {pharmacyRadiusFilter && !pharmacyRadiusLoading && (
+              <p className="text-xs text-muted-foreground">
+                {venueIdsWithPharmacyInRadius.length} venue(s) com farmácia a até {pharmacyRadiusFilter} km → {filteredScreens.length} telas
+              </p>
+            )}
           </div>
         </div>
 

@@ -1,5 +1,6 @@
 import React from 'react';
 import { DashboardLayout } from '@/components/DashboardLayout';
+import { PageHeader } from '@/components/PageHeader';
 import { UserSessionDashboard } from '@/components/admin/UserSessionDashboard';
 import { useAuth } from '@/contexts/AuthContext';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -10,17 +11,15 @@ export default function UserManagement() {
 
   return (
     <DashboardLayout>
-      <div className="h-full flex flex-col space-y-6 p-6">
-        {/* Header */}
-        <div className="flex flex-col space-y-2">
-          <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-            Gerenciamento de Usuários
-          </h1>
-          <p className="text-muted-foreground">
-            Monitoramento de usuários online e histórico de sessões em tempo real
-          </p>
-        </div>
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-purple-50/20">
+        {/* Page Header - mesmo estilo laranja com cantos arredondados do Inventário */}
+        <PageHeader
+          title="Gerenciamento de Usuários"
+          subtitle="Monitoramento de usuários online e histórico de sessões em tempo real"
+          icon={Shield}
+        />
 
+        <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-8 pb-12 space-y-6">
         {/* Aviso de Permissão */}
         {!isSuperAdmin() && (
           <Alert className="border-red-200 bg-red-50">
@@ -38,6 +37,7 @@ export default function UserManagement() {
         {/* Dashboard de Sessões */}
         <div className="flex-1 min-h-0">
           <UserSessionDashboard />
+        </div>
         </div>
       </div>
     </DashboardLayout>

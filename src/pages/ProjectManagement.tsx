@@ -51,6 +51,7 @@ import {
 } from '@/lib/project-management-service';
 import type { PessoaProjeto } from '@/types/agencia';
 import { TelaEquipes, TelaMarcos, TelaRelatorios, TelaPessoasProjeto } from '@/components/ProjectManagementScreens';
+import { PageHeader, buttonStyles } from '@/components/PageHeader';
 
 interface Notificacao {
   id: string;
@@ -1891,58 +1892,38 @@ const ProjectManagement = () => {
     }
   };
 
+  const headerConfig = {
+    agencias: { title: 'Agências Parceiras', subtitle: `Gerencie todas as agências • ${dados.agencias.length} parceiros`, icon: Building2, badge: `${dados.agencias.length} parceiros` },
+    projetos: { title: 'Projetos Ativos', subtitle: `Acompanhe projetos em execução • ${dados.projetos.length} ativos`, icon: Target, badge: `${dados.projetos.length} ativos` },
+    deals: { title: 'Deals e Negócios', subtitle: `Controle de negócios • ${dados.deals.length} deals`, icon: TrendingUp, badge: `${dados.deals.length} deals` },
+    equipes: { title: 'Equipes dos Projetos', subtitle: `Gestão de pessoas • ${dados.equipes.length} membros`, icon: Users, badge: `${dados.equipes.length} membros` },
+    marcos: { title: 'Marcos e Cronograma', subtitle: `Cronograma de entregas • ${dados.marcos.length} marcos`, icon: Flag, badge: `${dados.marcos.length} marcos` },
+    pessoas: { title: 'Pessoas do Projeto', subtitle: `Gestão de contatos • ${dados.pessoasProjeto.length} pessoas`, icon: UserCheck, badge: `${dados.pessoasProjeto.length} pessoas` },
+    relatorios: { title: 'Relatórios Executivos', subtitle: 'Análises e métricas de performance', icon: BarChart3, badge: null },
+  };
+  const config = headerConfig[telaAtiva as keyof typeof headerConfig] || headerConfig.agencias;
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-primary/5">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-purple-50/20">
       <Navigation />
       <main className="ml-72">
-          {/* Header da tela ativa */}
-          <div className="bg-white/80 backdrop-blur-sm border-b border-gray-200/60 shadow-sm">
-            <div className="px-8 py-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="p-3 bg-gradient-to-br from-primary/20 to-primary/10 rounded-xl shadow-sm">
-                    {telaAtiva === 'agencias' && <Building2 className="h-6 w-6 text-primary" />}
-                    {telaAtiva === 'projetos' && <Target className="h-6 w-6 text-primary" />}
-                    {telaAtiva === 'deals' && <TrendingUp className="h-6 w-6 text-primary" />}
-                    {telaAtiva === 'equipes' && <Users className="h-6 w-6 text-primary" />}
-                    {telaAtiva === 'marcos' && <Flag className="h-6 w-6 text-primary" />}
-                    {telaAtiva === 'pessoas' && <UserCheck className="h-6 w-6 text-primary" />}
-                    {telaAtiva === 'relatorios' && <BarChart3 className="h-6 w-6 text-primary" />}
-                  </div>
-                  <div>
-                    <h1 className="text-2xl font-bold text-gray-900 capitalize">
-                      {telaAtiva === 'agencias' && 'Agências Parceiras'}
-                      {telaAtiva === 'projetos' && 'Projetos Ativos'}
-                      {telaAtiva === 'deals' && 'Deals e Negócios'}
-                      {telaAtiva === 'equipes' && 'Equipes dos Projetos'}
-                      {telaAtiva === 'marcos' && 'Marcos e Cronograma'}
-                      {telaAtiva === 'pessoas' && 'Pessoas do Projeto'}
-                      {telaAtiva === 'relatorios' && 'Relatórios Executivos'}
-                    </h1>
-                    <p className="text-sm text-gray-600 mt-1">
-                      {telaAtiva === 'agencias' && `Gerencie todas as agências • ${dados.agencias.length} parceiros`}
-                      {telaAtiva === 'projetos' && `Acompanhe projetos em execução • ${dados.projetos.length} ativos`}
-                      {telaAtiva === 'deals' && `Controle de negócios • ${dados.deals.length} deals`}
-                      {telaAtiva === 'equipes' && `Gestão de pessoas • ${dados.equipes.length} membros`}
-                      {telaAtiva === 'marcos' && `Cronograma de entregas • ${dados.marcos.length} marcos`}
-                      {telaAtiva === 'pessoas' && `Gestão de contatos • ${dados.pessoasProjeto.length} pessoas`}
-                      {telaAtiva === 'relatorios' && 'Análises e métricas de performance'}
-                    </p>
-                  </div>
-                </div>
-                
-                <Button 
-                  variant="outline" 
-                  onClick={carregarDados} 
-                  disabled={loading} 
-                  className="gap-2 hover:bg-primary/5 hover:border-primary/20 transition-all duration-300"
-                >
-                  <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-                  Atualizar
-                </Button>
-              </div>
-            </div>
-          </div>
+          {/* Page Header - mesmo estilo laranja com cantos arredondados do Inventário */}
+          <PageHeader
+            title={config.title}
+            subtitle={config.subtitle}
+            icon={config.icon}
+            badge={config.badge ? { label: config.badge, color: 'bg-white/20 text-white border-white/30' } : undefined}
+            actions={
+              <Button
+                onClick={carregarDados}
+                disabled={loading}
+                className={`gap-2 ${buttonStyles.secondary}`}
+              >
+                <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+                Atualizar
+              </Button>
+            }
+          />
 
           <div className="p-8">
             {loading ? (

@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { DashboardLayout } from "@/components/DashboardLayout";
+import { PageHeader, buttonStyles } from "@/components/PageHeader";
 import { isActive } from '@/utils/status';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -48,10 +49,19 @@ interface VenueWithScreens {
     active: boolean;
     lat?: number;
     lng?: number;
+    audience?: number | null;
+    ambiente?: string | null;
+    audiencia_pacientes?: number | null;
+    audiencia_local?: number | null;
+    audiencia_hcp?: number | null;
+    audiencia_medica?: number | null;
+    aceita_convenio?: boolean | null;
   }[];
   screenCount: number;
   activeScreens: number;
   coordinates: boolean;
+  /** Soma da audiência mensal das telas do ponto (staging_audiencia) */
+  audienceTotal: number;
 }
 
 const Venues = () => {
@@ -125,7 +135,14 @@ const Venues = () => {
               class,
               active,
               lat,
-              lng
+              lng,
+              staging_audiencia,
+              ambiente,
+              audiencia_pacientes,
+              audiencia_local,
+              audiencia_hcp,
+              audiencia_medica,
+              aceita_convenio
             `)
             .order('code', { ascending: true })
             .range(from, from + PAGE_SIZE - 1);
@@ -207,11 +224,13 @@ const Venues = () => {
             screens: [],
             screenCount: 0,
             activeScreens: 0,
-            coordinates: false
+            coordinates: false,
+            audienceTotal: 0
           });
         }
 
         const venue = venuesMap.get(venueKey)!;
+        const screenAudience = Number(screen.staging_audiencia) || 0;
         venue.screens.push({
           id: screen.id,
           code: screen.code || `ID-${screen.id}`,
@@ -220,10 +239,18 @@ const Venues = () => {
           class: screen.class || 'ND',
           active: Boolean(screen.active),
           lat: screen.lat,
-          lng: screen.lng
+          lng: screen.lng,
+          audience: screen.staging_audiencia ?? undefined,
+          ambiente: screen.ambiente ?? undefined,
+          audiencia_pacientes: screen.audiencia_pacientes ?? undefined,
+          audiencia_local: screen.audiencia_local ?? undefined,
+          audiencia_hcp: screen.audiencia_hcp ?? undefined,
+          audiencia_medica: screen.audiencia_medica ?? undefined,
+          aceita_convenio: screen.aceita_convenio ?? undefined
         });
 
         venue.screenCount++;
+        venue.audienceTotal += screenAudience;
         if (isActive(screen.active)) {
           venue.activeScreens++;
         }
@@ -375,48 +402,34 @@ const Venues = () => {
 
   return (
     <DashboardLayout>
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50/30">
-        {/* Header */}
-        <div className="bg-white border-b border-gray-200 shadow-sm">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-primary/10 rounded-lg">
-                  <Building2 className="h-6 w-6 text-primary" />
-                </div>
-                <div>
-                  <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Pontos de Venda</h1>
-                  <p className="text-sm text-gray-500 mt-1">
-                    Gerencie locais e suas telas • {venues.length} pontos de venda
-                  </p>
-                </div>
-              </div>
-              
-              <div className="flex items-center gap-2">
-                <div className="flex bg-gray-100 rounded-lg p-1">
-                  <Button
-                    variant={viewMode === 'cards' ? 'default' : 'ghost'}
-                    size="sm"
-                    onClick={() => setViewMode('cards')}
-                    className="gap-2"
-                  >
-                    <Grid className="h-4 w-4" />
-                    Cards
-                  </Button>
-                  <Button
-                    variant={viewMode === 'table' ? 'default' : 'ghost'}
-                    size="sm"
-                    onClick={() => setViewMode('table')}
-                    className="gap-2"
-                  >
-                    <List className="h-4 w-4" />
-                    Tabela
-                  </Button>
-                </div>
-              </div>
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-purple-50/20">
+        {/* Page Header - mesmo estilo laranja com cantos arredondados do Inventário */}
+        <PageHeader
+          title="Pontos de Venda"
+          subtitle="Gerencie locais e suas telas"
+          icon={Building2}
+          badge={{ label: `${venues.length} pontos de venda`, color: "bg-white/20 text-white border-white/30" }}
+          actions={
+            <div className="flex bg-white/20 backdrop-blur-sm rounded-xl p-1 gap-1">
+              <Button
+                size="sm"
+                onClick={() => setViewMode('cards')}
+                className={viewMode === 'cards' ? buttonStyles.primary : "bg-transparent text-white hover:bg-white/20 border-0"}
+              >
+                <Grid className="h-4 w-4 mr-2" />
+                Cards
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => setViewMode('table')}
+                className={viewMode === 'table' ? buttonStyles.primary : "bg-transparent text-white hover:bg-white/20 border-0"}
+              >
+                <List className="h-4 w-4 mr-2" />
+                Tabela
+              </Button>
             </div>
-          </div>
-        </div>
+          }
+        />
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
           {/* Banner de dados de exemplo */}
@@ -653,6 +666,7 @@ const Venues = () => {
                           <th className="text-left p-4 font-medium text-gray-900">Tipo</th>
                           <th className="text-left p-4 font-medium text-gray-900">Localização</th>
                           <th className="text-left p-4 font-medium text-gray-900">Telas</th>
+                          <th className="text-right p-4 font-medium text-gray-900">Audiência/mês</th>
                           <th className="text-left p-4 font-medium text-gray-900">Status</th>
                           <th className="text-left p-4 font-medium text-gray-900">Ações</th>
                         </tr>
@@ -682,6 +696,15 @@ const Venues = () => {
                                 </Badge>
                                 <span className="text-sm text-gray-600">ativas</span>
                               </div>
+                            </td>
+                            <td className="p-4 text-right">
+                              {venue.audienceTotal > 0 ? (
+                                <span className="text-sm font-medium text-gray-900" title="Audiência mensal (soma das telas)">
+                                  {venue.audienceTotal.toLocaleString('pt-BR')}
+                                </span>
+                              ) : (
+                                <span className="text-sm text-gray-400">—</span>
+                              )}
                             </td>
                             <td className="p-4">
                               <div className="flex items-center gap-2">
@@ -776,6 +799,13 @@ const Venues = () => {
                     {cls}
                   </Badge>
                 ))}
+              </div>
+            )}
+
+            {venue.audienceTotal > 0 && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Users className="h-4 w-4" />
+                <span>Audiência: <strong className="text-gray-900">{venue.audienceTotal.toLocaleString('pt-BR')}</strong>/mês</span>
               </div>
             )}
 

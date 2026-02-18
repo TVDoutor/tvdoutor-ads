@@ -26,7 +26,8 @@ export interface ScreenSearchResult {
   active: boolean;
   class: string;
   price: number;
-  reach: number;
+  /** Audiência mensal real (pessoas/mês); fallback para estimativa por classe quando não há dado */
+  audience: number;
   distance: number;
   address_raw: string;
   venue_name?: string;
@@ -84,7 +85,10 @@ export async function searchScreensNearLocation(params: SearchParams): Promise<S
         active,
         address_raw,
         venue_id,
-        class
+        class,
+        audience_monthly,
+        audiencia_pacientes,
+        audiencia_local
       `)
       .eq('active', true)
       .not('lat', 'is', null)
@@ -155,6 +159,10 @@ export async function searchScreensNearLocation(params: SearchParams): Promise<S
           screen.lng
         );
         
+        const realAudience = (screen as any).audience_monthly ?? (screen as any).audiencia_pacientes ?? (screen as any).audiencia_local;
+        const audience = realAudience != null && Number(realAudience) > 0
+          ? Number(realAudience)
+          : calculateReach((screen as any).class || 'ND');
         const mappedScreen = {
           id: String(screen.id),
           code: screen.code || 'Código não informado',
@@ -165,12 +173,12 @@ export async function searchScreensNearLocation(params: SearchParams): Promise<S
           lat: Number(screen.lat),
           lng: Number(screen.lng),
           active: Boolean(screen.active),
-          class: (screen as any).class || 'ND', // Usar a coluna class se existir, senão usar 'ND'
+          class: (screen as any).class || 'ND',
           price: calculatePrice((screen as any).class || 'ND', params.durationWeeks),
-          reach: calculateReach((screen as any).class || 'ND'),
-          distance: Math.round(distance * 10) / 10, // Arredondar para 1 casa decimal
+          audience,
+          distance: Math.round(distance * 10) / 10,
           address_raw: screen.address_raw || 'Endereço não informado',
-          venue_name: undefined // Não buscando venues por enquanto
+          venue_name: undefined
         };
         
         console.log('🔍 Tela mapeada:', { 
@@ -232,7 +240,10 @@ export async function searchScreensByCity(city: string): Promise<ScreenSearchRes
         active,
         address_raw,
         venue_id,
-        class
+        class,
+        audience_monthly,
+        audiencia_pacientes,
+        audiencia_local
       `)
       .eq('active', true)
       .ilike('city', `%${city}%`)
@@ -274,23 +285,29 @@ export async function searchScreensByCity(city: string): Promise<ScreenSearchRes
 
     if (!screens) return [];
 
-    return screens.map(screen => ({
-      id: String(screen.id),
-      code: screen.code || 'Código não informado',
-      name: screen.name || screen.display_name || 'Nome não informado',
-      display_name: screen.display_name || 'Nome não informado',
-      city: screen.city || 'Cidade não informada',
-      state: screen.state || 'Estado não informado',
-      lat: Number(screen.lat),
-      lng: Number(screen.lng),
-      active: Boolean(screen.active),
-      class: (screen as any).class || 'ND', // Usar a coluna class se existir, senão usar 'ND'
-      price: calculatePrice((screen as any).class || 'ND', '2'), // Preço padrão para 2 semanas
-      reach: calculateReach((screen as any).class || 'ND'),
-      distance: 0, // Não aplicável para busca por cidade
-      address_raw: screen.address_raw || 'Endereço não informado',
-      venue_name: undefined // Não buscando venues por enquanto
-    }));
+    return screens.map(screen => {
+      const realAudience = (screen as any).audience_monthly ?? (screen as any).audiencia_pacientes ?? (screen as any).audiencia_local;
+      const audience = realAudience != null && Number(realAudience) > 0
+        ? Number(realAudience)
+        : calculateReach((screen as any).class || 'ND');
+      return {
+        id: String(screen.id),
+        code: screen.code || 'Código não informado',
+        name: screen.name || screen.display_name || 'Nome não informado',
+        display_name: screen.display_name || 'Nome não informado',
+        city: screen.city || 'Cidade não informada',
+        state: screen.state || 'Estado não informado',
+        lat: Number(screen.lat),
+        lng: Number(screen.lng),
+        active: Boolean(screen.active),
+        class: (screen as any).class || 'ND',
+        price: calculatePrice((screen as any).class || 'ND', '2'),
+        audience,
+        distance: 0,
+        address_raw: screen.address_raw || 'Endereço não informado',
+        venue_name: undefined
+      };
+    });
 
   } catch (error) {
     console.error('💥 Erro na busca por cidade:', error);

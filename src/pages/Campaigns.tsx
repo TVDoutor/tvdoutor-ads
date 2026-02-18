@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { DashboardLayout } from '@/components/DashboardLayout';
+import { PageHeader, buttonStyles } from '@/components/PageHeader';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -279,27 +280,18 @@ export default function Campaigns() {
 
   return (
     <DashboardLayout>
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50/30">
-        {/* Header */}
-        <div className="bg-white border-b border-gray-200 shadow-sm">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-primary/10 rounded-lg">
-                  <Target className="h-6 w-6 text-primary" />
-                </div>
-                <div>
-                  <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Campanhas Publicitárias</h1>
-                  <p className="text-sm text-gray-500 mt-1">
-                    Gerencie e monitore suas campanhas • {campaigns.length} campanhas ativas
-                  </p>
-                </div>
-              </div>
-              
+      <div className="min-h-screen bg-gray-50">
+        {/* Page Header - mesmo estilo laranja com cantos arredondados do Inventário */}
+        <PageHeader
+          title="Campanhas Publicitárias"
+          subtitle="Gerencie e monitore suas campanhas"
+          icon={Target}
+          badge={{ label: `${campaigns.length} campanhas`, color: "bg-white/20 text-white border-white/30" }}
+          actions={
               <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                 <DialogTrigger asChild>
-                  <Button className="gap-2 shadow-sm">
-                    <Plus className="w-4 h-4" />
+                  <Button className={buttonStyles.primary}>
+                    <Plus className="w-4 h-4 mr-2" />
                     Nova Campanha
                   </Button>
                 </DialogTrigger>
@@ -460,9 +452,8 @@ export default function Campaigns() {
                   </div>
                 </DialogContent>
               </Dialog>
-            </div>
-          </div>
-        </div>
+          }
+        />
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
           {/* Stats Cards */}

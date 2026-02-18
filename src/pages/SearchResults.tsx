@@ -230,7 +230,7 @@ export default function SearchResults() {
                         <TrendingUp className="w-4 h-4 text-green-600" />
                         <div>
                           <p className="font-medium">Alcance</p>
-                          <p className="text-muted-foreground">{screen.reach.toLocaleString()} pessoas/semana</p>
+                          <p className="text-muted-foreground">{screen.audience.toLocaleString()} pessoas/mês</p>
                         </div>
                       </div>
                       <div className="flex items-center gap-2">

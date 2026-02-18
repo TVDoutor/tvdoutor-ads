@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { useState, useEffect } from "react";
 import { DashboardLayout } from "@/components/DashboardLayout";
+import { PageHeader, buttonStyles } from "@/components/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -57,6 +58,12 @@ import {
 } from "recharts";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import {
+  getVenuesByPharmacyRadiusSummary,
+  getPharmacyCountBySpecialtyAndRadius,
+  type VenuesByPharmacyRadiusRow,
+  type PharmacyCountBySpecialtyResult
+} from "@/lib/venue-pharmacy-radius-service";
 
 interface KPIData {
   activeScreens: number;
@@ -140,6 +147,8 @@ const Reports = () => {
   const [inventoryStats, setInventoryStats] = useState<InventoryStats[]>([]);
   const [campaignsData, setCampaignsData] = useState<ChartData[]>([]);
   const [agenciesData, setAgenciesData] = useState<ChartData[]>([]);
+  const [pharmacyRadiusSummary, setPharmacyRadiusSummary] = useState<VenuesByPharmacyRadiusRow[]>([]);
+  const [pharmacyBySpecialtyData, setPharmacyBySpecialtyData] = useState<PharmacyCountBySpecialtyResult[]>([]);
 
   useEffect(() => {
     fetchReportsData({ showLoader: true });
@@ -184,7 +193,8 @@ const Reports = () => {
         fetchTopUsers(),
         fetchInventoryStats(),
         fetchCampaignsData(),
-        fetchAgenciesData()
+        fetchAgenciesData(),
+        fetchPharmacyRadiusData()
       ]);
       
       console.log('✅ Dados dos relatórios carregados');
@@ -698,7 +708,25 @@ const Reports = () => {
     }
   };
 
-
+  const fetchPharmacyRadiusData = async () => {
+    try {
+      const [summary, ...specialtyResults] = await Promise.all([
+        getVenuesByPharmacyRadiusSummary([1, 2, 3, 4, 5]),
+        getPharmacyCountBySpecialtyAndRadius('Dermatologia', 1),
+        getPharmacyCountBySpecialtyAndRadius('Dermatologia', 2),
+        getPharmacyCountBySpecialtyAndRadius('Dermatologia', 3),
+        getPharmacyCountBySpecialtyAndRadius('Cardiologia', 1),
+        getPharmacyCountBySpecialtyAndRadius('Cardiologia', 2),
+        getPharmacyCountBySpecialtyAndRadius('Cardiologia', 3)
+      ]);
+      setPharmacyRadiusSummary(summary);
+      setPharmacyBySpecialtyData(specialtyResults);
+    } catch (error: any) {
+      console.warn('⚠️ Erro ao buscar dados de raio farmácia (RPCs podem não estar aplicadas):', error?.message);
+      setPharmacyRadiusSummary([]);
+      setPharmacyBySpecialtyData([]);
+    }
+  };
 
   const handleExportReport = (type: string) => {
     console.log(`Exportando relatório: ${type}`);
@@ -726,67 +754,52 @@ const Reports = () => {
     );
   }
 
+  const periodLabel = selectedPeriod === '7d' ? 'Últimos 7 dias' : selectedPeriod === '30d' ? 'Últimos 30 dias' : selectedPeriod === '90d' ? 'Últimos 90 dias' : 'Último ano';
+
   return (
     <DashboardLayout>
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-primary/5">
-        {/* Header */}
-        <div className="bg-white/80 backdrop-blur-sm border-b border-gray-200/60 shadow-sm">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div className="flex items-center gap-4">
-                <div className="p-3 bg-gradient-to-br from-primary/20 to-primary/10 rounded-xl shadow-sm">
-                  <BarChart3 className="h-6 w-6 text-primary" />
-                </div>
-            <div>
-                  <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Analytics & Relatórios</h1>
-                  <p className="text-sm text-gray-600 mt-1">
-                    Insights detalhados sobre sua performance • Período: {selectedPeriod === '7d' ? 'Últimos 7 dias' : selectedPeriod === '30d' ? 'Últimos 30 dias' : selectedPeriod === '90d' ? 'Últimos 90 dias' : 'Último ano'}
-                  </p>
-                  <p className="text-xs text-gray-500 mt-1">
-                    {lastUpdatedAt ? (
-                      <>Última atualização: {lastUpdatedAt.toLocaleString('pt-BR')}</>
-                    ) : (
-                      <>Carregando dados...</>
-                    )}
-                    {isRefreshing ? <span className="ml-2 text-primary/80">Atualizando…</span> : null}
-                  </p>
+      <div className="min-h-screen bg-gray-50">
+        {/* Page Header - mesmo estilo laranja com cantos arredondados do Inventário */}
+        <PageHeader
+          title="Analytics & Relatórios"
+          subtitle={lastUpdatedAt ? `Última atualização: ${lastUpdatedAt.toLocaleString('pt-BR')}` : 'Insights detalhados sobre sua performance'}
+          icon={BarChart3}
+          badge={{
+            label: isRefreshing ? 'Atualizando…' : periodLabel,
+            color: "bg-white/20 text-white border-white/30"
+          }}
+          actions={
+            <div className="flex flex-wrap items-center gap-3">
+              <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
+                <SelectTrigger className="w-[180px] bg-white/95 text-gray-900 border-white/50 hover:bg-white rounded-xl font-medium">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="7d">Últimos 7 dias</SelectItem>
+                  <SelectItem value="30d">Últimos 30 dias</SelectItem>
+                  <SelectItem value="90d">Últimos 90 dias</SelectItem>
+                  <SelectItem value="1y">Último ano</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button
+                variant="outline"
+                onClick={() => fetchReportsData({ showLoader: false })}
+                disabled={isRefreshing}
+                className={buttonStyles.secondary}
+              >
+                <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+                {isRefreshing ? 'Atualizando' : 'Atualizar'}
+              </Button>
+              <Button
+                className={buttonStyles.primary}
+                onClick={() => handleExportReport('completo')}
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Exportar
+              </Button>
             </div>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
-                  <SelectTrigger className="w-[180px] bg-white">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="7d">Últimos 7 dias</SelectItem>
-                <SelectItem value="30d">Últimos 30 dias</SelectItem>
-                <SelectItem value="90d">Últimos 90 dias</SelectItem>
-                <SelectItem value="1y">Último ano</SelectItem>
-              </SelectContent>
-            </Select>
-            
-            <Button 
-              variant="outline" 
-              onClick={() => fetchReportsData({ showLoader: false })} 
-              disabled={isRefreshing}
-              className="gap-2 hover:bg-primary/5 hover:border-primary/20 transition-all duration-300"
-            >
-                  <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-                  {isRefreshing ? 'Atualizando' : 'Atualizar'}
-            </Button>
-            
-            <Button 
-              className="gap-2 bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary shadow-lg hover:shadow-xl transition-all duration-300" 
-              onClick={() => handleExportReport('completo')}
-            >
-              <Download className="h-4 w-4" />
-              Exportar
-            </Button>
-              </div>
-            </div>
-          </div>
-        </div>
+          }
+        />
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
           {/* Enhanced KPI Cards */}
@@ -947,6 +960,10 @@ const Reports = () => {
               <TabsTrigger value="clients" className="gap-2">
                 <Building2 className="h-4 w-4" />
                 Clientes
+              </TabsTrigger>
+              <TabsTrigger value="pharmacy" className="gap-2">
+                <MapPin className="h-4 w-4" />
+                Proximidade Farmácia
               </TabsTrigger>
             </TabsList>
 
@@ -1772,6 +1789,85 @@ const Reports = () => {
                           <p className="text-sm">Dados aparecerão quando houver propostas com valores</p>
                         </div>
                       </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="pharmacy" className="space-y-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <Card className="bg-white rounded-xl border border-gray-200/60 shadow-lg hover:shadow-xl transition-all duration-300">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <MapPin className="h-5 w-5 text-amber-600" />
+                      Venues por proximidade de farmácia
+                    </CardTitle>
+                    <CardDescription>
+                      Quantidade de venues e telas que possuem ao menos uma farmácia dentro do raio (km)
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {pharmacyRadiusSummary.length > 0 ? (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b text-left">
+                              <th className="py-2 font-medium">Raio (km)</th>
+                              <th className="py-2 font-medium">Venues</th>
+                              <th className="py-2 font-medium">Telas</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {pharmacyRadiusSummary.map((row) => (
+                              <tr key={row.radius_km} className="border-b border-gray-100">
+                                <td className="py-2">{row.radius_km}</td>
+                                <td className="py-2">{row.venue_count.toLocaleString('pt-BR')}</td>
+                                <td className="py-2">{row.screen_count.toLocaleString('pt-BR')}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                      <p className="text-muted-foreground text-sm">Nenhum dado. Aplique a migration de raio farmácia no Supabase.</p>
+                    )}
+                  </CardContent>
+                </Card>
+                <Card className="bg-white rounded-xl border border-gray-200/60 shadow-lg hover:shadow-xl transition-all duration-300">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Target className="h-5 w-5 text-emerald-600" />
+                      Farmácias por especialidade e raio
+                    </CardTitle>
+                    <CardDescription>
+                      Quantidade de farmácias a até X km de venues com a especialidade indicada
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {pharmacyBySpecialtyData.length > 0 ? (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b text-left">
+                              <th className="py-2 font-medium">Especialidade</th>
+                              <th className="py-2 font-medium">Raio (km)</th>
+                              <th className="py-2 font-medium">Farmácias</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {pharmacyBySpecialtyData.map((row, idx) => (
+                              <tr key={`${row.specialty}-${row.radius_km}-${idx}`} className="border-b border-gray-100">
+                                <td className="py-2">{row.specialty}</td>
+                                <td className="py-2">{row.radius_km}</td>
+                                <td className="py-2">{row.count.toLocaleString('pt-BR')}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                      <p className="text-muted-foreground text-sm">Nenhum dado. Aplique a migration de raio farmácia no Supabase.</p>
                     )}
                   </CardContent>
                 </Card>

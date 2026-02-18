@@ -349,7 +349,14 @@ export async function fetchScreensByLocation(city: string, state: string, venueN
           venue_type_grandchildren,
           specialty,
           address_raw,
-          venue_name
+          address,
+          venue_name,
+          ambiente,
+          audiencia_pacientes,
+          audiencia_local,
+          audiencia_hcp,
+          audiencia_medica,
+          aceita_convenio
         `)
         .ilike('city', `%${city}%`)
         .ilike('state', `%${state}%`)
@@ -383,7 +390,15 @@ export async function fetchScreensByLocation(city: string, state: string, venueN
           lng,
           active,
           venue_type_parent,
-          venue_type_child
+          venue_type_child,
+          venue_type_grandchildren,
+          address_raw,
+          ambiente,
+          audiencia_pacientes,
+          audiencia_local,
+          audiencia_hcp,
+          audiencia_medica,
+          aceita_convenio
         `)
         .ilike('city', `%${city}%`)
         .ilike('state', `%${state}%`)

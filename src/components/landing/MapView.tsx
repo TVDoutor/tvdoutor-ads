@@ -184,9 +184,9 @@ export function MapView({ screens, centerLat, centerLng, radiusKm, loading = fal
                       Performance
                     </h5>
                     <div style="display: flex; flex-direction: column; gap: 3px; font-size: 11px; line-height: 1.3;">
-                      <div style="color: #374151;"><strong style="color: #111827;">Alcance:</strong> ${screen.reach.toLocaleString()} pessoas/semana</div>
+                      <div style="color: #374151;"><strong style="color: #111827;">Audiência:</strong> ${screen.audience.toLocaleString()} pessoas/mês</div>
                       <div style="color: #374151;"><strong style="color: #111827;">Investimento:</strong> R$ ${screen.price.toFixed(2)}/semana</div>
-                      <div style="color: #374151;"><strong style="color: #111827;">CPM:</strong> R$ ${(screen.price / (screen.reach / 1000)).toFixed(2)}</div>
+                      <div style="color: #374151;"><strong style="color: #111827;">CPM:</strong> R$ ${(screen.price / (screen.audience / 1000)).toFixed(2)}</div>
                     </div>
                   </div>
                 </div>

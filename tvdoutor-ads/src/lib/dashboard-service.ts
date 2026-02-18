@@ -235,54 +235,11 @@ export class DashboardService {
   }
 
   /**
-   * Busca estatísticas de especialidades (usando view unificada)
+   * Busca estatísticas de especialidades.
+   * Usa a tabela screens diretamente (v_specialties_for_dashboard pode não existir em todos os ambientes).
    */
   static async getSpecialtiesStats(): Promise<SpecialtiesStats> {
     console.log('🏥 Buscando estatísticas de especialidades...');
-    
-    try {
-      const { data, error } = await supabase
-        .from('v_specialties_for_dashboard')
-        .select('*')
-        .order('total_occurrences', { ascending: false });
-
-      if (error) {
-        console.warn('⚠️ View unificada não disponível, usando fallback:', error);
-        return await this.getSpecialtiesStatsFallback();
-      }
-
-      const specialties = data || [];
-      const total = specialties.length;
-      
-      const mostUsed = specialties.slice(0, 5).map(s => ({
-        specialty_name: s.specialty_name,
-        total_occurrences: s.total_occurrences
-      }));
-      
-      const recentlyUpdated = specialties
-        .sort((a, b) => new Date(b.last_updated).getTime() - new Date(a.last_updated).getTime())
-        .slice(0, 5)
-        .map(s => ({
-          specialty_name: s.specialty_name,
-          last_updated: s.last_updated
-        }));
-
-
-      return {
-        total,
-        mostUsed,
-        recentlyUpdated
-      };
-    } catch (error) {
-      console.warn('⚠️ Erro na view unificada, usando fallback:', error);
-      return await this.getSpecialtiesStatsFallback();
-    }
-  }
-
-  /**
-   * Fallback para estatísticas de especialidades
-   */
-  private static async getSpecialtiesStatsFallback(): Promise<SpecialtiesStats> {
     const { data, error } = await supabase
       .from('screens')
       .select('specialty')
@@ -290,7 +247,7 @@ export class DashboardService {
       .limit(1000);
 
     if (error) {
-      console.error('❌ Erro no fallback de especialidades:', error);
+      console.error('❌ Erro ao buscar especialidades:', error);
       return { total: 0, mostUsed: [], recentlyUpdated: [] };
     }
 
@@ -316,7 +273,7 @@ export class DashboardService {
     return {
       total: Object.keys(specialtyCounts).length,
       mostUsed,
-      recentlyUpdated: [] // Não disponível no fallback
+      recentlyUpdated: []
     };
   }
 

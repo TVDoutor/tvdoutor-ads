@@ -33,9 +33,6 @@ export const useRealAlerts = () => {
       console.log('🚨 Buscando alertas reais do sistema...');
       
       try {
-        // Buscar telas inativas (screens sem atividade recente)
-        const inactiveScreensAlerts = await getInactiveScreensAlerts();
-        
         // Buscar propostas sem resposta há muito tempo
         const noResponseProposalsAlerts = await getNoResponseProposalsAlerts();
         
@@ -43,13 +40,6 @@ export const useRealAlerts = () => {
         const integrationErrorsAlerts = await getIntegrationErrorsAlerts();
 
         const alertGroups: RealAlertGroup[] = [
-          {
-            category: 'inactive_screen',
-            name: 'Telas Inativas',
-            count: inactiveScreensAlerts.length,
-            criticalCount: inactiveScreensAlerts.filter(a => a.severity === 'critical').length,
-            alerts: inactiveScreensAlerts
-          },
           {
             category: 'no_response_proposal',
             name: 'Propostas sem Resposta',
@@ -83,69 +73,6 @@ export const useRealAlerts = () => {
     throwOnError: false,
   });
 };
-
-/**
- * Buscar telas inativas baseado na tabela screens.
- * Usa colunas existentes: name, display_name, address_raw, city, state (sem location/venue_name).
- */
-async function getInactiveScreensAlerts(): Promise<RealAlert[]> {
-  const { data: screens, error } = await supabase
-    .from('screens')
-    .select('id, name, display_name, address_raw, city, state, updated_at, created_at')
-    .order('updated_at', { ascending: true });
-
-  if (error) {
-    console.warn('⚠️ Erro ao buscar screens:', error);
-    return [];
-  }
-
-  const alerts: RealAlert[] = [];
-  const now = new Date();
-  const twoDaysAgo = new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000);
-  const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-
-  const loc = (s: { address_raw?: string | null; city?: string | null; state?: string | null }) =>
-    [s.address_raw, [s.city, s.state].filter(Boolean).join(', ')].filter(Boolean).join(' — ') || 'Local não informado';
-  const name = (s: { name?: string | null; display_name?: string | null }) =>
-    s.display_name || s.name || 'Tela';
-
-  (screens || []).forEach(screen => {
-    const lastUpdate = new Date(screen.updated_at || screen.created_at);
-    const hoursSinceUpdate = Math.floor((now.getTime() - lastUpdate.getTime()) / (1000 * 60 * 60));
-    
-    if (lastUpdate < twoDaysAgo) {
-      alerts.push({
-        id: `screen-${screen.id}`,
-        category: 'inactive_screen',
-        severity: 'critical',
-        title: `Tela offline há ${Math.floor(hoursSinceUpdate / 24)} dias`,
-        description: `${name(screen)} — ${loc(screen)}`,
-        entityName: name(screen),
-        location: loc(screen),
-        slaDeadline: `Há ${hoursSinceUpdate} horas`,
-        slaBreached: true,
-        recommendedAction: 'Verificar conexão de rede e reiniciar dispositivo',
-        timestamp: screen.updated_at || screen.created_at
-      });
-    } else if (lastUpdate < oneWeekAgo) {
-      alerts.push({
-        id: `screen-${screen.id}`,
-        category: 'inactive_screen',
-        severity: 'warning',
-        title: 'Tela com baixa conectividade',
-        description: `${name(screen)} — ${loc(screen)}`,
-        entityName: name(screen),
-        location: loc(screen),
-        slaDeadline: `Há ${hoursSinceUpdate} horas`,
-        slaBreached: false,
-        recommendedAction: 'Monitorar conexão e contatar TI local se persistir',
-        timestamp: screen.updated_at || screen.created_at
-      });
-    }
-  });
-
-  return alerts;
-}
 
 /**
  * Buscar propostas sem resposta há muito tempo

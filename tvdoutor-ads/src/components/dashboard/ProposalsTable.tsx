@@ -218,11 +218,11 @@ export const ProposalsTable = ({
                     variant="ghost"
                     size="sm"
                     className="h-auto p-0 font-semibold text-gray-700 hover:text-gray-900"
-                    onClick={() => handleSort('created_by')}
+                    onClick={() => handleSort('created_by_name')}
                   >
                     <div className="flex items-center gap-1">
                       RESPONSÁVEL
-                      {getSortIcon('created_by')}
+                      {getSortIcon('created_by_name')}
                     </div>
                   </Button>
                 </th>
@@ -299,7 +299,7 @@ export const ProposalsTable = ({
                     </td>
                     <td className="p-4">
                       <span className="text-sm text-gray-900">
-                        {proposal.created_by || 'Não informado'}
+                        {proposal.created_by_name || 'Não informado'}
                       </span>
                     </td>
                     <td className="p-4">

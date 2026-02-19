@@ -1,7 +1,7 @@
 # Mapeamento Completo do Sistema - TV Doutor ADS
 
 **Data de Criação**: 10/10/2025  
-**Última Atualização**: 05/11/2025  
+**Última Atualização**: 18/02/2026  
 **Versão do Sistema**: 1.2.0  
 **Tipo de Projeto**: Plataforma de Gestão de Publicidade Digital Out-of-Home (DOOH)
 
@@ -1707,12 +1707,43 @@ SUPABASE_SERVICE_ROLE_KEY=<SERVICE_KEY>
 - Output Directory: `dist`
 - Framework: Vite
 - Node Version: 18.x
-- Auto-deploy: Push em `main` → produção
+- Auto-deploy: Push em `main` → produção via GitHub Actions
 
 **Backend (Supabase):**
 - Migrations: `npx supabase db push`
 - Edge Functions: Deploy via Supabase CLI
 - Rollback: Migrations versionadas (down migration)
+
+**GitHub Actions - Workflow "Deploy Automático"** (`.github/workflows/deploy.yml`):
+
+| Etapa | Descrição | Condição |
+|-------|-----------|----------|
+| Checkout | `actions/checkout@v4` | Sempre |
+| Setup Node | Node 18, cache npm | Sempre |
+| npm ci | Instala dependências | Sempre |
+| Lint | `npm run lint` | `continue-on-error: true` |
+| Build | `npm run build:prod` | Sempre (usa VITE_SUPABASE_*) |
+| Deploy Preview | Vercel (PR) | Apenas em pull_request |
+| Deploy Produção | Vercel --prod | Push em main |
+| Migrações | `supabase db push` | Push em main, `continue-on-error: true` |
+
+**Vercel - Projeto linkado** (`.vercel/project.json`):
+- **Project ID:** `prj_4Kxs7xjRybACNyQcfuWQloTKtPcf`
+- **Org ID:** `team_Drj1X4QWpxjFuVqg2JsbC55Z`
+- **Nome:** tvdoutor-ads
+- **URL Produção:** https://tvdoutor-ads.vercel.app
+
+**GitHub Secrets obrigatórios** (Settings → Secrets and variables → Actions):
+
+| Secret | Uso |
+|--------|-----|
+| `VITE_SUPABASE_URL` | Build (Supabase Project URL) |
+| `VITE_SUPABASE_ANON_KEY` | Build (chave anon do Supabase) |
+| `VERCEL_TOKEN` | Deploy na Vercel (criar em vercel.com/account/tokens) |
+| `VERCEL_ORG_ID` | Deploy (ID do team, ex: team_xxx) |
+| `VERCEL_PROJECT_ID` | Deploy (ID do projeto, ex: prj_xxx) |
+| `SUPABASE_ACCESS_TOKEN` | Migrações (Supabase Account → Access Tokens) |
+| `SUPABASE_DB_PASSWORD` | Migrações (senha do banco do projeto Supabase) |
 
 **Scripts de Deploy:**
 ```json
@@ -1724,7 +1755,15 @@ SUPABASE_SERVICE_ROLE_KEY=<SERVICE_KEY>
 }
 ```
 
-### 7.4 Monitoramento
+### 7.4 Validação de Configuração (main.tsx)
+
+**Checagem de variáveis Supabase antes do carregamento:**
+- O `src/main.tsx` verifica se `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY` estão configuradas.
+- Se ausentes: exibe mensagem amigável pedindo criação do `.env` (evita tela em branco).
+- Se presentes: carrega o App via import dinâmico.
+- Referência: `CONFIGURACAO_ENV.md`, `VERCEL_GITHUB_SETUP.md`
+
+### 7.5 Monitoramento
 
 **Logs:**
 - Frontend: Console + Sentry (planejado)
@@ -1838,10 +1877,10 @@ SUPABASE_SERVICE_ROLE_KEY=<SERVICE_KEY>
 
 ### 8.3 Riscos de Segurança
 
-1. **Exposição de API Keys**
-   - Risco: VITE_GOOGLE_MAPS_API_KEY no código fonte
-   - Mitigação Atual: Restrição por referer
-   - Mitigação Ideal: Proxy via Edge Function
+1. **Exposição de API Keys / Tokens**
+   - Risco: Tokens (Mapbox, Google) no código fonte
+   - Mitigação Atual: Restrição por referer; tokens via Edge Function `mapbox-token`; arquivo `InteractiveMap.backup.tsx` removido (continha token hardcoded)
+   - Mitigação Ideal: Proxy via Edge Function para todas as APIs
    - Severidade: MÉDIA
 
 2. **RLS Recursion**
@@ -1980,6 +2019,18 @@ SUPABASE_SERVICE_ROLE_KEY=<SERVICE_KEY>
 
 ## Histórico de Atualizações
 
+### 18/02/2026 - Deploy e Configuração
+- **Atualização**: CI/CD via GitHub Actions e documentação de secrets
+- **Escopo**:
+  - ✅ Workflow "Deploy Automático" (`.github/workflows/deploy.yml`) documentado
+  - ✅ Lint com `continue-on-error` (não bloqueia deploy)
+  - ✅ Migrações Supabase com `continue-on-error` (deploy Vercel sempre conclui)
+  - ✅ Checagem de Supabase em `main.tsx` antes de carregar App (evita tela em branco)
+  - ✅ Remoção de `InteractiveMap.backup.tsx` (token Mapbox exposto)
+  - ✅ Documentados 7 secrets obrigatórios no GitHub Actions
+  - ✅ IDs do projeto Vercel (org/project) documentados
+- **Referências**: `VERCEL_GITHUB_SETUP.md`, `.vercel/project.json`
+
 ### 05/11/2025 - v1.2.0 (Atualização)
 - **Melhorias**: Sistema avançado de busca por CEP
 - **Responsável**: Assistente IA
@@ -2086,6 +2137,7 @@ SUPABASE_SERVICE_ROLE_KEY=<SERVICE_KEY>
 **DevOps:**
 - Vercel (hosting frontend)
 - Git + GitHub
+- GitHub Actions (workflow Deploy Automático)
 - Supabase CLI
 - ESLint + TypeScript ESLint
 
@@ -2093,6 +2145,7 @@ SUPABASE_SERVICE_ROLE_KEY=<SERVICE_KEY>
 
 **Documentos Relacionados:**
 - `README.md` - Guia de instalação e uso
+- `VERCEL_GITHUB_SETUP.md` - Configuração de secrets e deploy via GitHub
 - `DEPLOYMENT_INSTRUCTIONS.md` - Instruções de deploy
 - `SECURITY_IMPLEMENTATION_GUIDE.md` - Guia de segurança
 - `API_ENHANCEMENT.md` - Melhorias de API
@@ -2100,8 +2153,8 @@ SUPABASE_SERVICE_ROLE_KEY=<SERVICE_KEY>
 
 **Links Úteis:**
 - Supabase Project: `https://supabase.com/dashboard/project/vaogzhwzucijiyvyglls`
-- Vercel Dashboard: `https://vercel.com/dashboard`
-- Repositório Git: `C:\Users\hilca\OneDrive\Documentos\GitHub\TVDoutor-ADS-2\tvdoutor-ads`
+- Vercel Dashboard: `https://vercel.com/hildebrando-cardosos-projects/tvdoutor-ads`
+- Repositório Git: `https://github.com/TVDoutor/tvdoutor-ads`
 
 ---
 

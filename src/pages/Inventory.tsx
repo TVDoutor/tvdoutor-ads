@@ -16,6 +16,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Search, Filter, Eye, Edit, Monitor, Building, AlertCircle, Trash2, Upload, Download, Plus, RefreshCw, FileSpreadsheet, CheckCircle, XCircle, Loader2, MapPin, Users, TrendingUp, BarChart3 } from "lucide-react";
@@ -234,6 +235,7 @@ const Inventory = () => {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [classFilter, setClassFilter] = useState<string>("all");
   const [specialtyFilter, setSpecialtyFilter] = useState<string>("all");
+  const [currentPage, setCurrentPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -252,6 +254,13 @@ const Inventory = () => {
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
+
+  const ITEMS_PER_PAGE = 20;
+  const totalPages = Math.ceil(filteredScreens.length / ITEMS_PER_PAGE) || 1;
+  const paginatedScreens = filteredScreens.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
 
   const venueCodes = [...new Set(filteredScreens.map((s) => s.code).filter(Boolean))];
   const { data: tvdStatusMap, isLoading: tvdStatusLoading, isError: tvdStatusError, error: tvdStatusErr } = useTvdPlayerStatus(venueCodes);
@@ -278,6 +287,11 @@ const Inventory = () => {
   useEffect(() => {
     filterScreens();
   }, [searchTerm, statusFilter, classFilter, specialtyFilter, screens]);
+
+  // Resetar página ao mudar filtros
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, statusFilter, classFilter, specialtyFilter]);
 
   // Função para obter todas as especialidades únicas
   const getAllSpecialties = useCallback(() => {
@@ -2013,7 +2027,7 @@ const Inventory = () => {
         </Card>
 
           {/* Table */}
-          <Card className="border-0 shadow-lg hover:shadow-2xl transition-all rounded-2xl">
+          <Card className="border-0 shadow-lg hover:shadow-2xl transition-all rounded-2xl" data-inventory-table>
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle className="flex items-center gap-2 text-xl">
@@ -2028,8 +2042,17 @@ const Inventory = () => {
                     <Loader2 className="h-4 w-4 animate-spin" />
                     Carregando...
                   </div>
+                ) : filteredScreens.length > 0 ? (
+                  <>
+                    {filteredScreens.length} telas
+                    {totalPages > 1 && (
+                      <span className="text-muted-foreground/80">
+                        {" "}(pág. {currentPage}/{totalPages})
+                      </span>
+                    )}
+                  </>
                 ) : (
-                  `${filteredScreens.length} telas encontradas`
+                  "Nenhuma tela"
                 )}
               </div>
             </div>
@@ -2096,7 +2119,7 @@ const Inventory = () => {
                     );
                   })
                 ) : (
-                  filteredScreens.map((screen) => {
+                  paginatedScreens.map((screen) => {
                     const hasFilters = (searchTerm && searchTerm.trim() !== '') || statusFilter !== "all" || classFilter !== "all" || specialtyFilter !== "all";
                     return (
                       <TableRow key={screen.id} className="hover:bg-muted/50">
@@ -2280,6 +2303,73 @@ const Inventory = () => {
               }
               </TableBody>
             </Table>
+
+              {!loading && filteredScreens.length > 0 && totalPages > 1 && (
+                <div className="mt-4 flex items-center justify-between gap-4 flex-wrap">
+                  <p className="text-sm text-muted-foreground">
+                    Mostrando {(currentPage - 1) * ITEMS_PER_PAGE + 1}–
+                    {Math.min(currentPage * ITEMS_PER_PAGE, filteredScreens.length)} de {filteredScreens.length} telas
+                  </p>
+                  <Pagination>
+                    <PaginationContent>
+                      <PaginationItem>
+                        <PaginationPrevious
+                          href="#"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            if (currentPage > 1) {
+                              setCurrentPage((p) => p - 1);
+                              document.querySelector('[data-inventory-table]')?.scrollIntoView({ behavior: 'smooth' });
+                            }
+                          }}
+                          className={currentPage <= 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                        />
+                      </PaginationItem>
+                      {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                        let pageNum: number;
+                        if (totalPages <= 5) {
+                          pageNum = i + 1;
+                        } else if (currentPage <= 3) {
+                          pageNum = i + 1;
+                        } else if (currentPage >= totalPages - 2) {
+                          pageNum = totalPages - 4 + i;
+                        } else {
+                          pageNum = currentPage - 2 + i;
+                        }
+                        return (
+                          <PaginationItem key={pageNum}>
+                            <PaginationLink
+                              href="#"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                setCurrentPage(pageNum);
+                                document.querySelector('[data-inventory-table]')?.scrollIntoView({ behavior: 'smooth' });
+                              }}
+                              isActive={currentPage === pageNum}
+                              className="cursor-pointer min-w-[2.25rem]"
+                            >
+                              {pageNum}
+                            </PaginationLink>
+                          </PaginationItem>
+                        );
+                      })}
+                      <PaginationItem>
+                        <PaginationNext
+                          href="#"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            if (currentPage < totalPages) {
+                              setCurrentPage((p) => p + 1);
+                              document.querySelector('[data-inventory-table]')?.scrollIntoView({ behavior: 'smooth' });
+                            }
+                          }}
+                          className={currentPage >= totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                        />
+                      </PaginationItem>
+                    </PaginationContent>
+                  </Pagination>
+                </div>
+              )}
 
               {!loading && filteredScreens.length === 0 && (
                 <div className="text-center py-12">

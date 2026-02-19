@@ -130,6 +130,8 @@ Sistema web para gestao de propostas, campanhas e ativos de midia da TVDoutor, c
 - RNF-03: Logs de erros e eventos de autenticacao.
 - RNF-04: Seguranca com RLS no Supabase e validacoes no cliente.
 - RNF-05: Disponibilidade para uso comercial (SLA interno).
+- RNF-06: Deploy automatico via GitHub Actions em push na branch main.
+- RNF-07: Validacao de configuracao Supabase antes de carregar app (evita tela em branco).
 
 ## Fluxos principais
 - **Login**: usuario entra -> sessao ativa -> redireciona para dashboard.
@@ -151,12 +153,21 @@ Sistema web para gestao de propostas, campanhas e ativos de midia da TVDoutor, c
 - Resend/SendGrid (email).
 - Google Maps/Geocoding e ViaCEP (enderecos).
 - html2pdf/Puppeteer (PDF).
+- GitHub Actions (CI/CD - Deploy automatico em push em main).
+- Vercel (hosting frontend em producao).
 
 ## Metricas de sucesso
 - Tempo medio de criacao de proposta.
 - Taxa de conversao de propostas.
 - Uso de mapas/heatmap por usuario.
 - Tempo de resposta em listagens criticas.
+
+## Pipeline de Deploy (CI/CD)
+- **Trigger**: push ou pull request na branch main.
+- **Etapas**: checkout, Node 18, npm ci, lint (nao bloqueante), build:prod, deploy Vercel, migracoes Supabase (nao bloqueante).
+- **Secrets GitHub**: VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY, VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_PROJECT_ID, SUPABASE_ACCESS_TOKEN, SUPABASE_DB_PASSWORD.
+- **URL producao**: https://tvdoutor-ads.vercel.app
+- **Documentacao**: `VERCEL_GITHUB_SETUP.md`, `Sistema_Mapeado.md` (secao 7.3).
 
 ## Riscos e mitigacoes
 - **Risco**: dados inconsistentes entre telas e propostas.  
@@ -165,6 +176,8 @@ Sistema web para gestao de propostas, campanhas e ativos de midia da TVDoutor, c
   **Mitigacao**: agregacao e clusterizacao.
 - **Risco**: falhas de email.  
   **Mitigacao**: retries e logs.
+- **Risco**: tela em branco por falta de config Supabase.  
+  **Mitigacao**: checagem em main.tsx antes de carregar App.
 
 ## Testes (alvo)
 - Unitarios para calculos de precificacao e CEP.

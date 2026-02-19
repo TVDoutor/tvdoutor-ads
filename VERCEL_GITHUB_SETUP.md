@@ -9,10 +9,12 @@ Em **GitHub → Repositório → Settings → Secrets and variables → Actions*
 | Secret | Onde obter |
 |--------|------------|
 | `VERCEL_TOKEN` | [Vercel](https://vercel.com/account/tokens) → Create Token (com acesso ao team) |
-| `VERCEL_ORG_ID` | Vercel → Team Settings → General → Team ID |
-| `VERCEL_PROJECT_ID` | Vercel → Project Settings → General → Project ID |
-| `VITE_SUPABASE_URL` | URL do projeto Supabase |
-| `VITE_SUPABASE_ANON_KEY` | Supabase → Settings → API → anon key |
+| `VERCEL_ORG_ID` | `.vercel/project.json` → orgId ou Vercel → Project Settings |
+| `VERCEL_PROJECT_ID` | `.vercel/project.json` → projectId ou Vercel → Project Settings → General |
+| `VITE_SUPABASE_URL` | Supabase → Project Settings → API → Project URL |
+| `VITE_SUPABASE_ANON_KEY` | Supabase → Project Settings → API → anon key |
+| `SUPABASE_ACCESS_TOKEN` | Supabase → Account → Access Tokens → Generate |
+| `SUPABASE_DB_PASSWORD` | Senha do banco (Project Settings → Database) |
 
 ## 2. Permissões do token Vercel
 

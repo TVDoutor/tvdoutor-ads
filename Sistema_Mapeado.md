@@ -1,8 +1,8 @@
 # Mapeamento Completo do Sistema - TV Doutor ADS
 
 **Data de Criação**: 10/10/2025  
-**Última Atualização**: 18/02/2026  
-**Versão do Sistema**: 1.2.0  
+**Última Atualização**: 19/02/2026  
+**Versão do Sistema**: 1.2.1  
 **Tipo de Projeto**: Plataforma de Gestão de Publicidade Digital Out-of-Home (DOOH)
 
 ---
@@ -243,6 +243,7 @@ tvdoutor-ads/
 - **NOVO:** `ConversionRateCard`: Card de taxa de conversão
 - **NOVO:** `UserSessionDashboard`: Monitor de sessões de usuários
 - **NOVO:** `address-radius-search`: Componente de busca por raio
+- **NOVO:** `FunnelWidget`: Funil de conversão com cards, círculos de progresso e dados reais (Propostas Enviadas → Aceitas → Projetos Ativos)
 
 #### Backend (Supabase)
 
@@ -636,6 +637,27 @@ function calculateDistance(lat1, lng1, lat2, lng2) {
 - 🔴 Crítico (ação imediata)
 - 🟡 Importante (ação em breve)
 - 🟢 Informativo (apenas FYI)
+
+### 2.5.10 Funil de Conversão e Listagem Unificada de Propostas (v1.2.1)
+
+**Funil de Conversão:**
+- **Descrição**: Widget redesenhado no Dashboard com visual baseado em cards e círculos de progresso.
+- **Etapas**: Propostas Enviadas → Propostas Aceitas → Projetos Ativos
+- **Dados**: Usa `filteredStats` (dados filtrados) ou `stats` (fallback) do `useDashboardStatsWithFallback`
+- **Design**: Cards com bordas coloridas (laranja, amarelo, verde), círculos de progresso SVG, taxa "X.X% ~ próxima etapa", resumo textual sem sparklines
+- **Design Tokens**: `--tvd-orange-500`, `--tvd-yellow-500`, `--tvd-green-500` para bordas e círculos
+- **Componente**: `FunnelWidget` em `src/components/dashboard/FunnelWidget.tsx`
+- **Hook**: `useFilteredStats` com campo opcional `activeProjects` (fallback: `stats?.projects?.active`)
+
+**Listagem Unificada de Propostas:**
+- **Descrição**: Página `/propostas` passou a exibir todas as propostas (remoção do filtro `created_by`)
+- **Motivação**: Consistência com Propostas Recentes e Dashboard que exibem todas as propostas
+- **Antes**: Somente propostas do usuário logado; fallback para "todas" apenas quando usuário tinha zero propostas
+- **Agora**: Lista todas as propostas do sistema, alinhada ao comportamento das demais telas
+
+**Estatísticas do Dashboard:**
+- Correção de caminhos: `stats?.proposals?.total`, `stats?.proposals?.accepted`, `stats?.agencies?.total` (estrutura aninhada de `DashboardStats`)
+- Aplicado em `Dashboard.tsx` e `Dashboard_New.tsx`
 
 ---
 
@@ -2018,6 +2040,19 @@ SUPABASE_SERVICE_ROLE_KEY=<SERVICE_KEY>
 ---
 
 ## Histórico de Atualizações
+
+### 19/02/2026 - Funil de Conversão e Propostas (v1.2.1)
+- **Atualização**: Redesign do funil de conversão e unificação da listagem de propostas
+- **Escopo**:
+  - ✅ Funil de Conversão redesenhado: layout em cards com círculos de progresso
+  - ✅ Três etapas: Propostas Enviadas, Propostas Aceitas, Projetos Ativos
+  - ✅ Dados reais via `filteredStats` e `stats` (fallback)
+  - ✅ Design tokens `--tvd-orange/yellow/green-500` para bordas e círculos
+  - ✅ Remoção de mini sparklines no resumo (design mais clean)
+  - ✅ Página Propostas exibe todas as propostas (removido filtro por `created_by`)
+  - ✅ Correção de paths em stats do Dashboard (`proposals.total`, `agencies.total`)
+  - ✅ Campo `activeProjects` em `useFilteredStats` (opcional)
+- **Referências**: `FunnelWidget.tsx`, `Propostas.tsx`, `design-tokens.css`, `Dashboard.tsx`
 
 ### 18/02/2026 - Deploy e Configuração
 - **Atualização**: CI/CD via GitHub Actions e documentação de secrets

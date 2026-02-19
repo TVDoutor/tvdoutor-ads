@@ -45,7 +45,7 @@ Sistema web para gestao de propostas, campanhas e ativos de midia da TVDoutor, c
 
 ## Mapeamento funcional (rotas e modulos)
 - Publico: `/login`, `/reset-password`, `/resultados`.
-- Dashboard: `/dashboard`.
+- Dashboard: `/dashboard` (inclui Funil de Conversao, KPIs, Filtros, Propostas Recentes).
 - Propostas: `/nova-proposta`, `/propostas`, `/propostas/:id`.
 - Campanhas: `/campaigns`, `/campaigns/:id`.
 - Locais: `/venues`, `/venues/:id`.
@@ -73,6 +73,9 @@ Sistema web para gestao de propostas, campanhas e ativos de midia da TVDoutor, c
 ### Dashboard
 - RF-04: Exibir indicadores principais e dados resumidos.
   - CA-07: Cards mostram dados e atualizam sem erro de permissao.
+- RF-04b: Exibir Funil de Conversao (Propostas Enviadas, Aceitas, Projetos Ativos).
+  - CA-07b: Funil usa dados reais (filteredStats/stats), exibe taxa "X.X% ~ proxima etapa" entre etapas.
+  - CA-07c: Layout em cards com circulos de progresso e resumo textual.
 
 ### Propostas
 - RF-10: Criar proposta via wizard com validacoes.
@@ -80,6 +83,7 @@ Sistema web para gestao de propostas, campanhas e ativos de midia da TVDoutor, c
   - CA-09: Proposta salva cria registro acessivel em `/propostas`.
 - RF-11: Listar propostas com filtros.
   - CA-10: Filtros retornam lista coerente com criterios selecionados.
+  - CA-10b: Pagina exibe todas as propostas do sistema (listagem unificada, consistente com Propostas Recentes e Dashboard).
 - RF-12: Visualizar detalhes e gerar PDF.
   - CA-11: Detalhe abre com dados completos da proposta.
   - CA-12: Exportacao gera PDF sem erro e com layout esperado.

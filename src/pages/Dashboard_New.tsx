@@ -104,7 +104,7 @@ const Dashboard_New = () => {
                 </div>
                 <h3 className="text-gray-600 text-sm font-medium">Total de Propostas</h3>
                 <p className="text-3xl font-bold text-gray-900 mt-2">
-                  {stats?.totalProposals || 6}
+                  {stats?.proposals?.total ?? 6}
                 </p>
                 <p className="text-xs text-gray-500 mt-1">propostas</p>
               </CardContent>
@@ -124,7 +124,7 @@ const Dashboard_New = () => {
                 </div>
                 <h3 className="text-gray-600 text-sm font-medium">Aceitas</h3>
                 <p className="text-3xl font-bold text-gray-900 mt-2">
-                  {stats?.acceptedProposals || 1}
+                  {stats?.proposals?.accepted ?? 1}
                 </p>
                 <p className="text-xs text-gray-500 mt-1">fechadas</p>
               </CardContent>

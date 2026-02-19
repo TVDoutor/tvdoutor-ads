@@ -28,21 +28,11 @@ const HeatmapLayer: React.FC<{ data: HeatmapData; L: any }> = ({ data, L }) => {
 
     const loadAndAddHeatLayer = async () => {
       try {
-        // Garantir que L está disponível globalmente antes de importar leaflet.heat
-        if (typeof window !== 'undefined') {
-          (window as any).L = L;
-        }
+        if (cancelled) return;
 
-        // Importar leaflet.heat (isso adiciona o método heatLayer ao objeto L global)
-        await import('leaflet.heat');
-
-        if (cancelled) {
-          return;
-        }
-
-        // Verificar se o método heatLayer foi adicionado ao objeto L
+        // leaflet.heat é patchado em leaflet-heat-patch.ts no início do App
         if (typeof L.heatLayer !== 'function') {
-          console.error('Erro ao adicionar heatmap: heatLayer não está disponível após importar leaflet.heat');
+          console.error('Erro ao adicionar heatmap: heatLayer não está disponível. Verifique se leaflet-heat-patch foi carregado.');
           return;
         }
 

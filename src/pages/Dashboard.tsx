@@ -210,22 +210,22 @@ const Dashboard = () => {
                 <>
                   <KpiCard
                     title="Total de Propostas"
-                    value={stats?.totalProposals || 0}
+                    value={stats?.proposals?.total ?? 0}
                     format="number"
                   />
                   <KpiCard
                     title="Propostas Aceitas"
-                    value={stats?.acceptedProposals || 0}
+                    value={stats?.proposals?.accepted ?? 0}
                     format="number"
                   />
                   <KpiCard
                     title="Taxa de Conversão"
-                    value={stats?.proposals?.conversionRate || 0}
+                    value={stats?.proposals?.conversionRate ?? 0}
                     format="percent"
                   />
                   <KpiCard
                     title="Agências Ativas"
-                    value={stats?.totalAgencies || 0}
+                    value={stats?.agencies?.total ?? 0}
                     format="number"
                   />
                 </>
@@ -251,8 +251,33 @@ const Dashboard = () => {
 
               {/* Right Column */}
               <div className="space-y-6">
-                {/* Funnel Widget - usando dados reais */}
-                <FunnelWidget />
+                {/* Funnel Widget - dados reais com filteredStats ou stats como fallback */}
+                <FunnelWidget
+                  title="Funil de Conversão"
+                  steps={[
+                    {
+                      key: "sent",
+                      label: "Propostas Enviadas",
+                      value: filteredStats?.total ?? stats?.proposals?.total ?? 0,
+                      color: "var(--tvd-orange-100)",
+                      stroke: "var(--tvd-orange-500)",
+                    },
+                    {
+                      key: "accepted",
+                      label: "Propostas Aceitas",
+                      value: filteredStats?.accepted ?? stats?.proposals?.accepted ?? 0,
+                      color: "var(--tvd-yellow-100)",
+                      stroke: "var(--tvd-yellow-500)",
+                    },
+                    {
+                      key: "active",
+                      label: "Projetos Ativos",
+                      value: filteredStats?.activeProjects ?? stats?.projects?.active ?? 0,
+                      color: "var(--tvd-green-100)",
+                      stroke: "var(--tvd-green-500)",
+                    },
+                  ]}
+                />
 
                 {/* Alert Stats */}
                 <AlertStats 

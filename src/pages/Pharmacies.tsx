@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
@@ -193,6 +194,7 @@ const Pharmacies = () => {
 
   const [pharmacies, setPharmacies] = useState<PharmacyRecord[]>([]);
   const [filteredPharmacies, setFilteredPharmacies] = useState<PharmacyRecord[]>([]);
+  const [currentPage, setCurrentPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -327,7 +329,18 @@ const applyFilters = useCallback(() => {
 
 useEffect(() => {
   applyFilters();
-}, [applyFilters]);
+  }, [applyFilters]);
+
+  const ITEMS_PER_PAGE = 50;
+  const totalPages = Math.ceil(filteredPharmacies.length / ITEMS_PER_PAGE) || 1;
+  const paginatedPharmacies = filteredPharmacies.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [appliedFilters]);
 
 const handleApplyFilters = useCallback(() => {
   setAppliedFilters({
@@ -846,7 +859,18 @@ const handleApplyFilters = useCallback(() => {
             <div>
               <CardTitle>Lista de Farmácias</CardTitle>
               <p className="text-sm text-muted-foreground">
-                {loading ? "Carregando..." : `${filteredPharmacies.length.toLocaleString("pt-BR")} farmácias encontradas`}
+                {loading ? "Carregando..." : filteredPharmacies.length > 0 ? (
+                  <>
+                    {filteredPharmacies.length.toLocaleString("pt-BR")} farmácias
+                    {totalPages > 1 && (
+                      <span className="text-muted-foreground/80">
+                        {" "}(pág. {currentPage}/{totalPages})
+                      </span>
+                    )}
+                  </>
+                ) : (
+                  "Nenhuma farmácia"
+                )}
               </p>
             </div>
           </CardHeader>
@@ -880,7 +904,7 @@ const handleApplyFilters = useCallback(() => {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredPharmacies.map(pharmacy => (
+                  paginatedPharmacies.map(pharmacy => (
                     <TableRow key={pharmacy.id ?? `${pharmacy.nome}-${pharmacy.cnpj}`}>
                       <TableCell className="max-w-[240px]">
                         <div className="font-medium">{pharmacy.nome || pharmacy.fantasia || "Sem nome"}</div>
@@ -960,6 +984,66 @@ const handleApplyFilters = useCallback(() => {
                 )}
               </TableBody>
             </Table>
+
+            {!loading && filteredPharmacies.length > 0 && totalPages > 1 && (
+              <div className="mt-4 flex items-center justify-between gap-4 flex-wrap">
+                <p className="text-sm text-muted-foreground">
+                  Mostrando {(currentPage - 1) * ITEMS_PER_PAGE + 1}–
+                  {Math.min(currentPage * ITEMS_PER_PAGE, filteredPharmacies.length)} de {filteredPharmacies.length.toLocaleString("pt-BR")} farmácias
+                </p>
+                <Pagination>
+                  <PaginationContent>
+                    <PaginationItem>
+                      <PaginationPrevious
+                        href="#"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          if (currentPage > 1) setCurrentPage((p) => p - 1);
+                        }}
+                        className={currentPage <= 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                      />
+                    </PaginationItem>
+                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                      let pageNum: number;
+                      if (totalPages <= 5) {
+                        pageNum = i + 1;
+                      } else if (currentPage <= 3) {
+                        pageNum = i + 1;
+                      } else if (currentPage >= totalPages - 2) {
+                        pageNum = totalPages - 4 + i;
+                      } else {
+                        pageNum = currentPage - 2 + i;
+                      }
+                      return (
+                        <PaginationItem key={pageNum}>
+                          <PaginationLink
+                            href="#"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              setCurrentPage(pageNum);
+                            }}
+                            isActive={currentPage === pageNum}
+                            className="cursor-pointer min-w-[2.25rem]"
+                          >
+                            {pageNum}
+                          </PaginationLink>
+                        </PaginationItem>
+                      );
+                    })}
+                    <PaginationItem>
+                      <PaginationNext
+                        href="#"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          if (currentPage < totalPages) setCurrentPage((p) => p + 1);
+                        }}
+                        className={currentPage >= totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                      />
+                    </PaginationItem>
+                  </PaginationContent>
+                </Pagination>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

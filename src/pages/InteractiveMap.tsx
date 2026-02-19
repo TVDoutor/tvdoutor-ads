@@ -375,7 +375,8 @@ export default function InteractiveMap() {
     try {
       console.log('🗺️ Inicializando mapa...');
       
-      const L = await import('leaflet');
+      const leafletModule = await import('leaflet');
+      const L = leafletModule.default ?? leafletModule;
       leafletRef.current = L;
       await import('leaflet/dist/leaflet.css');
 
@@ -1119,86 +1120,33 @@ export default function InteractiveMap() {
 
     pharmacyMarkersRef.current.clear();
 
-    // Add heatmap layer if in heatmap mode
-    if (viewMode === 'heatmap' && heatmapData.length > 0) {
+    // Add heatmap layer if in heatmap mode (leaflet.heat é patchado em leaflet-heat-patch.ts no início do App)
+    // Mostra APENAS o mapa de calor (gradiente) com telas que têm pelo menos 1 proposta - sem marcadores individuais
+    if (viewMode === 'heatmap') {
       try {
-        // Garantir que L está disponível globalmente antes de importar leaflet.heat
-        if (typeof window !== 'undefined') {
-          (window as any).L = L;
-        }
-
-        // Importar leaflet.heat (isso adiciona o método heatLayer ao objeto L global)
-        await import('leaflet.heat');
-
-        // Verificar se o método heatLayer foi adicionado ao objeto L
-        if (typeof L.heatLayer !== 'function') {
-          throw new Error('Erro ao adicionar heatmap: heatLayer não está disponível após importar leaflet.heat');
-        }
-
-        const heatLayer = L.heatLayer(heatmapData, {
-          radius: 30,
-          blur: 20,
-          maxZoom: 15,
-          max: 1.0,
-          gradient: {
-            0.0: 'blue',
-            0.25: 'green',
-            0.5: 'yellow',
-            0.75: 'orange',
-            1.0: 'red'
-          }
-        });
-        
-        heatLayer.options.isHeatmap = true;
-        map.addLayer(heatLayer);
-        console.log('🔥 Heatmap layer added with', heatmapData.length, 'points');
-
-        const getHeatColor = (intensity: number) => {
-          if (intensity >= 0.75) return '#ef4444';
-          if (intensity >= 0.55) return '#f97316';
-          if (intensity >= 0.35) return '#f59e0b';
-          if (intensity >= 0.2) return '#10b981';
-          return '#3b82f6';
-        };
-
-        const getMarkerRadius = (intensity: number) => {
-          return Math.max(4, Math.min(10, 4 + intensity * 8));
-        };
-
-        const getMarkerOpacity = (intensity: number) => {
-          return Math.max(0.35, Math.min(0.9, 0.35 + intensity * 0.6));
-        };
-
-        if (layerMode === 'venues' || layerMode === 'both') {
-          const source = (filteredScreens.length > 0 ? filteredScreens : screens).filter(s => statusFilter === 'inactive' ? !s.active : s.active);
-          const venuesToDraw = source.filter(screen =>
-            screen.lat !== null &&
-            screen.lng !== null &&
-            (screen.proposal_count || 0) > 0
-          );
-
-          venuesToDraw.forEach(screen => {
-            const intensity = screen.heat_intensity ?? 0;
-            const color = getHeatColor(intensity);
-            const marker = L.circleMarker([screen.lat!, screen.lng!], {
-              radius: getMarkerRadius(intensity),
-              color,
-              fillColor: color,
-              fillOpacity: getMarkerOpacity(intensity),
-              weight: 1,
-              isHeatmapMarker: true
-            });
-
-            marker.bindPopup(`
-              <div style="padding: 8px; min-width: 180px;">
-                <div style="font-weight: 600; color: #111827;">${sanitize(screen.display_name || screen.name)}</div>
-                <div style="font-size: 12px; color: #6b7280;">Código: ${sanitize(screen.code)}</div>
-                <div style="font-size: 12px; color: #374151;">Propostas: ${screen.proposal_count || 0}</div>
-              </div>
-            `);
-
-            marker.addTo(map);
+        if (heatmapData.length === 0) {
+          toast.info('Nenhuma tela com proposta encontrada. O heatmap exibe apenas telas com pelo menos 1 proposta.');
+        } else if (typeof L.heatLayer !== 'function') {
+          throw new Error('Erro ao adicionar heatmap: heatLayer não está disponível. Verifique se leaflet-heat-patch foi carregado.');
+        } else {
+          const heatLayer = L.heatLayer(heatmapData, {
+            radius: 35,
+            blur: 25,
+            maxZoom: 18,
+            max: 1.0,
+            minOpacity: 0.4,
+            gradient: {
+              0.0: 'blue',
+              0.25: 'lime',
+              0.5: 'yellow',
+              0.75: 'orange',
+              1.0: 'red'
+            }
           });
+
+          heatLayer.options.isHeatmap = true;
+          map.addLayer(heatLayer);
+          console.log('🔥 Heatmap layer added with', heatmapData.length, 'points (telas com ≥1 proposta)');
         }
       } catch (error) {
         console.error('❌ Erro ao adicionar heatmap:', error);

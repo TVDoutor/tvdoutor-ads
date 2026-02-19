@@ -1,175 +1,194 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { TrendingDown } from "lucide-react";
-import { useRealFunnelData } from "@/hooks/useRealProposals";
+import React, { useMemo } from "react";
 
-interface FunnelStage {
-  name: string;
+export type FunnelStep = {
+  key: string;
+  label: string;
   value: number;
-  color?: string;
+  color: string;
+  stroke?: string;
+};
+
+export type FunnelWidgetProps = {
+  title?: string;
+  steps: FunnelStep[];
+  className?: string;
+};
+
+function fmtPct(x: number) {
+  if (!isFinite(x)) return "0.0%";
+  const val = Math.round(x * 1000) / 10;
+  return `${val.toFixed(1)}%`;
 }
 
-interface FunnelWidgetProps {
-  // Props opcionais para override dos dados reais
-  stages?: FunnelStage[];
-  overallConversion?: number;
-}
-
-export const FunnelWidget = ({ 
-  stages: propStages, 
-  overallConversion: propConversion 
-}: FunnelWidgetProps) => {
-  const { data: funnelData, isLoading, error } = useRealFunnelData();
-  
-  // Usar dados reais ou props como fallback
-  const stages = propStages || funnelData?.stages || [];
-  const overallConversion = propConversion ?? funnelData?.overallConversion ?? 0;
-
-  // Loading state
-  if (isLoading) {
-    return (
-      <Card className="h-fit">
-        <CardHeader>
-          <CardTitle>Funil de Conversão</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="h-32 flex items-center justify-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  // Error state
-  if (error) {
-    return (
-      <Card className="h-fit">
-        <CardHeader>
-          <CardTitle>Funil de Conversão</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="h-32 flex items-center justify-center text-gray-500">
-            <p>Erro ao carregar dados do funil</p>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  // Empty state
-  if (stages.length === 0) {
-    return (
-      <Card className="h-fit">
-        <CardHeader>
-          <CardTitle>Funil de Conversão</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="h-32 flex items-center justify-center text-gray-500">
-            <p>Nenhum dado disponível</p>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-  // Calcular drop-off entre estágios
-  const getDropOffPercentage = (currentValue: number, previousValue: number) => {
-    if (previousValue === 0) return 0;
-    return Math.round(((previousValue - currentValue) / previousValue) * 100);
-  };
-
-  // Calcular largura relativa de cada estágio
-  const getStageWidth = (value: number, maxValue: number) => {
-    return Math.max((value / maxValue) * 100, 20); // Mínimo de 20% para visibilidade
-  };
-
-  const maxValue = Math.max(...stages.map(s => s.value));
+/** Círculo de progresso SVG */
+function ProgressRing({
+  value,
+  progress,
+  color,
+  stroke,
+  size = 80,
+  strokeWidth = 8,
+}: {
+  value: number;
+  progress: number; // 0 a 1
+  color: string;
+  stroke?: string;
+  size?: number;
+  strokeWidth?: number;
+}) {
+  const r = (size - strokeWidth) / 2;
+  const cx = size / 2;
+  const circumference = 2 * Math.PI * r;
+  const dashOffset = circumference * (1 - Math.max(0, Math.min(1, progress)));
+  const accentColor = stroke ?? color;
 
   return (
-    <Card className="h-fit">
-      <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-lg font-semibold">
-            Funil de Conversão
-          </CardTitle>
-          <Badge className="bg-green-100 text-green-700 border-green-200">
-            {overallConversion.toFixed(1)}% conversão total
-          </Badge>
+    <div className="relative inline-flex items-center justify-center">
+      <svg width={size} height={size} className="transform -rotate-90">
+        {/* Círculo de fundo (trilha) */}
+        <circle
+          cx={cx}
+          cy={cx}
+          r={r}
+          fill="none"
+          stroke={accentColor}
+          strokeWidth={strokeWidth}
+          className="opacity-30"
+        />
+        {/* Círculo de progresso */}
+        <circle
+          cx={cx}
+          cy={cx}
+          r={r}
+          fill="none"
+          stroke={accentColor}
+          strokeWidth={strokeWidth}
+          strokeLinecap="round"
+          strokeDasharray={circumference}
+          strokeDashoffset={dashOffset}
+          className="transition-all duration-500"
+        />
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center">
+        <span className="text-xl font-extrabold text-gray-900 leading-none">
+          {value}
+        </span>
+        <span className="text-xs font-semibold text-gray-700 mt-0.5">
+          {fmtPct(progress)}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+export function FunnelWidget({
+  title = "Funil de Conversão",
+  steps,
+  className = "",
+}: FunnelWidgetProps) {
+  const computed = useMemo(() => {
+    const top = steps?.[0]?.value ?? 0;
+    const denom = top > 0 ? top : Math.max(...(steps?.map((s) => s.value) ?? [0]), 1);
+
+    return (steps ?? []).map((s, i) => {
+      const prev = steps?.[i - 1];
+      const next = steps?.[i + 1];
+      const rateToNext = next ? (s.value > 0 ? next.value / s.value : 0) : null;
+      const rateToThis = prev && prev.value > 0 ? s.value / prev.value : i === 0 ? 1 : 0;
+      return {
+        ...s,
+        rateToNext,
+        rateToThis,
+      };
+    });
+  }, [steps]);
+
+  const hasSteps = computed.length > 0;
+
+  return (
+    <div className={`rounded-2xl border bg-white p-4 shadow-sm ${className}`}>
+      <div className="mb-3 flex items-center justify-between">
+        <div className="text-sm font-semibold text-gray-900">{title}</div>
+        <div className="text-xs text-gray-500">
+          {hasSteps && computed[0]?.value
+            ? `Base: ${computed[0].value}`
+            : "Sem dados na base"}
         </div>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {stages.map((stage, index) => {
-          const stageWidth = getStageWidth(stage.value, maxValue);
-          const dropOff = index > 0 ? getDropOffPercentage(stage.value, stages[index - 1].value) : 0;
-          
-          return (
-            <div key={index} className="space-y-2">
-              {/* Drop-off indicator */}
-              {index > 0 && (
-                <div className="flex items-center justify-center">
-                  <div className="flex items-center gap-1 text-sm text-red-600 bg-red-50 px-2 py-1 rounded-full">
-                    <TrendingDown className="h-3 w-3" />
-                    <span className="font-medium">-{dropOff}%</span>
-                  </div>
-                </div>
-              )}
-              
-              {/* Stage box */}
-              <div className="relative">
-                <div 
-                  className={`
-                    border-2 rounded-lg p-4 transition-all duration-300 hover:shadow-md
-                    ${stage.color || 'bg-gray-100 border-gray-200'}
-                  `}
-                  style={{ 
-                    width: `${stageWidth}%`,
-                    marginLeft: `${(100 - stageWidth) / 2}%`
+      </div>
+
+      {!hasSteps ? (
+        <div className="flex h-32 items-center justify-center text-gray-500">
+          <p className="text-sm">Nenhum dado disponível</p>
+        </div>
+      ) : (
+        <>
+          {/* Cards com círculos de progresso */}
+          <div className="space-y-4">
+            {computed.map((s, i) => {
+              const isLast = i === computed.length - 1;
+              const ringProgress =
+                i === 0
+                  ? 1
+                  : isLast && s.value > 0
+                    ? 1
+                    : s.rateToThis;
+
+              return (
+                <div
+                  key={s.key}
+                  className="rounded-xl border-2 p-4 transition-colors bg-white"
+                  style={{
+                    borderColor: s.stroke ?? "#E5E7EB",
                   }}
                 >
-                  <div className="text-center">
-                    <h4 className="font-semibold text-gray-900 text-sm mb-1">
-                      {stage.name}
-                    </h4>
-                    <p className="text-2xl font-bold text-gray-900">
-                      {stage.value.toLocaleString('pt-BR')}
-                    </p>
+                  <div className="font-bold text-sm mb-3" style={{ color: s.stroke ?? s.color }}>
+                    {s.label}
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <ProgressRing
+                      value={s.value}
+                      progress={ringProgress}
+                      color={s.color}
+                      stroke={s.stroke}
+                    />
+                    <div className="flex-1">
+                      {!isLast && s.rateToNext != null && (
+                        <p className="text-sm font-bold text-gray-900">
+                          {fmtPct(s.rateToNext)} ~ próxima etapa
+                        </p>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-            </div>
-          );
-        })}
-        
-        {/* Drop-off analysis */}
-        <div className="mt-6 pt-4 border-t border-gray-200">
-          <h5 className="font-semibold text-gray-900 mb-3 text-sm">
-            Principais Motivos de Drop-off
-          </h5>
-          <div className="space-y-2">
-            {[
-              { reason: "Preço elevado", percentage: 37.8 },
-              { reason: "Prazo inadequado", percentage: 24.0 },
-              { reason: "Sem resposta", percentage: 22.6 },
-              { reason: "Concorrência", percentage: 15.6 },
-            ].map((item, index) => (
-              <div key={index} className="flex items-center justify-between">
-                <span className="text-sm text-gray-600">{item.reason}</span>
-                <div className="flex items-center gap-2">
-                  <div className="w-16 bg-gray-200 rounded-full h-2">
-                    <div 
-                      className="bg-red-400 h-2 rounded-full"
-                      style={{ width: `${(item.percentage / 40) * 100}%` }}
-                    />
-                  </div>
-                  <span className="text-sm font-medium text-gray-900 w-10">
-                    {item.percentage}%
+              );
+            })}
+          </div>
+
+          {/* Resumo textual */}
+          <div className="mt-4 pt-3 border-t border-gray-100 space-y-2">
+            {computed.map((s, i) => {
+              const next = computed[i + 1];
+              const conv = s.rateToNext != null ? fmtPct(s.rateToNext) : null;
+              return (
+                <div
+                  key={s.key}
+                  className="flex items-center justify-between gap-2"
+                >
+                  <span className="text-xs font-semibold text-gray-700 truncate">
+                    {s.label}
+                  </span>
+                  <span className="text-xs font-medium text-gray-800 shrink-0 ml-2">
+                    {s.value}
+                    {next && conv != null && (
+                      <span className="ml-1 text-gray-500">({conv})</span>
+                    )}
                   </span>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
-        </div>
-      </CardContent>
-    </Card>
+        </>
+      )}
+    </div>
   );
-};
+}

@@ -1,6 +1,19 @@
 /* TV Doutor ADS - Design System Tokens */
 
 :root {
+  /* Paleta TV Doutor - Funil */
+  --tvd-orange-100: #FBE8D3;
+  --tvd-orange-300: #F2B27A;
+  --tvd-orange-500: #ea580c;
+
+  --tvd-yellow-100: #FBF1C7;
+  --tvd-yellow-300: #F2D36B;
+  --tvd-yellow-500: #ca8a04;
+
+  --tvd-green-100: #D7F5E4;
+  --tvd-green-300: #76D6A2;
+  --tvd-green-500: #059669;
+
   /* Cores Base */
   --color-bg-base: #f8fafc;
   --color-bg-surface: #ffffff;

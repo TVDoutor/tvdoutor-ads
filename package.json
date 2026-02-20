@@ -25,6 +25,7 @@
     "preview": "vite preview",
     "postbuild": "echo 'Build completed successfully!'",
     "import:venues": "node scripts/import-venues-from-excel.cjs",
+    "sync:players": "node scripts/invoke-tvd-sync-players.cjs",
     "update:class": "node scripts/update-class-from-excel.cjs",
     "test:e2e": "node tests/e2e/pdf.e2e.js",
     "test:unit": "ts-node ./tests/unit/pricing.test.ts"

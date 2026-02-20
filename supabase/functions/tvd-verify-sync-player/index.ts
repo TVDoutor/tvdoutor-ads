@@ -37,7 +37,7 @@ query PlayersStatus($first: Int!, $after: String) {
 `;
 
 function extractVenueCode(name: string): string | null {
-  const m = String(name).trim().toUpperCase().match(/^(P\d+(?:\.\d+)*)\b/);
+  const m = String(name).trim().toUpperCase().match(/^(P\d+(?:\.[A-Za-z0-9]+)*)\b/);
   return m?.[1] ?? null;
 }
 
@@ -48,18 +48,22 @@ function toTvdFormat(code: string): string {
 }
 
 function toInventoryFormat(code: string): string {
-  const m = String(code).trim().match(/^(P\d+)\.0*(\d+)$/i);
-  if (!m) return code;
-  return `${m[1]}.${m[2]}`;
+  const s = String(code).trim();
+  const parts = s.split(".");
+  if (parts.length < 2) return s;
+  const last = parts[parts.length - 1];
+  const trimmed = /^0*(\d+)$/.test(last) ? last.replace(/^0+/, "") || "0" : last;
+  if (trimmed !== last) return [...parts.slice(0, -1), trimmed].join(".");
+  return s;
 }
 
 function matchesCode(venueCode: string, target: string): boolean {
   if (!venueCode || !target) return false;
-  const t = target.trim();
-  const v = venueCode.trim();
+  const t = target.trim().toUpperCase();
+  const v = venueCode.trim().toUpperCase();
   if (v === t) return true;
-  if (toTvdFormat(t) === v) return true;
-  if (toInventoryFormat(v) === t) return true;
+  if (toTvdFormat(t) === v || toTvdFormat(v) === t) return true;
+  if (toInventoryFormat(v) === t || toInventoryFormat(t) === v) return true;
   return false;
 }
 

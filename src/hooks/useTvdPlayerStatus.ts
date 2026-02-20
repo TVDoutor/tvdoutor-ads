@@ -15,22 +15,44 @@ export interface TvdPlayerStatusItem {
 export type TvdStatusMap = Record<string, TvdPlayerStatusItem>;
 
 /**
- * Formato TVD: P2000.01, P2000.04 (zero à esquerda após o ponto).
- * Inventário: P2000.1, P2000.4 (sem zero à esquerda).
+ * Formato TVD: P2000.01, P3348.F04.03, P3348.F04.1 (alfanumérico).
+ * Inventário: P2000.1, P3348.F04.3, P3348.F04.1 (sem zero à esquerda no último segmento).
  */
 
-/** P2000.1 → P2000.01 */
+/** P2000.1 → P2000.01; P3348.F04.3 → P3348.F04.03 (pad último segmento numérico) */
 function toTvdFormat(code: string): string {
   const m = String(code).trim().match(/^(P\d+)\.(\d+)$/i);
   if (!m) return code;
   return `${m[1]}.${m[2].padStart(2, '0')}`;
 }
 
-/** P2000.01 → P2000.1 */
+/** Gera variantes para query: P3348.F04.3 → [P3348.F04.3, P3348.F04.03] */
+function getQueryVariants(code: string): string[] {
+  const s = String(code).trim();
+  const parts = s.split('.');
+  if (parts.length < 2) return [s];
+  const last = parts[parts.length - 1];
+  if (/^\d+$/.test(last) && last.length <= 2) {
+    const padded = last.padStart(2, '0');
+    if (padded !== last) {
+      const variant = [...parts.slice(0, -1), padded].join('.');
+      return [s, variant];
+    }
+  }
+  return [s];
+}
+
+/** P2000.01 → P2000.1; P3348.F04.03 → P3348.F04.3 (remove zeros à esquerda no último segmento) */
 function toInventoryFormat(code: string): string {
-  const m = String(code).trim().match(/^(P\d+)\.0*(\d+)$/i);
-  if (!m) return code;
-  return `${m[1]}.${m[2]}`;
+  const s = String(code).trim();
+  const parts = s.split('.');
+  if (parts.length < 2) return s;
+  const last = parts[parts.length - 1];
+  const trimmed = /^0*(\d+)$/.test(last) ? last.replace(/^0+/, '') || '0' : last;
+  if (trimmed !== last) {
+    return [...parts.slice(0, -1), trimmed].join('.');
+  }
+  return s;
 }
 
 /**
@@ -39,7 +61,8 @@ function toInventoryFormat(code: string): string {
  */
 export function useTvdPlayerStatus(venueCodes: string[]) {
   const raw = [...new Set(venueCodes.filter(Boolean))];
-  const codes = [...new Set([...raw, ...raw.map(toTvdFormat)])];
+  const variants = raw.flatMap((c) => [...getQueryVariants(c), toTvdFormat(c)]);
+  const codes = [...new Set(variants)];
 
   return useQuery({
     queryKey: ['tvd-player-status', codes.sort().join(',')],

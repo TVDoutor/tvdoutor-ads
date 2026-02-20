@@ -47,7 +47,8 @@ query PlayersStatus($first: Int!, $after: String) {
 `;
 
 function extractVenueCode(name: string): string | null {
-  const m = name.trim().toUpperCase().match(/^(P\d+(?:\.\d+)*)\b/);
+  // Aceita P#### ou P#####.XX[.YY...] (ex: P2000.01, P3348.F04, P3348.F04.1)
+  const m = name.trim().toUpperCase().match(/^(P\d+(?:\.[A-Za-z0-9]+)*)\b/);
   return m?.[1] ?? null;
 }
 

@@ -35,7 +35,7 @@ const EXCEL_PATH = process.argv[2] || path.join(
 );
 
 const BATCH_SIZE = 100;
-const CODE_REGEX = /^P\d{4,5}(\.\d+)?$/i;
+const CODE_REGEX = /^P\d{4,5}(\.[A-Za-z0-9]+)*$/i;
 
 function normalizeHeaderKey(value) {
   return String(value ?? '')
@@ -80,7 +80,7 @@ function parseBoolean(value) {
 function sanitizeCode(value) {
   if (value == null) return '';
   let s = String(value).trim().replace(/[\u200B-\u200D\uFEFF]/g, '').replace(/\s+/g, '');
-  if (/^P\d{4,5},\d+$/i.test(s)) s = s.replace(',', '.');
+  if (/^P\d{4,5},/i.test(s)) s = s.replace(/,/g, '.');
   return s;
 }
 

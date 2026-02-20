@@ -1,7 +1,7 @@
 -- Create profiles table
 -- This table stores user profile information
 
-CREATE TABLE public.profiles (
+CREATE TABLE IF NOT EXISTS public.profiles (
     id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
     display_name TEXT,
     avatar_url TEXT,
@@ -53,6 +53,7 @@ END;
 $$;
 
 -- Create trigger
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
     AFTER INSERT ON auth.users
     FOR EACH ROW

@@ -3,6 +3,18 @@
 
 BEGIN;
 
+-- 0. Garantir que a tabela profiles existe (esta migration pode rodar antes de create_profiles_table)
+CREATE TABLE IF NOT EXISTS public.profiles (
+    id UUID REFERENCES auth.users(id) ON DELETE CASCADE PRIMARY KEY,
+    email TEXT,
+    full_name TEXT,
+    display_name TEXT,
+    avatar_url TEXT,
+    role TEXT DEFAULT 'user',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 -- 1. Fix profiles table policies to allow signup
 DROP POLICY IF EXISTS "Allow profile creation during signup" ON public.profiles;
 DROP POLICY IF EXISTS "Allow anon profile creation during signup" ON public.profiles;

@@ -269,6 +269,8 @@ const Inventory = () => {
   /** 'full' = inventário completo; 'audience' = lista de audiência (atualizar ou cadastrar por código) */
   const [uploadMode, setUploadMode] = useState<'full' | 'audience'>('full');
   const [exporting, setExporting] = useState(false);
+  const [syncingTvdCode, setSyncingTvdCode] = useState<string | null>(null);
+  const [syncingTvdAll, setSyncingTvdAll] = useState(false);
   
   // Stats
   const [stats, setStats] = useState({
@@ -565,6 +567,18 @@ const Inventory = () => {
       return;
     }
 
+    // Validar formato do Código do Ponto: P#### ou P#####.XX[.YY...] (ex: P3348.F04.1)
+    const codeToSave = (editingScreen.code || '').trim().replace(/\s+/g, '');
+    const codeFormatValid = /^P\d{4,5}(\.[A-Za-z0-9]+)*$/i.test(codeToSave);
+    if (!codeToSave || !codeFormatValid) {
+      toast({
+        title: "Código do Ponto inválido",
+        description: "Use formato alfanumérico: P#### ou P#####.XX.YY (ex: P3348, P3348.F01, P3348.F04.1)",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setSaving(true);
     
     try {
@@ -591,7 +605,7 @@ const Inventory = () => {
       // Primeiro tentar atualizar com a classe
       const audienceVal = editingScreen.audience_monthly ?? editingScreen.venue_info?.audience_monthly;
       let updateData: Record<string, unknown> = {
-        code: editingScreen.code || null,
+        code: codeToSave || null,
         name: editingScreen.code || null,
         display_name: editingScreen.display_name || null,
         city: editingScreen.city || null,
@@ -717,6 +731,17 @@ const Inventory = () => {
       return;
     }
 
+    const codeToAdd = (newScreen.code || '').trim().replace(/\s+/g, '');
+    const codeFormatValid = /^P\d{4,5}(\.[A-Za-z0-9]+)*$/i.test(codeToAdd);
+    if (!codeToAdd || !codeFormatValid) {
+      toast({
+        title: "Código do Ponto inválido",
+        description: "Use formato alfanumérico: P#### ou P#####.XX.YY (ex: P3348, P3348.F01, P3348.F04.1)",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setSaving(true);
     
     try {
@@ -726,8 +751,8 @@ const Inventory = () => {
       
       const audienceMonthly = newScreen.audience_monthly != null && newScreen.audience_monthly !== '' ? Number(newScreen.audience_monthly) : null;
       let insertData: Record<string, unknown> = {
-        code: newScreen.code || null,
-        name: newScreen.code || null,
+        code: codeToAdd || null,
+        name: codeToAdd || null,
         display_name: newScreen.display_name || null,
         city: newScreen.city || null,
         state: newScreen.state || null,
@@ -1020,7 +1045,8 @@ const Inventory = () => {
     const validatedData: any[] = [];
     const errors: string[] = [];
     const allowedClassSet = new Set(ALLOWED_CLASSES.map(c => String(c).toUpperCase()));
-    const codeRegex = /^P\d{4,5}(\.\d+)?$/i;
+    // Formato alfanumérico: P#### ou P#####.XX[.YY...] (ex: P3348, P3348.F01, P3348.F04.1)
+    const codeRegex = /^P\d{4,5}(\.[A-Za-z0-9]+)*$/i;
     let skippedTemplateRows = 0;
     let cepNormalized = 0;
     let cepInvalid = 0;
@@ -1030,8 +1056,8 @@ const Inventory = () => {
       s = s.replace(/[\u200B-\u200D\uFEFF]/g, '');
       // remove espaços internos
       s = s.replace(/\s+/g, '');
-      // alguns CSVs podem vir com vírgula na parte decimal: P2893,4
-      if (/^P\d{4,5},\d+$/i.test(s)) s = s.replace(',', '.');
+      // alguns CSVs podem vir com vírgula: P2893,4 ou P3348,F04,1
+      if (/^P\d{4,5},/i.test(s)) s = s.replace(/,/g, '.');
       return s;
     };
     const normalizeCep = (v: any): string | null => {
@@ -1076,12 +1102,12 @@ const Inventory = () => {
       }
 
       // Ignorar linhas de template/exemplo (ex: PXXX.1, PXXXX.2 etc)
-      // Em alguns arquivos, o "X" pode vir como caractere visualmente igual porém diferente (ex: cirílico),
-      // então a regra robusta é: após "P" deve haver 4-5 dígitos (antes do opcional ".#").
+      // Base: 4-5 dígitos após P. Sufixo opcional: alfanumérico com pontos (ex: .F01, .F04.1).
       const codeBody = code.slice(1);
-      const [basePart, decimalPart] = codeBody.split('.', 2);
+      const [basePart, ...restParts] = codeBody.split('.');
+      const decimalPart = restParts.join('.');
       const baseLooksValid = /^\d{4,5}$/.test(basePart);
-      const decimalLooksValid = decimalPart === undefined ? true : /^\d+$/.test(decimalPart);
+      const decimalLooksValid = decimalPart === '' ? true : /^[A-Za-z0-9]+(\.[A-Za-z0-9]+)*$/.test(decimalPart);
       if (!baseLooksValid || !decimalLooksValid) {
         skippedTemplateRows++;
         return;
@@ -1089,9 +1115,9 @@ const Inventory = () => {
 
       if (!codeRegex.test(code)) {
         const hint = /^TVD/i.test(code)
-          ? ' (Dica: o padrão do sistema é P####/P##### — ex: P2000 ou P2893.4. O template antigo "TVD001" não é aceito pelo banco.)'
+          ? ' (Dica: o padrão do sistema é P#### ou P#####.XX.YY — ex: P2000, P3348.F01, P3348.F04.1. O template antigo "TVD001" não é aceito pelo banco.)'
           : '';
-        errors.push(`Linha ${rowNumber}: Código inválido (${code}). Esperado: P#### ou P##### (opcional .#)${hint}`);
+        errors.push(`Linha ${rowNumber}: Código inválido (${code}). Esperado: P#### ou P#####.XX.YY (ex: P3348.F01, P3348.F04.1)${hint}`);
         return;
       }
       if (!display_name) {
@@ -1270,9 +1296,10 @@ const Inventory = () => {
   const validateAudienceListData = (data: any[]): { rows: { code: string; audience_monthly: number; display_name?: string; city?: string; state?: string; address_raw?: string }[]; errors: string[] } => {
     const rows: { code: string; audience_monthly: number; display_name?: string; city?: string; state?: string; address_raw?: string }[] = [];
     const errors: string[] = [];
+    const codeRegex = /^P\d{4,5}(\.[A-Za-z0-9]+)*$/i;
     const sanitizeCode = (v: any): string => {
       let s = String(v ?? '').trim().replace(/[\u200B-\u200D\uFEFF]/g, '').replace(/\s+/g, '');
-      if (/^P\d{4,5},\d+$/i.test(s)) s = s.replace(',', '.');
+      if (/^P\d{4,5},[A-Za-z0-9]+$/i.test(s)) s = s.replace(',', '.');
       return s;
     };
 
@@ -1290,6 +1317,10 @@ const Inventory = () => {
 
       if (!code) {
         errors.push(`Linha ${rowNumber}: Código é obrigatório`);
+        return;
+      }
+      if (!codeRegex.test(code)) {
+        errors.push(`Linha ${rowNumber}: Código inválido (${code}). Esperado: P#### ou P#####.XX.YY (ex: P3348.F01, P3348.F04.1)`);
         return;
       }
       if (audience === null || audience === undefined) {
@@ -2009,6 +2040,35 @@ const Inventory = () => {
                     Limpar Filtros
                   </Button>
                 )}
+
+                {(isAdmin() || isManager()) && (
+                  <Button
+                    variant="outline"
+                    onClick={async () => {
+                      setSyncingTvdAll(true);
+                      try {
+                        const { data: res, error } = await supabase.functions.invoke('tvd-sync-trigger');
+                        const payload = res as { ok?: boolean; total?: number; error?: string } | null;
+                        queryClient.invalidateQueries({ queryKey: ['tvd-player-status'] });
+                        if (error) throw new Error(error);
+                        if (payload?.ok) {
+                          toast({ title: 'Sincronizado', description: `${payload.total ?? 0} players atualizados no app.tvdoutor.` });
+                        } else {
+                          toast({ title: 'Erro', description: payload?.error || 'Não foi possível sincronizar.', variant: 'destructive' });
+                        }
+                      } catch (e) {
+                        toast({ title: 'Erro', description: e instanceof Error ? e.message : 'Não foi possível sincronizar.', variant: 'destructive' });
+                      } finally {
+                        setSyncingTvdAll(false);
+                      }
+                    }}
+                    disabled={syncingTvdAll}
+                    className="gap-2 h-12 border-2 hover:bg-[#f48220]/10 hover:border-[#f48220] hover:text-[#f48220] transition-all"
+                  >
+                    {syncingTvdAll ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                    Sincronizar TVD
+                  </Button>
+                )}
               </div>
             </div>
             
@@ -2173,12 +2233,44 @@ const Inventory = () => {
                           ) : (() => {
                             const st = tvdStatusMap?.[screen.code];
                             if (!st) return (
-                              <span
-                                className="text-muted-foreground text-xs"
-                                title={tvdStatusError ? 'Status TVD indisponível' : 'Sem registro de conexão TVD para este código'}
-                              >
-                                —
-                              </span>
+                              <div className="flex items-center gap-1">
+                                <span
+                                  className="text-muted-foreground text-xs"
+                                  title={tvdStatusError ? 'Status TVD indisponível' : 'Sem registro de conexão TVD. Clique para sincronizar.'}
+                                >
+                                  —
+                                </span>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-6 w-6"
+                                  disabled={syncingTvdCode === screen.code}
+                                  onClick={async () => {
+                                    setSyncingTvdCode(screen.code);
+                                    try {
+                                      const { data: res, error } = await supabase.functions.invoke('tvd-verify-sync-player', { body: { code: screen.code } });
+                                      const payload = res as { found?: boolean; error?: string } | null;
+                                      queryClient.invalidateQueries({ queryKey: ['tvd-player-status'] });
+                                      if (payload?.found) {
+                                        toast({ title: 'Sincronizado', description: `Ponto ${screen.code} sincronizado com sucesso.` });
+                                      } else {
+                                        toast({ title: 'Não encontrado', description: payload?.error || `Código ${screen.code} não encontrado no app.tvdoutor.`, variant: 'destructive' });
+                                      }
+                                    } catch {
+                                      toast({ title: 'Erro', description: 'Não foi possível sincronizar.', variant: 'destructive' });
+                                    } finally {
+                                      setSyncingTvdCode(null);
+                                    }
+                                  }}
+                                  title="Sincronizar com app.tvdoutor"
+                                >
+                                  {syncingTvdCode === screen.code ? (
+                                    <Loader2 className="h-3 w-3 animate-spin" />
+                                  ) : (
+                                    <RefreshCw className="h-3 w-3" />
+                                  )}
+                                </Button>
+                              </div>
                             );
                             return (
                               <div className="text-xs space-y-0.5">
@@ -2536,7 +2628,7 @@ const Inventory = () => {
                        id="code"
                        value={editingScreen.code || ''}
                        onChange={(e) => updateEditingScreen('code', e.target.value)}
-                       placeholder="Digite o Cod. do Ponto"
+                       placeholder="Ex: P3348.F01, P3348.F04.1"
                      />
                    </div>
                   <div className="space-y-2">

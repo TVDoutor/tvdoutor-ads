@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.tvd-verify-sync-player]
 verify_jwt = false
+
+[functions.tvd-sync-trigger]
+verify_jwt = false

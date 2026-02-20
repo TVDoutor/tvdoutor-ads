@@ -67,13 +67,16 @@ INSERT INTO public.impact_models (name, description, traffic_level, multiplier, 
  (SELECT id FROM auth.users WHERE email = 'hildebrando.cardoso@tvdoutor.com.br' LIMIT 1))
 ON CONFLICT (name) DO NOTHING;
 
--- 6. Atualizar constraint da tabela proposals para aceitar mais fórmulas
-ALTER TABLE public.proposals 
-DROP CONSTRAINT IF EXISTS proposals_impact_formula_check;
-
-ALTER TABLE public.proposals 
-ADD CONSTRAINT proposals_impact_formula_check 
-CHECK (impact_formula IN ('A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'));
+-- 6. Atualizar constraint da tabela proposals para aceitar mais fórmulas (se proposals existir)
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='proposals') THEN
+    ALTER TABLE public.proposals DROP CONSTRAINT IF EXISTS proposals_impact_formula_check;
+    ALTER TABLE public.proposals 
+    ADD CONSTRAINT proposals_impact_formula_check 
+    CHECK (impact_formula IN ('A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'));
+  END IF;
+END $$;
 
 -- 7. Criar função para obter fórmulas ativas
 CREATE OR REPLACE FUNCTION public.get_active_impact_models()

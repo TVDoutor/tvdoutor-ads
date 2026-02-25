@@ -20,14 +20,15 @@ export const addScreenAsAdmin = async (screenData: any) => {
       .from('user_roles')
       .select('role')
       .eq('user_id', user.id as any)
-      .in('role', ['admin' as any, 'super_admin' as any]);
+      .in('role', ['admin' as any, 'super_admin' as any, 'manager' as any]);
 
-    const isAdmin = (profile as any)?.super_admin || 
-                   (profile as any)?.role === 'admin' || 
-                   (profile as any)?.role === 'super_admin' ||
-                   (userRoles?.length ?? 0) > 0;
+    const canManage = (profile as any)?.super_admin || 
+                     (profile as any)?.role === 'admin' || 
+                     (profile as any)?.role === 'super_admin' ||
+                     (profile as any)?.role === 'manager' ||
+                     (userRoles?.length ?? 0) > 0;
 
-    if (!isAdmin) {
+    if (!canManage) {
       throw new Error('Insufficient privileges');
     }
 
@@ -63,14 +64,15 @@ export const deleteScreenAsAdmin = async (screenId: number) => {
       .from('user_roles')
       .select('role')
       .eq('user_id', user.id as any)
-      .in('role', ['admin' as any, 'super_admin' as any]);
+      .in('role', ['admin' as any, 'super_admin' as any, 'manager' as any]);
 
-    const isAdmin = (profile as any)?.super_admin || 
-                   (profile as any)?.role === 'admin' || 
-                   (profile as any)?.role === 'super_admin' ||
-                   (userRoles?.length ?? 0) > 0;
+    const canManage = (profile as any)?.super_admin || 
+                     (profile as any)?.role === 'admin' || 
+                     (profile as any)?.role === 'super_admin' ||
+                     (profile as any)?.role === 'manager' ||
+                     (userRoles?.length ?? 0) > 0;
 
-    if (!isAdmin) {
+    if (!canManage) {
       throw new Error('Insufficient privileges');
     }
 

@@ -588,8 +588,8 @@ const Inventory = () => {
       const { data: dbRole } = await supabase
         .rpc('get_user_role', { _user_id: profile?.id });
 
-      // Check if user has permission to edit (admin or super_admin in database)
-      if (!dbRole || (dbRole !== 'admin' && dbRole !== 'super_admin')) {
+      // Check if user has permission to edit (admin, super_admin or manager in database)
+      if (!dbRole || (dbRole !== 'admin' && dbRole !== 'super_admin' && dbRole !== 'manager')) {
         toast({
           title: "Acesso Negado",
           description: "Você não tem permissão para editar telas. Verifique suas permissões com o administrador.",

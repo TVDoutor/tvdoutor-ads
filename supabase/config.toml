@@ -20,3 +20,12 @@ verify_jwt = false
 
 [functions.tvd-sync-trigger]
 verify_jwt = false
+
+[functions.admin-create-user]
+verify_jwt = true
+
+[functions.admin-update-user]
+verify_jwt = true
+
+[functions.admin-delete-user]
+verify_jwt = true

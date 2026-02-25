@@ -46,7 +46,8 @@ import {
   RefreshCw,
   Mail,
   Calendar,
-  TrendingUp
+  TrendingUp,
+  Lock
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
@@ -87,6 +88,7 @@ const Users = () => {
   const [userRoles, setUserRoles] = useState<Record<string, string>>({});
   const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
   const [editingUser, setEditingUser] = useState<UserProfile | null>(null);
+  const [editPassword, setEditPassword] = useState("");
 
   const [newUser, setNewUser] = useState({
     name: "",
@@ -187,37 +189,26 @@ const Users = () => {
 
     setSaving(true);
     try {
-      logDebug('Criando usuário no Auth', { hasEmail: !!newUser.email, name: newUser.name, role: newUser.role });
-      
-      // CORREÇÃO: Usar apenas signUp sem tentar definir role diretamente
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: newUser.email,
-        password: newUser.password,
-        options: {
-          data: {
-            full_name: newUser.name
-            // REGRA DE SEGURANÇA: A role de um novo usuário cadastrado
-            // publicamente DEVE ser sempre 'user'. Nunca deixe o usuário escolher.
-            // role: 'user', // Removido - o trigger handle_new_user já define
-          }
-        }
+      logDebug('Criando usuário via admin-create-user', { hasEmail: !!newUser.email, name: newUser.name, role: newUser.role });
+
+      const { data, error } = await supabase.functions.invoke('admin-create-user', {
+        body: {
+          email: newUser.email,
+          password: newUser.password,
+          full_name: newUser.name,
+          role: newUser.role,
+        },
       });
 
-      // Se a chamada signUp retornar um erro, nós o lançamos para o bloco CATCH
-      if (authError) {
-        throw authError;
+      if (error) throw error;
+
+      const err = data?.error;
+      if (err) {
+        throw new Error(typeof err === 'string' ? err : err?.message || err);
       }
 
-      if (authData.user) {
-        logDebug('Usuário criado no Auth', { userId: authData.user.id });
-        
-        // O trigger handle_new_user cria automaticamente:
-        // - Profile na tabela profiles
-        // - Role 'user' na tabela user_roles
-        
-        // Aguardar um pouco para o trigger processar
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
+      if (data?.success) {
+        logDebug('Usuário criado com sucesso', { userId: data.user?.id });
         await fetchUsers();
         setNewUser({ name: "", email: "", password: "", role: "user" });
         setIsCreateDialogOpen(false);
@@ -232,7 +223,7 @@ const Users = () => {
       
       let errorMessage = 'Erro desconhecido';
       
-      if (error.message?.includes('User already registered')) {
+      if (error.message?.includes('User already registered') || error.message?.includes('já está cadastrado')) {
         errorMessage = 'Este email já está cadastrado no sistema';
       } else if (error.message?.includes('Invalid email')) {
         errorMessage = 'Email inválido';
@@ -262,7 +253,8 @@ const Users = () => {
   };
 
   const handleEditUser = (user: UserProfile) => {
-    setEditingUser({ ...user });
+    setEditingUser({ ...user, role: userRoles[user.id] || user.role || 'user' });
+    setEditPassword("");
     setIsEditDialogOpen(true);
   };
 
@@ -271,16 +263,13 @@ const Users = () => {
 
     // Verificar permissões de edição
     const currentUserRole = userRoles[profile?.id || ''];
-    const isCurrentUserSuperAdmin = currentUserRole === 'super_admin' || isSuperAdmin();
-    const isCurrentUserAdmin = currentUserRole === 'admin' || isCurrentUserSuperAdmin;
+    const isCurrentUserAdmin = currentUserRole === 'admin' || currentUserRole === 'super_admin' || isSuperAdmin();
     const isEditingOwnProfile = editingUser.id === profile?.id;
     
-    // Apenas super_admins podem editar outros usuários
-    // Outros usuários só podem editar seus próprios dados
-    if (!isCurrentUserSuperAdmin && !isEditingOwnProfile) {
+    if (!isCurrentUserAdmin && !isEditingOwnProfile) {
       toast({
         title: "Acesso Negado",
-        description: "Apenas Super Administradores podem editar outros usuários",
+        description: "Apenas administradores podem editar outros usuários",
         variant: "destructive"
       });
       return;
@@ -289,86 +278,38 @@ const Users = () => {
     setSaving(true);
     try {
       logDebug('Iniciando atualização de usuário', { userId: editingUser?.id });
-      
-      // 1. Prepara o objeto de atualização com os dados básicos
-      const updatePayload: { [key: string]: any } = {
-        display_name: editingUser.display_name,
-        full_name: editingUser.display_name, // Garante consistência
-        updated_at: new Date().toISOString(),
-      };
 
-      const currentRole = userRoles[editingUser.id];
-      const newRole = editingUser.role;
-      logDebug('Current role vs New role', { currentRole, newRole });
-
-      // 2. Verifica se a role foi alterada e se o usuário atual tem permissão
-      if (currentRole !== newRole) {
-        if (isCurrentUserAdmin) {
-          // Adiciona as alterações de role ao mesmo objeto
-          updatePayload.role = newRole;
-          updatePayload.super_admin = newRole === 'super_admin'; // Atualiza a flag booleana
-        } else {
-          // Se não tiver permissão, exibe um erro e interrompe
-          toast({
-            title: "Acesso Negado",
-            description: "Você não tem permissão para alterar a função de um usuário.",
-            variant: "destructive",
-          });
-          setSaving(false); // Libera o botão de salvar
-          return; // Interrompe a execução da função
-        }
-      }
-
-      // 3. Executa UMA ÚNICA chamada de update com todos os dados
-      logDebug('Enviando payload de atualização unificado:', updatePayload);
-      const { data, error } = await supabase
-        .from('profiles')
-        .update(updatePayload)
-        .eq('id', editingUser.id)
-        .select();
-
-      // 4. Trata o erro (se houver)
-      if (error) {
-        console.error('Unified update error:', error);
-        throw error;
-      }
-
-      // 5. Se a role foi alterada, atualizar também a tabela user_roles
-      if (currentRole !== newRole && isCurrentUserAdmin) {
-        logDebug('Atualizando user_roles', { userId: editingUser.id, newRole });
-        
-        // Remover role antiga da tabela user_roles (se não for super_admin)
-        if (currentRole && currentRole !== 'super_admin') {
-          await supabase
-            .from('user_roles')
-            .delete()
-            .eq('user_id', editingUser.id)
-            .eq('role', currentRole);
-        }
-        
-        // Adicionar nova role na tabela user_roles
-        const { error: roleError } = await supabase
-          .from('user_roles')
-          .upsert({
+      if (isCurrentUserAdmin && !isEditingOwnProfile) {
+        const newRole = editingUser.role || userRoles[editingUser.id] || 'user';
+        const { data, error } = await supabase.functions.invoke('admin-update-user', {
+          body: {
             user_id: editingUser.id,
+            display_name: editingUser.display_name,
+            full_name: editingUser.display_name,
             role: newRole,
-            created_at: new Date().toISOString(),
-          }, {
-            onConflict: 'user_id,role'
-          });
-        
-        if (roleError) {
-          logError('Error updating user_roles', roleError);
-          // Não lançar erro fatal, pois o profiles já foi atualizado
-          console.warn('Aviso: Não foi possível atualizar user_roles:', roleError.message);
-        } else {
-          logDebug('user_roles atualizado com sucesso');
-        }
+            ...(editPassword.trim() ? { password: editPassword.trim() } : {}),
+          },
+        });
+
+        if (error) throw error;
+        const err = data?.error;
+        if (err) throw new Error(typeof err === 'string' ? err : err?.message || err);
+      } else {
+        const { error } = await supabase
+          .from('profiles')
+          .update({
+            display_name: editingUser.display_name,
+            full_name: editingUser.display_name,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', editingUser.id);
+        if (error) throw error;
       }
 
       await fetchUsers();
       setIsEditDialogOpen(false);
       setEditingUser(null);
+      setEditPassword("");
 
       toast({
         title: "Usuário atualizado",
@@ -399,10 +340,9 @@ const Users = () => {
   const handleDeleteUser = async (userId: string) => {
     if (!confirm('Tem certeza que deseja remover este usuário?')) return;
 
-    // Verificar se o usuário atual pode excluir outros usuários
     const currentUserRole = userRoles[profile?.id || ''];
-    const isCurrentUserAdmin = currentUserRole === 'admin' || isSuperAdmin();
-    
+    const isCurrentUserAdmin = currentUserRole === 'admin' || currentUserRole === 'super_admin' || isSuperAdmin();
+
     if (!isCurrentUserAdmin) {
       toast({
         title: "Acesso Negado",
@@ -412,17 +352,27 @@ const Users = () => {
       return;
     }
 
+    if (userId === profile?.id) {
+      toast({
+        title: "Ação não permitida",
+        description: "Use as configurações da conta para excluir seu próprio usuário",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setSaving(true);
     try {
-      // Delete from profiles table (this will cascade to auth.users if configured)
-      const { error } = await supabase
-        .from('profiles')
-        .delete()
-        .eq('id', userId);
+      const { data, error } = await supabase.functions.invoke('admin-delete-user', {
+        body: { user_id: userId },
+      });
 
       if (error) throw error;
+      const err = data?.error;
+      if (err) throw new Error(typeof err === 'string' ? err : err?.message || err);
 
       await fetchUsers();
-      
+
       toast({
         title: "Usuário removido",
         description: "O usuário foi removido do sistema"
@@ -434,6 +384,8 @@ const Users = () => {
         description: `Não foi possível remover o usuário: ${error.message}`,
         variant: "destructive"
       });
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -550,7 +502,7 @@ const Users = () => {
                         Criar Novo Usuário
                       </DialogTitle>
                       <DialogDescription>
-                        Preencha as informações do novo usuário. Um email de confirmação será enviado.
+                        Preencha as informações do novo usuário. O usuário poderá fazer login imediatamente com a senha informada.
                       </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4">
@@ -779,6 +731,7 @@ const Users = () => {
                       getRoleLabel={getRoleLabel}
                       formatDate={formatDate}
                       currentProfile={profile}
+                      canDeleteUser={isAdmin() && !!profile && user.id !== profile.id}
                     />
                   ))}
                 </div>
@@ -863,8 +816,8 @@ const Users = () => {
                                 >
                                   <Edit className="h-4 w-4" />
                                 </Button>
-                                {/* Só mostrar botão de excluir se for admin ou se for o próprio usuário */}
-                                {(userRoles[user.id] === 'super_admin' || userRoles[user.id] === 'admin' || (profile && user.id === profile.id)) && (
+                                {/* Admin e Super Admin podem excluir outros usuários (não a si mesmos) */}
+                                {isAdmin() && profile && user.id !== profile.id && (
                                   <Button 
                                     variant="outline" 
                                     size="sm"
@@ -976,7 +929,7 @@ const Users = () => {
                     <Select 
                       value={editingUser.role || userRoles[editingUser.id] || 'user'} 
                       onValueChange={(value) => setEditingUser({...editingUser, role: value})}
-                      disabled={saving}
+                      disabled={saving || (profile && editingUser.id === profile.id)}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Selecione a função" />
@@ -986,15 +939,62 @@ const Users = () => {
                         <SelectItem value="client">Cliente</SelectItem>
                         <SelectItem value="manager">Gerente</SelectItem>
                         <SelectItem value="admin">Administrador</SelectItem>
+                        <SelectItem value="super_admin">Super Admin</SelectItem>
                       </SelectContent>
                     </Select>
+                    {profile && editingUser.id === profile.id && (
+                      <p className="text-xs text-muted-foreground">Você não pode alterar sua própria função</p>
+                    )}
                   </div>
+
+                  {isAdmin() && profile && editingUser.id !== profile.id && (
+                    <>
+                      <div className="space-y-2">
+                        <Label htmlFor="edit-password" className="flex items-center gap-2">
+                          <Lock className="h-4 w-4" />
+                          Nova senha
+                        </Label>
+                        <Input
+                          id="edit-password"
+                          type="password"
+                          placeholder="Deixe em branco para não alterar"
+                          value={editPassword}
+                          onChange={(e) => setEditPassword(e.target.value)}
+                          disabled={saving}
+                          className="bg-muted"
+                        />
+                        <p className="text-xs text-muted-foreground">Mínimo 6 caracteres. Deixe em branco para manter a senha atual.</p>
+                      </div>
+                      <div className="pt-2 border-t">
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => {
+                            const uid = editingUser.id;
+                            setIsEditDialogOpen(false);
+                            setEditingUser(null);
+                            setEditPassword("");
+                            handleDeleteUser(uid);
+                          }}
+                          disabled={saving}
+                          className="w-full"
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Excluir usuário
+                        </Button>
+                      </div>
+                    </>
+                  )}
                 </div>
               )}
               <DialogFooter>
                 <Button 
                   variant="outline" 
-                  onClick={() => setIsEditDialogOpen(false)}
+                  onClick={() => {
+                    setIsEditDialogOpen(false);
+                    setEditPassword("");
+                  }}
                   disabled={saving}
                 >
                   Cancelar
@@ -1021,7 +1021,8 @@ function ModernUserCard({
   getRoleColor, 
   getRoleLabel, 
   formatDate,
-  currentProfile
+  currentProfile,
+  canDeleteUser = false,
 }: {
   user: UserProfile;
   userRole: string;
@@ -1032,6 +1033,7 @@ function ModernUserCard({
   getRoleLabel: (role: string, user?: UserProfile) => string;
   formatDate: (date: string) => string;
   currentProfile: UserProfile | null;
+  canDeleteUser?: boolean;
 }) {
   const roleIcon = user.super_admin || userRole === 'super_admin' || userRole === 'admin' ? Crown :
                   userRole === 'manager' ? Shield : 
@@ -1094,8 +1096,8 @@ function ModernUserCard({
             <Edit className="h-3 w-3 mr-1" />
             Editar
           </Button>
-          {/* Só mostrar botão de excluir se for super_admin ou se for o próprio usuário */}
-          {(userRole === 'super_admin' || (currentProfile && user.id === currentProfile.id)) && (
+          {/* Admin e Super Admin podem excluir outros usuários (não a si mesmos) */}
+          {canDeleteUser && (
             <Button 
               size="sm" 
               variant="outline"

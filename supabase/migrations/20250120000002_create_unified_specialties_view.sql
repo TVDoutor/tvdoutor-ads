@@ -84,14 +84,20 @@ GRANT SELECT ON public.v_specialties_unified TO authenticated;
 GRANT SELECT ON public.v_specialties_for_dashboard TO authenticated;
 
 -- 5. CRIAR FUNÇÃO PARA SINCRONIZAÇÃO MANUAL (FALLBACK)
+-- Nota: v_specialties_unified é VIEW (não materialized), então não precisa REFRESH.
+-- Views normais são sempre atualizadas em cada consulta.
 CREATE OR REPLACE FUNCTION public.refresh_specialties_views()
 RETURNS TEXT
 LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
 BEGIN
-  -- Forçar refresh das views
-  REFRESH MATERIALIZED VIEW IF EXISTS public.v_specialties_unified;
+  -- Se v_specialties_unified for materialized view, fazer refresh condicional
+  IF EXISTS (
+    SELECT 1 FROM pg_matviews WHERE schemaname = 'public' AND matviewname = 'v_specialties_unified'
+  ) THEN
+    REFRESH MATERIALIZED VIEW public.v_specialties_unified;
+  END IF;
   
   RETURN 'Views de especialidades atualizadas com sucesso em: ' || now();
 END;
@@ -106,10 +112,8 @@ COMMENT ON FUNCTION public.refresh_specialties_views() IS
 CREATE INDEX IF NOT EXISTS idx_screens_specialty_gin 
 ON public.screens USING GIN (specialty);
 
--- Índice na coluna staging_especialidades se existir
-CREATE INDEX IF NOT EXISTS idx_screens_staging_especialidades 
-ON public.screens (staging_especialidades) 
-WHERE staging_especialidades IS NOT NULL;
+-- Índice em staging_especialidades removido: coluna não existe na tabela screens
+-- (staging_especialidades é coluna calculada apenas na view v_screens_enriched)
 
 -- 7. LOG DE SUCESSO
 SELECT 'View unificada de especialidades criada com sucesso!' as resultado;

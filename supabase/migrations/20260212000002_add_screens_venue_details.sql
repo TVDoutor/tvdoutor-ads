@@ -18,7 +18,7 @@ COMMENT ON COLUMN public.screens.aceita_convenio IS 'Se o local aceita convênio
 
 -- Atualizar v_screens_enriched para expor os novos campos
 -- (usa a versão mais recente da view como base - 20260204000000)
-DROP VIEW IF EXISTS public.v_screens_enriched;
+DROP VIEW IF EXISTS public.v_screens_enriched CASCADE;
 
 CREATE OR REPLACE VIEW public.v_screens_enriched AS
 SELECT

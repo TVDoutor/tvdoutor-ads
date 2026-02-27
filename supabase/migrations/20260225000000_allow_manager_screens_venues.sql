@@ -32,6 +32,7 @@ $$;
 
 -- 3. Screens: permitir admin OU manager modificar
 DROP POLICY IF EXISTS "Only admins can modify screens" ON public.screens;
+DROP POLICY IF EXISTS "Admins and managers can modify screens" ON public.screens;
 CREATE POLICY "Admins and managers can modify screens"
     ON public.screens
     FOR ALL
@@ -41,6 +42,7 @@ CREATE POLICY "Admins and managers can modify screens"
 
 -- Venues: permitir admin OU manager modificar
 DROP POLICY IF EXISTS "Only admins can modify venues" ON public.venues;
+DROP POLICY IF EXISTS "Admins and managers can modify venues" ON public.venues;
 CREATE POLICY "Admins and managers can modify venues"
     ON public.venues
     FOR ALL

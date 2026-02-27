@@ -26,9 +26,9 @@ $$;
 COMMENT ON FUNCTION public.haversine_km IS 'Distância em km entre dois pontos (Haversine).';
 
 -- View: pares venue–farmácia com distância (limitada a 30 km para evitar explosão)
--- Remover materialized view ou view existente (no remoto pode existir como MV)
-DROP MATERIALIZED VIEW IF EXISTS public.mv_venue_farmacia_distancia;
+-- Remover view existente (pode ser regular ou materialized)
 DROP VIEW IF EXISTS public.mv_venue_farmacia_distancia;
+DROP MATERIALIZED VIEW IF EXISTS public.mv_venue_farmacia_distancia;
 
 CREATE OR REPLACE VIEW public.mv_venue_farmacia_distancia AS
 SELECT

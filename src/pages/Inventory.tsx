@@ -19,7 +19,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Search, Filter, Eye, Edit, Monitor, Building, AlertCircle, Trash2, Upload, Download, Plus, RefreshCw, FileSpreadsheet, CheckCircle, XCircle, Loader2, MapPin, Users, TrendingUp, BarChart3 } from "lucide-react";
+import { Search, Filter, Eye, Edit, Monitor, Building, AlertCircle, Trash2, Upload, Download, Plus, RefreshCw, FileSpreadsheet, CheckCircle, XCircle, Loader2, MapPin, Users, TrendingUp, BarChart3, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -239,6 +239,8 @@ const Inventory = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [sortBy, setSortBy] = useState<string | null>(null);
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   
   // Modal states
   const [viewModalOpen, setViewModalOpen] = useState(false);
@@ -288,7 +290,7 @@ const Inventory = () => {
 
   useEffect(() => {
     filterScreens();
-  }, [searchTerm, statusFilter, classFilter, specialtyFilter, screens]);
+  }, [searchTerm, statusFilter, classFilter, specialtyFilter, screens, sortBy, sortOrder]);
 
   // Resetar página ao mudar filtros
   useEffect(() => {
@@ -466,6 +468,16 @@ const Inventory = () => {
     }
   };
 
+  const handleSort = (column: string) => {
+    if (sortBy === column) {
+      setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortBy(column);
+      setSortOrder('asc');
+    }
+    setCurrentPage(1);
+  };
+
   const filterScreens = () => {
     let filtered = screens;
 
@@ -501,6 +513,58 @@ const Inventory = () => {
         return screen.specialty.some(spec => 
           spec.toLowerCase().includes(specialtyFilter.toLowerCase())
         );
+      });
+    }
+
+    if (sortBy) {
+      filtered = [...filtered].sort((a, b) => {
+        let valA: string | number | boolean = '';
+        let valB: string | number | boolean = '';
+
+        switch (sortBy) {
+          case 'code':
+            valA = a.code || '';
+            valB = b.code || '';
+            break;
+          case 'location':
+            valA = a.city && a.state ? `${a.city}, ${a.state}` : '';
+            valB = b.city && b.state ? `${b.city}, ${b.state}` : '';
+            break;
+          case 'status':
+            valA = a.active ? 'Ativa' : 'Inativa';
+            valB = b.active ? 'Ativa' : 'Inativa';
+            break;
+          case 'class':
+            valA = a.class || '';
+            valB = b.class || '';
+            break;
+          case 'connection':
+            valA = a.code || '';
+            valB = b.code || '';
+            break;
+          case 'audience':
+            valA = a.audience_monthly ?? a.venue_info?.audience_monthly ?? 0;
+            valB = b.audience_monthly ?? b.venue_info?.audience_monthly ?? 0;
+            break;
+          case 'ambiente':
+            valA = a.ambiente || '';
+            valB = b.ambiente || '';
+            break;
+          case 'convenio':
+            valA = a.aceita_convenio === true ? 'Sim' : 'Não';
+            valB = b.aceita_convenio === true ? 'Sim' : 'Não';
+            break;
+        }
+
+        if (typeof valA === 'number' && typeof valB === 'number') {
+          return sortOrder === 'asc' ? valA - valB : valB - valA;
+        }
+
+        const strA = String(valA).toLowerCase();
+        const strB = String(valB).toLowerCase();
+        if (strA < strB) return sortOrder === 'asc' ? -1 : 1;
+        if (strA > strB) return sortOrder === 'asc' ? 1 : -1;
+        return 0;
       });
     }
 
@@ -2143,14 +2207,35 @@ const Inventory = () => {
               <Table className="min-w-full">
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="min-w-[180px]">Código do Ponto</TableHead>
-                    <TableHead className="min-w-[220px]">Localização</TableHead>
-                    <TableHead className="min-w-[90px]">Status</TableHead>
-                    <TableHead className="min-w-[80px]">Classe</TableHead>
-                    <TableHead className="min-w-[140px]">Conexão (TVD)</TableHead>
-                    <TableHead className="min-w-[100px]">Audiência</TableHead>
-                    <TableHead className="min-w-[100px]">Ambiente</TableHead>
-                    <TableHead className="min-w-[90px]">Convênio</TableHead>
+                    {[
+                      { key: 'code', label: 'Código do Ponto', cls: 'min-w-[180px]' },
+                      { key: 'location', label: 'Localização', cls: 'min-w-[220px]' },
+                      { key: 'status', label: 'Status', cls: 'min-w-[90px]' },
+                      { key: 'class', label: 'Classe', cls: 'min-w-[80px]' },
+                      { key: 'connection', label: 'Conexão (TVD)', cls: 'min-w-[140px]' },
+                      { key: 'audience', label: 'Audiência', cls: 'min-w-[100px]' },
+                      { key: 'ambiente', label: 'Ambiente', cls: 'min-w-[100px]' },
+                      { key: 'convenio', label: 'Convênio', cls: 'min-w-[90px]' },
+                    ].map(({ key, label, cls }) => (
+                      <TableHead
+                        key={key}
+                        className={`${cls} cursor-pointer select-none hover:bg-muted/60 transition-colors`}
+                        onClick={() => handleSort(key)}
+                      >
+                        <span className="inline-flex items-center gap-1">
+                          {label}
+                          {sortBy === key ? (
+                            sortOrder === 'asc' ? (
+                              <ArrowUp className="h-3.5 w-3.5 text-primary" />
+                            ) : (
+                              <ArrowDown className="h-3.5 w-3.5 text-primary" />
+                            )
+                          ) : (
+                            <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground/50" />
+                          )}
+                        </span>
+                      </TableHead>
+                    ))}
                     {((searchTerm && searchTerm.trim() !== '') || statusFilter !== "all" || classFilter !== "all" || specialtyFilter !== "all") && (
                       <TableHead className="min-w-[350px]">Especialidades</TableHead>
                     )}

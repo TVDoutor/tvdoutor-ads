@@ -64,7 +64,7 @@ interface Notificacao {
 
 const ProjectManagement = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const [telaAtiva, setTelaAtiva] = useState('agencias');
   const [dados, setDados] = useState({
     agencias: [] as Agencia[],
@@ -452,6 +452,7 @@ const ProjectManagement = () => {
             >
               <Edit className="w-4 h-4" />
             </button>
+            {isAdmin() && (
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <button 
@@ -484,6 +485,7 @@ const ProjectManagement = () => {
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
+            )}
           </div>
         </div>
       </div>
@@ -1022,6 +1024,7 @@ const ProjectManagement = () => {
   const TelaProjetos = () => {
     const [showModal, setShowModal] = useState(false);
     const [projetoSelecionado, setProjetoSelecionado] = useState<Projeto | null>(null);
+    const [buscaInput, setBuscaInput] = useState(filtros.busca || '');
     const [formData, setFormData] = useState({
       nome_projeto: '',
       agencia_id: '',
@@ -1042,6 +1045,7 @@ const ProjectManagement = () => {
       arquivos_anexos: [] as Array<{ nome: string; url: string; tamanho: string }>
     });
     const [showDetalhes, setShowDetalhes] = useState<Projeto | null>(null);
+    const [projetoToDelete, setProjetoToDelete] = useState<Projeto | null>(null);
 
     // Monitorar mudanças no estado do modal
     useEffect(() => {
@@ -1133,6 +1137,21 @@ const ProjectManagement = () => {
         }
         
         toast.error(errorMessage);
+      }
+    };
+
+    const handleConfirmDeleteProjeto = async () => {
+      if (!projetoToDelete) return;
+      setLoading(true);
+      try {
+        await projetoService.excluir(supabase, projetoToDelete.id);
+        await carregarDados();
+        setProjetoToDelete(null);
+      } catch (err: unknown) {
+        const errorMessage = err instanceof Error ? err.message : 'Erro ao excluir projeto';
+        toast.error(errorMessage);
+      } finally {
+        setLoading(false);
       }
     };
 
@@ -1259,9 +1278,18 @@ const ProjectManagement = () => {
               >
                 <Edit className="w-4 h-4" />
               </button>
-              <button className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded">
-                <MoreVertical className="w-4 h-4" />
-              </button>
+              {isAdmin() && (
+                <button 
+                  className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setProjetoToDelete(projeto);
+                  }}
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -1270,13 +1298,14 @@ const ProjectManagement = () => {
 
     const projetosFiltrados = dados.projetos.filter(projeto => {
       const agencia = dados.agencias.find(a => a.id === projeto.agencia_id);
+      const termoBusca = filtros.busca?.toLowerCase() ?? '';
       return (
         (!filtros.agencia || projeto.agencia_id === filtros.agencia) &&
         (!filtros.status || projeto.status_projeto === filtros.status) &&
-        (!filtros.busca || 
-          projeto.nome_projeto.toLowerCase().includes(filtros.busca.toLowerCase()) ||
-          projeto.cliente_final.toLowerCase().includes(filtros.busca.toLowerCase()) ||
-          agencia?.nome_agencia.toLowerCase().includes(filtros.busca.toLowerCase())
+        (!termoBusca || 
+          (projeto.nome_projeto || '').toLowerCase().includes(termoBusca) ||
+          (projeto.cliente_final || '').toLowerCase().includes(termoBusca) ||
+          (agencia?.nome_agencia || '').toLowerCase().includes(termoBusca)
         )
       );
     });
@@ -1353,15 +1382,30 @@ const ProjectManagement = () => {
         <div className="bg-white p-6 rounded-xl border border-gray-200/60 mb-6 shadow-sm">
           <div className="flex items-center gap-4 flex-wrap">
             <div className="flex-1 min-w-64">
-              <div className="relative">
-                <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                <input
-                  type="text"
-                  placeholder="Buscar projetos, clientes ou agências..."
-                  className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all duration-300"
-                  value={filtros.busca}
-                  onChange={(e) => setFiltros({...filtros, busca: e.target.value})}
-                />
+              <div className="relative flex gap-2">
+                <div className="relative flex-1">
+                  <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                  <input
+                    type="text"
+                    placeholder="Buscar projetos, clientes ou agências..."
+                    className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all duration-300"
+                    value={buscaInput}
+                    onChange={(e) => setBuscaInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        setFiltros(prev => ({ ...prev, busca: buscaInput }));
+                      }
+                    }}
+                  />
+                </div>
+                <Button
+                  type="button"
+                  onClick={() => setFiltros(prev => ({ ...prev, busca: buscaInput }))}
+                  className="px-6 py-3 bg-primary text-white rounded-xl hover:bg-primary/90 transition-all duration-300 whitespace-nowrap"
+                >
+                  Buscar
+                </Button>
               </div>
             </div>
             
@@ -1545,6 +1589,32 @@ const ProjectManagement = () => {
             </div>
           </div>
         )}
+
+        {/* Dialog de Confirmação de Exclusão de Projeto */}
+        <AlertDialog open={!!projetoToDelete} onOpenChange={(open) => !open && setProjetoToDelete(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
+              <AlertDialogDescription>
+                Tem certeza que deseja excluir o projeto <strong>{projetoToDelete?.nome_projeto}</strong>?
+                <br />
+                <span className="text-red-600 font-medium">Esta ação não pode ser desfeita.</span>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => setProjetoToDelete(null)}>
+                Cancelar
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleConfirmDeleteProjeto}
+                className="bg-red-600 hover:bg-red-700"
+                disabled={loading}
+              >
+                {loading ? 'Excluindo...' : 'Excluir Projeto'}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
 
         {/* Modal de Projeto */}
         {showModal && (

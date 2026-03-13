@@ -61,7 +61,20 @@ function normalizeFilmSeconds(data: ProposalData): number {
   return isNaN(n) ? 0 : n;
 }
 
-export function normalizeProposalPayload(data: ProposalData, userId: string): NormalizedProposalPayload {
+export interface NormalizeOptions {
+  /** Ao editar, preserva o created_by original da proposta */
+  existingCreatedBy?: string;
+  /** Status customizado (default: 'rascunho') */
+  status?: NormalizedProposalPayload['status'];
+  /** Última etapa concluída (1-6) para retomar de onde parou */
+  lastCompletedStep?: number;
+}
+
+export function normalizeProposalPayload(
+  data: ProposalData,
+  userId: string,
+  options?: NormalizeOptions
+): NormalizedProposalPayload {
   const insertionsPerHour = parseInt(String(data.insertions_per_hour), 10);
   const cpmValue = data.cpm_value !== undefined && data.cpm_value !== null
     ? parseFloat(String(data.cpm_value))
@@ -72,14 +85,19 @@ export function normalizeProposalPayload(data: ProposalData, userId: string): No
   const diasUteisMesBase = data.dias_uteis_mes_base ?? 22;
   const pricingMode = data.cpm_mode === 'valor_insercao' ? 'insertion' : (data.pricing_mode ?? 'cpm');
 
+  const createdBy = options?.existingCreatedBy ?? userId;
+  const status = options?.status ?? 'rascunho';
+  const customerName = (data.customer_name?.trim() || 'Rascunho');
+  const customerEmail = (data.customer_email?.trim() || 'rascunho@temp.local');
+
   const payload: NormalizedProposalPayload = {
-    customer_name: data.customer_name,
-    customer_email: data.customer_email,
+    customer_name: customerName,
+    customer_email: customerEmail,
     proposal_type: normalizeProposalType(data.proposal_type as any),
     start_date: normalizeDate(data.start_date),
     end_date: normalizeDate(data.end_date),
     impact_formula: data.impact_formula,
-    status: 'rascunho',
+    status,
     filters: {},
     quote: {
       pricing_mode: pricingMode,
@@ -93,6 +111,7 @@ export function normalizeProposalPayload(data: ProposalData, userId: string): No
       dias_uteis_mes_base: diasUteisMesBase,
       avg_audience_per_insertion: data.avg_audience_per_insertion ?? null,
       valor_insercao_config: data.valor_insercao_config ?? null,
+      last_completed_step: options?.lastCompletedStep ?? null,
     },
     insertions_per_hour: isNaN(insertionsPerHour) ? 0 : insertionsPerHour,
     film_seconds: normalizeFilmSeconds(data),
@@ -102,7 +121,7 @@ export function normalizeProposalPayload(data: ProposalData, userId: string): No
     discount_fixed: isNaN(discountFixed) ? 0 : discountFixed,
     horas_operacao_dia: typeof horasOperacaoDia === 'number' ? horasOperacaoDia : null,
     dias_uteis_mes_base: typeof diasUteisMesBase === 'number' ? diasUteisMesBase : null,
-    created_by: userId,
+    created_by: createdBy,
     projeto_id: data.projeto_id || null,
     agencia_id: data.agencia_id || null,
   };

@@ -86,6 +86,16 @@ export interface ProposalData {
 interface NewProposalWizardProps {
   onComplete: (data: ProposalData) => void;
   onCancel: () => void;
+  /** ID da proposta em edição (rascunho) */
+  editingProposalId?: number;
+  /** Dados iniciais carregados do banco para continuar edição */
+  initialData?: ProposalData;
+  /** Callback para obter dados atuais (usado por Salvar Rascunho no parent) */
+  onDataRef?: (getData: () => ProposalData) => void;
+  /** Salvar rascunho automaticamente (chamado ao trocar de etapa ou após alterações) */
+  onAutoSave?: (data: ProposalData, currentStep: number) => void | Promise<void>;
+  /** Etapa inicial ao editar rascunho (retoma de onde parou) */
+  initialStep?: number;
 }
 
 const STEPS = [
@@ -97,54 +107,89 @@ const STEPS = [
   { id: 6, title: 'Resumo', icon: BarChart3, description: 'Revise e finalize' },
 ];
 
+const getDefaultData = (): ProposalData => ({
+  proposal_type: [],
+  customer_name: '',
+  customer_email: '',
+  selectedScreens: [],
+  film_seconds: [15],
+  insertions_per_hour: 6,
+  cpm_mode: 'manual',
+  cpm_value: 25,
+  impact_formula: 'A',
+  discount_pct: 0,
+  discount_fixed: 0,
+  avg_audience_per_insertion: 100,
+  horas_operacao_dia: 10,
+  dias_uteis_mes_base: 22,
+  months_period: 8,
+  days_period: undefined,
+  pricing_mode: 'cpm',
+  pricing_variant: 'avulsa',
+  period_unit: 'months',
+  insertion_prices: {
+    avulsa: { 15: 0.39, 30: 0.55, 45: 0.71 },
+    especial: { 15: 0.62, 30: 0.76, 45: 0.88 },
+  },
+  discounts_per_insertion: {
+    avulsa: {},
+    especial: {},
+  },
+  discount_pct_avulsa: 0,
+  discount_pct_especial: 0,
+  fator_quadros: 6,
+  audience_base_monthly: 0,
+  valor_insercao_config: {
+    tipo_servico_proposta: 'Avulsa',
+    audiencia_mes_base: 0,
+    qtd_telas: 0,
+    desconto_percentual: 0,
+    valor_manual_insercao_avulsa: 0,
+    valor_manual_insercao_especial: 0,
+    insercoes_hora_linha: null,
+  },
+});
+
 export const NewProposalWizardImproved: React.FC<NewProposalWizardProps> = ({
   onComplete,
   onCancel,
+  editingProposalId,
+  initialData,
+  onDataRef,
+  onAutoSave,
+  initialStep,
 }) => {
-  const [currentStep, setCurrentStep] = useState(1);
-  const [data, setData] = useState<ProposalData>({
-    proposal_type: [],
-    customer_name: '',
-    customer_email: '',
-    selectedScreens: [],
-    film_seconds: [15],
-    insertions_per_hour: 6,
-    cpm_mode: 'manual',
-    cpm_value: 25,
-    impact_formula: 'A',
-    discount_pct: 0,
-    discount_fixed: 0,
-    avg_audience_per_insertion: 100,
-    // Defaults seguros (não alteram comportamento atual)
-    horas_operacao_dia: 10,
-    dias_uteis_mes_base: 22,
-    months_period: 8,
-    days_period: undefined,
-    pricing_mode: 'cpm',
-    pricing_variant: 'avulsa',
-    period_unit: 'months',
-    insertion_prices: {
-      avulsa: { 15: 0.39, 30: 0.55, 45: 0.71 },
-      especial: { 15: 0.62, 30: 0.76, 45: 0.88 },
-    },
-    discounts_per_insertion: {
-      avulsa: {},
-      especial: {},
-    },
-    discount_pct_avulsa: 0,
-    discount_pct_especial: 0,
-    fator_quadros: 6,
-    audience_base_monthly: 0,
-    valor_insercao_config: {
-      tipo_servico_proposta: 'Avulsa',
-      audiencia_mes_base: 0,
-      qtd_telas: 0,
-      desconto_percentual: 0,
-      valor_manual_insercao_avulsa: 0,
-      valor_manual_insercao_especial: 0,
-      insercoes_hora_linha: null,
-    },
-  });
+  const [currentStep, setCurrentStep] = useState(initialStep ?? 1);
+  const [data, setData] = useState<ProposalData>(() =>
+    initialData ? { ...getDefaultData(), ...initialData } : getDefaultData()
+  );
+
+  // Quando initialData chega (ex: após carregar proposta para editar), popular o form e etapa
+  useEffect(() => {
+    if (editingProposalId && initialData) {
+      setData(prev => ({ ...getDefaultData(), ...initialData, ...prev }));
+    }
+    if (initialStep != null && initialStep >= 1 && initialStep <= 6) {
+      setCurrentStep(initialStep);
+    }
+  }, [editingProposalId, initialData, initialStep]);
+
+  // Expor getData para o parent
+  useEffect(() => {
+    onDataRef?.(() => data);
+  }, [onDataRef, data]);
+
+  // Auto-save com debounce ao alterar dados (2 segundos após última alteração)
+  useEffect(() => {
+    if (!onAutoSave) return;
+    const timer = setTimeout(() => {
+      const hasMinimalData = data.customer_name?.trim() || data.customer_email?.trim() || (data.proposal_type?.length ?? 0) > 0 || editingProposalId;
+      if (hasMinimalData) {
+        onAutoSave(data, currentStep);
+      }
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, [data, currentStep, editingProposalId, onAutoSave]);
 
   const [availableProjects, setAvailableProjects] = useState<any[]>([]);
   const [availableScreens, setAvailableScreens] = useState<any[]>([]);
@@ -153,12 +198,7 @@ export const NewProposalWizardImproved: React.FC<NewProposalWizardProps> = ({
   const progress = (currentStep / STEPS.length) * 100;
 
   const updateData = (updates: Partial<ProposalData>) => {
-    console.log('📝 Updating proposal data:', { updates, currentData: data });
-    setData(prev => {
-      const newData = { ...prev, ...updates };
-      console.log('✅ New proposal data:', newData);
-      return newData;
-    });
+    setData(prev => ({ ...prev, ...updates }));
   };
 
   // Helper para verificar preços ausentes por inserção
@@ -192,19 +232,21 @@ export const NewProposalWizardImproved: React.FC<NewProposalWizardProps> = ({
   };
 
   const nextStep = () => {
-    // Validação via Zod por etapa
     const validation = validateWizardStep(currentStep, data);
     if (!validation.success) {
       const msg = validation.errors?.join('\n') || 'Verifique os campos desta etapa.';
       toast.warning(msg);
       return;
     }
+    const nextStepNum = currentStep + 1;
+    onAutoSave?.(data, nextStepNum);
     if (currentStep < STEPS.length) {
       setCurrentStep(prev => prev + 1);
     }
   };
 
   const prevStep = () => {
+    onAutoSave?.(data, currentStep);
     if (currentStep > 1) {
       setCurrentStep(prev => prev - 1);
     }

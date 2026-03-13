@@ -1,5 +1,6 @@
 // @ts-nocheck
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { useEffect, useCallback } from "react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { NewProposalWizardImproved, type ProposalData } from "@/components/NewProposalWizardImproved";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,6 +13,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { supabase } from "@/integrations/supabase/client";
 import { emailService } from "@/lib/email-service";
 import { normalizeProposalPayload } from "@/lib/proposal-normalizer";
+import { loadProposalForEdit } from "@/lib/proposal-loader";
 import { toast } from "sonner";
 import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -23,18 +25,89 @@ import {
   Users, 
   Calendar,
   DollarSign,
-  Send,
-  Save
+  Send
 } from "lucide-react";
 
 const NewProposal = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
+  const [loadingProposal, setLoadingProposal] = useState(false);
+  const [editingProposalId, setEditingProposalId] = useState<number | null>(null);
+  const [initialData, setInitialData] = useState<ProposalData | null>(null);
+  const [initialStep, setInitialStep] = useState<number>(1);
+  const [existingCreatedBy, setExistingCreatedBy] = useState<string | null>(null);
   const [excelOpen, setExcelOpen] = useState(false);
   const [excelUrl, setExcelUrl] = useState<string | null>(null);
   const [excelName, setExcelName] = useState<string>("proposta.xlsx");
   const [currentStep, setCurrentStep] = useState(0);
+
+  // Carregar proposta para edição quando edit=ID na URL
+  useEffect(() => {
+    const editId = searchParams.get('edit');
+    if (!editId) return;
+    const id = parseInt(editId, 10);
+    if (isNaN(id)) return;
+    (async () => {
+      setLoadingProposal(true);
+      try {
+        const result = await loadProposalForEdit(id);
+        if (result) {
+          setEditingProposalId(id);
+          setInitialData(result.data);
+          setInitialStep(result.initialStep ?? 1);
+          setExistingCreatedBy(result.proposal?.created_by ?? null);
+        } else {
+          toast.error('Proposta não encontrada ou sem permissão para editar');
+          navigate('/propostas');
+        }
+      } catch (err: any) {
+        console.error('Erro ao carregar proposta:', err);
+        toast.error('Erro ao carregar proposta: ' + (err?.message || ''));
+        navigate('/propostas');
+      } finally {
+        setLoadingProposal(false);
+      }
+    })();
+  }, [searchParams, navigate]);
+
+  const handleAutoSave = useCallback(async (data: ProposalData, currentStep: number = 1) => {
+    if (!user) return;
+    try {
+      const payload = normalizeProposalPayload(data, user.id, {
+        existingCreatedBy: editingProposalId && existingCreatedBy ? existingCreatedBy : undefined,
+        status: 'rascunho',
+        lastCompletedStep: currentStep,
+      });
+      if (editingProposalId) {
+        const { error } = await supabase.from('proposals').update(payload).eq('id', editingProposalId);
+        if (error) throw error;
+        const selected = Array.isArray(data.selectedScreens) ? data.selectedScreens : [];
+        await supabase.from('proposal_screens').delete().eq('proposal_id', editingProposalId);
+        if (selected.length > 0) {
+          const rows = selected.map((sid: number | string) => ({ proposal_id: editingProposalId, screen_id: sid }));
+          await supabase.from('proposal_screens').insert(rows);
+        }
+      } else {
+        const { data: inserted, error } = await supabase.from('proposals').insert(payload).select('id').single();
+        if (error) throw error;
+        const newId = (inserted as any)?.id;
+        if (newId) {
+          setEditingProposalId(newId);
+          setExistingCreatedBy(user.id);
+          navigate(`/nova-proposta?edit=${newId}`, { replace: true });
+          const selected = Array.isArray(data.selectedScreens) ? data.selectedScreens : [];
+          if (selected.length > 0) {
+            const rows = selected.map((sid: number | string) => ({ proposal_id: newId, screen_id: sid }));
+            await supabase.from('proposal_screens').insert(rows);
+          }
+        }
+      }
+    } catch (err: any) {
+      console.error('Erro no salvamento automático:', err);
+    }
+  }, [user, editingProposalId, existingCreatedBy, navigate]);
 
   const handleComplete = async (data: ProposalData) => {
     setLoading(true);
@@ -52,56 +125,35 @@ const NewProposal = () => {
         insertions_per_hour: data.insertions_per_hour
       });
 
-      // Centralizar normalização do payload para evitar regressões
-      const payload = normalizeProposalPayload(data, user.id);
+      // Centralizar normalização do payload
+      const payload = normalizeProposalPayload(data, user.id, {
+        existingCreatedBy: editingProposalId && existingCreatedBy ? existingCreatedBy : undefined,
+        status: 'enviada',
+      });
 
-      console.log('✅ Payload pronto para inserir:', payload);
-      // Logs adicionais úteis durante transição do wizard
-      if (Array.isArray(data.proposal_type)) {
-        console.warn('[Normalização] proposal_type veio como array, usando primeiro valor:', data.proposal_type);
+      console.log('✅ Payload pronto:', editingProposalId ? 'atualizar' : 'inserir', payload);
+
+      let proposalId: number | undefined;
+      if (editingProposalId) {
+        const { error } = await supabase.from('proposals').update(payload).eq('id', editingProposalId);
+        if (error) throw error;
+        proposalId = editingProposalId;
+        await supabase.from('proposal_screens').delete().eq('proposal_id', editingProposalId);
+      } else {
+        const insertQuery = supabase.from('proposals').insert(payload).select('id');
+        const { data: insertedRows, error } = await insertQuery;
+        if (error) throw error;
+        proposalId = Array.isArray(insertedRows) ? insertedRows[0]?.id : (insertedRows as any)?.id;
       }
 
-      // Create proposal in database (sem .single() para evitar edge cases de 400)
-      const insertQuery = supabase
-        .from('proposals')
-        .insert(payload)
-        .select('id');
-
-      const { data: insertedRows, error } = await insertQuery;
-
-      if (error) {
-        // Logs detalhados para depuração
-        console.error('[Proposta][Insert][Erro]', {
-          message: error.message,
-          code: (error as any)?.code,
-          details: (error as any)?.details,
-          hint: (error as any)?.hint,
-        });
-        throw error;
-      }
-
-      const proposalId = Array.isArray(insertedRows) ? insertedRows[0]?.id : (insertedRows as any)?.id;
-      
-      // Inserir telas associadas na tabela de junção
       const selected = Array.isArray(data.selectedScreens) ? data.selectedScreens : [];
-      
       if (proposalId && selected.length > 0) {
-        const rows = selected.map((screenId: number | string) => ({
-          proposal_id: proposalId,
-          screen_id: screenId,
-        }));
-        
-        const { error: linkError } = await supabase
-          .from('proposal_screens')
-          .insert(rows);
-        
-        if (linkError) {
-          console.error('Erro ao inserir proposal_screens:', linkError);
-          throw linkError;
-        }
+        const rows = selected.map((screenId: number | string) => ({ proposal_id: proposalId, screen_id: screenId }));
+        const { error: linkError } = await supabase.from('proposal_screens').insert(rows);
+        if (linkError) throw linkError;
       }
 
-      toast.success('Proposta criada com sucesso!');
+      toast.success(editingProposalId ? 'Proposta atualizada com sucesso!' : 'Proposta criada com sucesso!');
       
       // Enviar notificação por email e processar imediatamente
       if (proposalId) {
@@ -363,24 +415,21 @@ const NewProposal = () => {
                     <div className="p-2 bg-primary/10 rounded-lg">
                       <FileText className="h-6 w-6 text-primary" />
                     </div>
-                    Nova Proposta Comercial
+                    {editingProposalId ? 'Continuar Proposta' : 'Nova Proposta Comercial'}
                   </h1>
                   <p className="text-sm text-gray-500 mt-1">
-                    Crie e configure uma nova proposta para seus clientes
+                    {editingProposalId
+                      ? 'Continue de onde parou e finalize sua proposta'
+                      : 'Crie e configure uma nova proposta para seus clientes'}
                   </p>
                 </div>
               </div>
               
-              <div className="flex items-center gap-3">
-                <Button
-                  variant="outline"
-                  onClick={handleCancel}
-                  disabled={loading}
-                  className="gap-2"
-                >
-                  <Save className="h-4 w-4" />
-                  Salvar Rascunho
-                </Button>
+              <div className="flex items-center gap-3 text-sm text-gray-500">
+                <span className="flex items-center gap-2">
+                  <CheckCircle className="h-4 w-4 text-green-600" />
+                  Salvamento automático ativo
+                </span>
               </div>
             </div>
           </div>
@@ -464,8 +513,8 @@ const NewProposal = () => {
               <Alert className="border-green-200 bg-green-50 row-start-1">
                 <CheckCircle className="h-4 w-4 text-green-600" />
                 <AlertDescription className="text-green-800">
-                  <strong>Wizard Inteligente:</strong> O sistema irá guiá-lo através de cada etapa 
-                  para criar a proposta perfeita. Todas as informações são salvas automaticamente.
+                  <strong>Salvamento automático:</strong> Cada etapa preenchida é salva automaticamente. 
+                  Você pode sair e voltar depois para continuar de onde parou.
                 </AlertDescription>
               </Alert>
 
@@ -478,10 +527,21 @@ const NewProposal = () => {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-0">
-                  <NewProposalWizardImproved
-                    onComplete={handleComplete}
-                    onCancel={handleCancel}
-                  />
+                  {loadingProposal ? (
+                    <div className="p-12 flex flex-col items-center justify-center">
+                      <div className="animate-spin rounded-full h-12 w-12 border-4 border-primary border-t-transparent" />
+                      <p className="mt-4 text-sm text-gray-500">Carregando proposta...</p>
+                    </div>
+                  ) : (
+                    <NewProposalWizardImproved
+                      onComplete={handleComplete}
+                      onCancel={handleCancel}
+                      editingProposalId={editingProposalId ?? undefined}
+                      initialData={initialData ?? undefined}
+                      initialStep={initialStep}
+                      onAutoSave={handleAutoSave}
+                    />
+                  )}
                 </CardContent>
               </Card>
 

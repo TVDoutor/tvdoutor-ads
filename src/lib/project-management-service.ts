@@ -293,48 +293,42 @@ export const projetoService = {
         .select('*')
         .order('created_at', { ascending: false });
 
-      let projetosBanco = [];
       if (error) {
-        console.warn('⚠️ Erro ao carregar projetos do banco:', error);
-        toast.warning('Carregando projetos salvos localmente');
-      } else {
-        projetosBanco = data || [];
+        logError('Erro ao carregar projetos', { code: error.code, message: error.message });
+        throw error;
       }
 
-      // Carregar projetos salvos localmente
-      let projetosLocais = [];
-      try {
-        const projetosLocaisStr = localStorage.getItem('projetos_locais');
-        if (projetosLocaisStr) {
-          projetosLocais = JSON.parse(projetosLocaisStr);
-          logDebug('Projetos locais carregados', { count: projetosLocais.length });
-        }
-      } catch (storageError) {
-        logWarn('Erro ao carregar projetos locais');
-      }
-
-      // Combinar projetos do banco e locais
-      const todosProjetos = [...projetosBanco, ...projetosLocais];
-      
-      // Ordenar por data de criação
-      todosProjetos.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-
-      return todosProjetos;
-    } catch (error) {
-      console.error('Erro ao listar projetos:', error);
-      
-      // Fallback: retornar apenas projetos locais
+      // Migrate any orphaned localStorage projects to database
       try {
         const projetosLocaisStr = localStorage.getItem('projetos_locais');
         if (projetosLocaisStr) {
           const projetosLocais = JSON.parse(projetosLocaisStr);
-          logDebug('Usando apenas projetos locais como fallback');
-          return projetosLocais;
+          if (projetosLocais.length > 0) {
+            logWarn('Projetos órfãos encontrados no localStorage, tentando migrar para o banco...');
+            for (const projetoLocal of projetosLocais) {
+              try {
+                const { id, created_at, updated_at, ...projetoData } = projetoLocal;
+                await supabase.from('agencia_projetos').insert([projetoData]);
+                logDebug('Projeto local migrado para o banco', { nome: projetoLocal.nome_projeto });
+              } catch (migrateErr) {
+                logWarn('Não foi possível migrar projeto local', { nome: projetoLocal.nome_projeto });
+              }
+            }
+            localStorage.removeItem('projetos_locais');
+            const { data: refreshed } = await supabase
+              .from('agencia_projetos')
+              .select('*')
+              .order('created_at', { ascending: false });
+            return refreshed || data || [];
+          }
         }
       } catch (storageError) {
-        logWarn('Erro ao carregar projetos locais como fallback');
+        logWarn('Erro ao verificar projetos locais órfãos');
       }
-      
+
+      return data || [];
+    } catch (error) {
+      logError('Erro ao listar projetos', error);
       toast.error('Erro ao carregar projetos');
       return [];
     }
@@ -802,11 +796,11 @@ export const marcoService = {
   }
 };
 
-// Função auxiliar para criar projeto com fallback
-const criarProjetoComFallback = async (supabase: SupabaseClient, projeto: Omit<Projeto, 'id'>): Promise<Projeto> => {
+// Função auxiliar para criar projeto no banco de dados
+const criarProjetoNoBanco = async (supabase: SupabaseClient, projeto: Omit<Projeto, 'id'>): Promise<Projeto> => {
+  // Tentativa 1: inserção normal com todos os dados
   try {
-    // Primeira tentativa: inserção normal
-    console.log('🔄 Tentativa 1: Inserção normal...');
+    logDebug('Tentativa 1: Inserção normal');
     const { data, error } = await supabase
       .from('agencia_projetos')
       .insert([projeto])
@@ -814,101 +808,39 @@ const criarProjetoComFallback = async (supabase: SupabaseClient, projeto: Omit<P
       .single();
 
     if (error) throw error;
-    console.log('✅ Tentativa 1 bem-sucedida!');
+    logDebug('Projeto criado com sucesso');
     return data;
-  } catch (error) {
-    console.warn('⚠️ Tentativa 1 falhou:', error);
-    
-    // Segunda tentativa: usar RPC se disponível
-    try {
-      console.log('🔄 Tentativa 2: Função RPC...');
-      const { data, error } = await supabase.rpc('create_project', {
-        p_nome_projeto: projeto.nome_projeto,
-        p_agencia_id: projeto.agencia_id,
-        p_deal_id: projeto.deal_id || null,
-        p_status_projeto: projeto.status_projeto || 'ativo',
-        p_orcamento_projeto: projeto.orcamento_projeto || 0,
-        p_valor_gasto: projeto.valor_gasto || 0,
-        p_data_inicio: projeto.data_inicio || null,
-        p_data_fim: projeto.data_fim || null,
-        p_cliente_final: projeto.cliente_final || null,
-        p_responsavel_projeto: projeto.responsavel_projeto || null,
-        p_prioridade: projeto.prioridade || 'media',
-        p_progresso: projeto.progresso || 0,
-        p_descricao: projeto.descricao || null,
-        p_briefing: projeto.briefing || null,
-        p_objetivos: projeto.objetivos || [],
-        p_tags: projeto.tags || [],
-        p_arquivos_anexos: projeto.arquivos_anexos || []
-      });
+  } catch (firstError) {
+    logWarn('Tentativa 1 falhou, tentando com dados mínimos...');
 
-      if (error) {
-        logError('Erro na função RPC', { code: error.code, message: error.message });
-        throw error;
-      }
+    // Tentativa 2: inserção com dados mínimos (pode ser FK ou campo inválido)
+    const projetoMinimo = {
+      nome_projeto: projeto.nome_projeto,
+      agencia_id: projeto.agencia_id,
+      deal_id: projeto.deal_id || null,
+      status_projeto: projeto.status_projeto || 'ativo',
+      orcamento_projeto: projeto.orcamento_projeto || 0,
+      valor_gasto: projeto.valor_gasto || 0,
+      prioridade: projeto.prioridade || 'media',
+      progresso: projeto.progresso || 0,
+      objetivos: projeto.objetivos || [],
+      tags: projeto.tags || [],
+      arquivos_anexos: projeto.arquivos_anexos || []
+    };
 
-      // Verificar se a resposta contém erro
-      if (data && data.error) {
-        throw new Error(data.message || 'Erro na função RPC');
-      }
+    const { data, error } = await supabase
+      .from('agencia_projetos')
+      .insert([projetoMinimo])
+      .select()
+      .single();
 
-      logDebug('Tentativa 2 bem-sucedida');
-      return data;
-    } catch (rpcError) {
-      logWarn('Tentativa 2 falhou');
-      
-      // Terceira tentativa: inserção com dados mínimos
-      try {
-        logDebug('Tentativa 3: Inserção com dados mínimos');
-        const projetoMinimo = {
-          nome_projeto: projeto.nome_projeto,
-          agencia_id: projeto.agencia_id,
-          status_projeto: 'ativo',
-          orcamento_projeto: 0,
-          valor_gasto: 0,
-          prioridade: 'media',
-          progresso: 0,
-          objetivos: [],
-          tags: [],
-          arquivos_anexos: []
-        };
-
-        const { data, error } = await supabase
-          .from('agencia_projetos')
-          .insert([projetoMinimo])
-          .select()
-          .single();
-
-        if (error) throw error;
-        logDebug('Tentativa 3 bem-sucedida');
-        return data;
-      } catch (minError) {
-        logWarn('Tentativa 3 falhou');
-        
-        // Quarta tentativa: salvar localmente
-        logDebug('Tentativa 4: Salvando localmente');
-        const projetoSimulado = {
-          id: crypto.randomUUID(),
-          ...projeto,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        };
-        
-        // Salvar no localStorage como fallback
-        try {
-          const projetosLocais = JSON.parse(localStorage.getItem('projetos_locais') || '[]');
-          projetosLocais.push(projetoSimulado);
-          localStorage.setItem('projetos_locais', JSON.stringify(projetosLocais));
-            logDebug('Projeto salvo no localStorage');
-        } catch (storageError) {
-          logWarn('Erro ao salvar no localStorage');
-        }
-        
-        logDebug('Projeto criado e salvo localmente');
-        toast.warning('Projeto criado e salvo localmente - será sincronizado quando o banco estiver disponível');
-        return projetoSimulado as Projeto;
-      }
+    if (error) {
+      logError('Falha ao criar projeto no banco', { code: error.code, message: error.message });
+      throw error;
     }
+
+    logDebug('Projeto criado com dados mínimos');
+    return data;
   }
 };
 
@@ -956,13 +888,13 @@ export const projectManagementService = {
     }
   },
 
-  // Função para criar projeto com múltiplas tentativas
+  // Função para criar projeto no banco de dados (sem fallback local)
   async criarProjetoRobusto(supabase: SupabaseClient, projeto: Omit<Projeto, 'id'>): Promise<Projeto> {
     try {
-      logDebug('Criando projeto com método robusto');
-      return await criarProjetoComFallback(supabase, projeto);
+      logDebug('Criando projeto no banco de dados');
+      return await criarProjetoNoBanco(supabase, projeto);
     } catch (error) {
-        logError('Todas as tentativas falharam', error);
+      logError('Falha ao criar projeto', error);
       throw error;
     }
   }

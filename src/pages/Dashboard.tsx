@@ -186,7 +186,7 @@ const Dashboard = () => {
                     className={statsLoading ? "opacity-50" : ""}
                   />
                   <KpiCard
-                    title="Receita Total"
+                    title="Receita Previsível"
                     value={filteredStats.totalRevenue}
                     format="currency"
                     className={statsLoading ? "opacity-50" : ""}

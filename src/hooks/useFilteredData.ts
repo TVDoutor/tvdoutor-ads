@@ -147,6 +147,10 @@ export const useFilteredStats = (filters: DashboardFilters) => {
       .filter(p => p.status === 'aceita')
       .reduce((sum, p) => sum + (p.net_calendar || 0), 0);
 
+    const predictableRevenue = filteredProposals
+      .filter(p => p.status === 'enviada' || p.status === 'em_analise')
+      .reduce((sum, p) => sum + (p.net_calendar || 0), 0);
+
     return {
       total,
       accepted,
@@ -156,6 +160,7 @@ export const useFilteredStats = (filters: DashboardFilters) => {
       draft,
       conversionRate: Math.round(conversionRate * 10) / 10,
       totalRevenue,
+      predictableRevenue,
       averageValue: total > 0 ? Math.round(filteredProposals.reduce((sum, p) => sum + (p.net_calendar || 0), 0) / total) : 0,
       /** Projetos ativos - não calculado a partir das propostas filtradas; usar stats?.projects?.active como fallback */
       activeProjects: undefined,

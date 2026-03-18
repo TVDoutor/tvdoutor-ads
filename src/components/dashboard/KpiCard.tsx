@@ -11,6 +11,7 @@ interface KpiCardProps {
   sparklineData?: number[];
   format?: 'number' | 'currency' | 'percent';
   className?: string;
+  subtitle?: string;
 }
 
 const Sparkline = ({ data }: { data: number[] }) => {
@@ -66,7 +67,8 @@ export const KpiCard = ({
   targetLabel,
   sparklineData,
   format = 'number',
-  className
+  className,
+  subtitle
 }: KpiCardProps) => {
   const getTrendIcon = () => {
     if (delta === undefined || delta === 0) return <Minus className="h-3 w-3" />;
@@ -97,6 +99,9 @@ export const KpiCard = ({
           <p className="text-3xl font-bold text-gray-900">
             {formatValue(value, format)}
           </p>
+          {subtitle && (
+            <p className="text-sm text-gray-500 mt-1">{subtitle}</p>
+          )}
         </div>
 
         {/* Delta (variação) */}

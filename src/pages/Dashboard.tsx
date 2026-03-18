@@ -190,6 +190,7 @@ const Dashboard = () => {
                     value={filteredStats.totalRevenue}
                     format="currency"
                     className={statsLoading ? "opacity-50" : ""}
+                    subtitle={filteredStats.predictableRevenue > 0 ? `Previsível: ${filteredStats.predictableRevenue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : undefined}
                   />
                 </>
               ) : kpis && kpis.length > 0 ? (

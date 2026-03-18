@@ -247,6 +247,12 @@ const Dashboard = () => {
                 <ProposalsTable 
                   proposals={filteredProposals}
                   limit={20}
+                  onProposalClick={(p) => navigate(`/propostas/${p.id}`)}
+                  onAction={(action, proposal) => {
+                    if (action === 'view') navigate(`/propostas/${proposal.id}`);
+                    if (action === 'edit') navigate(`/nova-proposta?edit=${proposal.id}`);
+                    if (action === 'share') navigate(`/propostas/${proposal.id}`);
+                  }}
                 />
               </div>
 

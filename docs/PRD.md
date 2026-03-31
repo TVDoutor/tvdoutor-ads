@@ -81,6 +81,13 @@ Sistema web para gestao de propostas, campanhas e ativos de midia da TVDoutor, c
 - RF-10: Criar proposta via wizard com validacoes.
   - CA-08: Campos obrigatorios bloqueiam avancar quando invalidos.
   - CA-09: Proposta salva cria registro acessivel em `/propostas`.
+  - CA-09b: Na etapa de selecao de telas, o wizard suporta busca por categoria com confirmacao em modal e adicao em lote sem duplicidade.
+  - CA-09c: Pontos adicionados por categoria mantem origem visivel no resumo e podem ser removidos individualmente.
+  - CA-09d: A aba `Categoria` exibe as especialidades agrupadas e permite remover especialidades indesejadas antes ou depois da inclusao em lote.
+  - CA-09e: O resumo da etapa exibe um bloco de `Categorias adicionadas` acima dos pontos, com quantidade de pontos vinculados por categoria.
+  - CA-09f: Ao remover uma categoria, o sistema remove tambem os pontos atribuidos a ela, preservando pontos ainda cobertos por outra categoria adicionada ou por selecao manual.
+  - CA-09g: A audiência da proposta é recalculada automaticamente a partir das telas selecionadas no inventário e não deve ser editável manualmente no fluxo de seleção.
+  - CA-09h: O cálculo de impactos usa `Audiência/Mês × Inserções/Hora` para propostas mensais e `Audiência/Dia × Inserções/Hora` para propostas em dias, distribuindo a audiência mensal pelos dias úteis base.
 - RF-11: Listar propostas com filtros.
   - CA-10: Filtros retornam lista coerente com criterios selecionados.
   - CA-10b: Pagina exibe todas as propostas do sistema (listagem unificada, consistente com Propostas Recentes e Dashboard).
@@ -139,13 +146,13 @@ Sistema web para gestao de propostas, campanhas e ativos de midia da TVDoutor, c
 
 ## Fluxos principais
 - **Login**: usuario entra -> sessao ativa -> redireciona para dashboard.
-- **Nova proposta**: usuario cria proposta -> valida dados -> salva -> gera PDF.
+- **Nova proposta**: usuario cria proposta -> seleciona telas por busca rapida, raio, CEP, avancado ou categoria -> pode refinar especialidades dentro da categoria -> confirma inclusao em lote -> revisa categorias e pontos adicionados -> salva -> gera PDF.
 - **Campanha**: cria campanha -> associa venues -> acompanha indicadores.
 - **Mapa**: consulta pontos -> filtra -> visualiza heatmap.
 
 ## Modelo de dados (alto nivel)
 - Usuarios/Profiles e Roles.
-- Propostas e itens relacionados.
+- Propostas e itens relacionados, incluindo `quote.selection_metadata` para reidratar seleções de categorias e origens no wizard.
 - Campanhas, venues e telas.
 - Inventario e farmacias.
 - Agencias, projetos e pessoas.
@@ -176,6 +183,8 @@ Sistema web para gestao de propostas, campanhas e ativos de midia da TVDoutor, c
 ## Riscos e mitigacoes
 - **Risco**: dados inconsistentes entre telas e propostas.  
   **Mitigacao**: normalizacao e validacoes centralizadas.
+- **Risco**: agrupamento incorreto de especialidades por categoria.  
+  **Mitigacao**: catalogo controlado de categorias no frontend, confirmacao antes da inclusao em lote, exclusao manual de especialidades dentro da categoria e rastreio da origem por ponto.
 - **Risco**: performance em mapas com muitos pontos.  
   **Mitigacao**: agregacao e clusterizacao.
 - **Risco**: falhas de email.  

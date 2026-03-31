@@ -2,6 +2,28 @@
 
 Documento de referência do que foi implementado desde o início da integração entre **app.tvdoutor.com.br** (GraphQL) e o **micro SaaS** (TVDoutor ADS), incluindo banco, Edge Functions, frontend e correções.
 
+## Aditivo recente: Wizard de Propostas
+
+- A rota `/nova-proposta` passou a suportar busca por `Categoria` dentro da etapa `Seleção de Telas`.
+- O fluxo de filtros do wizard agora cobre `Rápido`, `Raio`, `CEPs`, `Avançado` e `Categoria`.
+- A seleção por categoria usa um catálogo controlado no frontend (`src/lib/category-service.ts`) para expandir grupos como `Odonto`, `Cardio`, `Oftalmo`, `Dermato` e `Gineco` em especialidades relacionadas.
+- O resultado da busca por categoria agora exibe as especialidades do agrupamento e permite remover especialidades individualmente antes de adicionar os pontos.
+- Ao marcar uma categoria, o sistema abre um modal de confirmação antes de adicionar todos os pontos correspondentes à proposta.
+- A proposta continua persistindo `proposal_screens` por `screen_id`, mas agora também salva metadados de seleção em `quote.selection_metadata` para reidratar:
+  - categorias confirmadas no wizard
+  - especialidades efetivamente mantidas em cada categoria
+  - origem de cada ponto (`manual` ou `category`), com suporte a múltiplas categorias por ponto
+- O wizard reidrata essas escolhas ao editar/continuar um rascunho usando `src/lib/proposal-loader.ts` e grava a seleção via `src/lib/proposal-normalizer.ts`.
+- A audiência da proposta agora é somada a partir das telas selecionadas no inventário, usando `audience_monthly`, `audiencia_pacientes` ou `audiencia_local` das telas.
+- A regra de impactos foi revisada para `Impactos = Audiência do período × Inserções/Hora`.
+  - Se a proposta estiver em `months`, usa `Audiência/Mês`.
+  - Se estiver em `days`, distribui a audiência mensal pelos `dias_uteis_mes_base` e exibe `Audiência/Dia`.
+- O cálculo de métricas de pricing e impactos está centralizado em `src/lib/pricing.ts`.
+- A exportação/resumo em `src/pages/NewProposal.tsx` foi alinhada para usar a mesma base de audiência e periodização.
+- No resumo da etapa de telas, o sistema exibe primeiro `Categorias adicionadas`, com contagem de pontos vinculados e ação de remover categoria.
+- Ao remover uma categoria, o sistema remove em cascata apenas os pontos que dependiam dela, preservando pontos ainda cobertos por outra categoria ou por inclusão manual.
+- No resumo da etapa de telas, os pontos adicionados exibem a origem e permitem remoção individual por `x`, mantendo deduplicação de `screen_id`.
+
 ---
 
 ## 1. Visão geral
@@ -231,6 +253,15 @@ image.png
 | `supabase/migrations/20260129000002_tvd_player_status_grants.sql` | GRANT SELECT |
 | `src/hooks/useTvdPlayerStatus.ts` | Busca status (Edge Function + fallback), normalização P-codes |
 | `src/hooks/useRealAlerts.ts` | Alertas offline > 24h, `getPlayerOffline24hAlerts` |
+| `src/lib/category-service.ts` | Catálogo de categorias, busca de telas por categoria e correspondência de especialidades |
+| `src/components/ScreenFilters.tsx` | Filtros de seleção de telas e categorias no wizard de proposta |
+| `src/components/wizard/ProposalWizardSteps.tsx` | Lógica de origem de seleção, gerenciamento de categorias e metadados do wizard |
+| `src/components/wizard/ScreenSelectionStep.tsx` | Busca temporária, seleção em lote e adição de pontos à proposta |
+| `src/components/NewProposalWizard.tsx` | Wizard de proposta com navegação de etapas e validações básicas |
+| `src/components/NewProposalWizardImproved.tsx` | Wizard de proposta com auto-save e retomada de rascunhos |
+| `src/lib/pricing.ts` | Cálculo centralizado de audiência, inserções e impactos por período |
+| `src/lib/proposal-normalizer.ts` | Normaliza payload de proposta e grava `quote.selection_metadata` |
+| `src/lib/proposal-loader.ts` | Reidrata rascunhos e carrega `selection_metadata` para o wizard |
 | `src/hooks/useAlertActions.ts` | Resolver/Dispensar; redirect `player_offline` → `/inventory`; localStorage para dispensados |
 | `src/pages/Inventory.tsx` | Coluna Conexão (TVD), alertas de erro/âmbar, `useTvdPlayerStatus` |
 | `src/components/dashboard/AlertQueue.tsx` | Ícone `player_offline` (WifiOff), fallback de ícones |

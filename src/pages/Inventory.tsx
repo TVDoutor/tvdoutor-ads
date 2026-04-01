@@ -1830,14 +1830,18 @@ const Inventory = () => {
         return;
       }
 
-      // Preparar dados para Excel
-      const exportData = screensData.map(screen => ({
+      // Colunas alinhadas à tabela `screens` (venue_info/address só existem no mapeamento da view na UI)
+      const exportData = screensData.map((screen: any) => ({
         'Código': screen.code || '',
         'Nome de Exibição': screen.display_name || '',
-        'Endereço': screen.venue_info?.address || screen.address || '',
+        'Endereço':
+          screen.address_raw ||
+          screen.google_formatted_address ||
+          screen.address ||
+          '',
         'Cidade': screen.city || '',
         'Estado': screen.state || '',
-        'CEP': screen.zip_code || '',
+        'CEP': screen.cep || screen.zip_code || '',
         'Especialidade': screen.specialty || '',
         'Ativo': screen.active ? 'Sim' : 'Não',
         'Ambiente': screen.ambiente || '',

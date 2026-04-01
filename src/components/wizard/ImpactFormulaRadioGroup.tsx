@@ -3,6 +3,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { Loader2 } from 'lucide-react';
 import { useImpactModels } from '@/hooks/useImpactModels';
+import { impactFormulaCodeFromModelName } from '@/lib/impact-formula';
 
 interface ImpactFormulaRadioGroupProps {
   value: string;
@@ -38,14 +39,16 @@ export const ImpactFormulaRadioGroup: React.FC<ImpactFormulaRadioGroupProps> = (
       onValueChange={onValueChange}
       className="grid grid-cols-1 md:grid-cols-3 gap-4"
     >
-      {models.map((model) => (
+      {models.map((model) => {
+        const code = impactFormulaCodeFromModelName(model.name);
+        return (
         <div key={model.id} className="h-full">
-          <RadioGroupItem value={model.name} id={`formula-${model.id}`} className="peer sr-only" />
+          <RadioGroupItem value={code} id={`formula-${model.id}`} className="peer sr-only" />
           <Label
             htmlFor={`formula-${model.id}`}
             className={`
               flex flex-col h-full rounded-lg border-2 p-5 cursor-pointer transition-all duration-200 hover:shadow-lg
-              ${value === model.name 
+              ${value === code 
                 ? `border-blue-500 bg-blue-50 shadow-md` 
                 : `border-gray-200 bg-white hover:border-gray-300`
               }
@@ -53,17 +56,17 @@ export const ImpactFormulaRadioGroup: React.FC<ImpactFormulaRadioGroupProps> = (
           >
             <div className="text-center mb-3">
               <div className={`text-2xl font-bold mb-1 ${
-                value === model.name ? 'text-blue-600' : 'text-gray-700'
+                value === code ? 'text-blue-600' : 'text-gray-700'
               }`}>
                 {model.name}
               </div>
               <div className={`text-lg font-semibold ${
-                value === model.name ? 'text-blue-600' : 'text-gray-600'
+                value === code ? 'text-blue-600' : 'text-gray-600'
               }`}>
                 Tráfego {model.traffic_level}
               </div>
               <div className={`text-sm ${
-                value === model.name ? 'text-blue-600' : 'text-gray-500'
+                value === code ? 'text-blue-600' : 'text-gray-500'
               }`}>
                 {model.multiplier}x impacto
               </div>
@@ -71,7 +74,7 @@ export const ImpactFormulaRadioGroup: React.FC<ImpactFormulaRadioGroupProps> = (
             
             <div className="text-center mb-3">
               <p className={`text-sm ${
-                value === model.name ? 'text-blue-700' : 'text-gray-600'
+                value === code ? 'text-blue-700' : 'text-gray-600'
               }`}>
                 {model.description}
               </p>
@@ -91,7 +94,7 @@ export const ImpactFormulaRadioGroup: React.FC<ImpactFormulaRadioGroupProps> = (
               </ul>
             </div>
             
-            {value === model.name && (
+            {value === code && (
               <div className="mt-3 flex items-center justify-center">
                 <div className="flex items-center gap-2 text-blue-600">
                   <div className="w-2 h-2 bg-blue-600 rounded-full"></div>
@@ -101,7 +104,8 @@ export const ImpactFormulaRadioGroup: React.FC<ImpactFormulaRadioGroupProps> = (
             )}
           </Label>
         </div>
-      ))}
+        );
+      })}
     </RadioGroup>
   );
 };

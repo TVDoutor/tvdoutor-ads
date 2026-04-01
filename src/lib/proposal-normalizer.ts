@@ -2,6 +2,7 @@
 // Mantém compatibilidade com diferentes fluxos de wizard e previne violações de constraints
 
 import { type ProposalData } from '@/components/NewProposalWizardImproved';
+import { normalizeImpactFormulaForDb } from '@/lib/impact-formula';
 
 type ProposalType = 'avulsa' | 'projeto';
 
@@ -96,7 +97,7 @@ export function normalizeProposalPayload(
     proposal_type: normalizeProposalType(data.proposal_type as any),
     start_date: normalizeDate(data.start_date),
     end_date: normalizeDate(data.end_date),
-    impact_formula: data.impact_formula,
+    impact_formula: normalizeImpactFormulaForDb(data.impact_formula),
     status,
     filters: {},
     quote: {

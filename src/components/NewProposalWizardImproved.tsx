@@ -180,7 +180,8 @@ export const NewProposalWizardImproved: React.FC<NewProposalWizardProps> = ({
   // Quando initialData chega (ex: após carregar proposta para editar), popular o form e etapa
   useEffect(() => {
     if (editingProposalId && initialData) {
-      setData(prev => ({ ...getDefaultData(), ...initialData, ...prev }));
+      // `initialData` deve prevalecer sobre `prev`: antes `...prev` vinha depois e zerava selectedScreens vindos do banco.
+      setData(prev => ({ ...getDefaultData(), ...prev, ...initialData }));
     }
     if (initialStep != null && initialStep >= 1 && initialStep <= 6) {
       setCurrentStep(initialStep);
@@ -196,7 +197,12 @@ export const NewProposalWizardImproved: React.FC<NewProposalWizardProps> = ({
   useEffect(() => {
     if (!onAutoSave) return;
     const timer = setTimeout(() => {
-      const hasMinimalData = data.customer_name?.trim() || data.customer_email?.trim() || (data.proposal_type?.length ?? 0) > 0 || editingProposalId;
+      const hasMinimalData =
+        data.customer_name?.trim() ||
+        data.customer_email?.trim() ||
+        (data.proposal_type?.length ?? 0) > 0 ||
+        editingProposalId ||
+        (Array.isArray(data.selectedScreens) && data.selectedScreens.length > 0);
       if (hasMinimalData) {
         onAutoSave(data, currentStep);
       }
@@ -207,6 +213,12 @@ export const NewProposalWizardImproved: React.FC<NewProposalWizardProps> = ({
   const [availableProjects, setAvailableProjects] = useState<any[]>([]);
   const [availableScreens, setAvailableScreens] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  /** Centro + raio da última busca por endereço (círculo no mapa da etapa 4) */
+  const [radiusSearchMapContext, setRadiusSearchMapContext] = useState<{
+    lat: number;
+    lng: number;
+    radiusKm: number;
+  } | null>(null);
 
   const progress = (currentStep / STEPS.length) * 100;
 
@@ -358,6 +370,7 @@ export const NewProposalWizardImproved: React.FC<NewProposalWizardProps> = ({
   // Buscar telas com filtros
   const fetchScreensWithFilters = async (filters: IScreenFilters) => {
     setLoading(true);
+    setRadiusSearchMapContext(null);
     console.log('🔍 Buscando telas com filtros:', filters);
     
     try {
@@ -416,6 +429,8 @@ export const NewProposalWizardImproved: React.FC<NewProposalWizardProps> = ({
           state: screen.state,
           class: screen.class,
           active: screen.active,
+          lat: screen.lat,
+          lng: screen.lng,
           venues: { name: screen.venue_name || screen.name, type: null },
           distance: screen.distance,
           venue_name: screen.venue_name || screen.name,
@@ -448,6 +463,12 @@ export const NewProposalWizardImproved: React.FC<NewProposalWizardProps> = ({
             placeId: geocodeResult.google_place_id,
             radiusKm: filters.radiusKm
           });
+
+          setRadiusSearchMapContext({
+            lat: geocodeResult.lat,
+            lng: geocodeResult.lng,
+            radiusKm: Number(filters.radiusKm) || 5,
+          });
           
           console.log('📊 Telas encontradas por raio:', searchResults.length);
           
@@ -461,6 +482,8 @@ export const NewProposalWizardImproved: React.FC<NewProposalWizardProps> = ({
             state: screen.state,
             class: screen.class,
             active: screen.active,
+            lat: screen.lat,
+            lng: screen.lng,
             venues: { name: screen.venue_name || screen.name, type: null },
             distance: screen.distance,
             // Campos adicionais para renderização
@@ -512,6 +535,9 @@ export const NewProposalWizardImproved: React.FC<NewProposalWizardProps> = ({
         }
         
       } else {
+        // Busca tradicional por filtros — limpa a lista para não manter mapa/lista com resultado antigo
+        setAvailableScreens([]);
+
         // Busca tradicional por filtros
         let query = supabase.from('v_screens_enriched');
         
@@ -526,7 +552,9 @@ export const NewProposalWizardImproved: React.FC<NewProposalWizardProps> = ({
           class,
           specialty,
           venue_name,
-          address
+          address,
+          lat,
+          lng
         `);
 
         // Filtros de texto
@@ -581,7 +609,9 @@ export const NewProposalWizardImproved: React.FC<NewProposalWizardProps> = ({
               class,
               specialty,
               venue_name,
-              address
+              address,
+              lat,
+              lng
             `);
 
             // Filtros de texto
@@ -686,6 +716,8 @@ export const NewProposalWizardImproved: React.FC<NewProposalWizardProps> = ({
         state,
         class,
         specialty,
+        lat,
+        lng,
         venues (name, type)
       `);
 
@@ -767,7 +799,16 @@ export const NewProposalWizardImproved: React.FC<NewProposalWizardProps> = ({
       case 1: return <ProposalTypeStep data={data} onUpdate={updateData} />;
       case 2: return <ClientInfoStep data={data} onUpdate={updateData} />;
       case 3: return <ProjectSelectionStep data={data} onUpdate={updateData} projects={availableProjects} loading={loading} />;
-      case 4: return <ScreenSelectionStep data={data} onUpdate={updateData} screens={availableScreens} loading={loading} onApplyFilters={fetchScreensWithFilters} />;
+      case 4: return (
+        <ScreenSelectionStep
+          data={data}
+          onUpdate={updateData}
+          screens={availableScreens}
+          loading={loading}
+          onApplyFilters={fetchScreensWithFilters}
+          radiusSearchMapContext={radiusSearchMapContext}
+        />
+      );
       case 5: return <ConfigurationStep data={data} onUpdate={updateData} />;
       case 6: return <SummaryStep data={data} />;
       default: return null;

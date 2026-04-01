@@ -48,6 +48,7 @@ import { combineIds } from '@/utils/ids';
 import { calculateProposalMetrics } from '@/lib/pricing';
 import { supabase } from '@/integrations/supabase/client';
 import { CategoryService } from '@/lib/category-service';
+import { ProposalScreensMap } from './ProposalScreensMap';
 
 // Labels centralizados para tipos de proposta
 type ProposalType = 'avulsa' | 'projeto' | 'patrocinio_editorial';
@@ -431,6 +432,8 @@ interface ScreenSelectionStepProps extends StepProps {
   screens: any[];
   loading: boolean;
   onApplyFilters?: (filters: IScreenFilters) => void;
+  /** Última busca por raio (centro + km) para desenhar o círculo no mapa */
+  radiusSearchMapContext?: { lat: number; lng: number; radiusKm: number } | null;
 }
 
 export const ScreenSelectionStep: React.FC<ScreenSelectionStepProps> = ({ 
@@ -438,7 +441,8 @@ export const ScreenSelectionStep: React.FC<ScreenSelectionStepProps> = ({
   onUpdate, 
   screens, 
   loading,
-  onApplyFilters
+  onApplyFilters,
+  radiusSearchMapContext = null,
 }) => {
   const [pendingCategoryId, setPendingCategoryId] = useState<string | null>(null);
   const [categorySubmitting, setCategorySubmitting] = useState(false);
@@ -457,12 +461,73 @@ export const ScreenSelectionStep: React.FC<ScreenSelectionStepProps> = ({
   });
 
   const [hasSearched, setHasSearched] = useState(false);
+  /** Inventário completo (lat/lng) só para o mapa quando o usuário ainda não aplicou busca */
+  const [inventoryMapScreens, setInventoryMapScreens] = useState<any[]>([]);
+  const [loadingInventoryMap, setLoadingInventoryMap] = useState(false);
   // Seleção temporária para permitir múltiplas buscas e adicionar pontos incrementalmente
   const [tempSelectedScreens, setTempSelectedScreens] = useState<number[]>([]);
   // Cache local das telas já vistas/retornadas em buscas anteriores.
   // Isso garante que o "Mapa/Inventário" e o passo 04 consigam exibir o resumo completo
   // mesmo depois do usuário trocar de aba (Rápido/Raio/CEP/Avançado) e os `screens` mudarem.
   const [screenCache, setScreenCache] = useState<Map<number, any>>(() => new Map());
+
+  // Mapa inicial: todas as telas ativas com coordenadas (visão Brasil / inventário)
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setLoadingInventoryMap(true);
+      try {
+        const PAGE_SIZE = 1000;
+        let from = 0;
+        const all: any[] = [];
+        while (true) {
+          const { data, error } = await supabase
+            .from('v_screens_enriched')
+            .select('id, code, display_name, name, lat, lng, class, active')
+            .eq('active', true as any)
+            .not('lat', 'is', null)
+            .not('lng', 'is', null)
+            .order('id', { ascending: true })
+            .range(from, from + PAGE_SIZE - 1);
+          if (error) throw error;
+          const chunk = (data ?? []) as any[];
+          all.push(...chunk);
+          if (chunk.length < PAGE_SIZE) break;
+          from += PAGE_SIZE;
+        }
+        if (!cancelled) setInventoryMapScreens(all);
+      } catch {
+        try {
+          const PAGE_SIZE = 1000;
+          let from = 0;
+          const all: any[] = [];
+          while (true) {
+            const { data, error } = await supabase
+              .from('screens')
+              .select('id, code, display_name, name, lat, lng, class, active')
+              .eq('active', true as any)
+              .not('lat', 'is', null)
+              .not('lng', 'is', null)
+              .order('id', { ascending: true })
+              .range(from, from + PAGE_SIZE - 1);
+            if (error) throw error;
+            const chunk = (data ?? []) as any[];
+            all.push(...chunk);
+            if (chunk.length < PAGE_SIZE) break;
+            from += PAGE_SIZE;
+          }
+          if (!cancelled) setInventoryMapScreens(all);
+        } catch {
+          if (!cancelled) setInventoryMapScreens([]);
+        }
+      } finally {
+        if (!cancelled) setLoadingInventoryMap(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Sempre que chegam novos resultados, merge no cache
   useEffect(() => {
@@ -489,7 +554,7 @@ export const ScreenSelectionStep: React.FC<ScreenSelectionStepProps> = ({
         // Tentar pela view primeiro (mesma base do Inventário)
         const { data: rows, error } = await supabase
           .from('v_screens_enriched')
-          .select('id, name, display_name, code, city, state, class, active, venue_name, address')
+          .select('id, name, display_name, code, city, state, class, active, venue_name, address, lat, lng')
           .in('id', missing as any);
 
         if (error) throw error;
@@ -505,7 +570,7 @@ export const ScreenSelectionStep: React.FC<ScreenSelectionStepProps> = ({
         try {
           const { data: rows2 } = await supabase
             .from('screens')
-            .select('id, name, display_name, code, city, state, class, active, venue_id, address_raw')
+            .select('id, name, display_name, code, city, state, class, active, venue_id, address_raw, lat, lng')
             .in('id', missing as any);
           if (rows2 && rows2.length > 0) {
             setScreenCache(prev => {
@@ -528,6 +593,31 @@ export const ScreenSelectionStep: React.FC<ScreenSelectionStepProps> = ({
     () => combineIds<number>(data.selectedScreens as number[], tempSelectedScreens),
     [data.selectedScreens, tempSelectedScreens]
   );
+
+  const usingInventoryOverview = screens.length === 0 && !hasSearched;
+
+  /**
+   * Mapa: sem busca = inventário (+ opcionalmente pontos da proposta fora do lote via cache).
+   * Com busca ativa e resultados = somente o retorno da busca (sem mesclar outras telas da proposta).
+   */
+  const mapScreens = useMemo(() => {
+    const base: any[] =
+      screens.length > 0 ? screens : usingInventoryOverview ? inventoryMapScreens : [];
+    const byId = new Map<number, any>();
+    for (const s of base) {
+      if (s?.id != null) byId.set(Number(s.id), s);
+    }
+    if (usingInventoryOverview) {
+      const selectedIds = Array.isArray(data.selectedScreens) ? data.selectedScreens : [];
+      for (const rawId of selectedIds) {
+        const id = Number(rawId);
+        if (!byId.has(id) && screenCache.has(id)) {
+          byId.set(id, screenCache.get(id));
+        }
+      }
+    }
+    return Array.from(byId.values());
+  }, [screens, usingInventoryOverview, inventoryMapScreens, data.selectedScreens, screenCache]);
 
   const selectedCategories = useMemo(
     () => CategoryService.getCategoriesByIds(data.selectedCategories ?? []),
@@ -1142,7 +1232,12 @@ export const ScreenSelectionStep: React.FC<ScreenSelectionStepProps> = ({
               {getUniqueLocations(combinedSelectedIds).length} Praças
             </Badge>
             <Badge variant="secondary" className="text-lg px-3 py-1">
-              {screens.length} Disponíveis
+              {screens.length > 0
+                ? screens.length
+                : usingInventoryOverview
+                  ? inventoryMapScreens.length
+                  : 0}{' '}
+              Disponíveis
             </Badge>
           </div>
       </div>
@@ -1159,6 +1254,55 @@ export const ScreenSelectionStep: React.FC<ScreenSelectionStepProps> = ({
         onCategorySpecialtiesChange={handleCategorySpecialtiesChange}
         loading={loading}
       />
+
+      <Card>
+        <CardHeader className="py-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <MapPin className="w-5 h-5" />
+            Mapa das telas
+          </CardTitle>
+          <p className="text-sm text-muted-foreground font-normal">
+            {usingInventoryOverview
+              ? 'Visão geral: todas as telas ativas com coordenadas. Verde = já na proposta; âmbar = seleção temporária (após usar Buscar Telas); ciano = demais pontos.'
+              : 'Somente o resultado da busca atual no mapa. Verde = já na proposta; âmbar = seleção temporária; ciano = demais no resultado.'}
+          </p>
+        </CardHeader>
+        <CardContent className="pt-0">
+          {hasSearched && screens.length === 0 && loading ? (
+            <div
+              className="flex flex-col items-center justify-center gap-2 rounded-lg border bg-muted/20 text-sm text-muted-foreground"
+              style={{ minHeight: 400 }}
+            >
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+              Buscando telas…
+            </div>
+          ) : hasSearched && screens.length === 0 ? (
+            <div
+              className="flex items-center justify-center rounded-lg border border-dashed bg-muted/30 text-sm text-muted-foreground px-4 text-center"
+              style={{ minHeight: 400 }}
+            >
+              Nenhuma tela encontrada com os filtros atuais. Ajuste os filtros e use Buscar Telas de novo.
+            </div>
+          ) : loadingInventoryMap && mapScreens.length === 0 ? (
+            <div
+              className="flex flex-col items-center justify-center gap-2 rounded-lg border bg-muted/20 text-sm text-muted-foreground"
+              style={{ minHeight: 400 }}
+            >
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+              Carregando mapa do inventário…
+            </div>
+          ) : (
+            <ProposalScreensMap
+              screens={mapScreens}
+              addedToProposalIds={data.selectedScreens as number[]}
+              tempSelectedIds={tempSelectedScreens}
+              centerCircle={radiusSearchMapContext}
+              height={400}
+              overviewMode={usingInventoryOverview}
+            />
+          )}
+        </CardContent>
+      </Card>
 
       {loading ? (
         <div className="text-center py-12">
@@ -2109,7 +2253,18 @@ export const SummaryStep: React.FC<{ data: ProposalData }> = ({ data }) => {
         : ((data.pricing_variant ?? 'avulsa') as 'avulsa' | 'especial' | 'ambos');
   const derivedPricingMode = data.cpm_mode === 'valor_insercao' ? 'insertion' : (data.pricing_mode ?? 'cpm');
 
+  const audienceMonthlyTotal =
+    Number(
+      data.audience_base_monthly ??
+        data.valor_insercao_config?.audiencia_mes_base ??
+        0
+    ) || 0;
+
+  const isDaysPeriod = (data.period_unit ?? 'months') === 'days';
+  const impactsPeriodLabel = isDaysPeriod ? 'Impactos Estimados/Dia' : 'Impactos Estimados/Mês';
+
   const [locationStats, setLocationStats] = useState<{ states: number; cities: number; pracas: number; total: number }>({ states: 0, cities: 0, pracas: 0, total: 0 });
+  const [summaryMapScreens, setSummaryMapScreens] = useState<{ id: number; code?: string; display_name?: string; name?: string; lat?: number | null; lng?: number | null }[]>([]);
 
   useEffect(() => {
     const run = async () => {
@@ -2125,6 +2280,29 @@ export const SummaryStep: React.FC<{ data: ProposalData }> = ({ data }) => {
       setLocationStats({ states, cities, pracas, total });
     };
     run();
+  }, [data.selectedScreens]);
+
+  useEffect(() => {
+    const ids = data.selectedScreens;
+    if (!Array.isArray(ids) || ids.length === 0) {
+      setSummaryMapScreens([]);
+      return;
+    }
+    (async () => {
+      const { data: rows, error } = await supabase
+        .from('v_screens_enriched')
+        .select('id, code, display_name, name, lat, lng')
+        .in('id', ids as number[]);
+      if (error) {
+        const { data: fallback } = await supabase
+          .from('screens')
+          .select('id, code, display_name, name, lat, lng')
+          .in('id', ids as number[]);
+        setSummaryMapScreens((fallback as any[]) || []);
+        return;
+      }
+      setSummaryMapScreens((rows as any[]) || []);
+    })();
   }, [data.selectedScreens]);
   const calculateMetrics = () => {
     return calculateProposalMetrics({
@@ -2327,6 +2505,26 @@ export const SummaryStep: React.FC<{ data: ProposalData }> = ({ data }) => {
           </div>
         </CardContent>
       </Card>
+
+      {summaryMapScreens.length > 0 && (
+        <Card className="pdf-tight-card">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 pdf-compact-title">
+              <MapPin className="w-5 h-5" />
+              Mapa das telas selecionadas
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pdf-dense-text">
+            <ProposalScreensMap
+              screens={summaryMapScreens}
+              addedToProposalIds={data.selectedScreens as number[]}
+              tempSelectedIds={[]}
+              allSelectedStyle
+              height={380}
+            />
+          </CardContent>
+        </Card>
+      )}
 
       {/* Métricas Calculadas */}
       <Card className="pdf-tight-card">

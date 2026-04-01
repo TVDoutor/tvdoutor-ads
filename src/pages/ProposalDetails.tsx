@@ -33,6 +33,8 @@ import { downloadVisibleProposalPDF } from "@/lib/pdf-service";
 import { useProposalFilters } from "@/hooks/useProposalFilters";
 import { normalizeProposal } from "@/utils/validations/proposal";
 import { calculateProposalMetrics, getSelectedDurations } from "@/lib/pricing";
+import { ProposalScreensMap } from "@/components/wizard/ProposalScreensMap";
+import { parseLatLng, getScreenPointCode } from "@/lib/geo";
 
 interface ProposalDetails {
   id: number;
@@ -248,6 +250,26 @@ const ProposalDetails = () => {
     }
   }, [proposal]);
 
+  const proposalMapScreenPoints = useMemo(() => {
+    if (!proposal?.proposal_screens?.length) return [];
+    return proposal.proposal_screens
+      .map((ps: any) => ps.screens)
+      .filter(Boolean)
+      .map((s: any) => ({
+        id: Number(s.id),
+        code: getScreenPointCode(s) || s.code,
+        display_name: s.display_name,
+        name: s.name,
+        lat: parseLatLng(s.lat),
+        lng: parseLatLng(s.lng),
+      }));
+  }, [proposal]);
+
+  const proposalScreenIdsForMap = useMemo(
+    () => (proposal?.proposal_screens || []).map((ps: any) => Number(ps.screen_id)),
+    [proposal]
+  );
+
   const fetchProposal = async (proposalId: number) => {
     try {
       setLoading(true);
@@ -278,6 +300,8 @@ const ProposalDetails = () => {
               address_raw,
               city,
               state,
+              lat,
+              lng,
               class,
               venue_id,
               ambiente,
@@ -929,9 +953,10 @@ const ProposalDetails = () => {
 
           {/* Main Content Tabs */}
           <Tabs defaultValue="overview" className="space-y-6">
-            <TabsList className="grid w-full grid-cols-3 lg:w-auto">
+            <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 lg:w-auto">
               <TabsTrigger value="overview">Resumo</TabsTrigger>
               <TabsTrigger value="financial">Financeiro</TabsTrigger>
+              <TabsTrigger value="map">Mapa de Pontos</TabsTrigger>
               <TabsTrigger value="status">Status</TabsTrigger>
             </TabsList>
 
@@ -1291,6 +1316,82 @@ const ProposalDetails = () => {
                   </CardContent>
                 </Card>
               )}
+            </TabsContent>
+
+            <TabsContent value="map" className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Mapa das telas selecionadas</CardTitle>
+                  <p className="text-sm text-muted-foreground font-normal">
+                    Pontos da proposta no mapa. A lista abaixo mostra todas as telas (mesmo sem coordenadas no cadastro).
+                  </p>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {proposal.proposal_screens?.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">Nenhuma tela nesta proposta.</p>
+                  ) : (
+                    <>
+                      <ProposalScreensMap
+                        screens={proposalMapScreenPoints}
+                        addedToProposalIds={proposalScreenIdsForMap}
+                        tempSelectedIds={[]}
+                        allSelectedStyle
+                        overviewMode={(proposalMapScreenPoints?.length ?? 0) > 15}
+                        height={440}
+                      />
+                      <div>
+                        <h3 className="text-sm font-semibold text-slate-900 mb-2">
+                          Telas e locais ({proposal.proposal_screens.length})
+                        </h3>
+                        <div className="rounded-lg border max-h-[min(50vh,420px)] overflow-auto">
+                          <table className="w-full text-sm">
+                            <thead className="bg-slate-50 sticky top-0">
+                              <tr className="border-b">
+                                <th className="text-left py-2 px-3 font-medium">Código</th>
+                                <th className="text-left py-2 px-3 font-medium">Nome / tela</th>
+                                <th className="text-left py-2 px-3 font-medium">Local</th>
+                                <th className="text-left py-2 px-3 font-medium">UF</th>
+                                <th className="text-left py-2 px-3 font-medium">Latitude / Longitude</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {(proposal.proposal_screens || []).filter((ps: any) => ps.screens).map((ps: any) => {
+                                const s = ps.screens;
+                                const latN = parseLatLng(s.lat);
+                                const lngN = parseLatLng(s.lng);
+                                const hasCoord =
+                                  latN !== undefined && lngN !== undefined;
+                                const venueName = s.venues?.name;
+                                const label = s.display_name || s.name || "—";
+                                const pointCode = getScreenPointCode(s) || s.code || "—";
+                                return (
+                                  <tr key={ps.id ?? `${ps.screen_id}`} className="border-b border-slate-100">
+                                    <td className="py-2 px-3 font-mono text-xs">{pointCode}</td>
+                                    <td className="py-2 px-3">{label}</td>
+                                    <td className="py-2 px-3 text-slate-700">
+                                      {[venueName, s.city].filter(Boolean).join(" · ") || "—"}
+                                    </td>
+                                    <td className="py-2 px-3">{s.state ?? "—"}</td>
+                                    <td className="py-2 px-3 text-xs">
+                                      {hasCoord ? (
+                                        <span className="text-emerald-800">
+                                          {latN?.toFixed(5)}, {lngN?.toFixed(5)}
+                                        </span>
+                                      ) : (
+                                        <span className="text-amber-700">Sem lat/lng válidos</span>
+                                      )}
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </CardContent>
+              </Card>
             </TabsContent>
 
             {/* Status Tab */}

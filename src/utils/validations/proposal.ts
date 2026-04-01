@@ -6,6 +6,12 @@ export const ScreenSchema = z
     id: z.coerce.number().optional().nullable(),
     name: z.string().optional().nullable(),
     display_name: z.string().optional().nullable(),
+    /** Obrigatório para mapa e aba Mapa — antes era removido pelo Zod (strip). */
+    code: z.string().optional().nullable(),
+    /** Numérico ou string; UI pode usar vírgula decimal. */
+    lat: z.union([z.number(), z.string()]).optional().nullable(),
+    lng: z.union([z.number(), z.string()]).optional().nullable(),
+    venues: z.any().optional().nullable(),
     screen_type: z.string().optional().nullable(),
     formatted_address: z.string().optional().nullable(),
     city: z.string().optional().nullable(),

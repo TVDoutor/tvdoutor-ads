@@ -170,11 +170,13 @@ export const ScreenFilters: React.FC<ScreenFiltersProps> = ({
     }
 
     if (tab === 'quick') {
+      // Pesquisa rápida usa só nameOrCode; não reutilizar "Endereço" da aba Avançado (evita AND que exclui códigos tipo P2008).
       updateFilters({
         radiusSearchAddress: '',
         cepListText: '',
         city: '',
         state: '',
+        address: '',
       });
       return;
     }
@@ -201,7 +203,8 @@ export const ScreenFilters: React.FC<ScreenFiltersProps> = ({
 
   const updateQuickQuery = (value: string) => {
     setQuickQuery(value);
-    updateFilters({ nameOrCode: value, address: value });
+    // Não preencher `address` com o mesmo termo: a query combina filtros com AND e o endereço raramente contém o código da tela (ex.: P2008).
+    updateFilters({ nameOrCode: value, address: '' });
   };
 
   const toggleClass = (className: string) => {

@@ -228,7 +228,7 @@ interface Screen {
 const Inventory = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { profile, isAdmin, isManager } = useAuth();
+  const { user, profile, isAdmin, isManager } = useAuth();
   const [screens, setScreens] = useState<Screen[]>([]);
   const [filteredScreens, setFilteredScreens] = useState<Screen[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -1786,10 +1786,10 @@ const Inventory = () => {
   };
 
   const handleExportScreens = async () => {
-    if (!isAdmin()) {
+    if (!user) {
       toast({
         title: "Acesso Negado",
-        description: "Apenas super administradores podem exportar dados.",
+        description: "Faça login para exportar.",
         variant: "destructive",
       });
       return;

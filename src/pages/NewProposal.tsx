@@ -84,28 +84,43 @@ const NewProposal = () => {
         const { error } = await supabase.from('proposals').update(payload).eq('id', editingProposalId);
         if (error) throw error;
         const selected = Array.isArray(data.selectedScreens) ? data.selectedScreens : [];
-        await supabase.from('proposal_screens').delete().eq('proposal_id', editingProposalId);
+        const { error: delErr } = await supabase.from('proposal_screens').delete().eq('proposal_id', editingProposalId);
+        if (delErr) throw delErr;
         if (selected.length > 0) {
-          const rows = selected.map((sid: number | string) => ({ proposal_id: editingProposalId, screen_id: sid }));
-          await supabase.from('proposal_screens').insert(rows);
+          const rows = selected.map((sid: number | string) => ({
+            proposal_id: editingProposalId,
+            screen_id: typeof sid === 'string' ? parseInt(sid, 10) : sid,
+          }));
+          const { error: insErr } = await supabase.from('proposal_screens').insert(rows);
+          if (insErr) throw insErr;
         }
       } else {
         const { data: inserted, error } = await supabase.from('proposals').insert(payload).select('id').single();
         if (error) throw error;
         const newId = (inserted as any)?.id;
         if (newId) {
+          // Inserir vínculos antes do navigate para evitar corrida com recarga da página / efeitos.
+          const selected = Array.isArray(data.selectedScreens) ? data.selectedScreens : [];
+          if (selected.length > 0) {
+            const rows = selected
+              .map((sid: number | string) => {
+                const screen_id = typeof sid === 'string' ? parseInt(sid, 10) : sid;
+                return { proposal_id: newId, screen_id };
+              })
+              .filter((r) => Number.isFinite(r.screen_id) && r.screen_id > 0);
+            if (rows.length > 0) {
+              const { error: linkErr } = await supabase.from('proposal_screens').insert(rows);
+              if (linkErr) throw linkErr;
+            }
+          }
           setEditingProposalId(newId);
           setExistingCreatedBy(user.id);
           navigate(`/nova-proposta?edit=${newId}`, { replace: true });
-          const selected = Array.isArray(data.selectedScreens) ? data.selectedScreens : [];
-          if (selected.length > 0) {
-            const rows = selected.map((sid: number | string) => ({ proposal_id: newId, screen_id: sid }));
-            await supabase.from('proposal_screens').insert(rows);
-          }
         }
       }
     } catch (err: any) {
       console.error('Erro no salvamento automático:', err);
+      toast.error(err?.message || 'Erro ao salvar rascunho (telas ou dados da proposta).');
     }
   }, [user, editingProposalId, existingCreatedBy, navigate]);
 
@@ -138,7 +153,8 @@ const NewProposal = () => {
         const { error } = await supabase.from('proposals').update(payload).eq('id', editingProposalId);
         if (error) throw error;
         proposalId = editingProposalId;
-        await supabase.from('proposal_screens').delete().eq('proposal_id', editingProposalId);
+        const { error: delErr } = await supabase.from('proposal_screens').delete().eq('proposal_id', editingProposalId);
+        if (delErr) throw delErr;
       } else {
         const insertQuery = supabase.from('proposals').insert(payload).select('id');
         const { data: insertedRows, error } = await insertQuery;
@@ -148,7 +164,10 @@ const NewProposal = () => {
 
       const selected = Array.isArray(data.selectedScreens) ? data.selectedScreens : [];
       if (proposalId && selected.length > 0) {
-        const rows = selected.map((screenId: number | string) => ({ proposal_id: proposalId, screen_id: screenId }));
+        const rows = selected.map((screenId: number | string) => ({
+          proposal_id: proposalId,
+          screen_id: typeof screenId === 'string' ? parseInt(screenId, 10) : screenId,
+        }));
         const { error: linkError } = await supabase.from('proposal_screens').insert(rows);
         if (linkError) throw linkError;
       }

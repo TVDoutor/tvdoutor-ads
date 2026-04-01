@@ -191,4 +191,11 @@ All colors MUST be HSL.
     background: linear-gradient(135deg, #0066ff 0%, #0080ff 30%, #00a6b8 60%, #00cc99 100%);
   }
 }
+
+/* Leaflet no wizard de proposta: o container precisa preencher a altura definida em style */
+.leaflet-wizard-map.leaflet-container {
+  height: 100%;
+  width: 100%;
+  min-height: 200px;
+}
 /* As utilidades específicas de PDF estão em src/styles/pdf.css */

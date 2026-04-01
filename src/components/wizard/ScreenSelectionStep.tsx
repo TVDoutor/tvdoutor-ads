@@ -3,7 +3,18 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { MapPin, Monitor, Users, CheckCircle2, X, Search, Building2, Filter } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { MapPin, Monitor, Users, CheckCircle2, X, Search, Building2, Filter, Layers3 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import type { ProposalData } from "../NewProposalWizard";
@@ -13,6 +24,7 @@ import { AddressRadiusSearch } from "@/components/ui/address-radius-search";
 import { parseCepXls, parseCepText, batchFindScreensByCEPs } from '@/lib/cep-batch';
 import { combineIds } from "@/utils/ids";
 import { getVenueIdsWithPharmacyInRadius } from '@/lib/venue-pharmacy-radius-service';
+import { CategoryService, type CategorySearchResult } from '@/lib/category-service';
 
 interface Screen {
   id: number;
@@ -66,6 +78,12 @@ export const ScreenSelectionStep = ({ data, onUpdate }: ScreenSelectionStepProps
   const [pharmacyRadiusFilter, setPharmacyRadiusFilter] = useState<string>('');
   const [venueIdsWithPharmacyInRadius, setVenueIdsWithPharmacyInRadius] = useState<number[]>([]);
   const [pharmacyRadiusLoading, setPharmacyRadiusLoading] = useState(false);
+  const [categoryQuery, setCategoryQuery] = useState("");
+  const [categoryResults, setCategoryResults] = useState<CategorySearchResult[]>([]);
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
+  const [categoryLoading, setCategoryLoading] = useState(false);
+  const [pendingCategoryId, setPendingCategoryId] = useState<string | null>(null);
+  const [categorySubmitting, setCategorySubmitting] = useState(false);
 
   useEffect(() => {
     fetchScreens();
@@ -91,6 +109,36 @@ export const ScreenSelectionStep = ({ data, onUpdate }: ScreenSelectionStepProps
       })
       .finally(() => setPharmacyRadiusLoading(false));
   }, [pharmacyRadiusFilter]);
+
+  useEffect(() => {
+    const run = async () => {
+      const query = categoryQuery.trim();
+      if (!query) {
+        setCategoryResults([]);
+        return;
+      }
+
+      try {
+        setCategoryLoading(true);
+        const results = await CategoryService.searchCategories(query);
+        setCategoryResults(results);
+      } catch (error) {
+        console.error('Erro ao buscar categorias:', error);
+        toast.error('Não foi possível buscar categorias.');
+      } finally {
+        setCategoryLoading(false);
+      }
+    };
+
+    const timer = window.setTimeout(run, 180);
+    return () => window.clearTimeout(timer);
+  }, [categoryQuery]);
+
+  useEffect(() => {
+    if (data.selectedScreens.length === 0) {
+      setSelectedCategoryIds([]);
+    }
+  }, [data.selectedScreens.length]);
 
   const fetchScreens = async () => {
     try {
@@ -324,6 +372,10 @@ export const ScreenSelectionStep = ({ data, onUpdate }: ScreenSelectionStepProps
     setRadiusSearchActive(false);
     setRadiusSearchResults([]);
     setSearchTerm("");
+    setCategoryQuery("");
+    setCategoryResults([]);
+    setSelectedCategoryIds([]);
+    setPendingCategoryId(null);
     onUpdate({ selectedSpecialties: [], selectedCities: [] });
     setSelectedCity("all");
     
@@ -354,6 +406,76 @@ export const ScreenSelectionStep = ({ data, onUpdate }: ScreenSelectionStepProps
     // ATUALIZADO: Apenas limpar seleção temporária
     if (selectedCities.length > 0) {
       setTempSelectedScreens([]);
+    }
+  };
+
+  const toggleCategorySelection = (categoryId: string, checked: boolean) => {
+    if (!checked) {
+      removeSelectedCategory(categoryId);
+      return;
+    }
+
+    setPendingCategoryId(categoryId);
+  };
+
+  const removeSelectedCategory = (categoryId: string) => {
+    setSelectedCategoryIds((prev) => prev.filter((id) => id !== categoryId));
+  };
+
+  const selectedCategories = selectedCategoryIds
+    .map((id) => CategoryService.getCategoryById(id))
+    .filter(Boolean);
+
+  const pendingCategory = pendingCategoryId
+    ? CategoryService.getCategoryById(pendingCategoryId)
+    : null;
+
+  const handleCancelCategorySelection = () => {
+    setPendingCategoryId(null);
+  };
+
+  const handleConfirmCategorySelection = async () => {
+    if (!pendingCategoryId) {
+      return;
+    }
+
+    try {
+      setCategorySubmitting(true);
+
+      const categoryScreens = await CategoryService.getScreensByCategory(pendingCategoryId);
+      const categoryScreenIds = categoryScreens.map((screen) => screen.id);
+      const currentSelectedScreens = data.selectedScreens as number[];
+      const currentSelectedSet = new Set(currentSelectedScreens);
+      const combined = combineIds<number>(currentSelectedScreens, categoryScreenIds);
+      const addedCount = combined.length - currentSelectedScreens.length;
+      const alreadySelectedCount = categoryScreenIds.filter((id) => currentSelectedSet.has(id)).length;
+
+      if (addedCount === 0) {
+        if (categoryScreenIds.length === 0) {
+          toast.info(`Nenhum ponto disponível foi encontrado para a categoria "${pendingCategory?.label ?? pendingCategoryId}".`);
+        } else {
+          toast.info(`Todos os pontos da categoria "${pendingCategory?.label ?? pendingCategoryId}" já estavam na proposta.`);
+        }
+      } else {
+        onUpdate({ selectedScreens: combined });
+        setSearchCounter((prev) => prev + 1);
+
+        if (alreadySelectedCount > 0) {
+          toast.success(`${addedCount} ponto(s) da categoria "${pendingCategory?.label ?? pendingCategoryId}" adicionado(s). ${alreadySelectedCount} já estavam selecionados.`);
+        } else {
+          toast.success(`${addedCount} ponto(s) da categoria "${pendingCategory?.label ?? pendingCategoryId}" adicionado(s) à proposta.`);
+        }
+      }
+
+      setSelectedCategoryIds((prev) =>
+        prev.includes(pendingCategoryId) ? prev : [...prev, pendingCategoryId]
+      );
+      setPendingCategoryId(null);
+    } catch (error) {
+      console.error("Erro ao adicionar categoria:", error);
+      toast.error("Não foi possível adicionar os pontos da categoria.");
+    } finally {
+      setCategorySubmitting(false);
     }
   };
 
@@ -468,7 +590,7 @@ export const ScreenSelectionStep = ({ data, onUpdate }: ScreenSelectionStepProps
     <div className="space-y-6">
       {/* Filtros - Layout em linha para melhor UX */}
       <div className="space-y-4">
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           {/* Busca */}
           <div className="space-y-2">
             <label className="text-sm font-medium flex items-center gap-2">
@@ -510,6 +632,23 @@ export const ScreenSelectionStep = ({ data, onUpdate }: ScreenSelectionStepProps
               ))}
             </SelectContent>
             </Select>
+          </div>
+
+          {/* Categorias */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium flex items-center gap-2">
+              <Layers3 className="w-4 h-4" />
+              Buscar por Categoria
+              {categoryLoading && <div className="animate-spin rounded-full h-3 w-3 border-b border-primary"></div>}
+            </label>
+            <Input
+              placeholder="Ex: Odonto"
+              value={categoryQuery}
+              onChange={(e) => setCategoryQuery(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">
+              Digite uma categoria para localizar especialidades agrupadas.
+            </p>
           </div>
 
           {/* Cidades */}
@@ -569,6 +708,77 @@ export const ScreenSelectionStep = ({ data, onUpdate }: ScreenSelectionStepProps
           </div>
         </div>
 
+        {(categoryQuery.trim() || selectedCategories.length > 0) && (
+          <div className="space-y-3">
+            {selectedCategories.length > 0 && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Categorias Selecionadas:</label>
+                <div className="flex flex-wrap gap-2">
+                  {selectedCategories.map((category) => (
+                    <Badge key={category!.id} variant="default" className="flex items-center gap-1">
+                      {category!.label}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-4 w-4 p-0 hover:bg-transparent"
+                        onClick={() => removeSelectedCategory(category!.id)}
+                      >
+                        <X className="w-3 h-3" />
+                      </Button>
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {categoryQuery.trim() && (
+              <Card className="border-dashed">
+                <CardContent className="p-3 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-medium text-gray-800">Resultados por categoria</p>
+                    {categoryResults.length > 0 && (
+                      <Badge variant="secondary">{categoryResults.length} encontrada(s)</Badge>
+                    )}
+                  </div>
+
+                  {categoryLoading ? (
+                    <p className="text-sm text-muted-foreground">Buscando categorias...</p>
+                  ) : categoryResults.length > 0 ? (
+                    <div className="space-y-2">
+                      {categoryResults.map((category) => (
+                        <label
+                          key={category.id}
+                          className="flex items-start gap-3 rounded-lg border p-3 hover:bg-muted/30 transition-colors cursor-pointer"
+                        >
+                          <Checkbox
+                            checked={selectedCategoryIds.includes(category.id)}
+                            onCheckedChange={(checked) => toggleCategorySelection(category.id, Boolean(checked))}
+                          />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium text-sm">{category.label}</span>
+                              <Badge variant="outline" className="text-xs">
+                                {category.specialtiesCount} especialidades
+                              </Badge>
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              Correspondência: {category.matchedBy}
+                            </p>
+                          </div>
+                        </label>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      Nenhuma categoria encontrada para "{categoryQuery}".
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        )}
+
         {/* Cidades Selecionadas - Mostrar quando houver seleção */}
         {data.selectedCities.length > 0 && (
           <div className="space-y-2">
@@ -612,13 +822,17 @@ export const ScreenSelectionStep = ({ data, onUpdate }: ScreenSelectionStepProps
                 {filteredScreens.length} telas encontradas
               </span>
             </div>
-            {(searchTerm || data.selectedSpecialties.length > 0 || data.selectedCities.length > 0 || (selectedCity && selectedCity !== "all") || radiusSearchActive) && (
+            {(searchTerm || categoryQuery.trim() || selectedCategoryIds.length > 0 || data.selectedSpecialties.length > 0 || data.selectedCities.length > 0 || (selectedCity && selectedCity !== "all") || radiusSearchActive) && (
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => {
                   // Limpar todos os filtros
                   handleSearchTermChange("");
+                  setCategoryQuery("");
+                  setCategoryResults([]);
+                  setSelectedCategoryIds([]);
+                  setPendingCategoryId(null);
                   onUpdate({ selectedSpecialties: [], selectedCities: [] });
                   setSelectedCity("all");
                   setRadiusSearchActive(false);
@@ -637,10 +851,10 @@ export const ScreenSelectionStep = ({ data, onUpdate }: ScreenSelectionStepProps
           </div>
 
           {/* Filtros Ativos */}
-          {(searchTerm || data.selectedSpecialties.length > 0 || data.selectedCities.length > 0 || (selectedCity && selectedCity !== "all") || radiusSearchActive) && (
-            <div className="flex flex-wrap gap-2">
-              {searchTerm && (
-                <Badge variant="secondary" className="flex items-center gap-1">
+            {(searchTerm || categoryQuery.trim() || selectedCategoryIds.length > 0 || data.selectedSpecialties.length > 0 || data.selectedCities.length > 0 || (selectedCity && selectedCity !== "all") || radiusSearchActive) && (
+              <div className="flex flex-wrap gap-2">
+                {searchTerm && (
+                  <Badge variant="secondary" className="flex items-center gap-1">
                   <Search className="w-3 h-3" />
                   Busca: "{searchTerm}"
                   <Button
@@ -652,10 +866,28 @@ export const ScreenSelectionStep = ({ data, onUpdate }: ScreenSelectionStepProps
                     <X className="w-3 h-3" />
                   </Button>
                 </Badge>
-              )}
-              
-              {data.selectedSpecialties.length > 0 && (
-                <Badge variant="secondary" className="flex items-center gap-1">
+                )}
+
+                {selectedCategoryIds.length > 0 && (
+                  <Badge variant="secondary" className="flex items-center gap-1">
+                    <Layers3 className="w-3 h-3" />
+                    {selectedCategoryIds.length} categoria(s)
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-4 w-4 p-0 hover:bg-transparent"
+                      onClick={() => {
+                        setSelectedCategoryIds([]);
+                        setPendingCategoryId(null);
+                      }}
+                    >
+                      <X className="w-3 h-3" />
+                    </Button>
+                  </Badge>
+                )}
+               
+                {data.selectedSpecialties.length > 0 && (
+                  <Badge variant="secondary" className="flex items-center gap-1">
                   <Building2 className="w-3 h-3" />
                   {availableSpecialties.find(s => s.value === data.selectedSpecialties[0])?.label}
                   <Button
@@ -895,6 +1127,10 @@ export const ScreenSelectionStep = ({ data, onUpdate }: ScreenSelectionStepProps
                   onClick={() => {
                     onUpdate({ selectedScreens: [] });
                     setSearchCounter(0);
+                    setSelectedCategoryIds([]);
+                    setPendingCategoryId(null);
+                    setCategoryQuery("");
+                    setCategoryResults([]);
                     toast.success("Todos os pontos foram removidos da proposta");
                   }}
                   className="text-red-600 border-red-200 hover:bg-red-50"
@@ -957,6 +1193,54 @@ export const ScreenSelectionStep = ({ data, onUpdate }: ScreenSelectionStepProps
       )}
 
       {/* Modal de Seleção de Cidades */}
+      <AlertDialog
+        open={!!pendingCategoryId}
+        onOpenChange={(open) => {
+          if (!open) {
+            handleCancelCategorySelection();
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Adicionar pontos por categoria</AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2">
+              <p>
+                Deseja adicionar todos os pontos da categoria{" "}
+                <span className="font-semibold text-foreground">
+                  "{pendingCategory?.label ?? pendingCategoryId}"
+                </span>
+                ?
+              </p>
+              <p>
+                Esta ação vai incluir os pontos disponíveis relacionados às especialidades
+                mapeadas para essa categoria. Pontos já selecionados não serão duplicados.
+              </p>
+              {pendingCategory && (
+                <p>
+                  Categoria com {pendingCategory.specialties.length} especialidade(s)
+                  mapeada(s).
+                </p>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleCancelCategorySelection}>
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(event) => {
+                event.preventDefault();
+                void handleConfirmCategorySelection();
+              }}
+              disabled={categorySubmitting}
+            >
+              {categorySubmitting ? "Adicionando..." : "Adicionar pontos"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <CitySelectionModal
         isOpen={isCityModalOpen}
         onClose={() => setIsCityModalOpen(false)}

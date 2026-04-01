@@ -111,6 +111,11 @@ export function normalizeProposalPayload(
       dias_uteis_mes_base: diasUteisMesBase,
       avg_audience_per_insertion: data.avg_audience_per_insertion ?? null,
       valor_insercao_config: data.valor_insercao_config ?? null,
+      selection_metadata: {
+        selected_category_ids: data.selectedCategories ?? [],
+        category_specialties: data.categorySpecialties ?? {},
+        screen_origins: data.screenSelectionOrigins ?? {},
+      },
       last_completed_step: options?.lastCompletedStep ?? null,
     },
     insertions_per_hour: isNaN(insertionsPerHour) ? 0 : insertionsPerHour,

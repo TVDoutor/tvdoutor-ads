@@ -207,6 +207,12 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         });
       }
       
+      // Fallback: profiles.role (alguns usuários têm role apenas em profiles, ex: Rose/Gerente)
+      if (userRole === 'user' && profileData.role && ['admin', 'super_admin', 'manager', 'client'].includes(String(profileData.role))) {
+        userRole = mapDatabaseRoleToUserRole(String(profileData.role));
+        logDebug('Role obtido de profiles.role (fallback)', { profileRole: profileData.role, mappedRole: userRole });
+      }
+      
       // Fallback especial para hildebrando e outros super_admins
       if ((profileData.email === 'hildebrando.cardoso@tvdoutor.com.br' || 
            profileData.id === '7f8dae1a-dcbe-4c65-92dd-23bd9dc905e3') && userRole !== 'super_admin') {
@@ -287,10 +293,10 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
               if (mounted) {
                 setProfile(userProfile);
                 
-                // DESABILITADO TEMPORARIAMENTE: Sistema de sessões causando instabilidade
-                // userSessionService.initializeSession().catch((error) => {
-                //   console.error('Erro ao inicializar sessão de usuário:', error);
-                // });
+                // Inicializar sessão para rastreamento no monitor (não bloqueia o fluxo)
+                userSessionService.initializeSession().catch((error) => {
+                  console.warn('Erro ao inicializar sessão de usuário (não crítico):', error);
+                });
               }
             } catch (profileError) {
               logError('Error fetching initial profile', profileError);
@@ -334,6 +340,11 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       setUser(session?.user ?? null);
       
       if (session?.user) {
+        // Inicializar sessão imediatamente (não esperar profile) para rastreamento no monitor
+        userSessionService.initializeSession().catch((err) => {
+          console.warn('Erro ao inicializar sessão no auth change (não crítico):', err);
+        });
+
         // Call ensure_profile after OAuth login/redirect
         // O trigger handle_new_user cria automaticamente o profile e role
         // Não é necessário fazer upsert manual

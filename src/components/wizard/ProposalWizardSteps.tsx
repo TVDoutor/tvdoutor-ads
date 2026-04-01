@@ -8,6 +8,16 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { 
   User, 
@@ -25,7 +35,9 @@ import {
   Play,
   Calculator,
   AlertCircle,
-  FileText
+  FileText,
+  Layers3,
+  X
 } from 'lucide-react';
 import { ProposalData } from '../NewProposalWizardImproved';
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
@@ -35,6 +47,7 @@ import { toast } from 'sonner';
 import { combineIds } from '@/utils/ids';
 import { calculateProposalMetrics } from '@/lib/pricing';
 import { supabase } from '@/integrations/supabase/client';
+import { CategoryService } from '@/lib/category-service';
 
 // Labels centralizados para tipos de proposta
 type ProposalType = 'avulsa' | 'projeto' | 'patrocinio_editorial';
@@ -427,7 +440,8 @@ export const ScreenSelectionStep: React.FC<ScreenSelectionStepProps> = ({
   loading,
   onApplyFilters
 }) => {
-  
+  const [pendingCategoryId, setPendingCategoryId] = useState<string | null>(null);
+  const [categorySubmitting, setCategorySubmitting] = useState(false);
 
   const [filters, setFilters] = useState<IScreenFilters>({
     nameOrCode: '',
@@ -515,6 +529,133 @@ export const ScreenSelectionStep: React.FC<ScreenSelectionStepProps> = ({
     [data.selectedScreens, tempSelectedScreens]
   );
 
+  const selectedCategories = useMemo(
+    () => CategoryService.getCategoriesByIds(data.selectedCategories ?? []),
+    [data.selectedCategories]
+  );
+  const categorySpecialties = data.categorySpecialties ?? {};
+
+  type ScreenOriginEntry = NonNullable<ProposalData['screenSelectionOrigins']>[string];
+  type NormalizedScreenOrigin = {
+    manual: boolean;
+    categoryIds: string[];
+    categoryLabels: string[];
+  };
+
+  const normalizeScreenOrigin = (origin?: ScreenOriginEntry): NormalizedScreenOrigin => {
+    if (!origin) {
+      return { manual: false, categoryIds: [], categoryLabels: [] };
+    }
+
+    const categoryIds = Array.isArray(origin.categoryIds)
+      ? origin.categoryIds.filter((value): value is string => typeof value === 'string')
+      : origin.categoryId
+        ? [origin.categoryId]
+        : [];
+
+    const categoryLabels = Array.isArray(origin.categoryLabels)
+      ? origin.categoryLabels.filter((value): value is string => typeof value === 'string')
+      : origin.categoryLabel
+        ? [origin.categoryLabel]
+        : [];
+
+    return {
+      manual: origin.manual ?? origin.source === 'manual',
+      categoryIds,
+      categoryLabels,
+    };
+  };
+
+  const denormalizeScreenOrigin = (origin: NormalizedScreenOrigin): ScreenOriginEntry | undefined => {
+    if (!origin.manual && origin.categoryIds.length === 0) {
+      return undefined;
+    }
+
+    if (origin.manual && origin.categoryIds.length === 0) {
+      return {
+        source: 'manual',
+        manual: true,
+      };
+    }
+
+    const categoryIds = Array.from(new Set(origin.categoryIds));
+    const categoryLabels = Array.from(new Set(origin.categoryLabels));
+
+    return {
+      source: 'category',
+      manual: origin.manual,
+      categoryId: categoryIds[0],
+      categoryLabel: categoryLabels[0],
+      categoryIds,
+      categoryLabels,
+    };
+  };
+
+  const getScreenOrigins = () => data.screenSelectionOrigins ?? {};
+
+  const mergeManualOrigins = (
+    currentOrigins: ProposalData['screenSelectionOrigins'],
+    screenIds: number[]
+  ) => {
+    const next = { ...(currentOrigins ?? {}) };
+    for (const screenId of screenIds) {
+      const key = String(screenId);
+      const normalized = normalizeScreenOrigin(next[key]);
+      normalized.manual = true;
+      next[key] = denormalizeScreenOrigin(normalized);
+    }
+    return next;
+  };
+
+  const mergeCategoryOrigins = (
+    currentOrigins: ProposalData['screenSelectionOrigins'],
+    screenIds: number[],
+    categoryId: string,
+    categoryLabel: string
+  ) => {
+    const next = { ...(currentOrigins ?? {}) };
+    for (const screenId of screenIds) {
+      const key = String(screenId);
+      const normalized = normalizeScreenOrigin(next[key]);
+      normalized.categoryIds = Array.from(new Set([...normalized.categoryIds, categoryId]));
+      normalized.categoryLabels = Array.from(new Set([...normalized.categoryLabels, categoryLabel]));
+      next[key] = denormalizeScreenOrigin(normalized);
+    }
+    return next;
+  };
+
+  const computeSelectedCategoriesFromOrigins = (
+    origins: ProposalData['screenSelectionOrigins'] | undefined,
+    selectedScreens: number[]
+  ) => {
+    const categoryIds = new Set<string>();
+    const map = origins ?? {};
+    for (const screenId of selectedScreens) {
+      const origin = normalizeScreenOrigin(map[String(screenId)]);
+      for (const categoryId of origin.categoryIds) {
+        categoryIds.add(categoryId);
+      }
+    }
+    return Array.from(categoryIds);
+  };
+
+  const getCategoryCoverageCount = (categoryId: string) => {
+    let count = 0;
+    for (const screenId of data.selectedScreens as number[]) {
+      const origin = normalizeScreenOrigin(getScreenOrigins()[String(screenId)]);
+      if (origin.categoryIds.includes(categoryId)) {
+        count += 1;
+      }
+    }
+    return count;
+  };
+
+  const getCategorySpecialties = (categoryId: string) => {
+    const configured = categorySpecialties[categoryId];
+    if (Array.isArray(configured) && configured.length > 0) return configured;
+    return CategoryService.getCategoryById(categoryId)?.specialties ?? [];
+  };
+
   const toggleScreen = (screenId: number) => {
     const isSelected = tempSelectedScreens.includes(screenId);
     const newTempSelected = isSelected
@@ -525,6 +666,160 @@ export const ScreenSelectionStep: React.FC<ScreenSelectionStepProps> = ({
 
   const handleFiltersChange = (newFilters: IScreenFilters) => {
     setFilters(newFilters);
+  };
+
+  const handleCategorySelectionChange = (categoryId: string, checked: boolean) => {
+    if (!checked) {
+      const currentSelectedScreens = data.selectedScreens as number[];
+      const currentOrigins = getScreenOrigins();
+      const nextOrigins: NonNullable<ProposalData['screenSelectionOrigins']> = {};
+      const updatedScreens: number[] = [];
+      let removedPoints = 0;
+
+      for (const screenId of currentSelectedScreens) {
+        const normalized = normalizeScreenOrigin(currentOrigins[String(screenId)]);
+        const nextCategoryIds = normalized.categoryIds.filter((id) => id !== categoryId);
+        const nextCategoryLabels = nextCategoryIds
+          .map((id) => CategoryService.getCategoryById(id)?.label)
+          .filter((value): value is string => Boolean(value));
+
+        const nextOrigin = denormalizeScreenOrigin({
+          manual: normalized.manual,
+          categoryIds: nextCategoryIds,
+          categoryLabels: nextCategoryLabels,
+        });
+
+        if (!nextOrigin) {
+          removedPoints += 1;
+          continue;
+        }
+
+        updatedScreens.push(screenId);
+        nextOrigins[String(screenId)] = nextOrigin;
+      }
+
+      onUpdate({
+        selectedScreens: updatedScreens,
+        selectedCategories: (data.selectedCategories ?? []).filter((id) => id !== categoryId),
+        categorySpecialties: Object.fromEntries(
+          Object.entries(categorySpecialties).filter(([key]) => key !== categoryId)
+        ),
+        screenSelectionOrigins: nextOrigins,
+        valor_insercao_config: {
+          ...(data.valor_insercao_config ?? {}),
+          qtd_telas: updatedScreens.length,
+        },
+      });
+
+      const categoryLabel = CategoryService.getCategoryById(categoryId)?.label ?? categoryId;
+      if (removedPoints > 0) {
+        toast.info(`Categoria "${categoryLabel}" removida. ${removedPoints} ponto(s) foram retirados da proposta.`);
+      } else {
+        toast.info(`Categoria "${categoryLabel}" removida. Nenhum ponto precisou ser excluído.`);
+      }
+      return;
+    }
+
+    setPendingCategoryId(categoryId);
+  };
+
+  const handleCategorySpecialtiesChange = async (categoryId: string, specialties: string[]) => {
+    const dedupedSpecialties = Array.from(new Set(specialties));
+    const nextCategorySpecialties = {
+      ...categorySpecialties,
+      [categoryId]: dedupedSpecialties,
+    };
+
+    if (!(data.selectedCategories ?? []).includes(categoryId)) {
+      onUpdate({ categorySpecialties: nextCategorySpecialties });
+      return;
+    }
+
+    try {
+      const category = CategoryService.getCategoryById(categoryId);
+      if (!category) {
+        toast.error('Categoria não encontrada.');
+        return;
+      }
+
+      const categoryScreens = await CategoryService.getScreensByCategory(categoryId, dedupedSpecialties);
+      const nextCategoryScreenIds = new Set(categoryScreens.map((screen) => screen.id));
+      const currentSelectedScreens = data.selectedScreens as number[];
+      const currentOrigins = getScreenOrigins();
+      const nextOrigins: NonNullable<ProposalData['screenSelectionOrigins']> = {};
+      const updatedScreens: number[] = [];
+      let removedPoints = 0;
+
+      setScreenCache((prev) => {
+        const next = new Map(prev);
+        for (const screen of categoryScreens) {
+          next.set(Number(screen.id), screen);
+        }
+        return next;
+      });
+
+      for (const screenId of currentSelectedScreens) {
+        const normalized = normalizeScreenOrigin(currentOrigins[String(screenId)]);
+        const hasCategory = normalized.categoryIds.includes(categoryId);
+
+        if (!hasCategory) {
+          updatedScreens.push(screenId);
+          const persisted = denormalizeScreenOrigin(normalized);
+          if (persisted) nextOrigins[String(screenId)] = persisted;
+          continue;
+        }
+
+        if (!nextCategoryScreenIds.has(screenId)) {
+          const remainingCategoryIds = normalized.categoryIds.filter((id) => id !== categoryId);
+          const remainingCategoryLabels = remainingCategoryIds
+            .map((id) => CategoryService.getCategoryById(id)?.label)
+            .filter((value): value is string => Boolean(value));
+          const persisted = denormalizeScreenOrigin({
+            manual: normalized.manual,
+            categoryIds: remainingCategoryIds,
+            categoryLabels: remainingCategoryLabels,
+          });
+
+          if (persisted) {
+            updatedScreens.push(screenId);
+            nextOrigins[String(screenId)] = persisted;
+          } else {
+            removedPoints += 1;
+          }
+
+          continue;
+        }
+
+        updatedScreens.push(screenId);
+        const nextNormalized = {
+          manual: normalized.manual,
+          categoryIds: normalized.categoryIds,
+          categoryLabels: normalized.categoryIds.map((id) => CategoryService.getCategoryById(id)?.label).filter((value): value is string => Boolean(value)),
+        };
+        const persisted = denormalizeScreenOrigin(nextNormalized);
+        if (persisted) nextOrigins[String(screenId)] = persisted;
+      }
+
+      onUpdate({
+        selectedScreens: updatedScreens,
+        selectedCategories: computeSelectedCategoriesFromOrigins(nextOrigins, updatedScreens),
+        categorySpecialties: nextCategorySpecialties,
+        screenSelectionOrigins: nextOrigins,
+        valor_insercao_config: {
+          ...(data.valor_insercao_config ?? {}),
+          qtd_telas: updatedScreens.length,
+        },
+      });
+
+      if (removedPoints > 0) {
+        toast.info(`Especialidades da categoria "${category.label}" atualizadas. ${removedPoints} ponto(s) foram removidos.`);
+      } else {
+        toast.success(`Especialidades da categoria "${category.label}" atualizadas.`);
+      }
+    } catch (error) {
+      console.error('Erro ao atualizar especialidades da categoria:', error);
+      toast.error('Não foi possível atualizar as especialidades da categoria.');
+    }
   };
 
   const handleApplyFilters = () => {
@@ -590,6 +885,7 @@ export const ScreenSelectionStep: React.FC<ScreenSelectionStepProps> = ({
 
     onUpdate({ 
       selectedScreens: combined,
+      screenSelectionOrigins: mergeManualOrigins(getScreenOrigins(), tempSelectedScreens),
       valor_insercao_config: {
         ...(data.valor_insercao_config ?? {}),
         qtd_telas: combined.length,
@@ -600,12 +896,231 @@ export const ScreenSelectionStep: React.FC<ScreenSelectionStepProps> = ({
     toast.success(`${tempSelectedScreens.length} ponto(s) adicionado(s) à proposta!`);
   };
 
+  const handleRemoveAddedPoint = (screenId: number) => {
+    const updatedScreens = (data.selectedScreens as number[]).filter((id) => id !== screenId);
+    const nextOrigins = { ...getScreenOrigins() };
+    delete nextOrigins[String(screenId)];
+
+    onUpdate({
+      selectedScreens: updatedScreens,
+      selectedCategories: computeSelectedCategoriesFromOrigins(nextOrigins, updatedScreens),
+      screenSelectionOrigins: nextOrigins,
+      valor_insercao_config: {
+        ...(data.valor_insercao_config ?? {}),
+        qtd_telas: updatedScreens.length,
+      },
+    });
+
+    toast.info('Ponto removido da proposta');
+  };
+
+  const handleClearAddedPoints = () => {
+    onUpdate({
+      selectedScreens: [],
+      selectedCategories: [],
+      screenSelectionOrigins: {},
+      valor_insercao_config: {
+        ...(data.valor_insercao_config ?? {}),
+        qtd_telas: 0,
+      },
+    });
+    toast.success('Todos os pontos foram removidos da proposta');
+  };
+
+  const handleConfirmCategorySelection = async () => {
+    if (!pendingCategoryId) return;
+
+    const category = CategoryService.getCategoryById(pendingCategoryId);
+    if (!category) {
+      toast.error('Categoria não encontrada.');
+      setPendingCategoryId(null);
+      return;
+    }
+
+    try {
+      setCategorySubmitting(true);
+      const categoryScreens = await CategoryService.getScreensByCategory(
+        pendingCategoryId,
+        getCategorySpecialties(pendingCategoryId)
+      );
+      const categoryScreenIds = categoryScreens.map((screen) => screen.id);
+      const currentSelected = data.selectedScreens as number[];
+      const currentSet = new Set(currentSelected);
+      const combined = combineIds<number>(currentSelected, categoryScreenIds);
+      const addedCount = combined.length - currentSelected.length;
+      const alreadySelectedCount = categoryScreenIds.filter((id) => currentSet.has(id)).length;
+
+      setScreenCache((prev) => {
+        const next = new Map(prev);
+        for (const screen of categoryScreens) {
+          next.set(Number(screen.id), screen);
+        }
+        return next;
+      });
+
+      const nextOrigins = mergeCategoryOrigins(getScreenOrigins(), categoryScreenIds, category.id, category.label);
+
+      onUpdate({
+        selectedScreens: combined,
+        selectedCategories: combineIds<string>(data.selectedCategories ?? [], [category.id]),
+        categorySpecialties: {
+          ...categorySpecialties,
+          [category.id]: getCategorySpecialties(category.id),
+        },
+        screenSelectionOrigins: nextOrigins,
+        valor_insercao_config: {
+          ...(data.valor_insercao_config ?? {}),
+          qtd_telas: combined.length,
+        },
+      });
+
+      if (addedCount === 0) {
+        if (categoryScreenIds.length === 0) {
+          toast.info(`Nenhum ponto disponível foi encontrado para a categoria "${category.label}".`);
+        } else {
+          toast.info(`Todos os pontos da categoria "${category.label}" já estavam na proposta.`);
+        }
+      } else if (alreadySelectedCount > 0) {
+        toast.success(`${addedCount} ponto(s) da categoria "${category.label}" adicionado(s). ${alreadySelectedCount} já estavam selecionados.`);
+      } else {
+        toast.success(`${addedCount} ponto(s) da categoria "${category.label}" adicionado(s) à proposta.`);
+      }
+
+      setPendingCategoryId(null);
+    } catch (error) {
+      console.error('Erro ao adicionar categoria:', error);
+      toast.error('Não foi possível adicionar os pontos da categoria.');
+    } finally {
+      setCategorySubmitting(false);
+    }
+  };
+
   const getUniqueLocations = (selectedIds: number[]) => {
     const selectedScreensData = selectedIds
       .map((id) => screenCache.get(Number(id)))
       .filter(Boolean);
     const locations = (selectedScreensData as any[]).map(s => `${s.city}, ${s.state}`);
     return [...new Set(locations)];
+  };
+
+  const renderSelectedPointsSummary = () => {
+    const selectedScreensByLocation: Record<string, any[]> = {};
+    const selectedFromCache = (data.selectedScreens as number[])
+      .map((id) => screenCache.get(Number(id)))
+      .filter(Boolean) as any[];
+
+    selectedFromCache.forEach((screen) => {
+      const key = `${screen.city}, ${screen.state}`;
+      if (!selectedScreensByLocation[key]) selectedScreensByLocation[key] = [];
+      selectedScreensByLocation[key].push(screen);
+    });
+
+    const entries = Object.entries(selectedScreensByLocation);
+
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Building2 className="w-5 h-5" />
+            Pontos adicionados por praça
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {entries.length === 0 ? (
+            <p className="text-sm text-gray-600">
+              Nenhum ponto encontrado no cache local. Tente clicar em "Atualizar/Buscar Telas" e adicionar novamente.
+            </p>
+          ) : (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between gap-3">
+                <div className="text-sm text-muted-foreground">
+                  {data.selectedScreens.length} ponto(s) adicionados na proposta
+                </div>
+                <Button variant="outline" size="sm" onClick={handleClearAddedPoints}>
+                  <X className="w-4 h-4 mr-1" />
+                  Limpar todos
+                </Button>
+              </div>
+              {entries.map(([location, locationScreens]) => (
+                <div key={location} className="p-3 border rounded-lg">
+                  <div className="flex items-center justify-between">
+                    <p className="font-medium">{location}</p>
+                    <Badge variant="outline">{locationScreens.length} ponto(s)</Badge>
+                  </div>
+                  <div className="mt-2 text-xs text-gray-600">
+                    {locationScreens.map((screen) => {
+                      const origin = getScreenOrigins()[String(screen.id)];
+                      return (
+                        <span key={screen.id} className="inline-flex items-center gap-2 mr-2 mb-1 rounded-md border bg-white px-2 py-1">
+                          <span>• {screen.display_name || screen.name} (#{screen.code || screen.id})</span>
+                          {origin?.source === 'category' && origin.categoryLabel ? (
+                            <Badge variant="outline" className="text-[10px]">
+                              {origin.categoryLabel}
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-[10px]">
+                              Manual
+                            </Badge>
+                          )}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-4 w-4 p-0 hover:bg-transparent"
+                            onClick={() => handleRemoveAddedPoint(Number(screen.id))}
+                          >
+                            <X className="w-3 h-3" />
+                          </Button>
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    );
+  };
+
+  const renderSelectedCategoriesSummary = () => {
+    if (selectedCategories.length === 0) return null;
+
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Layers3 className="w-5 h-5" />
+            Categorias adicionadas
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-wrap gap-3">
+            {selectedCategories.map((category) => (
+              <div
+                key={category.id}
+                className="flex items-center gap-3 rounded-lg border bg-muted/20 px-3 py-2"
+              >
+                <div>
+                  <div className="text-sm font-medium">{category.label}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {getCategoryCoverageCount(category.id)} ponto(s) atualmente vinculados
+                  </div>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleCategorySelectionChange(category.id, false)}
+                >
+                  <X className="w-4 h-4 mr-1" />
+                  Remover categoria
+                </Button>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    );
   };
 
   return (
@@ -638,6 +1153,10 @@ export const ScreenSelectionStep: React.FC<ScreenSelectionStepProps> = ({
         onFiltersChange={handleFiltersChange}
         onApplyFilters={handleApplyFilters}
         onClearFilters={handleClearFilters}
+        selectedCategoryIds={data.selectedCategories ?? []}
+        onCategorySelectChange={handleCategorySelectionChange}
+        categorySpecialties={categorySpecialties}
+        onCategorySpecialtiesChange={handleCategorySpecialtiesChange}
         loading={loading}
       />
 
@@ -772,56 +1291,6 @@ export const ScreenSelectionStep: React.FC<ScreenSelectionStepProps> = ({
             })}
           </div>
 
-          {/* Resumo por praça/cidade dos pontos adicionados (com base nas telas carregadas) */}
-          {data.selectedScreens.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Building2 className="w-5 h-5" />
-                  Pontos adicionados por praça
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {(() => {
-                  const selectedScreensByLocation: Record<string, any[]> = {};
-                  const selectedFromCache = (data.selectedScreens as number[])
-                    .map((id) => screenCache.get(Number(id)))
-                    .filter(Boolean) as any[];
-
-                  selectedFromCache.forEach(s => {
-                    const key = `${s.city}, ${s.state}`;
-                    if (!selectedScreensByLocation[key]) selectedScreensByLocation[key] = [];
-                    selectedScreensByLocation[key].push(s);
-                  });
-                  const entries = Object.entries(selectedScreensByLocation);
-                  if (entries.length === 0) {
-                    return (
-                      <p className="text-sm text-gray-600">Nenhum ponto encontrado no cache local. Tente clicar em "Atualizar/Buscar Telas" e adicionar novamente.</p>
-                    );
-                  }
-                  return (
-                    <div className="space-y-3">
-                      {entries.map(([location, locationScreens]) => (
-                        <div key={location} className="p-3 border rounded-lg">
-                          <div className="flex items-center justify-between">
-                            <p className="font-medium">{location}</p>
-                            <Badge variant="outline">{locationScreens.length} ponto(s)</Badge>
-                          </div>
-                          <div className="mt-2 text-xs text-gray-600">
-                            {locationScreens.map(s => (
-                              <span key={s.id} className="inline-block mr-2 mb-1">
-                                • {s.display_name || s.name} (#{s.code || s.id})
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  );
-                })()}
-              </CardContent>
-            </Card>
-          )}
         </div>
       ) : hasSearched ? (
         <div className="text-center py-12">
@@ -863,6 +1332,51 @@ export const ScreenSelectionStep: React.FC<ScreenSelectionStepProps> = ({
           </div>
         </div>
       )}
+
+      {data.selectedScreens.length > 0 && renderSelectedCategoriesSummary()}
+      {data.selectedScreens.length > 0 && renderSelectedPointsSummary()}
+      
+      <AlertDialog
+        open={!!pendingCategoryId}
+        onOpenChange={(open) => {
+          if (!open) setPendingCategoryId(null);
+        }}
+      >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Adicionar pontos por categoria</AlertDialogTitle>
+              <AlertDialogDescription asChild>
+                <div className="space-y-2 text-sm text-muted-foreground">
+                  <div>
+                    Deseja adicionar todos os pontos da categoria{' '}
+                    <span className="font-semibold text-foreground">
+                      "{CategoryService.getCategoryById(pendingCategoryId ?? '')?.label ?? pendingCategoryId}"
+                    </span>
+                    ?
+                  </div>
+                  <div>
+                    Pontos já selecionados não serão duplicados. Os novos pontos ficarão marcados
+                    com a origem da categoria no resumo da proposta.
+                  </div>
+                </div>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setPendingCategoryId(null)}>
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(event) => {
+                event.preventDefault();
+                void handleConfirmCategorySelection();
+              }}
+              disabled={categorySubmitting}
+            >
+              {categorySubmitting ? 'Adicionando...' : 'Adicionar pontos'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       
     </div>
@@ -951,6 +1465,13 @@ export const ConfigurationStep: React.FC<StepProps> = ({ data, onUpdate }) => {
     if (hasEspecial) return 'especial';
     return data.pricing_variant ?? 'avulsa';
   })();
+  const audienceMonthlyTotal = Number(
+    data.audience_base_monthly ??
+    data.valor_insercao_config?.audiencia_mes_base ??
+    0
+  ) || 0;
+  const audiencePeriodLabel = isDaysPeriod ? 'Audiência/Dia' : 'Audiência/Mês';
+  const impactsPeriodLabel = isDaysPeriod ? 'Impactos Estimados/Dia' : 'Impactos Estimados/Mês';
 
   const pricingSummary = useMemo(() => {
     try {
@@ -972,6 +1493,7 @@ export const ConfigurationStep: React.FC<StepProps> = ({ data, onUpdate }) => {
         discount_pct: data.discount_pct,
         discount_fixed: data.discount_fixed,
         avg_audience_per_insertion: data.avg_audience_per_insertion,
+        audience_monthly_total: audienceMonthlyTotal,
       });
 
       const variant = derivedPricingVariant;
@@ -1008,7 +1530,7 @@ export const ConfigurationStep: React.FC<StepProps> = ({ data, onUpdate }) => {
       console.warn('[ConfigurationStep] Falha ao calcular métricas da proposta:', error);
       return { metrics: null, breakdown: [] };
     }
-  }, [data, derivedPricingMode]);
+  }, [data, derivedPricingMode, audienceMonthlyTotal]);
 
   const pricingMetrics = pricingSummary.metrics;
   const pricingBreakdown = pricingSummary.breakdown;
@@ -1399,18 +1921,18 @@ export const ConfigurationStep: React.FC<StepProps> = ({ data, onUpdate }) => {
           )}
 
           <div className="pt-2">
-            <Label htmlFor="avg-audience">Audiência Média por Inserção</Label>
+            <Label htmlFor="avg-audience">{audiencePeriodLabel}</Label>
             <Input
               id="avg-audience"
               type="number"
               min="0"
               step="1"
-              value={data.avg_audience_per_insertion ?? 0}
-              onChange={(e) => onUpdate({ avg_audience_per_insertion: parseFloat(e.target.value) || 0 })}
+              value={pricingMetrics?.audiencePerPeriod ?? audienceMonthlyTotal ?? 0}
+              readOnly
               className="mt-2"
             />
             <p className="text-xs text-gray-500 mt-1">
-              Informe a média de pessoas impactadas a cada inserção (ex.: 100).
+              Valor calculado automaticamente a partir da audiência das telas selecionadas no inventário.
             </p>
           </div>
 
@@ -1499,7 +2021,7 @@ export const ConfigurationStep: React.FC<StepProps> = ({ data, onUpdate }) => {
                 <p className="text-2xl font-bold">{formatNumber(pricingMetrics.totalInsertions)}</p>
               </div>
               <div className="bg-white/10 rounded-lg p-4">
-                <p className="text-orange-100 text-xs uppercase tracking-wide">Impactos Estimados</p>
+                <p className="text-orange-100 text-xs uppercase tracking-wide">{impactsPeriodLabel}</p>
                 <p className="text-2xl font-bold">{formatNumber(pricingMetrics.impacts)}</p>
               </div>
               <div className="bg-white/10 rounded-lg p-4">
@@ -1623,6 +2145,7 @@ export const SummaryStep: React.FC<{ data: ProposalData }> = ({ data }) => {
       discount_pct: data.discount_pct,
       discount_fixed: data.discount_fixed,
       avg_audience_per_insertion: data.avg_audience_per_insertion,
+      audience_monthly_total: audienceMonthlyTotal,
     });
   };
 
@@ -1828,7 +2351,7 @@ export const SummaryStep: React.FC<{ data: ProposalData }> = ({ data }) => {
               <div className="text-2xl font-bold text-green-600">
                 {metrics.impacts.toLocaleString()}
               </div>
-              <div className="text-sm text-gray-600">Impactos Estimados</div>
+              <div className="text-sm text-gray-600">{impactsPeriodLabel}</div>
             </div>
 
             <div className="text-center p-4 bg-purple-50 rounded-lg">

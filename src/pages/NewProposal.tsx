@@ -246,7 +246,7 @@ const NewProposal = () => {
           const audienceBase = Number(data.valor_insercao_config?.audiencia_mes_base ?? 0);
           const avgAudiencePerInsertion = Number(data.avg_audience_per_insertion ?? 0);
           const audiencePerUnit = (audienceBase && audienceBase > 0)
-            ? audienceBase
+            ? (isDaysPeriod ? Math.round(audienceBase / Math.max(businessDaysPerMonth, 1)) : audienceBase)
             : (avgAudiencePerInsertion > 0 ? Math.round(avgAudiencePerInsertion * insertionsPerUnit) : undefined);
           const currencyFmt = '"R$" #,##0.00';
           const percentFmt = '0.00%';

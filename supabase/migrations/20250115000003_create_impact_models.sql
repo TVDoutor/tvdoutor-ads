@@ -44,6 +44,7 @@ BEGIN
 END;
 $$ language 'plpgsql';
 
+DROP TRIGGER IF EXISTS update_impact_models_updated_at ON public.impact_models;
 CREATE TRIGGER update_impact_models_updated_at
     BEFORE UPDATE ON public.impact_models
     FOR EACH ROW
@@ -72,6 +73,11 @@ DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='proposals') THEN
     ALTER TABLE public.proposals DROP CONSTRAINT IF EXISTS proposals_impact_formula_check;
+    -- Corrigir dados existentes que violariam a constraint (NULL ou valores inválidos -> 'A')
+    UPDATE public.proposals
+    SET impact_formula = 'A'
+    WHERE impact_formula IS NULL
+       OR impact_formula NOT IN ('A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J');
     ALTER TABLE public.proposals 
     ADD CONSTRAINT proposals_impact_formula_check 
     CHECK (impact_formula IN ('A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'));

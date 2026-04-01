@@ -30,8 +30,9 @@ export interface PricingInput {
   months_period?: number; // relevante quando period_unit = 'months'
   days_period?: number; // relevante quando period_unit = 'days'
 
-  // audiência base (por inserção)
-  avg_audience_per_insertion?: number; // default: 100
+  // audiência base
+  avg_audience_per_insertion?: number; // legado/manual
+  audience_monthly_total?: number; // soma da audiência mensal das telas selecionadas
 
   // modo por inserção
   pricing_mode?: PricingMode; // default: 'cpm'
@@ -48,6 +49,7 @@ export interface PricingInput {
 export interface PricingMetrics {
   screens: number;
   totalInsertions: number;
+  audiencePerPeriod: number;
   impacts: number;
   grossValue: number;
   netValue: number;
@@ -95,10 +97,48 @@ export function computeTotalInsertions(input: PricingInput): number {
 }
 
 /**
- * Impactos estimados: totalInsertions * audiência média por inserção (default = 100).
+ * Determina a audiência de referência do período para cálculo de impactos.
+ * - months: usa audiência mensal total das telas
+ * - days: distribui a audiência mensal pelos dias úteis base
+ * - fallback legado: média manual por inserção * inserções do período
  */
-export function computeImpacts(totalInsertions: number, avgAudiencePerInsertion?: number): number {
-  const avg = typeof avgAudiencePerInsertion === 'number' && avgAudiencePerInsertion > 0 ? avgAudiencePerInsertion : 100;
+export function computeAudiencePerPeriod(input: PricingInput, totalInsertions: number): number {
+  const monthlyAudience = typeof input.audience_monthly_total === 'number' && input.audience_monthly_total > 0
+    ? input.audience_monthly_total
+    : 0;
+
+  if (monthlyAudience > 0) {
+    if ((input.period_unit ?? 'months') === 'days') {
+      const businessDaysPerMonth = input.business_days_per_month ?? 22;
+      return Math.round(monthlyAudience / Math.max(businessDaysPerMonth, 1));
+    }
+    return monthlyAudience;
+  }
+
+  const avg = typeof input.avg_audience_per_insertion === 'number' && input.avg_audience_per_insertion > 0
+    ? input.avg_audience_per_insertion
+    : 100;
+  return totalInsertions * avg;
+}
+
+/**
+ * Impactos estimados:
+ * - regra atual: audiência do período × inserções/hora
+ * - fallback legado: totalInsertions × audiência média por inserção
+ */
+export function computeImpacts(input: PricingInput, totalInsertions: number): number {
+  const monthlyAudience = typeof input.audience_monthly_total === 'number' && input.audience_monthly_total > 0
+    ? input.audience_monthly_total
+    : 0;
+
+  if (monthlyAudience > 0) {
+    const audiencePerPeriod = computeAudiencePerPeriod(input, totalInsertions);
+    return audiencePerPeriod * (input.insertions_per_hour || 0);
+  }
+
+  const avg = typeof input.avg_audience_per_insertion === 'number' && input.avg_audience_per_insertion > 0
+    ? input.avg_audience_per_insertion
+    : 100;
   return totalInsertions * avg;
 }
 
@@ -166,13 +206,15 @@ export function calculateProposalMetrics(input: PricingInput): PricingMetrics {
   const pricingVariant = input.pricing_variant ?? 'avulsa';
 
   const totalInsertions = computeTotalInsertions(input);
-  const impacts = computeImpacts(totalInsertions, input.avg_audience_per_insertion);
+  const audiencePerPeriod = computeAudiencePerPeriod(input, totalInsertions);
+  const impacts = computeImpacts(input, totalInsertions);
 
   if (pricingMode === 'insertion') {
     const { gross, net, missingPriceFor } = computeInsertionModeValue(input, totalInsertions);
     return {
       screens,
       totalInsertions,
+      audiencePerPeriod,
       impacts,
       grossValue: gross,
       netValue: net,
@@ -189,6 +231,7 @@ export function calculateProposalMetrics(input: PricingInput): PricingMetrics {
   return {
     screens,
     totalInsertions,
+    audiencePerPeriod,
     impacts,
     grossValue: gross,
     netValue: net,

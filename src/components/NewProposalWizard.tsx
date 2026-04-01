@@ -11,6 +11,16 @@ import { ProposalSummaryStep } from "./wizard/ProposalSummaryStep";
 export type ProposalType = 'avulsa' | 'projeto';
 
 export interface ProposalData {
+  selectedCategories?: string[];
+  categorySpecialties?: Record<string, string[]>;
+  screenSelectionOrigins?: Record<string, {
+    source?: 'manual' | 'category';
+    manual?: boolean;
+    categoryId?: string;
+    categoryLabel?: string;
+    categoryIds?: string[];
+    categoryLabels?: string[];
+  }>;
   // Informações básicas
   customer_name: string;
   customer_email?: string;
@@ -48,6 +58,9 @@ const STEPS = [
 export const NewProposalWizard = ({ onComplete, onCancel }: NewProposalWizardProps) => {
   const [currentStep, setCurrentStep] = useState(0);
   const [proposalData, setProposalData] = useState<ProposalData>({
+    selectedCategories: [],
+    categorySpecialties: {},
+    screenSelectionOrigins: {},
     customer_name: '',
     customer_email: '',
     proposal_type: 'avulsa',

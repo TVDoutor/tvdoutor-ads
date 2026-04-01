@@ -29,6 +29,16 @@ import { parseCepText, batchFindScreensByCEPs } from '@/lib/cep-batch';
 import { validateWizardStep } from '@/utils/validations/proposal-wizard';
 
 export interface ProposalData {
+  selectedCategories?: string[];
+  categorySpecialties?: Record<string, string[]>;
+  screenSelectionOrigins?: Record<string, {
+    source?: 'manual' | 'category';
+    manual?: boolean;
+    categoryId?: string;
+    categoryLabel?: string;
+    categoryIds?: string[];
+    categoryLabels?: string[];
+  }>;
   proposal_type: ('avulsa' | 'projeto' | 'patrocinio_editorial')[];
   customer_name: string;
   customer_email: string;
@@ -108,6 +118,9 @@ const STEPS = [
 ];
 
 const getDefaultData = (): ProposalData => ({
+  selectedCategories: [],
+  categorySpecialties: {},
+  screenSelectionOrigins: {},
   proposal_type: [],
   customer_name: '',
   customer_email: '',
@@ -768,6 +781,7 @@ export const NewProposalWizardImproved: React.FC<NewProposalWizardProps> = ({
         const selectedIds = Array.isArray(data.selectedScreens) ? data.selectedScreens : [];
         if (selectedIds.length === 0) {
           updateData({
+            audience_base_monthly: 0,
             valor_insercao_config: {
               ...(data.valor_insercao_config ?? {}),
               audiencia_mes_base: 0,
@@ -779,21 +793,20 @@ export const NewProposalWizardImproved: React.FC<NewProposalWizardProps> = ({
 
         const { data: screensRows } = await supabase
           .from('screens')
-          .select('id, venue_id')
+          .select('id, audience_monthly, audiencia_pacientes, audiencia_local')
           .in('id', selectedIds);
 
-        const venueIds = Array.from(new Set((screensRows || []).map((r: any) => r.venue_id).filter(Boolean)));
-
-        let totalMonthlyAudience = 0;
-        if (venueIds.length > 0) {
-          const { data: audienceRows } = await supabase
-            .from('venue_audience_monthly')
-            .select('venue_id, audience')
-            .in('venue_id', venueIds);
-          totalMonthlyAudience = (audienceRows || []).reduce((sum: number, row: any) => sum + (Number(row.audience) || 0), 0);
-        }
+        const totalMonthlyAudience = (screensRows || []).reduce((sum: number, row: any) => {
+          const audience =
+            Number(row.audience_monthly ?? 0) ||
+            Number(row.audiencia_pacientes ?? 0) ||
+            Number(row.audiencia_local ?? 0) ||
+            0;
+          return sum + audience;
+        }, 0);
 
         updateData({
+          audience_base_monthly: totalMonthlyAudience,
           valor_insercao_config: {
             ...(data.valor_insercao_config ?? {}),
             audiencia_mes_base: totalMonthlyAudience,
@@ -801,7 +814,7 @@ export const NewProposalWizardImproved: React.FC<NewProposalWizardProps> = ({
           },
         });
       } catch (err) {
-        console.warn('[Wizard] Falha ao atualizar audiência mensal de venues selecionados:', err);
+        console.warn('[Wizard] Falha ao atualizar audiência mensal das telas selecionadas:', err);
       }
     };
 

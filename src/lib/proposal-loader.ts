@@ -6,6 +6,9 @@ import { supabase } from '@/integrations/supabase/client';
 import type { ProposalData } from '@/components/NewProposalWizardImproved';
 
 const DEFAULT_PROJECT_DATA: ProposalData = {
+  selectedCategories: [],
+  categorySpecialties: {},
+  screenSelectionOrigins: {},
   proposal_type: [],
   customer_name: '',
   customer_email: '',
@@ -107,6 +110,9 @@ export async function loadProposalForEdit(proposalId: number): Promise<{ data: P
 
   const insertionPrices = quote?.insertion_prices;
   const discountsPerInsertion = quote?.discounts_per_insertion;
+  const selectionMetadata = (quote?.selection_metadata && typeof quote.selection_metadata === 'object'
+    ? quote.selection_metadata
+    : {}) as Record<string, any>;
 
   const data: ProposalData = {
     ...DEFAULT_PROJECT_DATA,
@@ -114,6 +120,20 @@ export async function loadProposalForEdit(proposalId: number): Promise<{ data: P
     customer_name: proposal.customer_name || '',
     customer_email: proposal.customer_email || '',
     selectedScreens,
+    selectedCategories: Array.isArray(selectionMetadata.selected_category_ids)
+      ? selectionMetadata.selected_category_ids.filter((value: unknown): value is string => typeof value === 'string')
+      : [],
+    categorySpecialties: selectionMetadata.category_specialties && typeof selectionMetadata.category_specialties === 'object'
+      ? Object.fromEntries(
+          Object.entries(selectionMetadata.category_specialties).map(([key, value]) => [
+            key,
+            Array.isArray(value) ? value.filter((item: unknown): item is string => typeof item === 'string') : [],
+          ])
+        )
+      : {},
+    screenSelectionOrigins: selectionMetadata.screen_origins && typeof selectionMetadata.screen_origins === 'object'
+      ? selectionMetadata.screen_origins as Record<string, ProposalData['screenSelectionOrigins'][string]>
+      : {},
     film_seconds: filmSeconds,
     insertions_per_hour: toNum(proposal.insertions_per_hour) || 6,
     cpm_mode: (proposal.cpm_mode || quote?.pricing_mode === 'insertion' ? 'valor_insercao' : 'manual') as 'manual' | 'blended' | 'valor_insercao',

@@ -1,8 +1,8 @@
 # Mapeamento Completo do Sistema - TV Doutor ADS
 
 **Data de Criação**: 10/10/2025  
-**Última Atualização**: 19/02/2026  
-**Versão do Sistema**: 1.2.1  
+**Última Atualização**: 08/04/2026  
+**Versão do Sistema**: 1.3.0  
 **Tipo de Projeto**: Plataforma de Gestão de Publicidade Digital Out-of-Home (DOOH)
 
 ---
@@ -32,7 +32,9 @@ O sistema possui um modelo hierárquico de roles:
    - Wizard de criação em 4 etapas
    - Cálculos automáticos de impactos e valores (CPM)
    - Geração de PDF profissional
+   - **NOVO:** Link público para visualização do mapa da proposta (token UUID)
    - Sistema de status (rascunho, enviada, em análise, aceita, rejeitada)
+   - **NOVO:** Exportação Excel da aba `Pontos` com campos comerciais ampliados (`Capital/Interior`, `Espaço`, `Ambiente`, `Restrições`, `Programática`, `CEP`)
 
 2. **Gerenciamento de Agências e Projetos**
    - Cadastro completo de agências
@@ -211,6 +213,7 @@ tvdoutor-ads/
 - `NewProposal`: Wizard de criação de propostas
 - `Propostas`: Listagem de propostas
 - `ProposalDetails`: Detalhes de uma proposta
+- **NOVO:** `PublicProposalMap`: Visualização pública de mapa por token (`/mapa-proposta/:token`)
 - `InteractiveMap`: Mapa interativo de telas
 - `Inventory`: Gerenciamento de inventário
 - `Agencias`: Gestão de agências
@@ -259,6 +262,7 @@ tvdoutor-ads/
 9. **NOVO:** `user-sessions`: Gerencia sessões de usuários online
 10. **NOVO:** `marco-templates`: Templates de marcos de projeto
 11. **NOVO:** `generate-pdf-proposal`: Variante de geração de PDF
+12. **NOVO:** `public-proposal-map`: endpoint público para renderização do mapa de pontos por token
 
 ### 2.4 Fluxos de Integração
 
@@ -658,6 +662,40 @@ function calculateDistance(lat1, lng1, lat2, lng2) {
 **Estatísticas do Dashboard:**
 - Correção de caminhos: `stats?.proposals?.total`, `stats?.proposals?.accepted`, `stats?.agencies?.total` (estrutura aninhada de `DashboardStats`)
 - Aplicado em `Dashboard.tsx` e `Dashboard_New.tsx`
+
+### 2.5.11 Export Comercial e Mapa Público (v1.3.0)
+
+**Descrição**: Ampliação do export de proposta para aderência ao modelo comercial manual e disponibilização de visualização pública de mapa por token.
+
+**Escopo funcional:**
+- Export da aba `Pontos` agora inclui:
+  - `Capital / interior` (derivado por cidade/UF)
+  - `Espaço` (mapeado de tipologia: `espaco`/`venue_type_parent`/`category`)
+  - `Classe`
+  - `Ambiente`
+  - `Restrições`
+  - `Programática`
+  - `CEP`
+- Aplicado nos dois fluxos de geração de Excel:
+  - `NewProposal` (finalização de proposta)
+  - `ProposalDetails` (download posterior)
+- Inclusão de rota pública:
+  - `/mapa-proposta/:token`
+  - consumo da Edge Function `public-proposal-map`
+
+**Mudanças de dados e backend:**
+- Migration adicionando colunas em `screens`:
+  - `restricoes` (text)
+  - `programatica` (text)
+- Atualização da `v_screens_enriched` para expor os novos campos.
+- Atualização da RPC `add_screen_as_admin(jsonb)` para aceitar os novos atributos.
+- Token público por proposta em `proposals`:
+  - `public_map_token` (uuid)
+  - `public_map_token_created_at` (timestamptz)
+
+**Compatibilidade operacional:**
+- Fluxo de inventário/importação atualizado para preencher e persistir `restricoes` e `programatica`.
+- Link público de mapa habilitado para propostas com token válido, incluindo rascunho.
 
 ---
 
@@ -2053,6 +2091,19 @@ SUPABASE_SERVICE_ROLE_KEY=<SERVICE_KEY>
   - ✅ Correção de paths em stats do Dashboard (`proposals.total`, `agencies.total`)
   - ✅ Campo `activeProjects` em `useFilteredStats` (opcional)
 - **Referências**: `FunnelWidget.tsx`, `Propostas.tsx`, `design-tokens.css`, `Dashboard.tsx`
+
+### 08/04/2026 - Export Comercial e Mapa Público (v1.3.0)
+- **Atualização**: alinhamento do export de proposta com planilha comercial manual + disponibilização de mapa público por token.
+- **Escopo**:
+  - ✅ Novos campos no Excel (`Pontos`): `Capital / interior`, `Espaço`, `Ambiente`, `Restrições`, `Programática`, `CEP` (mantendo `Classe`)
+  - ✅ Regras de derivação para `Capital / interior` e mapeamento de `Espaço`
+  - ✅ Nova rota pública `/mapa-proposta/:token`
+  - ✅ Nova Edge Function `public-proposal-map` para leitura pública de pontos por token
+  - ✅ Colunas adicionadas em `screens`: `restricoes`, `programatica`
+  - ✅ `v_screens_enriched` atualizada para expor novos campos
+  - ✅ RPC `add_screen_as_admin(jsonb)` atualizada para suportar novos campos
+  - ✅ Importador Excel de inventário atualizado para persistir `restricoes` e `programatica`
+- **Referências**: `src/pages/NewProposal.tsx`, `src/pages/ProposalDetails.tsx`, `src/pages/PublicProposalMap.tsx`, `supabase/functions/public-proposal-map/index.ts`, migrations de 2026-04-08.
 
 ### 18/02/2026 - Deploy e Configuração
 - **Atualização**: CI/CD via GitHub Actions e documentação de secrets

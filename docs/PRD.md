@@ -21,6 +21,7 @@ Sistema web para gestao de propostas, campanhas e ativos de midia da TVDoutor, c
 - Autenticacao, controle de acesso e reset de senha.
 - Dashboard e metricas operacionais.
 - Propostas: criacao (wizard), listagem, detalhes, exportacao/PDF.
+- Propostas: link publico de mapa por token (`/mapa-proposta/:token`) para compartilhamento externo.
 - Campanhas e locais (venues) com visao e detalhes.
 - Inventario de telas e farmacias.
 - Mapa interativo e heatmap geoespacial.
@@ -45,6 +46,7 @@ Sistema web para gestao de propostas, campanhas e ativos de midia da TVDoutor, c
 
 ## Mapeamento funcional (rotas e modulos)
 - Publico: `/login`, `/reset-password`, `/resultados`.
+- Publico (mapa de proposta): `/mapa-proposta/:token`.
 - Dashboard: `/dashboard` (inclui Funil de Conversao, KPIs, Filtros, Propostas Recentes).
 - Propostas: `/nova-proposta`, `/propostas`, `/propostas/:id`.
 - Campanhas: `/campaigns`, `/campaigns/:id`.
@@ -94,6 +96,14 @@ Sistema web para gestao de propostas, campanhas e ativos de midia da TVDoutor, c
 - RF-12: Visualizar detalhes e gerar PDF.
   - CA-11: Detalhe abre com dados completos da proposta.
   - CA-12: Exportacao gera PDF sem erro e com layout esperado.
+- RF-13: Exportar proposta em Excel com campos comerciais ampliados na aba `Pontos`.
+  - CA-13: Arquivo exportado contem colunas `Capital / interior`, `Espaço`, `Classe`, `Ambiente`, `Restrições`, `Programática`, `CEP`.
+  - CA-14: `Capital / interior` e derivado corretamente por cidade/UF com fallback vazio.
+  - CA-15: `Espaço` e preenchido por tipologia do ponto (`espaco`/`venue_type_parent`/`category`) com fallback vazio.
+- RF-14: Compartilhar mapa público da proposta por token opaco (UUID).
+  - CA-16: Ao clicar em "Copiar link do mapa", sistema gera (se necessario) e copia URL publica.
+  - CA-17: URL publica renderiza apenas dados de mapa (titulo + pontos com lat/lng/codigo/nome), sem dados financeiros.
+  - CA-18: URL publica funciona para propostas com token valido, incluindo rascunho.
 
 ### Campanhas e locais (venues)
 - RF-20: Criar e editar campanhas.
@@ -106,6 +116,9 @@ Sistema web para gestao de propostas, campanhas e ativos de midia da TVDoutor, c
 ### Inventario e telas
 - RF-30: Gerenciar inventario e telas.
   - CA-16: Cadastro/edicao reflete em listagens e detalhes.
+- RF-30b: Persistir metadados comerciais de tela para export de proposta.
+  - CA-16b: Inventario permite salvar `restricoes` e `programatica` na entidade `screens`.
+  - CA-16c: Importacao de inventario preenche `restricoes` e `programatica` quando presentes no arquivo fonte.
 - RF-31: Upload e armazenamento de imagens de telas.
   - CA-17: Upload valida tipo/tamanho e retorna URL publica.
 

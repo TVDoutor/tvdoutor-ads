@@ -17,6 +17,13 @@ export const ScreenSchema = z
     city: z.string().optional().nullable(),
     state: z.string().optional().nullable(),
     class: z.string().optional().nullable(),
+    cep: z.string().optional().nullable(),
+    ambiente: z.string().optional().nullable(),
+    restricoes: z.string().optional().nullable(),
+    programatica: z.string().optional().nullable(),
+    venue_type_parent: z.string().optional().nullable(),
+    staging_tipo_venue: z.string().optional().nullable(),
+    espaco: z.string().optional().nullable(),
     // Campos adicionais possíveis vindos da API
     category: z.string().optional().nullable(),
     board_format: z.string().optional().nullable(),
@@ -83,6 +90,9 @@ export const ProposalDetailsSchema = z.object({
   proposal_screens: z.array(ProposalScreenSchema).optional(),
   // projeto
   agencia_projetos: z.any().optional(),
+  /** Link público do mapa (UUID); preenchido sob demanda */
+  public_map_token: z.string().optional().nullable(),
+  public_map_token_created_at: z.string().optional().nullable(),
 });
 
 export type ProposalDetailsParsed = z.infer<typeof ProposalDetailsSchema>;

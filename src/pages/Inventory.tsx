@@ -179,6 +179,8 @@ type InventoryRow = {
 
   // Novos campos venue/details
   ambiente: string | null;
+  restricoes: string | null;
+  programatica: string | null;
   audiencia_pacientes: number | null;
   audiencia_local: number | null;
   audiencia_hcp: number | null;
@@ -218,6 +220,8 @@ interface Screen {
   /** Audiência mensal (editável; espelhada de venue_info.audience_monthly / staging_audiencia) */
   audience_monthly?: number | null;
   ambiente?: string | null;
+  restricoes?: string | null;
+  programatica?: string | null;
   audiencia_pacientes?: number | null;
   audiencia_local?: number | null;
   audiencia_hcp?: number | null;
@@ -352,7 +356,7 @@ const Inventory = () => {
             venue_name, venue_address, venue_country, venue_state, venue_district,
             staging_nome_ponto, staging_audiencia, staging_especialidades,
             staging_tipo_venue, staging_subtipo, staging_categoria,
-            ambiente, audiencia_pacientes, audiencia_local, audiencia_hcp, audiencia_medica, aceita_convenio
+            ambiente, restricoes, programatica, audiencia_pacientes, audiencia_local, audiencia_hcp, audiencia_medica, aceita_convenio
           `)
           .order('code', { ascending: true })
           .range(from, from + PAGE_SIZE - 1);
@@ -422,6 +426,8 @@ const Inventory = () => {
           audience_monthly: r.staging_audiencia ?? undefined,
 
           ambiente: r.ambiente ?? undefined,
+          restricoes: r.restricoes ?? undefined,
+          programatica: r.programatica ?? undefined,
           audiencia_pacientes: r.audiencia_pacientes ?? undefined,
           audiencia_local: r.audiencia_local ?? undefined,
           audiencia_hcp: r.audiencia_hcp ?? undefined,
@@ -684,6 +690,8 @@ const Inventory = () => {
         lat: editingScreen.lat ?? null,
         lng: editingScreen.lng ?? null,
         ambiente: editingScreen.ambiente ?? null,
+        restricoes: editingScreen.restricoes ?? null,
+        programatica: editingScreen.programatica ?? null,
         audiencia_pacientes: editingScreen.audiencia_pacientes ?? null,
         audiencia_local: editingScreen.audiencia_local ?? null,
         audiencia_hcp: editingScreen.audiencia_hcp ?? null,
@@ -743,6 +751,8 @@ const Inventory = () => {
           audience_monthly: editingScreen.audience_monthly ?? editingScreen.venue_info?.audience_monthly,
         },
         ambiente: editingScreen.ambiente ?? null,
+        restricoes: editingScreen.restricoes ?? null,
+        programatica: editingScreen.programatica ?? null,
         audiencia_pacientes: editingScreen.audiencia_pacientes ?? null,
         audiencia_local: editingScreen.audiencia_local ?? null,
         audiencia_hcp: editingScreen.audiencia_hcp ?? null,
@@ -830,6 +840,8 @@ const Inventory = () => {
         lat: newScreen.lat || null,
         lng: newScreen.lng || null,
         ambiente: newScreen.ambiente ?? null,
+        restricoes: newScreen.restricoes ?? null,
+        programatica: newScreen.programatica ?? null,
         audiencia_pacientes: newScreen.audiencia_pacientes ?? null,
         audiencia_local: newScreen.audiencia_local ?? null,
         audiencia_hcp: newScreen.audiencia_hcp ?? null,

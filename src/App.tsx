@@ -40,6 +40,7 @@ import { HeatmapTest } from "./components/HeatmapTest";
 import { SimpleHeatmap } from "./components/SimpleHeatmap";
 import Pharmacies from "./pages/Pharmacies";
 import ProfissionaisSaude from "./pages/ProfissionaisSaude";
+import PublicProposalMap from "./pages/PublicProposalMap";
 
 const queryClient = new QueryClient();
 
@@ -78,6 +79,9 @@ const App = () => {
             
             {/* Rota pública de reset de senha */}
             <Route path="/reset-password" element={<ResetPassword />} />
+
+            {/* Mapa público da proposta (token opaco; sem login) */}
+            <Route path="/mapa-proposta/:token" element={<PublicProposalMap />} />
             
             {/* Rotas protegidas - Dashboard */}
             <Route path="/dashboard" element={

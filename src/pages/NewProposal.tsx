@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import ExcelJS from "exceljs";
 import { getScreensByIds } from "@/lib/screen-service";
+import { getCapitalInterior, getExportEspaco } from "@/lib/proposal-export-fields";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -215,7 +216,13 @@ const NewProposal = () => {
             { header: 'ID', key: 'id', width: 10 },
             { header: 'Código', key: 'code', width: 14 },
             { header: 'Nome', key: 'name', width: 32 },
+            { header: 'Capital / interior', key: 'capital_interior', width: 18 },
+            { header: 'Espaço', key: 'espaco', width: 20 },
             { header: 'Classe', key: 'class', width: 12 },
+            { header: 'Ambiente', key: 'ambiente', width: 16 },
+            { header: 'Restrições', key: 'restricoes', width: 24 },
+            { header: 'Programática', key: 'programatica', width: 18 },
+            { header: 'CEP', key: 'cep', width: 12 },
             { header: 'Tipo', key: 'type', width: 16 },
             { header: 'Endereço', key: 'address', width: 40 },
             { header: 'Cidade', key: 'city', width: 18 },
@@ -227,7 +234,13 @@ const NewProposal = () => {
             code: extractScreenCode(r),
             // Preferir o nome de exibição (Inventário) para o "Nome" do ponto
             name: r.display_name ?? r.venue_name ?? r.name ?? '',
+            capital_interior: getCapitalInterior(r.city, r.state),
+            espaco: getExportEspaco(r),
             class: r.class ?? '',
+            ambiente: r.ambiente ?? '',
+            restricoes: r.restricoes ?? '',
+            programatica: r.programatica ?? '',
+            cep: r.cep ?? '',
             type: r.category ?? r.screen_type ?? '',
             address:
               r.address ??

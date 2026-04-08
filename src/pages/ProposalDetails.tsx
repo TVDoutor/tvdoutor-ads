@@ -23,7 +23,8 @@ import {
   Target,
   Clock,
   TrendingUp,
-  FileText
+  FileText,
+  Share2,
 } from "lucide-react";
 import { FileSpreadsheet } from "lucide-react";
 import ExcelJS from "exceljs";
@@ -35,6 +36,7 @@ import { normalizeProposal } from "@/utils/validations/proposal";
 import { calculateProposalMetrics, getSelectedDurations } from "@/lib/pricing";
 import { ProposalScreensMap } from "@/components/wizard/ProposalScreensMap";
 import { parseLatLng, getScreenPointCode } from "@/lib/geo";
+import { getCapitalInterior, getExportEspaco } from "@/lib/proposal-export-fields";
 
 interface ProposalDetails {
   id: number;
@@ -66,6 +68,8 @@ interface ProposalDetails {
     email_empresa?: string;
     telefone_empresa?: string;
   };
+  public_map_token?: string | null;
+  public_map_token_created_at?: string | null;
   agencia_projetos?: {
     id: string;
     nome_projeto: string;
@@ -88,7 +92,13 @@ interface ProposalDetails {
       city: string;
       state: string;
       class: string;
+      cep?: string;
       venue_id?: number;
+      ambiente?: string;
+      restricoes?: string;
+      programatica?: string;
+      venue_type_parent?: string;
+      staging_tipo_venue?: string;
       venues?: {
         id: number;
         name: string;
@@ -102,6 +112,7 @@ const ProposalDetails = () => {
   const navigate = useNavigate();
   const [proposal, setProposal] = useState<ProposalDetails | null>(null);
   const [loading, setLoading] = useState(true);
+  const [copyingMapLink, setCopyingMapLink] = useState(false);
 
   const {
     viewMode,
@@ -273,52 +284,122 @@ const ProposalDetails = () => {
   const fetchProposal = async (proposalId: number) => {
     try {
       setLoading(true);
-      
-      const { data, error } = await supabase
-        .from('proposals')
-        .select(`
-          *,
-          projeto_id,
-          agencia_id,
-          agencias (
+      const proposalSelectV2 = `
+        *,
+        projeto_id,
+        agencia_id,
+        agencias (
+          id,
+          nome_agencia,
+          email_empresa,
+          telefone_empresa
+        ),
+        proposal_screens (
+          id,
+          screen_id,
+          custom_cpm,
+          screens (
             id,
-            nome_agencia,
-            email_empresa,
-            telefone_empresa
-          ),
-          proposal_screens (
-            id,
-            screen_id,
-            custom_cpm,
-            screens (
+            code,
+            name,
+            display_name,
+            category,
+            google_formatted_address,
+            address_raw,
+            city,
+            state,
+            lat,
+            lng,
+            class,
+            cep,
+            venue_id,
+            ambiente,
+            restricoes,
+            programatica,
+            venue_type_parent,
+            venue_type_child,
+            venue_type_grandchildren,
+            audiencia_pacientes,
+            audiencia_local,
+            audiencia_hcp,
+            audiencia_medica,
+            aceita_convenio,
+            venues (
               id,
-              code,
-              name,
-              display_name,
-              category,
-              google_formatted_address,
-              address_raw,
-              city,
-              state,
-              lat,
-              lng,
-              class,
-              venue_id,
-              ambiente,
-              audiencia_pacientes,
-              audiencia_local,
-              audiencia_hcp,
-              audiencia_medica,
-              aceita_convenio,
-              venues (
-                id,
-                name
-              )
+              name
             )
           )
-        `)
+        )
+      `;
+
+      const proposalSelectFallback = `
+        *,
+        projeto_id,
+        agencia_id,
+        agencias (
+          id,
+          nome_agencia,
+          email_empresa,
+          telefone_empresa
+        ),
+        proposal_screens (
+          id,
+          screen_id,
+          custom_cpm,
+          screens (
+            id,
+            code,
+            name,
+            display_name,
+            category,
+            google_formatted_address,
+            address_raw,
+            city,
+            state,
+            lat,
+            lng,
+            class,
+            cep,
+            venue_id,
+            ambiente,
+            venue_type_parent,
+            venue_type_child,
+            venue_type_grandchildren,
+            audiencia_pacientes,
+            audiencia_local,
+            audiencia_hcp,
+            audiencia_medica,
+            aceita_convenio,
+            venues (
+              id,
+              name
+            )
+          )
+        )
+      `;
+
+      let data: any = null;
+      let error: any = null;
+
+      const firstTry = await supabase
+        .from('proposals')
+        .select(proposalSelectV2)
         .eq('id', proposalId)
         .single();
+
+      data = firstTry.data;
+      error = firstTry.error;
+
+      // Compatibilidade com ambientes sem as colunas novas em screens.
+      if (error && error.code === 'PGRST204') {
+        const retry = await supabase
+          .from('proposals')
+          .select(proposalSelectFallback)
+          .eq('id', proposalId)
+          .single();
+        data = retry.data;
+        error = retry.error;
+      }
 
       if (error) throw error;
       if (!data) throw new Error('Proposta não encontrada');
@@ -440,6 +521,42 @@ const ProposalDetails = () => {
     }
   };
 
+  const handleCopyPublicMapLink = async () => {
+    if (!proposal) return;
+    try {
+      setCopyingMapLink(true);
+      let token = proposal.public_map_token ?? null;
+      if (!token) {
+        token = crypto.randomUUID();
+        const { error } = await supabase
+          .from('proposals')
+          .update({
+            public_map_token: token,
+            public_map_token_created_at: new Date().toISOString(),
+          })
+          .eq('id', proposal.id);
+        if (error) throw error;
+        setProposal((prev) =>
+          prev
+            ? {
+                ...prev,
+                public_map_token: token,
+                public_map_token_created_at: new Date().toISOString(),
+              }
+            : null
+        );
+      }
+      const url = `${window.location.origin}/mapa-proposta/${token}`;
+      await navigator.clipboard.writeText(url);
+      toast.success('Link do mapa copiado');
+    } catch (e) {
+      console.error(e);
+      toast.error('Não foi possível gerar ou copiar o link');
+    } finally {
+      setCopyingMapLink(false);
+    }
+  };
+
   const handleGeneratePDF = async () => {
     try {
       if (!proposal) {
@@ -490,7 +607,13 @@ const ProposalDetails = () => {
           // "Nome" deve ser o nome de exibição do ponto (Inventário), não o "name" técnico
           // (em muitos cadastros, `name` é só o código)
           name: screen?.display_name ?? screen?.venues?.name ?? screen?.name ?? '',
+          capital_interior: getCapitalInterior(screen?.city, screen?.state),
+          espaco: getExportEspaco(screen as any),
           class: screen?.class ?? '',
+          ambiente: (screen as any)?.ambiente ?? '',
+          restricoes: (screen as any)?.restricoes ?? '',
+          programatica: (screen as any)?.programatica ?? '',
+          cep: (screen as any)?.cep ?? '',
           type: (screen as any)?.category ?? (screen as any)?.screen_type ?? '',
           address:
             (screen as any)?.google_formatted_address ??
@@ -516,7 +639,13 @@ const ProposalDetails = () => {
         { header: 'ID', key: 'id', width: 10 },
         { header: 'Código', key: 'code', width: 14 },
         { header: 'Nome', key: 'name', width: 32 },
+        { header: 'Capital / interior', key: 'capital_interior', width: 18 },
+        { header: 'Espaço', key: 'espaco', width: 20 },
         { header: 'Classe', key: 'class', width: 12 },
+        { header: 'Ambiente', key: 'ambiente', width: 16 },
+        { header: 'Restrições', key: 'restricoes', width: 24 },
+        { header: 'Programática', key: 'programatica', width: 18 },
+        { header: 'CEP', key: 'cep', width: 12 },
         { header: 'Tipo', key: 'type', width: 16 },
         { header: 'Endereço', key: 'address', width: 40 },
         { header: 'Cidade', key: 'city', width: 18 },
@@ -849,6 +978,15 @@ const ProposalDetails = () => {
                 >
                   <FileSpreadsheet className="h-4 w-4 mr-2" />
                   Excel
+                </Button>
+                <Button
+                  type="button"
+                  onClick={handleCopyPublicMapLink}
+                  disabled={loading || copyingMapLink}
+                  className="bg-white/10 hover:bg-white/20 text-white border border-white/20"
+                >
+                  <Share2 className="h-4 w-4 mr-2" />
+                  {copyingMapLink ? 'Copiando…' : 'Copiar link do mapa'}
                 </Button>
               </div>
             </div>

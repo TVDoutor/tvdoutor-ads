@@ -13,6 +13,8 @@ interface CreateUserRequest {
   role?: 'user' | 'manager' | 'admin' | 'super_admin';
 }
 
+const ALLOWED_SIGNUP_DOMAIN = 'tvdoutor.com.br'
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -82,6 +84,13 @@ serve(async (req) => {
     if (!emailRegex.test(email)) {
       return new Response(
         JSON.stringify({ error: 'Formato de email inválido' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    if (!email.toLowerCase().trim().endsWith(`@${ALLOWED_SIGNUP_DOMAIN}`)) {
+      return new Response(
+        JSON.stringify({ error: `Cadastro temporariamente restrito a emails @${ALLOWED_SIGNUP_DOMAIN}` }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }

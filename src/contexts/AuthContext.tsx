@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { logDebug, logWarn, logError, logAuthSuccess, logAuthError } from '@/utils/secureLogger';
 import { userSessionService } from '@/lib/user-session-service';
+import { getAllowedSignupDomain, isAllowedSignupEmail } from '@/lib/allowed-email-domain';
 
 // Mapeamento de roles do banco para o frontend
 export type UserRole = 'user' | 'client' | 'manager' | 'admin' | 'super_admin';
@@ -439,6 +440,15 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           variant: "destructive"
         });
         return { error: new Error('Environment variables not configured') as AuthError };
+      }
+
+      if (!isAllowedSignupEmail(email)) {
+        toast({
+          title: "Cadastro temporariamente restrito",
+          description: `Novos cadastros aceitam apenas emails @${getAllowedSignupDomain()}.`,
+          variant: "destructive"
+        });
+        return { error: new Error('Signup restricted to company domain') as AuthError };
       }
       
       console.log('🔧 Chamando supabase.auth.signUp...');

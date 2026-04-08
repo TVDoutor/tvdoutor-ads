@@ -11,6 +11,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { ForgotPasswordModal } from "@/components/ForgotPasswordModal";
 import { usePasswordSecurity } from "@/lib/password-security";
 import { useRateLimit } from "@/lib/rate-limiting";
+import { getAllowedSignupDomain } from "@/lib/allowed-email-domain";
 import { 
   Tv, 
   Mail, 
@@ -234,6 +235,9 @@ const Login = () => {
 
               {/* Register Tab */}
               <TabsContent value="register" className="space-y-4">
+                <p className="text-xs text-amber-300">
+                  Cadastro temporariamente restrito a emails @{getAllowedSignupDomain()}.
+                </p>
                 <form onSubmit={handleRegister} className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="register-name">Nome completo</Label>

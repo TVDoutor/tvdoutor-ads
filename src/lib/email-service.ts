@@ -26,6 +26,8 @@ export interface EmailStats {
 
 class EmailService {
   private processingEmails = new Set<number>();
+  private processingBatch = false;
+  private batchRetryAfterMs = 0;
 
   /**
    * Busca emails pendentes para processamento via Edge Function
@@ -660,6 +662,22 @@ class EmailService {
    * Não bloqueia operações críticas (como signup) em caso de erro
    */
   async processAllPendingEmails(): Promise<{ processed: number; successful: number; failed: number }> {
+    const emptyResult = { processed: 0, successful: 0, failed: 0 };
+    const now = Date.now();
+
+    // Evita spam de requests quando a função está indisponível/retornando erro.
+    if (now < this.batchRetryAfterMs) {
+      logDebug('Processamento de emails em cooldown após falha recente');
+      return emptyResult;
+    }
+
+    // Evita chamadas concorrentes da mesma rotina (intervalo + gatilho manual).
+    if (this.processingBatch) {
+      logDebug('Processamento de emails já em execução; ignorando chamada duplicada');
+      return emptyResult;
+    }
+
+    this.processingBatch = true;
     try {
       logInfo('Iniciando processamento de emails via Edge Function');
       
@@ -667,9 +685,9 @@ class EmailService {
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       
       if (sessionError) {
-        console.warn('⚠️ Erro ao obter sessão para processamento de emails (não crítico):', sessionError);
-        // Não retornar erro, tentar sem autenticação
+        logDebug('Sessão indisponível para processamento de emails (não crítico)');
       }
+      if (!session?.access_token) return emptyResult;
       
       try {
         const { data, error } = await supabase.functions.invoke('process-pending-emails', {
@@ -684,16 +702,17 @@ class EmailService {
         });
 
         if (error) {
-          console.warn('⚠️ Edge Function de email falhou (não crítico - sistema continua funcionando):', {
+          logDebug('Edge Function de email indisponível (não crítico)', {
             error: error.message,
             status: error.status || 'unknown',
             details: 'Edge Function process-pending-emails retornou erro, mas não afeta funcionalidade principal'
           });
-          // Não retornar erro, apenas logar e continuar
-          return { processed: 0, successful: 0, failed: 0 };
+          this.batchRetryAfterMs = Date.now() + 60_000;
+          return emptyResult;
         }
 
         if (data?.success) {
+          this.batchRetryAfterMs = 0;
           const result = {
             processed: data.processed || 0,
             successful: data.successful || 0,
@@ -705,16 +724,19 @@ class EmailService {
         }
 
         logDebug('ℹ️ Nenhum email pendente para processar');
-        return { processed: 0, successful: 0, failed: 0 };
+        this.batchRetryAfterMs = 0;
+        return emptyResult;
       } catch (invokeError) {
-        console.warn('⚠️ Erro ao chamar Edge Function (não crítico):', invokeError);
-        // Não propagar erro, apenas logar
-        return { processed: 0, successful: 0, failed: 0 };
+        logDebug('Falha transitória ao chamar Edge Function de emails');
+        this.batchRetryAfterMs = Date.now() + 60_000;
+        return emptyResult;
       }
     } catch (error) {
-      console.warn('⚠️ Erro ao processar emails pendentes (não crítico):', error);
-      // Graceful fallback - não bloquear operações críticas
-      return { processed: 0, successful: 0, failed: 0 };
+      logDebug('Falha transitória no processamento de emails (não crítico)');
+      this.batchRetryAfterMs = Date.now() + 60_000;
+      return emptyResult;
+    } finally {
+      this.processingBatch = false;
     }
   }
 
@@ -930,20 +952,19 @@ class EmailService {
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
         
         if (sessionError) {
-          console.warn('⚠️ Erro ao verificar sessão para processamento automático (não crítico):', sessionError);
+          logDebug('Erro ao verificar sessão para processamento automático (não crítico)');
           return;
         }
 
         // Se não há sessão, pular processamento (usuário não logado)
         if (!session) {
-          console.debug('🔐 Nenhuma sessão ativa, pulando processamento de emails');
+          logDebug('Nenhuma sessão ativa; pulando processamento de emails');
           return;
         }
 
         await this.processAllPendingEmails();
       } catch (error) {
-        console.warn('⚠️ Erro no processamento automático (não crítico):', error);
-        logError('Erro no processamento automático', error);
+        logDebug('Erro no processamento automático de emails (não crítico)');
       }
     };
 
@@ -1002,14 +1023,12 @@ export const processEmailQueue = async () => {
     );
     
     if (error) {
-      console.warn('⚠️ Edge Function error (não crítico):', error);
       logDebug('Erro ao processar emails (não crítico)', { 
         error: error.message,
         status: (error as any)?.status,
         name: (error as any)?.name
       });
     } else {
-      console.log('✅ Emails processados com sucesso');
       logDebug('✅ Emails processados com sucesso', { 
         processed: data?.processed,
         successful: data?.successful,
@@ -1019,7 +1038,6 @@ export const processEmailQueue = async () => {
     
     return data;
   } catch (error) {
-    console.warn('⚠️ Erro ao chamar Edge Function (não crítico):', error);
     logDebug('Exceção ao processar emails (não crítico)', { 
       error: error instanceof Error ? error.message : 'Erro desconhecido'
     });

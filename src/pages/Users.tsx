@@ -54,6 +54,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { AdminDebug } from "@/components/AdminDebug";
 import { logDebug, logError } from "@/utils/secureLogger";
+import { getAllowedSignupDomain, isAllowedSignupEmail } from "@/lib/allowed-email-domain";
 
 interface UserProfile {
   id: string;
@@ -186,6 +187,14 @@ const Users = () => {
       });
       return;
     }
+    if (!isAllowedSignupEmail(newUser.email)) {
+      toast({
+        title: "Cadastro temporariamente restrito",
+        description: `Novos usuários devem usar email @${getAllowedSignupDomain()}.`,
+        variant: "destructive"
+      });
+      return;
+    }
 
     setSaving(true);
     try {
@@ -299,7 +308,6 @@ const Users = () => {
           .from('profiles')
           .update({
             display_name: editingUser.display_name,
-            full_name: editingUser.display_name,
             updated_at: new Date().toISOString(),
           })
           .eq('id', editingUser.id);

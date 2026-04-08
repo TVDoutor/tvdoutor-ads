@@ -177,37 +177,12 @@ serve(async (req) => {
       try {
         requestBody = rawBody ? JSON.parse(rawBody) : {}
       } catch (e) {
-        console.error('❌ JSON inválido no corpo da requisição', { rawSnippet: rawBody?.slice(0, 200) })
-        return new Response(
-          JSON.stringify({ 
-            success: false, 
-            error: 'JSON inválido no corpo da requisição',
-            details: e instanceof Error ? e.message : 'Erro desconhecido ao parsear JSON',
-            snippet: rawBody?.slice(0, 200) || ''
-          }),
-          { 
-            status: 400, 
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-          }
-        )
+        console.warn('⚠️ JSON inválido no corpo da requisição; aplicando fallback para processamento padrão', { rawSnippet: rawBody?.slice(0, 200) })
+        requestBody = {}
       }
 
-      const { action } = requestBody
-
-      if (!action) {
-        console.error('❌ Ação não especificada no corpo da requisição')
-        return new Response(
-          JSON.stringify({ 
-            success: false, 
-            error: 'Parâmetro "action" é obrigatório',
-            details: 'Use "action": "process" para processar emails pendentes'
-          }),
-          { 
-            status: 400, 
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-          }
-        )
-      }
+      // Fallback resiliente: se action não vier, assume processamento padrão.
+      const action = requestBody?.action || 'process'
 
       if (action === 'process') {
         console.log('🔄 Iniciando processamento de emails pendentes...')

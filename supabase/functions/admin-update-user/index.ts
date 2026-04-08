@@ -103,7 +103,6 @@ serve(async (req) => {
     }
     if (nameToUse !== undefined && nameToUse !== null) {
       profilePayload.display_name = nameToUse
-      profilePayload.full_name = nameToUse
     }
     if (role !== undefined) {
       profilePayload.super_admin = role === 'super_admin'

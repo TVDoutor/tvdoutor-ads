@@ -58,6 +58,7 @@ import {
 } from "recharts";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { exportWorkbook } from "@/lib/report-export";
 import {
   getVenuesByPharmacyRadiusSummary,
   getPharmacyCountBySpecialtyAndRadius,
@@ -117,6 +118,8 @@ interface InventoryStats {
   active_count: number;
 }
 
+type ReportType = "financial" | "proposals" | "inventory" | "completo";
+
 const Reports = () => {
   const [selectedPeriod, setSelectedPeriod] = useState("30d");
   const [loading, setLoading] = useState(true);
@@ -149,6 +152,8 @@ const Reports = () => {
   const [agenciesData, setAgenciesData] = useState<ChartData[]>([]);
   const [pharmacyRadiusSummary, setPharmacyRadiusSummary] = useState<VenuesByPharmacyRadiusRow[]>([]);
   const [pharmacyBySpecialtyData, setPharmacyBySpecialtyData] = useState<PharmacyCountBySpecialtyResult[]>([]);
+  const [exportingReport, setExportingReport] = useState<ReportType | null>(null);
+  const [pharmacyDataUnavailable, setPharmacyDataUnavailable] = useState(false);
 
   useEffect(() => {
     fetchReportsData({ showLoader: true });
@@ -721,16 +726,250 @@ const Reports = () => {
       ]);
       setPharmacyRadiusSummary(summary);
       setPharmacyBySpecialtyData(specialtyResults);
+      setPharmacyDataUnavailable(false);
     } catch (error: any) {
       console.warn('⚠️ Erro ao buscar dados de raio farmácia (RPCs podem não estar aplicadas):', error?.message);
       setPharmacyRadiusSummary([]);
       setPharmacyBySpecialtyData([]);
+      setPharmacyDataUnavailable(true);
     }
   };
 
-  const handleExportReport = (type: string) => {
-    console.log(`Exportando relatório: ${type}`);
-    toast.info(`Exportação de ${type} será implementada em breve`);
+  const getPeriodStartDate = () => {
+    const now = new Date();
+    if (selectedPeriod === "7d") return new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    if (selectedPeriod === "30d") return new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    if (selectedPeriod === "90d") return new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+    return new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
+  };
+
+  const periodStartIso = getPeriodStartDate().toISOString();
+
+  const buildFinancialSheets = () => {
+    const resumoRows = [
+      { indicador: "Período selecionado", valor: periodLabel },
+      { indicador: "Telas ativas (com coordenadas)", valor: kpiData.activeScreens },
+      { indicador: "Propostas totais", valor: kpiData.totalProposals },
+      { indicador: "Propostas aprovadas", valor: kpiData.approvedProposals },
+      { indicador: "Taxa de aprovação (%)", valor: kpiData.approvalRate },
+      { indicador: "Receita total", valor: kpiData.totalRevenue },
+      { indicador: "Usuários", valor: kpiData.totalUsers },
+      { indicador: "Agências", valor: kpiData.totalAgencies },
+      { indicador: "Campanhas", valor: kpiData.totalCampaigns },
+    ];
+
+    return [
+      {
+        name: "Resumo",
+        columns: [
+          { header: "Indicador", key: "indicador", width: 42 },
+          { header: "Valor", key: "valor", width: 26 },
+        ],
+        rows: resumoRows,
+      },
+      {
+        name: "Propostas por mes",
+        columns: [
+          { header: "Mês", key: "name", width: 18 },
+          { header: "Propostas", key: "propostas", width: 16 },
+          { header: "Aprovadas", key: "aprovadas", width: 16 },
+        ],
+        rows: proposalsByMonth.map((m) => ({
+          name: m.name,
+          propostas: m.propostas ?? 0,
+          aprovadas: m.aprovadas ?? 0,
+        })),
+      },
+      {
+        name: "Top clientes",
+        columns: [
+          { header: "Cliente", key: "name", width: 36 },
+          { header: "Quantidade de propostas", key: "proposals", width: 24 },
+          { header: "Receita", key: "revenue", width: 20 },
+        ],
+        rows: topClients.map((c) => ({
+          name: c.name,
+          proposals: c.proposals,
+          revenue: c.revenue ?? 0,
+        })),
+      },
+    ];
+  };
+
+  const fetchProposalsForExport = async () => {
+    const proposals = await fetchPaged((from, to) =>
+      supabase
+        .from("proposals")
+        .select("id, customer_name, proposal_type, status, start_date, end_date, net_business, created_at, created_by, agencia_id")
+        .gte("created_at", periodStartIso)
+        .order("created_at", { ascending: false })
+        .range(from, to)
+    );
+
+    const userIds = Array.from(
+      new Set(
+        proposals
+          .map((p: any) => p.created_by)
+          .filter((v: any) => typeof v === "string" && v.trim().length > 0)
+      )
+    );
+    const agenciaIds = Array.from(
+      new Set(
+        proposals
+          .map((p: any) => p.agencia_id)
+          .filter((v: any) => typeof v === "number")
+      )
+    );
+
+    let usersById: Record<string, string> = {};
+    if (userIds.length > 0) {
+      const { data } = await supabase.from("profiles").select("id, display_name").in("id", userIds);
+      usersById = Object.fromEntries((data ?? []).map((u: any) => [String(u.id), u.display_name ?? "Usuário"]));
+    }
+
+    let agenciasById: Record<string, string> = {};
+    if (agenciaIds.length > 0) {
+      const { data } = await supabase.from("agencias").select("id, nome_agencia").in("id", agenciaIds);
+      agenciasById = Object.fromEntries((data ?? []).map((a: any) => [String(a.id), a.nome_agencia ?? "Agência"]));
+    }
+
+    const statusAgg: Record<string, number> = {};
+    proposals.forEach((p: any) => {
+      const key = p.status || "nao_informado";
+      statusAgg[key] = (statusAgg[key] || 0) + 1;
+    });
+
+    return {
+      proposals,
+      usersById,
+      agenciasById,
+      statusRows: Object.entries(statusAgg).map(([status, total]) => ({ status, total })),
+    };
+  };
+
+  const buildProposalsSheets = async () => {
+    const { proposals, usersById, agenciasById, statusRows } = await fetchProposalsForExport();
+
+    return [
+      {
+        name: "Propostas detalhadas",
+        columns: [
+          { header: "ID", key: "id", width: 10 },
+          { header: "Cliente", key: "customer_name", width: 34 },
+          { header: "Tipo", key: "proposal_type", width: 14 },
+          { header: "Status", key: "status", width: 16 },
+          { header: "Início", key: "start_date", width: 14 },
+          { header: "Fim", key: "end_date", width: 14 },
+          { header: "Valor líquido", key: "net_business", width: 18 },
+          { header: "Criada em", key: "created_at", width: 22 },
+          { header: "Criado por", key: "created_by_name", width: 30 },
+          { header: "Agência", key: "agencia_name", width: 30 },
+        ],
+        rows: proposals.map((p: any) => ({
+          id: p.id,
+          customer_name: p.customer_name || "Não informado",
+          proposal_type: p.proposal_type || "Não informado",
+          status: p.status || "Não informado",
+          start_date: p.start_date || "",
+          end_date: p.end_date || "",
+          net_business: p.net_business || 0,
+          created_at: p.created_at ? new Date(p.created_at).toLocaleString("pt-BR") : "",
+          created_by_name: usersById[String(p.created_by)] || "Usuário não informado",
+          agencia_name: agenciasById[String(p.agencia_id)] || "Não informado",
+        })),
+      },
+      {
+        name: "Status",
+        columns: [
+          { header: "Status", key: "status", width: 24 },
+          { header: "Total", key: "total", width: 14 },
+        ],
+        rows: statusRows,
+      },
+      {
+        name: "Propostas por mes",
+        columns: [
+          { header: "Mês", key: "name", width: 18 },
+          { header: "Propostas", key: "propostas", width: 16 },
+          { header: "Aprovadas", key: "aprovadas", width: 16 },
+        ],
+        rows: proposalsByMonth.map((m) => ({
+          name: m.name,
+          propostas: m.propostas ?? 0,
+          aprovadas: m.aprovadas ?? 0,
+        })),
+      },
+    ];
+  };
+
+  const buildInventorySheets = () => {
+    return [
+      {
+        name: "Resumo inventario",
+        columns: [
+          { header: "Indicador", key: "indicador", width: 42 },
+          { header: "Valor", key: "valor", width: 22 },
+        ],
+        rows: [
+          { indicador: "Período selecionado", valor: periodLabel },
+          { indicador: "Total telas ativas", valor: screensByStateMeta.totalActiveScreens },
+          { indicador: "Total estados", valor: screensByStateMeta.totalStates },
+          { indicador: "UF não informada", valor: screensByStateMeta.screensWithoutState },
+          { indicador: "Telas ativas com coordenadas", valor: kpiData.activeScreens },
+        ],
+      },
+      {
+        name: "Por estado",
+        columns: [
+          { header: "UF", key: "uf", width: 12 },
+          { header: "Quantidade de telas", key: "count", width: 22 },
+        ],
+        rows: statesBreakdown,
+      },
+      {
+        name: "Por especialidade regiao",
+        columns: [
+          { header: "Especialidade", key: "specialty", width: 26 },
+          { header: "Região", key: "region", width: 24 },
+          { header: "Classe", key: "class", width: 12 },
+          { header: "Total telas", key: "screen_count", width: 16 },
+          { header: "Ativas", key: "active_count", width: 12 },
+        ],
+        rows: inventoryStats,
+      },
+    ];
+  };
+
+  const handleExportReport = async (type: ReportType) => {
+    if (exportingReport) return;
+    setExportingReport(type);
+    try {
+      let sheets: any[] = [];
+      let fileBaseName = "relatorio";
+
+      if (type === "financial") {
+        fileBaseName = "relatorio_financeiro";
+        sheets = buildFinancialSheets();
+      } else if (type === "proposals") {
+        fileBaseName = "relatorio_propostas";
+        sheets = await buildProposalsSheets();
+      } else if (type === "inventory") {
+        fileBaseName = "relatorio_inventario";
+        sheets = buildInventorySheets();
+      } else {
+        fileBaseName = "relatorio_completo";
+        const proposalSheets = await buildProposalsSheets();
+        sheets = [...buildFinancialSheets(), ...proposalSheets, ...buildInventorySheets()];
+      }
+
+      await exportWorkbook({ fileBaseName, sheets });
+      toast.success(`Relatório ${type === "completo" ? "completo" : type} exportado com sucesso.`);
+    } catch (error: any) {
+      console.error("❌ Erro ao exportar relatório:", error);
+      toast.error(`Erro ao exportar relatório: ${error?.message || "erro desconhecido"}`);
+    } finally {
+      setExportingReport(null);
+    }
   };
 
   if (loading) {
@@ -793,9 +1032,10 @@ const Reports = () => {
               <Button
                 className={buttonStyles.primary}
                 onClick={() => handleExportReport('completo')}
+                disabled={!!exportingReport}
               >
                 <Download className="h-4 w-4 mr-2" />
-                Exportar
+                {exportingReport === "completo" ? "Exportando..." : "Exportar"}
               </Button>
             </div>
           }
@@ -936,7 +1176,7 @@ const Reports = () => {
 
           {/* Reports Tabs */}
           <Tabs defaultValue="overview" className="space-y-6">
-            <TabsList className="grid w-full max-w-[800px] grid-cols-6">
+            <TabsList className="grid w-full max-w-[960px] grid-cols-7">
               <TabsTrigger value="overview" className="gap-2">
                 <BarChart3 className="h-4 w-4" />
                 Visão Geral
@@ -966,6 +1206,14 @@ const Reports = () => {
                 Proximidade Farmácia
               </TabsTrigger>
             </TabsList>
+            {pharmacyDataUnavailable && (
+              <Alert className="border-amber-300 bg-amber-50">
+                <AlertCircle className="h-4 w-4 text-amber-700" />
+                <AlertDescription className="text-amber-800">
+                  Os dados de proximidade de farmácia estão indisponíveis neste ambiente (RPCs não aplicadas), mas os relatórios financeiro, propostas e inventário continuam funcionando normalmente.
+                </AlertDescription>
+              </Alert>
+            )}
 
             <TabsContent value="overview" className="space-y-6">
         {/* Charts Row */}

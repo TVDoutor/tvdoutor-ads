@@ -704,7 +704,7 @@ function calculateDistance(lat1, lng1, lat2, lng2) {
 - Link público de mapa habilitado para propostas com token válido, incluindo rascunho.
 
 **Auditoria venues vs telas (operacional DB):**
-- Opcional: tabelas `venue_audit_runs`, `venue_audit_distribution` e função `run_weekly_venue_audit()` quando criadas no projeto; agendamento sugerido via `pg_cron` (ex.: segunda 08:00) para snapshot de distribuição e contagem de divergências `restricoes`↔`restricao`, `programatica`, `rede`.
+- DDL versionado em `supabase/migrations/20260410120000_weekly_venue_audit.sql` (`venue_audit_runs`, `venue_audit_distribution`, `run_weekly_venue_audit()`); após aplicar a migration, agendar via `pg_cron` no projeto (ex.: segunda 08:00) para snapshot de distribuição e contagem de divergências `restricoes`↔`restricao`, `programatica`, `rede`.
 
 ---
 

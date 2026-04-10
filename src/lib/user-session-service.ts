@@ -37,17 +37,160 @@ export interface OnlineUsersStats {
 class UserSessionService {
   private sessionToken: string | null = null;
   private heartbeatInterval: NodeJS.Timeout | null = null;
+  private initPromise: Promise<boolean> | null = null;
+  private unloadListenersAttached = false;
   private readonly HEARTBEAT_INTERVAL = 30000; // 30 segundos
   private readonly SESSION_TIMEOUT = 30 * 60 * 1000; // 30 minutos
+  private readonly LOCK_NAME = 'tvd_user_session_init';
+
+  private trackingStorageKey(userId: string): string {
+    return `tvd_track_sess:${userId}`;
+  }
+
+  private readStoredTrackingToken(userId: string): string | null {
+    try {
+      return sessionStorage.getItem(this.trackingStorageKey(userId));
+    } catch {
+      return null;
+    }
+  }
+
+  private writeStoredTrackingToken(userId: string, token: string): void {
+    try {
+      sessionStorage.setItem(this.trackingStorageKey(userId), token);
+    } catch {
+      /* private mode / quota */
+    }
+  }
+
+  private clearStoredTrackingToken(userId: string): void {
+    try {
+      sessionStorage.removeItem(this.trackingStorageKey(userId));
+    } catch {
+      /* ignore */
+    }
+  }
+
+  /**
+   * Reaproveita sessão ativa (sessionStorage ou linha já criada por outra aba) e evita INSERT duplicado.
+   * @returns token adotado ou null
+   */
+  private async tryResumeExistingSession(user: { id: string }): Promise<string | null> {
+    const nowIso = new Date().toISOString();
+
+    const pickRow = async (token: string) => {
+      const { data: row } = await supabase
+        .from('user_sessions')
+        .select('*')
+        .eq('session_token', token)
+        .eq('user_id', user.id)
+        .eq('is_active', true)
+        .gt('expires_at', nowIso)
+        .maybeSingle();
+      return row;
+    };
+
+    const stored = this.readStoredTrackingToken(user.id);
+    if (stored) {
+      const row = await pickRow(stored);
+      if (row) {
+        await this.mergeIntoCanonicalSession(user.id, row.session_token);
+        return row.session_token;
+      }
+      this.clearStoredTrackingToken(user.id);
+    }
+
+    const { data: rows } = await supabase
+      .from('user_sessions')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('is_active', true)
+      .gt('expires_at', nowIso)
+      .order('started_at', { ascending: false })
+      .limit(1);
+
+    const existing = rows?.[0];
+    if (existing) {
+      await this.mergeIntoCanonicalSession(user.id, existing.session_token);
+      return existing.session_token;
+    }
+
+    return null;
+  }
+
+  /** Mantém uma única linha ativa por usuário e atualiza UA / IP / expiração. */
+  private async mergeIntoCanonicalSession(userId: string, canonicalToken: string): Promise<void> {
+    await supabase
+      .from('user_sessions')
+      .delete()
+      .eq('user_id', userId)
+      .eq('is_active', true)
+      .neq('session_token', canonicalToken);
+
+    const userAgent = navigator.userAgent;
+    const ipAddress = await this.getClientIP();
+    const expiresAt = new Date(Date.now() + this.SESSION_TIMEOUT).toISOString();
+    const patch: Record<string, string> = {
+      user_agent: userAgent,
+      expires_at: expiresAt,
+      last_seen_at: new Date().toISOString(),
+    };
+    if (ipAddress && ipAddress !== 'unknown') {
+      patch.ip_address = ipAddress;
+    }
+    await supabase.from('user_sessions').update(patch).eq('session_token', canonicalToken);
+  }
+
+  private finalizeActiveSession(userId: string, token: string): void {
+    this.sessionToken = token;
+    this.writeStoredTrackingToken(userId, token);
+    this.stopHeartbeat();
+    this.startHeartbeat();
+    this.setupBeforeUnloadOnce();
+  }
 
   /**
    * Inicializar sessão do usuário
    */
   async initializeSession(): Promise<boolean> {
+    if (this.sessionToken) {
+      console.log('⚠️ [initializeSession] Sessão já inicializada, ignorando...');
+      return true;
+    }
+
+    const run = async (): Promise<boolean> => {
+      if (this.sessionToken) return true;
+      return this.runInitializeSession();
+    };
+
     try {
-      // Evitar múltiplas inicializações
+      if (typeof navigator !== 'undefined' && navigator.locks?.request) {
+        return await navigator.locks.request(
+          this.LOCK_NAME,
+          { mode: 'exclusive' },
+          run
+        );
+      }
+    } catch {
+      /* fallback abaixo */
+    }
+
+    if (this.initPromise) {
+      return this.initPromise;
+    }
+    this.initPromise = (async () => {
+      try {
+        return await run();
+      } finally {
+        this.initPromise = null;
+      }
+    })();
+    return this.initPromise;
+  }
+
+  private async runInitializeSession(): Promise<boolean> {
+    try {
       if (this.sessionToken) {
-        console.log('⚠️ [initializeSession] Sessão já inicializada, ignorando...');
         return true;
       }
 
@@ -66,38 +209,40 @@ class UserSessionService {
 
       console.log('✅ [initializeSession] Usuário autenticado:', { userId: user.id, email: user.email });
 
-      // Limpar sessões antigas do mesmo usuário (evitar duplicatas)
-      console.log('🧹 [initializeSession] Limpando sessões antigas...');
+      const resumedToken = await this.tryResumeExistingSession(user);
+      if (resumedToken) {
+        this.finalizeActiveSession(user.id, resumedToken);
+        console.log('✅ [initializeSession] Sessão existente reutilizada');
+        console.log('✅ Sessão de usuário inicializada com sucesso!');
+        return true;
+      }
+
+      console.log('🧹 [initializeSession] Limpando sessões ativas anteriores...');
       await supabase
         .from('user_sessions')
         .delete()
         .eq('user_id', user.id)
         .eq('is_active', true);
 
-      // Gerar token de sessão único
-      this.sessionToken = this.generateSessionToken();
-      console.log('🎫 [initializeSession] Token de sessão gerado:', this.sessionToken);
+      const newToken = this.generateSessionToken();
+      console.log('🎫 [initializeSession] Token de sessão gerado:', newToken);
       
-      // Obter informações do navegador
       const userAgent = navigator.userAgent;
       const ipAddress = await this.getClientIP();
       console.log('🌐 [initializeSession] IP obtido:', ipAddress);
       
-      // Calcular tempo de expiração
       const expiresAt = new Date(Date.now() + this.SESSION_TIMEOUT);
       console.log('⏰ [initializeSession] Expira em:', expiresAt.toISOString());
       
-      // Inserir sessão no banco
       console.log('💾 [initializeSession] Inserindo no banco...');
-      const insertData: any = {
+      const insertData: Record<string, unknown> = {
         user_id: user.id,
-        session_token: this.sessionToken,
+        session_token: newToken,
         user_agent: userAgent,
         expires_at: expiresAt.toISOString(),
         is_active: true
       };
       
-      // Adicionar ip_address apenas se for válido (não 'unknown')
       if (ipAddress && ipAddress !== 'unknown') {
         insertData.ip_address = ipAddress;
       }
@@ -110,6 +255,21 @@ class UserSessionService {
         .select();
 
       if (error) {
+        const isDup =
+          error.code === '23505' ||
+          (typeof error.message === 'string' &&
+            error.message.includes('user_sessions_session_token_key'));
+
+        if (isDup) {
+          const adopted = await this.tryResumeExistingSession(user);
+          if (adopted) {
+            this.finalizeActiveSession(user.id, adopted);
+            console.log('✅ [initializeSession] Sessão adotada após conflito de token');
+            console.log('✅ Sessão de usuário inicializada com sucesso!');
+            return true;
+          }
+        }
+
         console.error('❌ [initializeSession] Erro ao criar sessão:', {
           code: error.code,
           message: error.message,
@@ -121,17 +281,14 @@ class UserSessionService {
 
       console.log('✅ [initializeSession] Sessão criada no banco:', insertedData);
       console.log('✅ Sessão de usuário inicializada com sucesso!');
-      
-      // Iniciar heartbeat
-      this.startHeartbeat();
+
+      this.finalizeActiveSession(user.id, newToken);
       console.log('💓 [initializeSession] Heartbeat iniciado');
-      
-      // Limpar sessão ao fechar a página
-      this.setupBeforeUnload();
       console.log('🚪 [initializeSession] BeforeUnload configurado');
       
       return true;
     } catch (error) {
+      this.sessionToken = null;
       console.error('💥 [initializeSession] Erro crítico:', error);
       return false;
     }
@@ -166,34 +323,74 @@ class UserSessionService {
   async endSession(): Promise<boolean> {
     if (!this.sessionToken) return false;
 
+    const token = this.sessionToken;
+
     try {
       // Parar heartbeat
       this.stopHeartbeat();
 
-      // Mover para histórico e remover da tabela ativa
+      const { data: session, error: fetchError } = await supabase
+        .from('user_sessions')
+        .select('*')
+        .eq('session_token', token)
+        .maybeSingle();
+
+      if (fetchError || !session) {
+        this.sessionToken = null;
+        try {
+          const { data: { user: u } } = await supabase.auth.getUser();
+          if (u) this.clearStoredTrackingToken(u.id);
+        } catch {
+          /* ignore */
+        }
+        if (fetchError) {
+          console.warn('⚠️ Sessão ativa não encontrada ao finalizar:', fetchError);
+        }
+        return false;
+      }
+
+      const durationMs = Date.now() - new Date(session.started_at).getTime();
+      const durationMinutes = Math.floor(durationMs / 60000);
+      const endedAt = new Date().toISOString();
+
       const { error } = await supabase
         .from('user_sessions')
         .update({ is_active: false })
-        .eq('session_token', this.sessionToken);
+        .eq('session_token', token);
 
       if (error) {
         console.error('❌ Erro ao finalizar sessão:', error);
         return false;
       }
 
-      // Inserir no histórico
-      await supabase
-        .from('user_session_history')
-        .insert({
-          session_token: this.sessionToken,
-          ended_by: 'logout'
-        });
+      const { error: historyError } = await supabase.from('user_session_history').insert({
+        user_id: session.user_id,
+        session_token: session.session_token,
+        ip_address: session.ip_address,
+        user_agent: session.user_agent,
+        started_at: session.started_at,
+        ended_at: endedAt,
+        duration_minutes: durationMinutes,
+        ended_by: 'logout'
+      });
+
+      if (historyError) {
+        console.error('❌ Erro ao gravar histórico de sessão:', historyError);
+      }
 
       this.sessionToken = null;
+      this.clearStoredTrackingToken(session.user_id);
       console.log('✅ Sessão de usuário finalizada');
       
       return true;
     } catch (error) {
+      this.sessionToken = null;
+      try {
+        const { data: { user: u } } = await supabase.auth.getUser();
+        if (u) this.clearStoredTrackingToken(u.id);
+      } catch {
+        /* ignore */
+      }
       console.error('💥 Erro ao finalizar sessão:', error);
       return false;
     }
@@ -382,9 +579,11 @@ class UserSessionService {
   }
 
   /**
-   * Configurar limpeza ao fechar a página
+   * Configurar limpeza ao fechar a página (uma vez; evita listeners duplicados)
    */
-  private setupBeforeUnload(): void {
+  private setupBeforeUnloadOnce(): void {
+    if (this.unloadListenersAttached || typeof window === 'undefined') return;
+    this.unloadListenersAttached = true;
     const handleBeforeUnload = () => {
       this.sendEndSessionBeacon('page_close');
     };
@@ -442,11 +641,10 @@ class UserSessionService {
    * Gerar token de sessão único
    */
   private generateSessionToken(): string {
-    const timestamp = Date.now().toString(36);
-    const random1 = Math.random().toString(36).substring(2, 15);
-    const random2 = Math.random().toString(36).substring(2, 15);
-    const random3 = crypto.randomUUID ? crypto.randomUUID().split('-')[0] : Math.random().toString(36).substring(2, 10);
-    return `sess_${timestamp}_${random1}${random2}_${random3}`;
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+      return `sess_${crypto.randomUUID()}`;
+    }
+    return `sess_${Date.now()}_${Math.random().toString(36).slice(2, 14)}`;
   }
 
   /**

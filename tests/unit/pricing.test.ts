@@ -18,7 +18,7 @@ function currencyClose(a: number, b: number, tolerance = 1e-6) {
   assert.deepEqual(list, [15, 30, 45]);
 })();
 
-// computeTotalInsertions - days
+// computeTotalInsertions - days (inclui hours_per_day default = 10)
 (() => {
   const total = computeTotalInsertions({
     screens_count: 10,
@@ -28,7 +28,7 @@ function currencyClose(a: number, b: number, tolerance = 1e-6) {
     days_period: 5,
     insertion_prices: { avulsa: {}, especial: {} },
   } as any);
-  assert.equal(total, 6 * 5 * 10);
+  assert.equal(total, 6 * 10 * 5 * 10);
 })();
 
 // computeTotalInsertions - months
@@ -46,10 +46,15 @@ function currencyClose(a: number, b: number, tolerance = 1e-6) {
   assert.equal(total, 4 * 10 * 22 * 2 * 5);
 })();
 
-// computeImpacts
+// computeImpacts (fallback: totalInsertions × avg_audience_per_insertion, default avg 100)
 (() => {
-  const total = 1000;
-  const impacts = computeImpacts(total, 100);
+  const input = {
+    screens_count: 1,
+    insertions_per_hour: 6,
+    insertion_prices: { avulsa: {}, especial: {} },
+    avg_audience_per_insertion: 100,
+  } as any;
+  const impacts = computeImpacts(input, 1000);
   assert.equal(impacts, 1000 * 100);
 })();
 
@@ -69,6 +74,7 @@ function currencyClose(a: number, b: number, tolerance = 1e-6) {
   const totalInsertions = computeTotalInsertions(input);
   const { gross, net, missingPriceFor } = computeInsertionModeValue(input, totalInsertions);
   assert.equal(missingPriceFor.length, 0);
+  assert.equal(totalInsertions, 5 * 10 * 1 * 2);
   // Preço efetivo: 15s -> 0.9; 30s -> 1.5
   const expectedUnitSum = 0.9 + 1.5; // por inserção
   const expectedTotal = expectedUnitSum * totalInsertions;
@@ -90,6 +96,7 @@ function currencyClose(a: number, b: number, tolerance = 1e-6) {
   } as any;
   const totalInsertions = computeTotalInsertions(input);
   const { gross, missingPriceFor } = computeInsertionModeValue(input, totalInsertions);
+  assert.equal(totalInsertions, 2 * 10 * 1 * 1);
   assert.ok(gross > 0);
   assert.deepEqual(missingPriceFor, [60]);
 })();
@@ -110,6 +117,7 @@ function currencyClose(a: number, b: number, tolerance = 1e-6) {
   const totalInsertions = computeTotalInsertions(input);
   const { gross, net, missingPriceFor } = computeInsertionModeValue(input, totalInsertions);
   assert.equal(missingPriceFor.length, 0);
+  assert.equal(totalInsertions, 4 * 10 * 2 * 3);
   // Avulsa efetivo: 15s -> 0.9; 30s -> 1.5 | Especial efetivo: 15s -> 0.3; 30s -> 1.0
   const expectedUnitSum = (0.9 + 1.5) + (0.3 + 1.0);
   const expectedTotal = expectedUnitSum * totalInsertions;
@@ -131,6 +139,7 @@ function currencyClose(a: number, b: number, tolerance = 1e-6) {
   } as any;
   const totalInsertions = computeTotalInsertions(input);
   const { gross, missingPriceFor } = computeInsertionModeValue(input, totalInsertions);
+  assert.equal(totalInsertions, 2 * 10 * 1 * 1);
   assert.ok(gross > 0);
   // 15 faltando em especial, 60 faltando em avulsa -> ambos devem aparecer
   assert.deepEqual(missingPriceFor.sort((a,b)=>a-b), [15, 60]);
@@ -156,7 +165,7 @@ function currencyClose(a: number, b: number, tolerance = 1e-6) {
     pricing_variant: 'avulsa',
     insertion_prices: { avulsa: { 15: 1.0 }, especial: {} },
   });
-  assert.equal(metrics.totalInsertions, 6 * 5 * 10);
+  assert.equal(metrics.totalInsertions, 6 * 10 * 5 * 10);
   assert.equal(metrics.missingPriceFor.length, 0);
   assert.ok(metrics.grossValue > 0);
 })();

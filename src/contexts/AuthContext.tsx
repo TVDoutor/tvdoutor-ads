@@ -293,11 +293,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
               const userProfile = await fetchUserProfile(session.user.id);
               if (mounted) {
                 setProfile(userProfile);
-                
-                // Inicializar sessão para rastreamento no monitor (não bloqueia o fluxo)
-                userSessionService.initializeSession().catch((error) => {
-                  console.warn('Erro ao inicializar sessão de usuário (não crítico):', error);
-                });
+                // Rastreamento de sessão: apenas via onAuthStateChange + useUserSession (evita chamadas duplicadas)
               }
             } catch (profileError) {
               logError('Error fetching initial profile', profileError);

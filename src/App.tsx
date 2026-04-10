@@ -36,6 +36,7 @@ import HeatmapPage from "./pages/HeatmapPage";
 import UserManagement from "./pages/UserManagement";
 import ImpactModelsAdmin from "./pages/ImpactModelsAdmin";
 import VenueCatalogsAdmin from "./pages/VenueCatalogsAdmin";
+import { VENUE_CATALOGS_REQUIRED_ROLE } from "./config/routeAccess";
 import NotFound from "./pages/NotFound";
 import { HeatmapTest } from "./components/HeatmapTest";
 import { SimpleHeatmap } from "./components/SimpleHeatmap";
@@ -177,7 +178,7 @@ const App = () => {
             } />
 
             <Route path="/venue-catalogs" element={
-              <ProtectedRoute requiredRole="admin">
+              <ProtectedRoute requiredRole={VENUE_CATALOGS_REQUIRED_ROLE}>
                 <VenueCatalogsAdmin />
               </ProtectedRoute>
             } />

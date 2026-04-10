@@ -35,6 +35,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth, UserRole } from "@/contexts/AuthContext";
+import { VENUE_CATALOGS_REQUIRED_ROLE } from "@/config/routeAccess";
 
 interface SidebarProps {
   isCollapsed?: boolean;
@@ -113,7 +114,7 @@ const menuItems = [
     label: "Catálogos Venues",
     icon: ListChecks,
     href: "/venue-catalogs",
-    requiredRole: "admin" as UserRole
+    requiredRole: VENUE_CATALOGS_REQUIRED_ROLE
   },
   {
     label: "Monitor de Usuários",

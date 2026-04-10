@@ -33,7 +33,11 @@ export const ProtectedRoute = ({
       const isSuperAdmin = (profile as any)?.super_admin === true;
       switch (requiredRole) {
         case 'admin':
-          return profile.role === 'admin' || isSuperAdmin;
+          return (
+            profile.role === 'admin' ||
+            profile.role === 'super_admin' ||
+            isSuperAdmin
+          );
         case 'manager':
           return profile.role === 'admin' || profile.role === 'manager' || isSuperAdmin;
         case 'user':

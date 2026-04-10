@@ -22,7 +22,7 @@ Sistema web para gestao de propostas, campanhas e ativos de midia da TVDoutor, c
 - Dashboard e metricas operacionais.
 - Propostas: criacao (wizard), listagem, detalhes, exportacao/PDF.
 - Propostas: link publico de mapa por token (`/mapa-proposta/:token`) para compartilhamento externo.
-- Campanhas e locais (venues) com visao e detalhes.
+- Campanhas e locais (venues) com visao e detalhes; campos comerciais em venue (`restricao`, `programatica`, `rede`) e gestao de catálogos para admin.
 - Inventario de telas e farmacias.
 - Mapa interativo e heatmap geoespacial.
 - Agencias, projetos e pessoas por projeto.
@@ -51,6 +51,7 @@ Sistema web para gestao de propostas, campanhas e ativos de midia da TVDoutor, c
 - Propostas: `/nova-proposta`, `/propostas`, `/propostas/:id`.
 - Campanhas: `/campaigns`, `/campaigns/:id`.
 - Locais: `/venues`, `/venues/:id`.
+- Administracao (catálogos de venue): `/venue-catalogs` (restricoes e redes editáveis; `admin` / `super_admin`).
 - Mapa: `/mapa-interativo`, `/heatmap`.
 - Inventario: `/inventory`, `/farmacias`.
 - Agencias: `/agencias`, `/agencias/projetos`.
@@ -97,7 +98,7 @@ Sistema web para gestao de propostas, campanhas e ativos de midia da TVDoutor, c
   - CA-11: Detalhe abre com dados completos da proposta.
   - CA-12: Exportacao gera PDF sem erro e com layout esperado.
 - RF-13: Exportar proposta em Excel com campos comerciais ampliados na aba `Pontos`.
-  - CA-13: Arquivo exportado contem colunas `Capital / interior`, `Espaço`, `Classe`, `Ambiente`, `Restrições`, `Programática`, `CEP`.
+  - CA-13: Arquivo exportado contem colunas `Capital / interior`, `Espaço`, `Classe`, `Ambiente`, `Restrições`, `Programática` (Sim/Não), `CEP`.
   - CA-14: `Capital / interior` e derivado corretamente por cidade/UF com fallback vazio.
   - CA-15: `Espaço` e preenchido por tipologia do ponto (`espaco`/`venue_type_parent`/`category`) com fallback vazio.
 - RF-14: Compartilhar mapa público da proposta por token opaco (UUID).
@@ -112,13 +113,18 @@ Sistema web para gestao de propostas, campanhas e ativos de midia da TVDoutor, c
   - CA-14: Vinculo campanha-venue e persistido e exibido no detalhe.
 - RF-22: Exibir detalhes de campanha e venue.
   - CA-15: Detalhes mostram informacoes basicas e status atualizado.
+- RF-23: Cadastro de venue com metadados comerciais alinhados ao inventário.
+  - CA-15b: `restricao` (valor de catálogo, padrão `Livre`), `programatica` (boolean, UI Sim/Não) e `rede` persistidos em `venues` e refletidos nas telas vinculadas quando aplicável.
+- RF-24: Gerenciar catálogos de restrições e redes (admin).
+  - CA-15c: Usuário `admin` ou `super_admin` acessa `/venue-catalogs`, lista e cria/edita entradas em `venue_restrictions` e `venue_networks` sem violar RLS.
 
 ### Inventario e telas
 - RF-30: Gerenciar inventario e telas.
   - CA-16: Cadastro/edicao reflete em listagens e detalhes.
 - RF-30b: Persistir metadados comerciais de tela para export de proposta.
-  - CA-16b: Inventario permite salvar `restricoes` e `programatica` na entidade `screens`.
-  - CA-16c: Importacao de inventario preenche `restricoes` e `programatica` quando presentes no arquivo fonte.
+  - CA-16b: Inventario permite salvar `restricoes`, `programatica` (boolean) e `rede` na entidade `screens`, coerente com o venue.
+  - CA-16c: Importacao de inventario (script/planilha) preenche venues e telas com `Restrição`, `Programática`, `Rede` e demais colunas mapeadas quando presentes no arquivo fonte.
+  - CA-16d: Export Excel de proposta exibe `Programática` como Sim/Não conforme valor booleano.
 - RF-31: Upload e armazenamento de imagens de telas.
   - CA-17: Upload valida tipo/tamanho e retorna URL publica.
 

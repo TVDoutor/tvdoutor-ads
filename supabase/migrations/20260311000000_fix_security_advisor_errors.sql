@@ -31,6 +31,12 @@ BEGIN
   IF EXISTS (
     SELECT 1 FROM information_schema.tables
     WHERE table_schema = 'public' AND table_name = 'spatial_ref_sys'
+  ) AND EXISTS (
+    SELECT 1
+    FROM pg_catalog.pg_tables t
+    WHERE t.schemaname = 'public'
+      AND t.tablename = 'spatial_ref_sys'
+      AND t.tableowner = current_user
   ) THEN
     ALTER TABLE public.spatial_ref_sys ENABLE ROW LEVEL SECURITY;
 
@@ -40,4 +46,7 @@ BEGIN
       FOR SELECT
       USING (true);
   END IF;
+EXCEPTION
+  WHEN insufficient_privilege THEN
+    RAISE NOTICE 'Skipping spatial_ref_sys RLS changes (insufficient privileges for current user).';
 END $$;

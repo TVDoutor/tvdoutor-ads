@@ -20,7 +20,7 @@ export const ScreenSchema = z
     cep: z.string().optional().nullable(),
     ambiente: z.string().optional().nullable(),
     restricoes: z.string().optional().nullable(),
-    programatica: z.string().optional().nullable(),
+    programatica: z.union([z.boolean(), z.string()]).optional().nullable(),
     venue_type_parent: z.string().optional().nullable(),
     staging_tipo_venue: z.string().optional().nullable(),
     espaco: z.string().optional().nullable(),

@@ -96,7 +96,7 @@ interface ProposalDetails {
       venue_id?: number;
       ambiente?: string;
       restricoes?: string;
-      programatica?: string;
+      programatica?: boolean;
       venue_type_parent?: string;
       staging_tipo_venue?: string;
       venues?: {
@@ -612,7 +612,7 @@ const ProposalDetails = () => {
           class: screen?.class ?? '',
           ambiente: (screen as any)?.ambiente ?? '',
           restricoes: (screen as any)?.restricoes ?? '',
-          programatica: (screen as any)?.programatica ?? '',
+          programatica: (screen as any)?.programatica == null ? '' : ((screen as any)?.programatica ? 'Sim' : 'Não'),
           cep: (screen as any)?.cep ?? '',
           type: (screen as any)?.category ?? (screen as any)?.screen_type ?? '',
           address:

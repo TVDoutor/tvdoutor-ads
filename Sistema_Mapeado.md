@@ -1,8 +1,8 @@
 # Mapeamento Completo do Sistema - TV Doutor ADS
 
 **Data de Criação**: 10/10/2025  
-**Última Atualização**: 08/04/2026  
-**Versão do Sistema**: 1.3.0  
+**Última Atualização**: 10/04/2026  
+**Versão do Sistema**: 1.3.1  
 **Tipo de Projeto**: Plataforma de Gestão de Publicidade Digital Out-of-Home (DOOH)
 
 ---
@@ -111,6 +111,8 @@ O sistema possui um modelo hierárquico de roles:
     - Estatísticas por local
     - Visualização em mapa por venue
     - Filtros avançados por tipo de local
+    - **NOVO (v1.3.1):** Campos comerciais em `venues`: `restricao` (catálogo, padrão `Livre`), `programatica` (boolean), `rede` (texto); espelhamento em `screens` (`restricoes` alinhado à restrição do venue, `programatica` boolean, `rede`)
+    - **NOVO (v1.3.1):** Página admin `/venue-catalogs` para gestão de catálogos `venue_restrictions` e `venue_networks` (roles `admin` / `super_admin`)
 
 11. **Página Dedicada de Heatmap (NOVO)**
     - Visualização isolada do mapa de calor
@@ -686,16 +688,23 @@ function calculateDistance(lat1, lng1, lat2, lng2) {
 **Mudanças de dados e backend:**
 - Migration adicionando colunas em `screens`:
   - `restricoes` (text)
-  - `programatica` (text)
-- Atualização da `v_screens_enriched` para expor os novos campos.
-- Atualização da RPC `add_screen_as_admin(jsonb)` para aceitar os novos atributos.
+  - `programatica` (**boolean** após migration `20260410110000`; normalização a partir de valores texto legados)
+  - `rede` (text)
+- Em `venues`: `restricao` (text, default `Livre`), `programatica` (boolean), `rede` (text).
+- Tabelas de catálogo: `venue_restrictions`, `venue_networks` (RLS: leitura autenticada; escrita `admin`/`super_admin`).
+- Atualização da `v_screens_enriched` para join com `venues` e fallbacks (`restricoes`/`rede`/`programatica`).
+- Atualização da RPC `add_screen_as_admin(jsonb)` para aceitar `rede` e `programatica` boolean (migration `20260410111000`).
 - Token público por proposta em `proposals`:
   - `public_map_token` (uuid)
   - `public_map_token_created_at` (timestamptz)
 
 **Compatibilidade operacional:**
-- Fluxo de inventário/importação atualizado para preencher e persistir `restricoes` e `programatica`.
+- Fluxo de inventário/importação (`scripts/import-venues-from-excel.cjs`) atualizado para preencher venues e telas: `Restrição` / `Programática` / `Rede`, além de endereço e classe em `screens` quando presentes na planilha.
+- Export Excel de proposta: coluna `Programática` como **Sim/Não** coerente com boolean.
 - Link público de mapa habilitado para propostas com token válido, incluindo rascunho.
+
+**Auditoria venues vs telas (operacional DB):**
+- Opcional: tabelas `venue_audit_runs`, `venue_audit_distribution` e função `run_weekly_venue_audit()` quando criadas no projeto; agendamento sugerido via `pg_cron` (ex.: segunda 08:00) para snapshot de distribuição e contagem de divergências `restricoes`↔`restricao`, `programatica`, `rede`.
 
 ---
 
@@ -844,6 +853,11 @@ CREATE TABLE screens (
   google_place_id TEXT,
   google_place_name TEXT,
   google_rating NUMERIC(3,2),
+
+  -- Comercial / export (evolução v1.3.x)
+  restricoes TEXT,
+  programatica BOOLEAN,
+  rede TEXT,
   
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
@@ -852,6 +866,7 @@ CREATE TABLE screens (
 - Geolocalização com latitude/longitude
 - Array de especialidades para busca
 - Integração com Google Places
+- `restricoes`, `programatica`, `rede` espelham o venue quando aplicável; `programatica` é boolean no schema atual
 
 **venues** (Locais/Pontos)
 ```sql
@@ -864,6 +879,9 @@ CREATE TABLE venues (
   state TEXT,
   latitude NUMERIC(10,8),
   longitude NUMERIC(11,8),
+  restricao TEXT NOT NULL DEFAULT 'Livre',
+  programatica BOOLEAN NOT NULL DEFAULT false,
+  rede TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 ```
@@ -1023,17 +1041,16 @@ CREATE TABLE email_logs (
 ### 3.3 Views e Funções
 
 **v_screens_enriched** (View Enriquecida de Telas)
+- Join `screens` + `venues`; expõe `full_address`, `audience` e campos comerciais com **fallback** do venue quando a tela estiver vazia (`restricoes`/`programatica`/`rede`). Ver definição em migration `20260410110000_professionalize_venues_fields.sql`.
 ```sql
+-- Resumo conceitual (definição canônica no repositório Supabase)
 CREATE OR REPLACE VIEW v_screens_enriched AS
 SELECT 
   s.*,
   v.name AS venue_name,
   v.type AS venue_type,
-  -- Endereço formatado
   CONCAT_WS(', ', s.address, s.city, s.state) AS full_address,
-  -- Especialidades como array
   s.specialty_tags,
-  -- Métricas
   COALESCE(s.average_audience, 0) AS audience
 FROM screens s
 LEFT JOIN venues v ON s.venue_id = v.id
@@ -2104,6 +2121,19 @@ SUPABASE_SERVICE_ROLE_KEY=<SERVICE_KEY>
   - ✅ RPC `add_screen_as_admin(jsonb)` atualizada para suportar novos campos
   - ✅ Importador Excel de inventário atualizado para persistir `restricoes` e `programatica`
 - **Referências**: `src/pages/NewProposal.tsx`, `src/pages/ProposalDetails.tsx`, `src/pages/PublicProposalMap.tsx`, `supabase/functions/public-proposal-map/index.ts`, migrations de 2026-04-08.
+
+### 10/04/2026 - Venues profissionalizados e catálogos (v1.3.1)
+- **Atualização**: campos `restricao` / `programatica` / `rede` em `venues`, espelhamento em `screens`, catálogos administráveis, import Excel alinhado e auditoria opcional DB.
+- **Escopo**:
+  - ✅ `venues.restricao` (default `Livre`), `venues.programatica` (boolean), `venues.rede`; `screens.rede`; `screens.programatica` como boolean com normalização de legado
+  - ✅ Tabelas `venue_restrictions`, `venue_networks` + RLS (`admin`/`super_admin` para escrita)
+  - ✅ `v_screens_enriched` com fallbacks a partir do venue
+  - ✅ RPC `add_screen_as_admin` com `rede` e `programatica` boolean
+  - ✅ UI: `Inventory`, `Venues`, `VenueDetails`, rota `/venue-catalogs` (`VenueCatalogsAdmin`), `screen-fallback-service`
+  - ✅ Export proposta: `Programática` como Sim/Não; validação `proposal.ts` tolera boolean/string legado
+  - ✅ Script `scripts/import-venues-from-excel.cjs` (colunas Restrição/Programática/Rede + endereço/classe em telas)
+  - ✅ Auditoria semanal no banco (quando aplicada): `run_weekly_venue_audit()`, tabelas de snapshot; agendamento via `pg_cron` no projeto (recomenda-se versionar em migration dedicada)
+- **Referências**: `supabase/migrations/20260410110000_professionalize_venues_fields.sql`, `supabase/migrations/20260410111000_update_add_screen_rpc_for_rede_bool.sql`, `src/pages/VenueCatalogsAdmin.tsx`, `src/lib/screen-fallback-service.ts`.
 
 ### 18/02/2026 - Deploy e Configuração
 - **Atualização**: CI/CD via GitHub Actions e documentação de secrets

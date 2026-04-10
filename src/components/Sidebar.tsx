@@ -19,6 +19,7 @@ import {
   User,
   LogOut,
   Target,
+  ListChecks,
   Pill,
   Stethoscope
 } from "lucide-react";
@@ -106,6 +107,12 @@ const menuItems = [
     label: "Fórmulas de Impacto",
     icon: Target,
     href: "/impact-models",
+    requiredRole: "admin" as UserRole
+  },
+  {
+    label: "Catálogos Venues",
+    icon: ListChecks,
+    href: "/venue-catalogs",
     requiredRole: "admin" as UserRole
   },
   {

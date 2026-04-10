@@ -51,6 +51,9 @@ interface VenueWithScreens {
     lng?: number;
     audience?: number | null;
     ambiente?: string | null;
+    restricoes?: string | null;
+    programatica?: boolean | null;
+    rede?: string | null;
     audiencia_pacientes?: number | null;
     audiencia_local?: number | null;
     audiencia_hcp?: number | null;
@@ -138,6 +141,9 @@ const Venues = () => {
               lng,
               staging_audiencia,
               ambiente,
+              restricoes,
+              programatica,
+              rede,
               audiencia_pacientes,
               audiencia_local,
               audiencia_hcp,
@@ -242,6 +248,9 @@ const Venues = () => {
           lng: screen.lng,
           audience: screen.staging_audiencia ?? undefined,
           ambiente: screen.ambiente ?? undefined,
+          restricoes: screen.restricoes ?? undefined,
+          programatica: screen.programatica ?? undefined,
+          rede: screen.rede ?? undefined,
           audiencia_pacientes: screen.audiencia_pacientes ?? undefined,
           audiencia_local: screen.audiencia_local ?? undefined,
           audiencia_hcp: screen.audiencia_hcp ?? undefined,
@@ -808,6 +817,16 @@ const Venues = () => {
                 <span>Audiência: <strong className="text-gray-900">{venue.audienceTotal.toLocaleString('pt-BR')}</strong>/mês</span>
               </div>
             )}
+            {venue.screens[0]?.restricoes && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <span>Restrição:</span>
+                <strong className="text-gray-900">{venue.screens[0].restricoes}</strong>
+              </div>
+            )}
+            <div className="flex items-center gap-3 text-xs text-muted-foreground">
+              <span>Programática: {venue.screens[0]?.programatica ? 'Sim' : 'Não'}</span>
+              <span>Rede: {venue.screens[0]?.rede || 'TV Doutor'}</span>
+            </div>
 
             <div className="flex items-center justify-between text-xs text-muted-foreground">
               <span>

@@ -180,7 +180,10 @@ type InventoryRow = {
   // Novos campos venue/details
   ambiente: string | null;
   restricoes: string | null;
-  programatica: string | null;
+  programatica: boolean | null;
+  venue_restricao: string | null;
+  venue_programatica: boolean | null;
+  venue_rede: string | null;
   audiencia_pacientes: number | null;
   audiencia_local: number | null;
   audiencia_hcp: number | null;
@@ -221,7 +224,8 @@ interface Screen {
   audience_monthly?: number | null;
   ambiente?: string | null;
   restricoes?: string | null;
-  programatica?: string | null;
+  programatica?: boolean | null;
+  rede?: string | null;
   audiencia_pacientes?: number | null;
   audiencia_local?: number | null;
   audiencia_hcp?: number | null;
@@ -253,6 +257,8 @@ const Inventory = () => {
   const [selectedScreen, setSelectedScreen] = useState<Screen | null>(null);
   const [editingScreen, setEditingScreen] = useState<Screen | null>(null);
   const [newScreen, setNewScreen] = useState<Partial<Screen>>({});
+  const [restrictionOptions, setRestrictionOptions] = useState<string[]>(['Livre']);
+  const [networkOptions, setNetworkOptions] = useState<string[]>(['TV Doutor']);
   const [saving, setSaving] = useState(false);
   const [specialtyText, setSpecialtyText] = useState('');
   
@@ -290,6 +296,7 @@ const Inventory = () => {
   useEffect(() => {
     console.log('🚀 Componente Inventory carregado, iniciando busca de dados...');
     fetchScreens();
+    fetchCatalogOptions();
   }, []);
 
   useEffect(() => {
@@ -356,7 +363,8 @@ const Inventory = () => {
             venue_name, venue_address, venue_country, venue_state, venue_district,
             staging_nome_ponto, staging_audiencia, staging_especialidades,
             staging_tipo_venue, staging_subtipo, staging_categoria,
-            ambiente, restricoes, programatica, audiencia_pacientes, audiencia_local, audiencia_hcp, audiencia_medica, aceita_convenio
+            ambiente, restricoes, programatica, venue_restricao, venue_programatica, venue_rede,
+            audiencia_pacientes, audiencia_local, audiencia_hcp, audiencia_medica, aceita_convenio
           `)
           .order('code', { ascending: true })
           .range(from, from + PAGE_SIZE - 1);
@@ -404,7 +412,7 @@ const Inventory = () => {
 
           venue_type_parent: r.staging_tipo_venue ?? '',
           venue_type_child: r.staging_subtipo ?? '',
-          venue_type_grandchildren: r.rede ?? r.staging_categoria ?? r.category ?? '',
+          venue_type_grandchildren: r.staging_categoria ?? r.category ?? '',
 
           specialty: r.specialty ?? (r.staging_especialidades ? normalizeSpecialties(r.staging_especialidades) : []),
 
@@ -426,8 +434,9 @@ const Inventory = () => {
           audience_monthly: r.staging_audiencia ?? undefined,
 
           ambiente: r.ambiente ?? undefined,
-          restricoes: r.restricoes ?? undefined,
-          programatica: r.programatica ?? undefined,
+          restricoes: r.venue_restricao ?? r.restricoes ?? 'Livre',
+          programatica: r.venue_programatica ?? r.programatica ?? false,
+          rede: r.venue_rede ?? r.rede ?? 'TV Doutor',
           audiencia_pacientes: r.audiencia_pacientes ?? undefined,
           audiencia_local: r.audiencia_local ?? undefined,
           audiencia_hcp: r.audiencia_hcp ?? undefined,
@@ -471,6 +480,26 @@ const Inventory = () => {
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchCatalogOptions = async () => {
+    try {
+      const [restrictionsRes, networksRes] = await Promise.all([
+        supabase.from('venue_restrictions').select('name').order('name', { ascending: true }),
+        supabase.from('venue_networks').select('name').order('name', { ascending: true }),
+      ]);
+      if (!restrictionsRes.error) {
+        const values = (restrictionsRes.data ?? []).map((r: any) => r.name).filter(Boolean);
+        setRestrictionOptions(values.length > 0 ? values : ['Livre']);
+      }
+      if (!networksRes.error) {
+        const values = (networksRes.data ?? []).map((r: any) => r.name).filter(Boolean);
+        setNetworkOptions(values.length > 0 ? values : ['TV Doutor']);
+      }
+    } catch {
+      setRestrictionOptions(['Livre']);
+      setNetworkOptions(['TV Doutor']);
     }
   };
 
@@ -690,8 +719,9 @@ const Inventory = () => {
         lat: editingScreen.lat ?? null,
         lng: editingScreen.lng ?? null,
         ambiente: editingScreen.ambiente ?? null,
-        restricoes: editingScreen.restricoes ?? null,
-        programatica: editingScreen.programatica ?? null,
+        restricoes: editingScreen.restricoes ?? 'Livre',
+        programatica: editingScreen.programatica ?? false,
+        rede: editingScreen.rede ?? null,
         audiencia_pacientes: editingScreen.audiencia_pacientes ?? null,
         audiencia_local: editingScreen.audiencia_local ?? null,
         audiencia_hcp: editingScreen.audiencia_hcp ?? null,
@@ -751,8 +781,9 @@ const Inventory = () => {
           audience_monthly: editingScreen.audience_monthly ?? editingScreen.venue_info?.audience_monthly,
         },
         ambiente: editingScreen.ambiente ?? null,
-        restricoes: editingScreen.restricoes ?? null,
-        programatica: editingScreen.programatica ?? null,
+        restricoes: editingScreen.restricoes ?? 'Livre',
+        programatica: editingScreen.programatica ?? false,
+        rede: editingScreen.rede ?? null,
         audiencia_pacientes: editingScreen.audiencia_pacientes ?? null,
         audiencia_local: editingScreen.audiencia_local ?? null,
         audiencia_hcp: editingScreen.audiencia_hcp ?? null,
@@ -840,8 +871,9 @@ const Inventory = () => {
         lat: newScreen.lat || null,
         lng: newScreen.lng || null,
         ambiente: newScreen.ambiente ?? null,
-        restricoes: newScreen.restricoes ?? null,
-        programatica: newScreen.programatica ?? null,
+        restricoes: newScreen.restricoes ?? 'Livre',
+        programatica: newScreen.programatica ?? false,
+        rede: newScreen.rede ?? null,
         audiencia_pacientes: newScreen.audiencia_pacientes ?? null,
         audiencia_local: newScreen.audiencia_local ?? null,
         audiencia_hcp: newScreen.audiencia_hcp ?? null,
@@ -1992,7 +2024,10 @@ const Inventory = () => {
               
               {(isAdmin() || isManager()) && (
                 <Button 
-                  onClick={() => setAddModalOpen(true)}
+                  onClick={() => {
+                    setNewScreen({ restricoes: 'Livre', programatica: false, rede: 'TV Doutor' });
+                    setAddModalOpen(true);
+                  }}
                   className="bg-white text-[#f48220] hover:bg-white/90 shadow-2xl hover:shadow-white/50 hover:scale-105 transition-all font-bold group"
                 >
                   <Plus className="h-5 w-5 mr-2 group-hover:rotate-90 transition-transform" />
@@ -2896,6 +2931,48 @@ const Inventory = () => {
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
+                    <Label htmlFor="restricoes">Restrição</Label>
+                    <Select
+                      value={editingScreen.restricoes ?? 'Livre'}
+                      onValueChange={(value) => updateEditingScreen('restricoes', value)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione a restrição" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {restrictionOptions.map((item) => (
+                          <SelectItem key={item} value={item}>{item}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="rede">Rede</Label>
+                    <Select
+                      value={editingScreen.rede ?? 'TV Doutor'}
+                      onValueChange={(value) => updateEditingScreen('rede', value)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione a rede" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {networkOptions.map((item) => (
+                          <SelectItem key={item} value={item}>{item}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id="programatica"
+                    checked={editingScreen.programatica ?? false}
+                    onCheckedChange={(checked) => updateEditingScreen('programatica', checked)}
+                  />
+                  <Label htmlFor="programatica">Programática (Sim/Não)</Label>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
                     <Label htmlFor="audiencia_pacientes">Audiência Pacientes</Label>
                     <Input
                       id="audiencia_pacientes"
@@ -3110,6 +3187,44 @@ const Inventory = () => {
                   onChange={(e) => updateNewScreen('ambiente', e.target.value || null)}
                   placeholder="Ex: sala de espera, consultório"
                 />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="new-restricoes">Restrição</Label>
+                  <Select
+                    value={newScreen.restricoes ?? 'Livre'}
+                    onValueChange={(value) => updateNewScreen('restricoes', value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione a restrição" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {restrictionOptions.map((item) => (
+                        <SelectItem key={item} value={item}>{item}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="new-rede">Rede</Label>
+                  <Select
+                    value={newScreen.rede ?? 'TV Doutor'}
+                    onValueChange={(value) => updateNewScreen('rede', value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione a rede" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {networkOptions.map((item) => (
+                        <SelectItem key={item} value={item}>{item}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Switch id="new-programatica" checked={newScreen.programatica ?? false} onCheckedChange={(checked) => updateNewScreen('programatica', checked)} />
+                <Label htmlFor="new-programatica">Programática (Sim/Não)</Label>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">

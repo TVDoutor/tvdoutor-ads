@@ -239,7 +239,7 @@ const NewProposal = () => {
             class: r.class ?? '',
             ambiente: r.ambiente ?? '',
             restricoes: r.restricoes ?? '',
-            programatica: r.programatica ?? '',
+            programatica: r.programatica == null ? '' : (r.programatica ? 'Sim' : 'Não'),
             cep: r.cep ?? '',
             type: r.category ?? r.screen_type ?? '',
             address:

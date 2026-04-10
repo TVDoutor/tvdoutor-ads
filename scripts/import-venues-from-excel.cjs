@@ -20,13 +20,18 @@
  */
 
 const path = require('path');
+const fs = require('fs');
 try { require('dotenv').config(); } catch (_) {}
 
 const { createClient } = require('@supabase/supabase-js');
 const ExcelJS = require('exceljs');
 
+const args = process.argv.slice(2);
+const DRY_RUN = args.includes('--dry-run');
+const excelArg = args.find(a => !String(a).startsWith('--'));
+
 // Caminho do arquivo (argumento ou padrão)
-const EXCEL_PATH = process.argv[2] || path.join(
+const EXCEL_PATH = excelArg || path.join(
   process.env.USERPROFILE || process.env.HOME,
   'OneDrive',
   'Área de Trabalho',
@@ -36,6 +41,7 @@ const EXCEL_PATH = process.argv[2] || path.join(
 
 const BATCH_SIZE = 100;
 const CODE_REGEX = /^P\d{4,5}(\.[A-Za-z0-9]+)*$/i;
+const VALID_CLASS_BANDS = new Set(['ND', 'A', 'AB', 'ABC', 'B', 'BC', 'C', 'CD', 'D', 'E']);
 
 function normalizeHeaderKey(value) {
   return String(value ?? '')
@@ -77,6 +83,15 @@ function parseBoolean(value) {
   return true;
 }
 
+function parseNullableBoolean(value) {
+  if (value === null || value === undefined || value === '') return null;
+  if (typeof value === 'boolean') return value;
+  const s = String(value).toLowerCase().trim();
+  if (s === 'sim' || s === 'ativo' || s === 'true' || s === '1' || s === 'yes' || s === 's') return true;
+  if (s === 'não' || s === 'nao' || s === 'n' || s === 'inativo' || s === 'false' || s === '0' || s === 'no') return false;
+  return null;
+}
+
 function sanitizeCode(value) {
   if (value == null) return '';
   let s = String(value).trim().replace(/[\u200B-\u200D\uFEFF]/g, '').replace(/\s+/g, '');
@@ -93,6 +108,20 @@ function splitSpecialties(value) {
     if (text.startsWith('[')) return JSON.parse(text);
   } catch (_) {}
   return text.split(/[,;|]/g).map(s => s.trim()).filter(Boolean);
+}
+
+function parseClassBand(value) {
+  if (value == null || value === '') return 'ND';
+  let s = String(value)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase()
+    .trim();
+  if (!s) return 'ND';
+  s = s.replace(/\s+/g, '');
+  if (s === 'N/D' || s === 'N-D' || s === 'NA' || s === 'N.A.') s = 'ND';
+  if (VALID_CLASS_BANDS.has(s)) return s;
+  return 'ND';
 }
 
 function parseRow(row, headers) {
@@ -134,8 +163,9 @@ function parseRow(row, headers) {
     google_place_id: googlePlaceId,
     google_formatted_address: googleFormattedAddress,
     ambiente: (r['ambiente'] ?? '').toString().trim() || null,
-    restricoes: (r['restricoes'] ?? r['restrições'] ?? '').toString().trim() || null,
-    programatica: (r['programatica'] ?? r['programática'] ?? '').toString().trim() || null,
+    restricoes: (r['restricoes'] ?? r['restrições'] ?? r['restricao'] ?? r['restrição'] ?? '').toString().trim() || 'Livre',
+    programatica: parseNullableBoolean(r['programatica'] ?? r['programática']),
+    rede: (r['rede'] ?? '').toString().trim() || null,
     audiencia_pacientes: toInt(r['audiencia pacientes'] ?? r['audiencia_pacientes']),
     audiencia_local: toInt(r['audiencia local'] ?? r['audiencia_local']),
     audiencia_hcp: toInt(r['audiencia hcp'] ?? r['audiencia_hcp']),
@@ -150,21 +180,18 @@ function parseRow(row, headers) {
     selling_rate_month: parseNumberBR(r['taxa venda (mes)'] ?? r['taxa venda (mês)'] ?? r['selling_rate_month']),
     spots_per_hour: toInt(r['spots por hora'] ?? r['spots_per_hour']),
     spot_duration_secs: toInt(r['duracao spot (seg)'] ?? r['spot_duration_secs']),
+    class_band: parseClassBand(r['classe'] ?? r['class'] ?? r['classificacao'] ?? r['classificação']),
   };
 }
 
 async function run() {
   console.log('📂 Lendo planilha:', EXCEL_PATH);
+  if (DRY_RUN) console.log('🧪 Modo dry-run ativado (sem escrita no banco)');
 
-  const url = process.env.VITE_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
-  if (!url || !key) {
-    console.error('❌ Configure VITE_SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY no .env');
-    console.error('   Crie um arquivo .env na raiz do projeto tvdoutor-ads com essas variáveis.');
+  if (!fs.existsSync(EXCEL_PATH)) {
+    console.error('❌ Arquivo Excel não encontrado:', EXCEL_PATH);
     process.exit(1);
   }
-
-  const supabase = createClient(url, key, { auth: { autoRefreshToken: false, persistSession: false } });
 
   const wb = new ExcelJS.Workbook();
   await wb.xlsx.readFile(EXCEL_PATH);
@@ -177,6 +204,14 @@ async function run() {
   const headers = [];
   const row1 = ws.getRow(1);
   row1.eachCell((c, i) => { headers[i - 1] = c.value; });
+  const normalizedHeaders = headers.map(normalizeHeaderKey).filter(Boolean);
+  const hasCodeHeader = normalizedHeaders.includes('codigo de ponto') ||
+    normalizedHeaders.includes('codigo') ||
+    normalizedHeaders.includes('code');
+  if (!hasCodeHeader) {
+    console.error('❌ Cabeçalho obrigatório ausente: CÓDIGO DE PONTO (ou codigo/code)');
+    process.exit(1);
+  }
 
   const rows = [];
   let skipped = 0;
@@ -198,6 +233,33 @@ async function run() {
     console.log(`   (${rows.length - deduped.length} duplicatas removidas por código)`);
   }
 
+  const estimatedRates = deduped.filter(r =>
+    r.standard_rate_month != null ||
+    r.selling_rate_month != null ||
+    r.spots_per_hour != null ||
+    r.spot_duration_secs != null
+  ).length;
+  const estimatedClassUpdates = deduped.filter(r => r.class_band != null).length;
+
+  if (DRY_RUN) {
+    console.log('\n🧾 Resumo dry-run:');
+    console.log(`   Venues candidatos a upsert: ${deduped.length}`);
+    console.log(`   Screens candidatos a upsert: ${deduped.length}`);
+    console.log(`   Classes de screens candidatas: ${estimatedClassUpdates}`);
+    console.log(`   Screen_rates candidatos: ${estimatedRates}`);
+    return;
+  }
+
+  const url = process.env.VITE_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
+  if (!url || !key) {
+    console.error('❌ Configure VITE_SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY no .env');
+    console.error('   Crie um arquivo .env na raiz do projeto tvdoutor-ads com essas variáveis.');
+    process.exit(1);
+  }
+
+  const supabase = createClient(url, key, { auth: { autoRefreshToken: false, persistSession: false } });
+
   const codeToVenueId = new Map();
   const codeToScreenId = new Map();
 
@@ -213,6 +275,9 @@ async function run() {
       district: r.city || null,
       lat: r.lat,
       lng: r.lng,
+      restricao: r.restricoes || 'Livre',
+      programatica: r.programatica ?? false,
+      rede: r.rede || null,
       google_place_id: r.google_place_id,
       google_formatted_address: r.google_formatted_address,
       updated_at: new Date().toISOString(),
@@ -251,14 +316,15 @@ async function run() {
         google_formatted_address: r.google_formatted_address,
         audience_monthly: r.audiencia_pacientes ?? r.audiencia_local ?? null,
         ambiente: r.ambiente,
-        restricoes: r.restricoes,
-        programatica: r.programatica,
+        restricoes: r.restricoes || 'Livre',
+        programatica: r.programatica ?? false,
+        rede: r.rede || null,
         audiencia_pacientes: r.audiencia_pacientes,
         audiencia_local: r.audiencia_local,
         audiencia_hcp: r.audiencia_hcp,
         audiencia_medica: r.audiencia_medica,
         aceita_convenio: r.aceita_convenio,
-        class: 'ND',
+        class: r.class_band || 'ND',
         updated_at: new Date().toISOString(),
       };
     });

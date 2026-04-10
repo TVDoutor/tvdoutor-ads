@@ -171,6 +171,7 @@ BEGIN
     DROP POLICY IF EXISTS "Admins can view all campaigns" ON public.campaigns;
 
     -- All authenticated users can see all campaigns
+    DROP POLICY IF EXISTS "campaigns_select_all_auth" ON public.campaigns;
     CREATE POLICY "campaigns_select_all_auth"
       ON public.campaigns FOR SELECT TO authenticated
       USING (true);
@@ -178,6 +179,7 @@ BEGIN
     -- All authenticated users can create campaigns
     DROP POLICY IF EXISTS "Users can create campaigns" ON public.campaigns;
     DROP POLICY IF EXISTS "Authenticated users can create campaigns" ON public.campaigns;
+    DROP POLICY IF EXISTS "campaigns_insert_auth" ON public.campaigns;
     CREATE POLICY "campaigns_insert_auth"
       ON public.campaigns FOR INSERT TO authenticated
       WITH CHECK (true);
@@ -185,6 +187,7 @@ BEGIN
     -- Manager+ can update any campaign, others can update their own
     DROP POLICY IF EXISTS "Users can update own campaigns" ON public.campaigns;
     DROP POLICY IF EXISTS "Admins can update all campaigns" ON public.campaigns;
+    DROP POLICY IF EXISTS "campaigns_update_auth" ON public.campaigns;
     CREATE POLICY "campaigns_update_auth"
       ON public.campaigns FOR UPDATE TO authenticated
       USING (created_by = auth.uid() OR public.is_manager_or_above())
@@ -193,6 +196,7 @@ BEGIN
     -- Manager+ can delete any campaign, others can delete their own
     DROP POLICY IF EXISTS "Users can delete own campaigns" ON public.campaigns;
     DROP POLICY IF EXISTS "Admins can delete all campaigns" ON public.campaigns;
+    DROP POLICY IF EXISTS "campaigns_delete_auth" ON public.campaigns;
     CREATE POLICY "campaigns_delete_auth"
       ON public.campaigns FOR DELETE TO authenticated
       USING (created_by = auth.uid() OR public.is_manager_or_above());
@@ -215,6 +219,7 @@ BEGIN
     DROP POLICY IF EXISTS "select_proposals_owner_or_admin" ON public.proposals;
 
     -- All authenticated users can see all proposals
+    DROP POLICY IF EXISTS "proposals_select_all_auth" ON public.proposals;
     CREATE POLICY "proposals_select_all_auth"
       ON public.proposals FOR SELECT TO authenticated
       USING (true);
@@ -222,6 +227,7 @@ BEGIN
     -- All authenticated users can create proposals
     DROP POLICY IF EXISTS "proposals_insert_auth" ON public.proposals;
     DROP POLICY IF EXISTS "proposals_insert_authenticated" ON public.proposals;
+    DROP POLICY IF EXISTS "proposals_insert_all_auth" ON public.proposals;
     CREATE POLICY "proposals_insert_all_auth"
       ON public.proposals FOR INSERT TO authenticated
       WITH CHECK (true);
@@ -229,6 +235,7 @@ BEGIN
     -- Owner or manager+ can update proposals
     DROP POLICY IF EXISTS "proposals_update_owner_or_admin" ON public.proposals;
     DROP POLICY IF EXISTS "update_proposals_owner_or_admin" ON public.proposals;
+    DROP POLICY IF EXISTS "proposals_update_owner_or_manager" ON public.proposals;
     CREATE POLICY "proposals_update_owner_or_manager"
       ON public.proposals FOR UPDATE TO authenticated
       USING (created_by = auth.uid() OR created_by IS NULL OR public.is_manager_or_above())
@@ -237,6 +244,7 @@ BEGIN
     -- Manager+ can delete proposals
     DROP POLICY IF EXISTS "proposals_delete_admin" ON public.proposals;
     DROP POLICY IF EXISTS "Only admins can delete proposals" ON public.proposals;
+    DROP POLICY IF EXISTS "proposals_delete_manager" ON public.proposals;
     CREATE POLICY "proposals_delete_manager"
       ON public.proposals FOR DELETE TO authenticated
       USING (public.is_manager_or_above());
@@ -257,6 +265,10 @@ BEGIN
     DROP POLICY IF EXISTS "proposal_screens_insert_proposal_owner" ON public.proposal_screens;
     DROP POLICY IF EXISTS "proposal_screens_update_proposal_owner" ON public.proposal_screens;
     DROP POLICY IF EXISTS "proposal_screens_delete_proposal_owner" ON public.proposal_screens;
+    DROP POLICY IF EXISTS "proposal_screens_select_auth" ON public.proposal_screens;
+    DROP POLICY IF EXISTS "proposal_screens_insert_auth" ON public.proposal_screens;
+    DROP POLICY IF EXISTS "proposal_screens_update_auth" ON public.proposal_screens;
+    DROP POLICY IF EXISTS "proposal_screens_delete_auth" ON public.proposal_screens;
 
     CREATE POLICY "proposal_screens_select_auth"
       ON public.proposal_screens FOR SELECT TO authenticated
@@ -305,6 +317,10 @@ BEGIN
     DROP POLICY IF EXISTS "Admins can update all campaign screens" ON public.campaign_screens;
     DROP POLICY IF EXISTS "Users can delete own campaign screens" ON public.campaign_screens;
     DROP POLICY IF EXISTS "Admins can delete all campaign screens" ON public.campaign_screens;
+    DROP POLICY IF EXISTS "campaign_screens_select_auth" ON public.campaign_screens;
+    DROP POLICY IF EXISTS "campaign_screens_insert_auth" ON public.campaign_screens;
+    DROP POLICY IF EXISTS "campaign_screens_update_auth" ON public.campaign_screens;
+    DROP POLICY IF EXISTS "campaign_screens_delete_auth" ON public.campaign_screens;
 
     CREATE POLICY "campaign_screens_select_auth"
       ON public.campaign_screens FOR SELECT TO authenticated

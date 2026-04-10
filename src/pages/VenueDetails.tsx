@@ -68,6 +68,9 @@ interface VenueDetail {
     specialty: string[];
     address_raw: string;
     ambiente?: string | null;
+    restricoes?: string | null;
+    programatica?: boolean | null;
+    rede?: string | null;
     audiencia_pacientes?: number | null;
     audiencia_local?: number | null;
     audiencia_hcp?: number | null;
@@ -153,6 +156,9 @@ const VenueDetails = () => {
             specialty: specialties,
             address_raw: (screen as any).address_raw ?? (screen as any).address ?? '',
             ambiente: (screen as any).ambiente ?? undefined,
+            restricoes: (screen as any).restricoes ?? undefined,
+            programatica: (screen as any).programatica ?? undefined,
+            rede: (screen as any).rede ?? undefined,
             audiencia_pacientes: (screen as any).audiencia_pacientes ?? undefined,
             audiencia_local: (screen as any).audiencia_local ?? undefined,
             audiencia_hcp: (screen as any).audiencia_hcp ?? undefined,
@@ -422,6 +428,20 @@ const VenueDetails = () => {
                                 <p>{screen.ambiente}</p>
                               </div>
                             )}
+                            {screen.restricoes && (
+                              <div>
+                                <span className="text-muted-foreground">Restrição:</span>
+                                <p>{screen.restricoes}</p>
+                              </div>
+                            )}
+                            <div>
+                              <span className="text-muted-foreground">Programática:</span>
+                              <p>{screen.programatica ? "Sim" : "Não"}</p>
+                            </div>
+                            <div>
+                              <span className="text-muted-foreground">Rede:</span>
+                              <p>{screen.rede || "TV Doutor"}</p>
+                            </div>
                             {screen.aceita_convenio != null && (
                               <div>
                                 <span className="text-muted-foreground">Aceita convênio:</span>

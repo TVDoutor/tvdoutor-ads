@@ -2132,8 +2132,8 @@ SUPABASE_SERVICE_ROLE_KEY=<SERVICE_KEY>
   - ✅ UI: `Inventory`, `Venues`, `VenueDetails`, rota `/venue-catalogs` (`VenueCatalogsAdmin`), `screen-fallback-service`
   - ✅ Export proposta: `Programática` como Sim/Não; validação `proposal.ts` tolera boolean/string legado
   - ✅ Script `scripts/import-venues-from-excel.cjs` (colunas Restrição/Programática/Rede + endereço/classe em telas)
-  - ✅ Auditoria semanal no banco (quando aplicada): `run_weekly_venue_audit()`, tabelas de snapshot; agendamento via `pg_cron` no projeto (recomenda-se versionar em migration dedicada)
-- **Referências**: `supabase/migrations/20260410110000_professionalize_venues_fields.sql`, `supabase/migrations/20260410111000_update_add_screen_rpc_for_rede_bool.sql`, `src/pages/VenueCatalogsAdmin.tsx`, `src/lib/screen-fallback-service.ts`.
+  - ✅ Auditoria semanal no banco: migration `20260410120000_weekly_venue_audit.sql` (`run_weekly_venue_audit()`, tabelas de snapshot); agendamento via `pg_cron` no projeto (ver comentário no ficheiro SQL)
+- **Referências**: `supabase/migrations/20260410110000_professionalize_venues_fields.sql`, `supabase/migrations/20260410111000_update_add_screen_rpc_for_rede_bool.sql`, `supabase/migrations/20260410120000_weekly_venue_audit.sql`, `src/pages/VenueCatalogsAdmin.tsx`, `src/lib/screen-fallback-service.ts`.
 
 ### 18/02/2026 - Deploy e Configuração
 - **Atualização**: CI/CD via GitHub Actions e documentação de secrets

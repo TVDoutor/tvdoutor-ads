@@ -86,6 +86,7 @@ export const ScreenSelectionStep = ({ data, onUpdate }: ScreenSelectionStepProps
   const [categorySubmitting, setCategorySubmitting] = useState(false);
 
   useEffect(() => {
+    void CategoryService.ensureCatalogLoaded();
     fetchScreens();
   }, []);
 
@@ -647,7 +648,7 @@ export const ScreenSelectionStep = ({ data, onUpdate }: ScreenSelectionStepProps
               onChange={(e) => setCategoryQuery(e.target.value)}
             />
             <p className="text-xs text-muted-foreground">
-              Digite uma categoria para localizar especialidades agrupadas.
+              Digite uma categoria ou especialidade para adicionar os pontos relacionados.
             </p>
           </div>
 

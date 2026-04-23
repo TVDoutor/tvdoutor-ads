@@ -471,6 +471,10 @@ export const ScreenSelectionStep: React.FC<ScreenSelectionStepProps> = ({
   // mesmo depois do usuário trocar de aba (Rápido/Raio/CEP/Avançado) e os `screens` mudarem.
   const [screenCache, setScreenCache] = useState<Map<number, any>>(() => new Map());
 
+  useEffect(() => {
+    void CategoryService.ensureCatalogLoaded();
+  }, []);
+
   // Mapa inicial: todas as telas ativas com coordenadas (visão Brasil / inventário)
   useEffect(() => {
     let cancelled = false;

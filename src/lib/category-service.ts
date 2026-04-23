@@ -30,7 +30,7 @@ export interface CategoryScreenResult {
   address?: string | null;
 }
 
-const CATEGORY_CATALOG: CategoryDefinition[] = [
+const FALLBACK_CATEGORY_CATALOG: CategoryDefinition[] = [
   {
     id: 'odonto',
     label: 'Odonto',
@@ -137,12 +137,16 @@ function uniqueNormalized(values: string[]) {
   return result;
 }
 
-function getCategoryCatalog() {
-  return CATEGORY_CATALOG.map((category) => ({
+function sanitizeCatalog(categories: CategoryDefinition[]) {
+  return categories.map((category) => ({
     ...category,
     aliases: uniqueNormalized(category.aliases),
     specialties: uniqueNormalized(category.specialties),
   }));
+}
+
+function getFallbackCatalog() {
+  return sanitizeCatalog(FALLBACK_CATEGORY_CATALOG);
 }
 
 function matchesCategory(query: string, category: CategoryDefinition) {
@@ -176,14 +180,109 @@ function specialtyMatchesCategory(specialty: string, category: CategoryDefinitio
   });
 }
 
+type CategoryCatalogRpcRow = {
+  id: string;
+  label: string;
+  aliases: string[] | null;
+  specialties: string[] | null;
+  sort_order?: number | null;
+};
+
+type CategorySearchRpcRow = {
+  id: string;
+  label: string;
+  matched_by: string | null;
+  specialties_count: number | null;
+  specialties: string[] | null;
+};
+
+let categoryCatalogCache: CategoryDefinition[] = getFallbackCatalog();
+let categoryCatalogLoadPromise: Promise<CategoryDefinition[]> | null = null;
+
+function upsertCategoryInCache(nextCategory: CategoryDefinition) {
+  const normalized = sanitizeCatalog([nextCategory])[0];
+  const existingIndex = categoryCatalogCache.findIndex((category) => category.id === normalized.id);
+  if (existingIndex >= 0) {
+    categoryCatalogCache[existingIndex] = normalized;
+    return;
+  }
+  categoryCatalogCache = [...categoryCatalogCache, normalized];
+}
+
+async function loadCatalogFromDatabase(): Promise<CategoryDefinition[]> {
+  const { data, error } = await supabase.rpc('get_category_catalog');
+  if (error) {
+    throw new Error(`Erro ao carregar catálogo de categorias: ${error.message}`);
+  }
+
+  const mapped = ((data ?? []) as CategoryCatalogRpcRow[]).map((row) => ({
+    id: String(row.id),
+    label: String(row.label ?? row.id),
+    aliases: Array.isArray(row.aliases) ? row.aliases.filter((value): value is string => typeof value === 'string') : [],
+    specialties: Array.isArray(row.specialties) ? row.specialties.filter((value): value is string => typeof value === 'string') : [],
+  }));
+
+  categoryCatalogCache = sanitizeCatalog(mapped);
+  return categoryCatalogCache;
+}
+
 export class CategoryService {
   static getCatalog(): CategoryDefinition[] {
-    return getCategoryCatalog();
+    return categoryCatalogCache;
+  }
+
+  static async ensureCatalogLoaded(): Promise<void> {
+    if (!categoryCatalogLoadPromise) {
+      categoryCatalogLoadPromise = loadCatalogFromDatabase()
+        .catch((error) => {
+          console.warn('[CategoryService] fallback para catálogo local:', error);
+          return categoryCatalogCache;
+        })
+        .finally(() => {
+          categoryCatalogLoadPromise = null;
+        });
+    }
+
+    await categoryCatalogLoadPromise;
   }
 
   static async searchCategories(query: string): Promise<CategorySearchResult[]> {
     const normalizedQuery = normalizeText(query);
     if (!normalizedQuery) return [];
+
+    try {
+      const { data, error } = await supabase.rpc('search_categories', { q: query });
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      const results = ((data ?? []) as CategorySearchRpcRow[]).map((row) => {
+        const specialties = Array.isArray(row.specialties)
+          ? row.specialties.filter((value): value is string => typeof value === 'string')
+          : [];
+
+        upsertCategoryInCache({
+          id: String(row.id),
+          label: String(row.label ?? row.id),
+          aliases: [],
+          specialties,
+        });
+
+        return {
+          id: String(row.id),
+          label: String(row.label ?? row.id),
+          matchedBy: String(row.matched_by ?? row.label ?? row.id),
+          specialtiesCount: Number(row.specialties_count ?? specialties.length),
+          specialties,
+        };
+      });
+
+      if (results.length > 0) {
+        return results;
+      }
+    } catch (error) {
+      console.warn('[CategoryService] search_categories RPC indisponível, usando fallback local.', error);
+    }
 
     return this.getCatalog()
       .filter((category) => matchesCategory(normalizedQuery, category))
@@ -208,7 +307,18 @@ export class CategoryService {
   }
 
   static async getScreensByCategory(categoryId: string, specialtiesOverride?: string[]): Promise<CategoryScreenResult[]> {
-    const category = this.getCategoryById(categoryId);
+    const autoCategorySpecialty = categoryId.startsWith('auto:') ? categoryId.slice(5).trim() : '';
+    const category = this.getCategoryById(categoryId) ?? (
+      autoCategorySpecialty
+        ? {
+            id: categoryId,
+            label: autoCategorySpecialty,
+            aliases: [],
+            specialties: [autoCategorySpecialty],
+          }
+        : null
+    );
+
     if (!category) {
       throw new Error('Categoria não encontrada.');
     }

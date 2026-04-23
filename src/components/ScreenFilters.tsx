@@ -85,6 +85,11 @@ export const ScreenFilters: React.FC<ScreenFiltersProps> = ({
 
   useEffect(() => {
     if (!hasCategoryFeature) return;
+    void CategoryService.ensureCatalogLoaded();
+  }, [hasCategoryFeature]);
+
+  useEffect(() => {
+    if (!hasCategoryFeature) return;
 
     const run = async () => {
       const query = categoryQuery.trim();
